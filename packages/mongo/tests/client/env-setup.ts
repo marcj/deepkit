@@ -266,6 +266,7 @@ export class MongoEnv {
             mongoImage,
             'mongosh',
             '--eval', cmd,
+            '--quiet',
             '--json', 'canonical',
             '--host', instance.name,
         ];
