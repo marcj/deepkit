@@ -541,7 +541,7 @@ export class HttpListener {
         protected logger: LoggerInterface,
         protected resultFormatter: HttpResultFormatter,
         protected injector: Injector,
-        protected stopwatch?: Stopwatch,
+        protected stopwatch: Stopwatch,
     ) {
         this.setRouteConfig = injector.createSetter(RouteConfig, {name: 'http'});
     }
@@ -690,7 +690,7 @@ export class HttpListener {
             ? getClassName(event.route.action.controller) + '.' + event.route.action.methodName
             : event.route.action.fn.name;
 
-        const frame = this.stopwatch ? this.stopwatch.start(stopWatchLabel, FrameCategory.httpController) : undefined;
+        const frame = this.stopwatch.start(stopWatchLabel, FrameCategory.httpController);
         try {
             let result: any;
             if (event.route.action.type === 'controller') {
@@ -716,7 +716,6 @@ export class HttpListener {
             responseEvent.controllerActionTime = Date.now() - start;
             event.next('response', responseEvent);
         } catch (error: any) {
-            if (frame) frame.end();
             if (error instanceof HttpAccessDeniedError) {
                 event.next('accessDenied', new HttpAccessDeniedEvent(event.injectorContext, event.request, event.response, event.route, error));
             } else {
@@ -725,7 +724,7 @@ export class HttpListener {
                 event.next('controllerError', errorEvent);
             }
         } finally {
-            if (frame) frame.end();
+            frame.end();
         }
     }
 
