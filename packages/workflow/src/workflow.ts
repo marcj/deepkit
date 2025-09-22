@@ -98,7 +98,7 @@ export class WorkflowDefinition<T extends WorkflowPlaces> {
         this.next[from]!.push(to);
     }
 
-    public create(state: keyof T & string, eventDispatcher: EventDispatcher, injector?: InjectorContext, stopwatch?: Stopwatch): Workflow<T> {
+    public create(state: keyof T & string, eventDispatcher: EventDispatcher, stopwatch: Stopwatch, injector?: InjectorContext): Workflow<T> {
         return new Workflow(this, new WorkflowStateSubject(state), eventDispatcher, injector || eventDispatcher.injector, stopwatch);
     }
 
@@ -249,7 +249,7 @@ export class Workflow<T extends WorkflowPlaces> {
         public state: WorkflowState<T>,
         private eventDispatcher: EventDispatcher,
         private injector: InjectorContext,
-        private stopwatch?: Stopwatch
+        private stopwatch: Stopwatch
     ) {
     }
 

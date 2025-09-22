@@ -2,14 +2,7 @@ import { InjectorContext, Setter } from '@deepkit/injector';
 import { HttpRouter } from './router.js';
 import { EventDispatcher } from '@deepkit/event';
 import { LoggerInterface } from '@deepkit/logger';
-import {
-    HttpRequest,
-    HttpResponse,
-    incomingMessageToHttpRequest,
-    MemoryHttpResponse,
-    RequestBuilder,
-    serverResponseToHttpResponse,
-} from './model.js';
+import { HttpRequest, HttpResponse, incomingMessageToHttpRequest, MemoryHttpResponse, RequestBuilder, serverResponseToHttpResponse } from './model.js';
 import { HttpError, HttpRequestEvent, HttpResultFormatter, httpWorkflow, JSONResponse } from './http.js';
 import { FrameCategory, Stopwatch } from '@deepkit/stopwatch';
 import { unlink } from 'fs';
@@ -43,7 +36,7 @@ export class HttpKernel {
         protected eventDispatcher: EventDispatcher,
         protected injectorContext: InjectorContext,
         protected logger: LoggerInterface,
-        protected stopwatch?: Stopwatch,
+        protected stopwatch: Stopwatch,
     ) {
         this.setHttpRequest = injectorContext.setter(undefined, HttpRequest);
         this.setHttpResponse = injectorContext.setter(undefined, HttpResponse);
@@ -112,16 +105,12 @@ export class HttpKernel {
 
         req.throwErrorOnNotFound = options.throwOnNotFound || false;
 
-        const frame = this.stopwatch ? this.stopwatch.start(req.method + ' ' + req.getUrl(), FrameCategory.http, true) : undefined;
-        const workflow = httpWorkflow.create('start', this.eventDispatcher, httpInjectorContext, this.stopwatch);
+        const frame = this.stopwatch.start(req.method + ' ' + req.getUrl(), FrameCategory.http, true);
+        const workflow = httpWorkflow.create('start', this.eventDispatcher, this.stopwatch, httpInjectorContext);
 
         try {
-            if (frame) {
-                frame.data({ url: req.getUrl(), method: req.getMethod(), clientIp: req.getRemoteAddress() });
-                await frame.run(() => workflow.apply('request', new HttpRequestEvent(httpInjectorContext, req, res)));
-            } else {
-                await workflow.apply('request', new HttpRequestEvent(httpInjectorContext, req, res));
-            }
+            frame.data({ url: req.getUrl(), method: req.getMethod(), clientIp: req.getRemoteAddress() });
+            await frame.run(() => workflow.apply('request', new HttpRequestEvent(httpInjectorContext, req, res)));
         } catch (error: any) {
             if (!res.headersSent) {
                 const resultFormatter = httpInjectorContext.get(HttpResultFormatter);
@@ -151,10 +140,8 @@ export class HttpKernel {
                 });
             }
 
-            if (frame) {
-                frame.data({ responseStatus: res.statusCode });
-                frame.end();
-            }
+            frame.data({ responseStatus: res.statusCode });
+            frame.end();
         }
     }
 }
