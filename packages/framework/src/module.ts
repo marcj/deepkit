@@ -262,7 +262,7 @@ export class FrameworkModule extends createModuleClass({
         this.addProvider(DebugBrokerBus);
         this.addProvider({ provide: StopwatchStore, useClass: FileStopwatchStore });
 
-        const stopwatch = this.configureProvider<Stopwatch>(stopwatch => {
+        this.configureProvider<Stopwatch>(stopwatch => {
             if (this.config.profile || this.config.debug) {
                 stopwatch.enable();
             } else {
