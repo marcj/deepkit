@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/filesystem-ftp",
-  "version": "1.0.15",
+  "version": "1.0.18",
   "description": "Deepkit storage adapter for FTP",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -23,8 +23,8 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "dependencies": {
-    "@deepkit/core": "^1.0.15",
-    "@deepkit/filesystem": "^1.0.15",
+    "@deepkit/core": "^1.0.18",
+    "@deepkit/filesystem": "^1.0.18",
     "basic-ftp": "^5.0.3"
   },
   "jest": {

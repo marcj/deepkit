@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/topsort",
-  "version": "1.0.15",
+  "version": "1.0.18",
   "description": "High-Performance topological sort / dependency resolver with optional grouping algorithm for Typescript",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
