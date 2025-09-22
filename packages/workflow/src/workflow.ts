@@ -174,12 +174,18 @@ export class WorkflowDefinition<T extends WorkflowPlaces> {
                 if (!(event instanceof ${eventTypeVar})) {
                     throw new Error(\`State ${place} got the wrong event. Expected ${getClassName(eventType)}, got \${getClassName(event)}\`);
                 }
-                const frame = stopwatch && stopwatch.active ? stopwatch.start(${JSON.stringify(stopWatchId)}, ${FrameCategory.workflow}) : undefined;
+                const frame = stopwatch.start(${JSON.stringify(stopWatchId)}, ${FrameCategory.workflow});
 
-                ${listenerCode.join('\n')}
-
-                if (frame) frame.end();
-                state.set(${stateString});
+                try {
+                    await frame.run(async () => {
+                    
+                    ${listenerCode.join('\n')}
+                    
+                    });
+                    state.set(${stateString});
+                } finally {
+                    frame.end();
+                }
                 break;
             }
         `);
