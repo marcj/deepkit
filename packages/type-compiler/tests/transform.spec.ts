@@ -2,7 +2,7 @@ import * as ts from 'typescript';
 import { createSourceFile, ScriptKind, ScriptTarget } from 'typescript';
 import { expect, test } from '@jest/globals';
 import { ReflectionTransformer } from '../src/compiler.js';
-import { transform, transpileAndRun } from './utils.js';
+import { transform } from './utils.js';
 
 test('transform simple TS', () => {
     const sourceFile = createSourceFile('app.ts', `
@@ -184,19 +184,29 @@ test('declaration file', () => {
 test('declaration file resolved export all', () => {
     const res = transform({
         'app.ts': `
-            import { T } from './module';
+            import 'import';
+            import { T, T2 } from './module';
+            import 'import2';
             typeOf<T>();
+            typeOf<T2>();
         `,
         'module.d.ts': `
             export * from './module/types';
         `,
         'module/types.d.ts': `
             export type T = string;
+            export type T2 = string;
             export type __ΩT = any[];
+            export type __ΩT2 = any[];
         `
     });
 
-    expect(res['app.ts']).toContain('import { __ΩT } from \'./module');
+    // It's important to not put the __ΩT import before other imports
+    expect(res['app.ts']).toContain(`import 'import';
+/*@ts-ignore*/
+import { __ΩT, __ΩT2 } from './module';
+import { T, T2 } from './module';
+import 'import2';`);
 });
 
 test('import typeOnly interface', () => {

@@ -44,6 +44,7 @@ import ts, {
     InferTypeNode,
     InterfaceDeclaration,
     IntersectionTypeNode,
+    isJSDocImportTag,
     JSDocImportTag,
     LiteralTypeNode,
     MappedTypeNode,
@@ -54,6 +55,7 @@ import ts, {
     ModuleExportName,
     NewExpression,
     Node,
+    NodeArray,
     NodeFactory,
     ParseConfigHost,
     PropertyAccessExpression,
@@ -512,7 +514,8 @@ export class ReflectionTransformer implements CustomTransformer {
      */
     protected compiledDeclarations = new Set<Node>();
 
-    protected addImports: { from: Expression, identifier: Identifier }[] = [];
+    protected addImports: { importDeclaration: ImportDeclaration | JSDocImportTag, identifier: Identifier }[] = [];
+    protected additionalImports = new Map<ImportDeclaration | JSDocImportTag, Statement>();
 
     protected nodeConverter: NodeConverter;
     protected typeChecker?: TypeChecker;
@@ -653,6 +656,7 @@ export class ReflectionTransformer implements CustomTransformer {
         if ((sourceFile as any).deepkitTransformed) return sourceFile;
         this.embedAssignType = false;
         this.addImports = [];
+        this.additionalImports.clear();
 
         const start = Date.now();
         const configResolver = this.getConfigResolver(sourceFile);
@@ -961,32 +965,52 @@ export class ReflectionTransformer implements CustomTransformer {
 
         if (this.addImports.length) {
             const handledIdentifier: string[] = [];
+            // group by importDeclaration so that we have one `{...} per importDeclaration`
+            const importMap = new Map<ImportDeclaration | JSDocImportTag, Identifier[]>();
             for (const imp of this.addImports) {
                 if (handledIdentifier.includes(getIdentifierName(imp.identifier))) continue;
                 handledIdentifier.push(getIdentifierName(imp.identifier));
+                let arr = importMap.get(imp.importDeclaration);
+                if (!arr) {
+                    arr = [];
+                    importMap.set(imp.importDeclaration, arr);
+                }
+                arr.push(imp.identifier);
+            }
+
+            for (const [importDeclaration, identifiers] of importMap.entries()) {
+                if (this.additionalImports.has(importDeclaration)) {
+                    throw new Error('Internal error: additional import already exists');
+                }
                 if (this.getModuleType() === 'cjs') {
-                    //var {identifier} = require('./bar')
-                    const test = this.f.createIdentifier(getIdentifierName(imp.identifier));
-                    const variable = this.f.createVariableStatement(undefined, this.f.createVariableDeclarationList([this.f.createVariableDeclaration(
-                        this.f.createObjectBindingPattern([this.f.createBindingElement(undefined, undefined, test)]),
-                        undefined, undefined,
-                        this.f.createCallExpression(this.f.createIdentifier('require'), undefined, [imp.from]),
-                    )], NodeFlags.Const));
+                    // var {a, b, c} = require('./bar')
+                    const varDeclaration = this.f.createVariableStatement(
+                        undefined,
+                        this.f.createVariableDeclarationList(
+                            [this.f.createVariableDeclaration(
+                                this.f.createObjectBindingPattern(identifiers.map(identifier => this.f.createBindingElement(
+                                    undefined, undefined, identifier, undefined
+                                ))),
+                                undefined,
+                                undefined,
+                                this.f.createCallExpression(this.f.createIdentifier("require"), undefined, [importDeclaration.moduleSpecifier])
+                            )],
+                            ts.NodeFlags.None
+                        )
+                    );
+
                     const typeDeclWithComment = addSyntheticLeadingComment(
-                        variable,
+                        varDeclaration,
                         SyntaxKind.MultiLineCommentTrivia,
                         '@ts-ignore',
                         true,
                     );
-                    newTopStatements.push(typeDeclWithComment);
+                    this.additionalImports.set(importDeclaration, typeDeclWithComment);
                 } else {
-                    //import {identifier} from './bar.js'
-                    // import { identifier as identifier } is used to avoid automatic elision of imports (in angular builds for example)
-                    // that's probably a bit unstable.
-                    const specifier = this.f.createImportSpecifier(false, undefined, imp.identifier);
-                    const namedImports = this.f.createNamedImports([specifier]);
+                    // import {a, b, c} from './bar.js'
+                    const namedImports = this.f.createNamedImports(identifiers.map(identifier => this.f.createImportSpecifier(false, undefined, identifier)));
                     const importStatement = this.f.createImportDeclaration(undefined,
-                        this.f.createImportClause(false, undefined, namedImports), imp.from,
+                        this.f.createImportClause(false, undefined, namedImports), importDeclaration.moduleSpecifier,
                     );
                     const typeDeclWithComment = addSyntheticLeadingComment(
                         importStatement,
@@ -994,7 +1018,7 @@ export class ReflectionTransformer implements CustomTransformer {
                         '@ts-ignore',
                         true,
                     );
-                    newTopStatements.push(typeDeclWithComment);
+                    this.additionalImports.set(importDeclaration, typeDeclWithComment);
                 }
             }
         }
@@ -1059,26 +1083,37 @@ export class ReflectionTransformer implements CustomTransformer {
             );
         }
 
-        if (newTopStatements.length) {
-            // we want to keep "use strict", or "use client", etc at the very top
-            const indexOfFirstLiteralExpression = this.sourceFile.statements.findIndex(v => isExpressionStatement(v) && isStringLiteral(v.expression));
+        // we want to keep "use strict", or "use client", etc at the very top
+        const indexOfFirstLiteralExpression = this.sourceFile.statements.findIndex(v => isExpressionStatement(v) && isStringLiteral(v.expression));
 
-            const newStatements = indexOfFirstLiteralExpression === -1
-                ? [...newTopStatements, ...this.sourceFile.statements]
-                : [
-                    ...this.sourceFile.statements.slice(0, indexOfFirstLiteralExpression + 1),
-                    ...newTopStatements,
-                    ...this.sourceFile.statements.slice(indexOfFirstLiteralExpression + 1),
-                ];
-            this.sourceFile = this.f.updateSourceFile(this.sourceFile, newStatements);
-            // this.sourceFile = this.f.updateSourceFile(this.sourceFile, [...newTopStatements, ...this.sourceFile.statements]);
-        }
+        const newStatements = indexOfFirstLiteralExpression === -1
+            ? [...newTopStatements, ...this.attachAdditionalStatements(this.sourceFile.statements)]
+            : [
+                ...this.sourceFile.statements.slice(0, indexOfFirstLiteralExpression + 1),
+                ...newTopStatements,
+                ...this.attachAdditionalStatements(this.sourceFile.statements.slice(indexOfFirstLiteralExpression + 1)),
+            ];
+        this.sourceFile = this.f.updateSourceFile(this.sourceFile, newStatements);
 
         // console.log(createPrinter().printNode(EmitHint.SourceFile, this.sourceFile, this.sourceFile));
         const took = Date.now() - start;
         debug(`Transform file with reflection=${reflection.mode} took ${took}ms (${this.getModuleType()}) ${sourceFile.fileName} via config ${reflection.tsConfigPath || 'none'}.`);
         (this.sourceFile as any).deepkitTransformed = true;
         return this.sourceFile;
+    }
+
+    attachAdditionalStatements(statements: NodeArray<Statement> | Statement[]): Statement[] {
+        const result: Statement[] = [];
+        for (const statement of statements) {
+            if (isImportDeclaration(statement) || isJSDocImportTag(statement)) {
+                const additional = this.additionalImports.get(statement);
+                if (additional) {
+                    result.push(additional);
+                }
+            }
+            result.push(statement);
+        }
+        return result;
     }
 
     protected getModuleType(): 'cjs' | 'esm' {
@@ -2315,7 +2350,7 @@ export class ReflectionTransformer implements CustomTransformer {
                                     return;
                                 }
 
-                                this.addImports.push({ identifier: runtimeTypeName, from: resolved.importDeclaration.moduleSpecifier });
+                                this.addImports.push({ identifier: runtimeTypeName, importDeclaration: resolved.importDeclaration });
                             } else {
                                 const reflection = this.getReflectionConfig(declarationSourceFile);
                                 // if this is never, then its generally disabled for this file
@@ -2330,7 +2365,7 @@ export class ReflectionTransformer implements CustomTransformer {
                                     return;
                                 }
 
-                                this.addImports.push({ identifier: runtimeTypeName, from: resolved.importDeclaration.moduleSpecifier });
+                                this.addImports.push({ identifier: runtimeTypeName, importDeclaration: resolved.importDeclaration });
                             }
                         }
                     } else {

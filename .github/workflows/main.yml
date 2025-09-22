@@ -6,7 +6,7 @@ on:
 
 jobs:
   unit-tests:
-    runs-on: ubuntu22-4x16
+    runs-on: self-hosted
     services:
       storage-ftp:
         image: garethflowers/ftp-server:0.7.0
@@ -94,7 +94,7 @@ jobs:
   orm-postgres:
     needs:
       - unit-tests
-    runs-on: ubuntu22-4x16
+    runs-on: self-hosted
     strategy:
       matrix:
         postgres-version: [14]
@@ -129,7 +129,7 @@ jobs:
   orm-mysql:
     needs:
       - unit-tests
-    runs-on: ubuntu22-4x16
+    runs-on: self-hosted
     strategy:
       matrix:
         mysql-version: [8.0]
@@ -163,7 +163,7 @@ jobs:
   orm-sqlite:
     needs:
       - unit-tests
-    runs-on: ubuntu22-4x16
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -185,7 +185,7 @@ jobs:
   orm-mongo:
     needs:
       - unit-tests
-    runs-on: ubuntu22-4x16
+    runs-on: self-hosted
     strategy:
       matrix:
         mongo-version: [4.0]

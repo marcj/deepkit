@@ -22,7 +22,7 @@ benchmark('injector.get', () => {
     injector.get(Service);
 });
 
-const resolver1 = injector.resolver(undefined, Service);
+const resolver1 = injector.resolve(undefined, Service);
 
 benchmark('resolver', () => {
     resolver1();
@@ -47,7 +47,7 @@ benchmark('scope.get new', () => {
     scope.get(Service2);
 });
 
-const resolver2 = injector.resolver(module, Service2);
+const resolver2 = injector.resolve(module, Service2);
 
 benchmark('scope resolver', () => {
     resolver2(scope.scope);
