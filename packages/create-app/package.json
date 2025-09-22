@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/create-app",
-  "version": "1.0.15",
+  "version": "1.0.18",
   "description": "asdasd",
   "type": "commonjs",
   "main": "./dist/cjs/main.js",
@@ -17,10 +17,10 @@
     "deepkit-app": "dist/cjs/main.js"
   },
   "dependencies": {
-    "@deepkit/app": "^1.0.15",
-    "@deepkit/core": "^1.0.15",
-    "@deepkit/logger": "^1.0.15",
-    "@deepkit/type": "^1.0.15",
+    "@deepkit/app": "^1.0.18",
+    "@deepkit/core": "^1.0.18",
+    "@deepkit/logger": "^1.0.18",
+    "@deepkit/type": "^1.0.18",
     "fs-extra": "^9.1.0"
   },
   "devDependencies": {

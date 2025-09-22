@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/bson",
-  "version": "1.0.15",
+  "version": "1.0.18",
   "description": "Deepkit BSON parser",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -28,8 +28,8 @@
     "@deepkit/type": "^1.0.1"
   },
   "devDependencies": {
-    "@deepkit/core": "^1.0.15",
-    "@deepkit/type": "^1.0.15",
+    "@deepkit/core": "^1.0.18",
+    "@deepkit/type": "^1.0.18",
     "@types/bson": "^4.0.3",
     "@types/node": "^22.13.1",
     "bson": "^4.4.0"

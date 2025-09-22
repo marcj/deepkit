@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.18](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.18) (2025-09-22)
+
+### Bug Fixes
+
+- **website:** resolving paths in prod build ([877698f](https://github.com/deepkit/deepkit-framework/commit/877698f8a2bddc1e955c5d0ca53d8819d0bd56a9))
+
+### Features
+
+- **website:** add translations (chinese, korean, japanese, german) ([4ab7058](https://github.com/deepkit/deepkit-framework/commit/4ab7058edd72a376f856c617a7f8ee243c82cd8b))
+
 ## [1.0.15](https://github.com/deepkit/deepkit-framework/compare/v1.0.14...v1.0.15) (2025-06-26)
 
 ### Features

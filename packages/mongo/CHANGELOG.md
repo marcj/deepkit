@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.18](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.18) (2025-09-22)
+
+### Bug Fixes
+
+- **mongo:** stop printing verbose stuff in mongosh ([d579a5a](https://github.com/deepkit/deepkit-framework/commit/d579a5ab582ebb154056945f9d5ca86e71cb6781))
+
 ## [1.0.17](https://github.com/deepkit/deepkit-framework/compare/v1.0.16...v1.0.17) (2025-07-03)
 
 ### Bug Fixes
