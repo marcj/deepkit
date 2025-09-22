@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
+
+### Bug Fixes
+
+- **create-app:** correct file path for client-rpc npm script in create-app ([#659](https://github.com/deepkit/deepkit-framework/issues/659)) ([50a665f](https://github.com/deepkit/deepkit-framework/commit/50a665f31b97554dca1ad4d7d6fe061623c162ca))
+- **mongo:** stop printing verbose stuff in mongosh ([d579a5a](https://github.com/deepkit/deepkit-framework/commit/d579a5ab582ebb154056945f9d5ca86e71cb6781))
+- **type-compiler:** ensure typed imports are grouped and not too high up, but placed right in front of the origin import ([9f666c1](https://github.com/deepkit/deepkit-framework/commit/9f666c104bb38abc4396c99e281fd6605a9e2884))
+- **website:** blog post url ([a84a272](https://github.com/deepkit/deepkit-framework/commit/a84a2723a61c99f7db3c8521e9cf793134e0be20))
+- **website:** bullet/code/codeBlock + toc on blog posts ([c11bb27](https://github.com/deepkit/deepkit-framework/commit/c11bb27d5cc656545c02ddf7b42666376e32a32e))
+- **website:** docs ([e098f57](https://github.com/deepkit/deepkit-framework/commit/e098f575c42a2c67fc7a1452d2108c817abc95bc))
+- **website:** hotkeys help in admin text editor + render links/code/u/s/i marks ([293bbb7](https://github.com/deepkit/deepkit-framework/commit/293bbb7890994ed222498b42fe094e0d093a175f))
+- **website:** resolving paths in prod build ([877698f](https://github.com/deepkit/deepkit-framework/commit/877698f8a2bddc1e955c5d0ca53d8819d0bd56a9))
+- **website:** translation urls ([f1ef954](https://github.com/deepkit/deepkit-framework/commit/f1ef9542204533afd653a37c808ce6e6750a9685))
+- **workflow:** ensure stopwatch context is correctly set and tracked ([b9e528c](https://github.com/deepkit/deepkit-framework/commit/b9e528c7c0baba6da879c83652e355480e64fbaf))
+- **workflow:** make stopwatch required, normalize frame name ([0168db0](https://github.com/deepkit/deepkit-framework/commit/0168db0e3510227209854c48c29c28b2e51d0895))
+
+### Features
+
+- **rpc:** allow configuring baseUrl callback in RpcHttpFetch ([2f0f55d](https://github.com/deepkit/deepkit-framework/commit/2f0f55d7eed69322e0e63da5ca2859173cdb7d04))
+- **website:** add translations (chinese, korean, japanese, german) ([4ab7058](https://github.com/deepkit/deepkit-framework/commit/4ab7058edd72a376f856c617a7f8ee243c82cd8b))
+- **website:** page SSR and better responsive design for mobile ([586f2a5](https://github.com/deepkit/deepkit-framework/commit/586f2a542338375dc331005bf7586afe9a5383bf))
+
 ## [1.0.18](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.18) (2025-09-22)
 
 ### Bug Fixes

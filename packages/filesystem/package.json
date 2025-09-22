@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/filesystem",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Filesystem abstraction Deepkit",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -31,7 +31,7 @@
     "@deepkit/core": "^1.0.1"
   },
   "devDependencies": {
-    "@deepkit/core": "^1.0.18"
+    "@deepkit/core": "^1.0.19"
   },
   "jest": {
     "testEnvironment": "node",

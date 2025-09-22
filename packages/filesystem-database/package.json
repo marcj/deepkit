@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/filesystem-database",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Deepkit storage adapter for Deepkit ORM",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -23,9 +23,9 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "dependencies": {
-    "@deepkit/core": "^1.0.18",
-    "@deepkit/filesystem": "^1.0.18",
-    "@deepkit/orm": "^1.0.18"
+    "@deepkit/core": "^1.0.19",
+    "@deepkit/filesystem": "^1.0.19",
+    "@deepkit/orm": "^1.0.19"
   },
   "jest": {
     "runner": "../../jest-serial-runner.js",

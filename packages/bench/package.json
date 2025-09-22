@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/bench",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Deepkit Bench",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",

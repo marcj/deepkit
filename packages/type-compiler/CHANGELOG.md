@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
+
+### Bug Fixes
+
+- **type-compiler:** ensure typed imports are grouped and not too high up, but placed right in front of the origin import ([9f666c1](https://github.com/deepkit/deepkit-framework/commit/9f666c104bb38abc4396c99e281fd6605a9e2884))
+
 ## [1.0.18](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.18) (2025-09-22)
 
 ### Bug Fixes

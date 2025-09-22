@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/logger",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Deepkit logger",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -33,8 +33,8 @@
     "format-util": "^1.0.5"
   },
   "devDependencies": {
-    "@deepkit/core": "^1.0.18",
-    "@deepkit/injector": "^1.0.18"
+    "@deepkit/core": "^1.0.19",
+    "@deepkit/injector": "^1.0.19"
   },
   "jest": {
     "testEnvironment": "node",

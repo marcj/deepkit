@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
+
+### Bug Fixes
+
+- **create-app:** correct file path for client-rpc npm script in create-app ([#659](https://github.com/deepkit/deepkit-framework/issues/659)) ([50a665f](https://github.com/deepkit/deepkit-framework/commit/50a665f31b97554dca1ad4d7d6fe061623c162ca))
+
 ## [1.0.18](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.18) (2025-09-22)
 
 ### Bug Fixes

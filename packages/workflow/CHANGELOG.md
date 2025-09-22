@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
+
+### Bug Fixes
+
+- **workflow:** ensure stopwatch context is correctly set and tracked ([b9e528c](https://github.com/deepkit/deepkit-framework/commit/b9e528c7c0baba6da879c83652e355480e64fbaf))
+- **workflow:** make stopwatch required, normalize frame name ([0168db0](https://github.com/deepkit/deepkit-framework/commit/0168db0e3510227209854c48c29c28b2e51d0895))
+
 ## [1.0.18](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.18) (2025-09-22)
 
 ### Bug Fixes

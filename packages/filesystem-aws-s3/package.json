@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/filesystem-aws-s3",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Deepkit storage adapter for AWS S3",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.0.0",
-    "@deepkit/core": "^1.0.18",
-    "@deepkit/filesystem": "^1.0.18"
+    "@deepkit/core": "^1.0.19",
+    "@deepkit/filesystem": "^1.0.19"
   },
   "jest": {
     "runner": "../../jest-serial-runner.js",
