@@ -169,7 +169,7 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
             if (this.eventDispatcher.hasListeners(DatabaseSession.onDeletePre)) {
                 const event = new UnitOfWorkEvent(classSchema, this.session, items);
                 await this.eventDispatcher.dispatch(DatabaseSession.onDeletePre, event);
-                if (event.defaultPrevented) return;
+                if (event.defaultPrevented) continue;
             }
 
             await persistence.remove(classSchema, items);
