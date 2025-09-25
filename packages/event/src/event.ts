@@ -384,7 +384,13 @@ export class EventDispatcher {
     mergeContextsFrom(sourceDispatcher: EventDispatcher): void {
         if (this !== sourceDispatcher && sourceDispatcher.hasListeners()) {
             for (const [eventToken, context] of sourceDispatcher.context) {
-                this.context.set(eventToken, context);
+                const thisContext = this.getContext(eventToken);
+                if (thisContext.listeners.length) {
+                    thisContext.listeners.push(...context.listeners);
+                    this.scheduleDispatcherRebuild(eventToken);
+                } else {
+                    this.context.set(eventToken, context);
+                }
             }
         }
     }
