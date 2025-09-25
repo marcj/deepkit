@@ -176,6 +176,7 @@ export class Database<ADAPTER extends DatabaseAdapter = DatabaseAdapter> {
     }
 
     setEventDispatcher(eventDispatcher: EventDispatcher) {
+        eventDispatcher.mergeContextsFrom(this.eventDispatcher);
         this.eventDispatcher = eventDispatcher;
         this.adapter.setEventDispatcher(eventDispatcher);
     }

@@ -373,12 +373,20 @@ export class EventDispatcher {
         return [...this.context.keys()];
     }
 
-    hasListeners(eventToken: EventToken<any>): boolean {
-        return this.context.has(eventToken);
+    hasListeners(eventToken?: EventToken<any>): boolean {
+        return eventToken ? this.context.has(eventToken) : !!this.context.size;
     }
 
     getListeners(eventToken: EventToken<any>): EventListenerContainerEntry[] {
         return this.getContext(eventToken).listeners;
+    }
+
+    mergeContextsFrom(sourceDispatcher: EventDispatcher): void {
+        if (this !== sourceDispatcher && sourceDispatcher.hasListeners()) {
+            for (const [eventToken, context] of sourceDispatcher.context) {
+                this.context.set(eventToken, context);
+            }
+        }
     }
 
     /**
