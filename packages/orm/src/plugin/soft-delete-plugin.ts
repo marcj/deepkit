@@ -98,21 +98,21 @@ export class SoftDeleteQuery<T extends SoftDeleteEntity> extends Query<T> {
     async restoreOne() {
         const patch = { [deletedAtName]: undefined } as Partial<T>;
         if (this.classSchema.hasProperty('deletedBy')) patch['deletedBy'] = undefined;
-        await this.withSoftDeleted().patchOne(patch);
+        return this.withSoftDeleted().patchOne(patch);
     }
 
     async restoreMany() {
         const patch = { [deletedAtName]: undefined } as Partial<T>;
         if (this.classSchema.hasProperty('deletedBy')) patch['deletedBy'] = undefined;
-        await this.withSoftDeleted().patchMany(patch);
+        return this.withSoftDeleted().patchMany(patch);
     }
 
     async hardDeleteOne() {
-        await this.withSoftDeleted().deleteOne();
+        return this.withSoftDeleted().deleteOne();
     }
 
     async hardDeleteMany() {
-        await this.withSoftDeleted().deleteMany();
+        return this.withSoftDeleted().deleteMany();
     }
 }
 
