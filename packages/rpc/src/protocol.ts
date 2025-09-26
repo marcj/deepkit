@@ -710,6 +710,10 @@ export function rpcDecodeError(error: EncodedError): Error {
     const e = new RpcError(error.message);
     e.stack = error.stack + '\nat ___SERVER___';
 
+    if(error.stack === "") {
+        e.stack = ""
+    }
+
     return e;
 }
 

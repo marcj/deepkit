@@ -559,7 +559,7 @@ export class RpcKernelConnection extends RpcKernelBaseConnection {
                     return await this.actionHandler.handle(message, response);
             }
         } catch (error: any) {
-            response.error(error);
+            response.error(this.security.transformError(error));
         }
     }
 
