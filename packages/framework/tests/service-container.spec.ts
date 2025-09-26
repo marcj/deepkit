@@ -3,8 +3,9 @@ import { rpc } from '@deepkit/rpc';
 import { App, AppModule, createModuleClass, ServiceContainer } from '@deepkit/app';
 import { FrameworkModule } from '../src/module.js';
 import { Database, DatabaseEvent, DatabaseRegistry, MemoryDatabaseAdapter, Query } from '@deepkit/orm';
-import { EventDispatcher } from '@deepkit/event';
+import { eventDispatcher, EventDispatcher } from '@deepkit/event';
 import { PrimaryKey } from '@deepkit/type';
+import { http, HttpKernel, HttpRequest, httpWorkflow } from '@deepkit/http';
 
 test('controller', () => {
     class MyService {
