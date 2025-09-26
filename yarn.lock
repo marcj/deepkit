@@ -3917,6 +3917,7 @@ __metadata:
     "@deepkit/orm": ^1.0.1
     "@deepkit/stopwatch": ^1.0.1
     "@deepkit/type": ^1.0.1
+    jiti: ^2.4.2
   bin:
     deepkit-sql: ./bin/deepkit-sql.js
   languageName: unknown
@@ -18123,6 +18124,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jiti@npm:^2.4.2":
+  version: 2.4.2
+  resolution: "jiti@npm:2.4.2"
+  bin:
+    jiti: lib/jiti-cli.mjs
+  checksum: 4ceac133a08c8faff7eac84aabb917e85e8257f5ad659e843004ce76e981c457c390a220881748ac67ba1b940b9b729b30fb85cbaf6e7989f04b6002c94da331
+  languageName: node
+  linkType: hard
+
 "jpeg-js@npm:^0.4.4":
   version: 0.4.4
   resolution: "jpeg-js@npm:0.4.4"
@@ -23960,6 +23970,7 @@ __metadata:
     commitlint: "npm:^18.4.3"
     coveralls: "npm:^3.0.3"
     jest: "npm:^29.2.1"
+    jiti: "npm:^2.4.2"
     lefthook: "npm:^1.5.5"
     lerna: "npm:^8.2.2"
     madge: "npm:^8.0.0"

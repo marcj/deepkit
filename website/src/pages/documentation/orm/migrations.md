@@ -24,11 +24,14 @@ import { SQLiteDatabaseAdapter } from '@deepkit/sqlite';
 import { User } from './models';
 
 export class SQLiteDatabase extends Database {
-    name = 'default';
-    constructor() {
-        super(new SQLiteDatabaseAdapter('/tmp/myapp.sqlite'), [User]);
-    }
+  name = 'default';
+
+  constructor() {
+    super(new SQLiteDatabaseAdapter('/tmp/myapp.sqlite'), [User]);
+  }
 }
+
+export const database = new SQLiteDatabase();
 ```
 
 ```sh

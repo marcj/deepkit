@@ -39,7 +39,8 @@
     "@deepkit/logger": "^1.0.1",
     "@deepkit/orm": "^1.0.1",
     "@deepkit/stopwatch": "^1.0.1",
-    "@deepkit/type": "^1.0.1"
+    "@deepkit/type": "^1.0.1",
+    "jiti": "^2.4.2"
   },
   "dependencies": {
     "@types/sqlstring": "^2.2.1",

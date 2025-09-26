@@ -51,6 +51,7 @@ export class MigrationCreateController extends BaseCommand implements Command {
         empty: boolean & Flag = false,
     ): Promise<void> {
         if (this.migrationDir) this.provider.setMigrationDir(this.migrationDir);
+        if (this.path) await this.provider.addDatabase(this.path);
 
         if (!this.provider.databases.getDatabases().length) {
             this.logger.error('No databases detected. Use --path path/to/database.ts');
@@ -105,7 +106,7 @@ export class MigrationCreateController extends BaseCommand implements Command {
             let migrationName = '';
             const date = new Date;
 
-            const { format } = require('date-fns');
+            const { format } = await import('date-fns');
             for (let i = 1; i < 100; i++) {
                 migrationName = format(date, 'yyyyMMdd-HHmm');
                 if (i > 1) migrationName += '_' + i;
