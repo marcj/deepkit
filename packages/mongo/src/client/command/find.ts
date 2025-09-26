@@ -51,7 +51,7 @@ export class FindCommand<T> extends Command<T[]> {
             filter: this.filter,
             limit: this.limit,
             skip: this.skip,
-            batchSize: config.options.batchSize,
+            batchSize: this.options.batchSize || config.options.batchSize,
         };
 
         const allowDiskUse = config.options.allowDiskUse ?? config.options.allowDiskUse;
@@ -86,7 +86,7 @@ export class FindCommand<T> extends Command<T[]> {
                 if (this.projection) {
                     interface SpecialisedResponse extends BaseResponse {
                         cursor: {
-                            id: number;
+                            id: bigint;
                             firstBatch?: Partial<InlineRuntimeType<typeof type>>[];
                             nextBatch?: Partial<InlineRuntimeType<typeof type>>[];
                         };
@@ -96,7 +96,7 @@ export class FindCommand<T> extends Command<T[]> {
                 } else {
                     interface SpecialisedResponse extends BaseResponse {
                         cursor: {
-                            id: number;
+                            id: bigint;
                             firstBatch?: InlineRuntimeType<typeof type>[];
                             nextBatch?: InlineRuntimeType<typeof type>[];
                         };
@@ -111,7 +111,7 @@ export class FindCommand<T> extends Command<T[]> {
                 if (this.projection) {
                     interface SpecialisedResponse extends BaseResponse {
                         cursor: {
-                            id: number;
+                            id: bigint;
                             firstBatch?: Partial<resultSchema>[];
                             nextBatch?: Partial<resultSchema>[];
                         };
@@ -121,7 +121,7 @@ export class FindCommand<T> extends Command<T[]> {
                 } else {
                     interface SpecialisedResponse extends BaseResponse {
                         cursor: {
-                            id: number;
+                            id: bigint;
                             firstBatch?: resultSchema[];
                             nextBatch?: resultSchema[];
                         };
