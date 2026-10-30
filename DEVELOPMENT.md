@@ -8,7 +8,13 @@ Make sure `libpq5` and `libpq-dev` are installed.
 These are needed for Postgres client `pg`, which is used in `@deepkit/postgres`.\
 See [Ubuntu requirements setup](docs/setup-env-ubuntu.md) for detailed steps for an Ubuntu system.
 
-Node >= v20 is needed.
+Node ^22.22.3, ^24.15.0 or >= 26 is needed (Angular 22, used by the GUIs, requires these). CI uses Node 26.
+
+Yarn 4 is used through corepack. Node 25 and newer no longer ship corepack, so install it once per Node version:
+
+```shell
+npm install -g corepack && corepack enable
+```
 
 ## Getting Started
 
@@ -62,6 +68,18 @@ You can try running some tests
 ```shell
 npm run test packages/type/
 ```
+
+The database, broker and filesystem tests need services (Postgres, MySQL, MongoDB, Redis, S3, FTP, SFTP,
+Google Cloud Storage), which `docker-compose.yml` provides on their default ports:
+
+```shell
+docker compose up -d --wait
+npm run test
+```
+
+To check the packages the way users get them, `npm run test:consumer` packs all published packages and installs
+them into a fresh CommonJS and a fresh ESM project, compiles them with plain `tsc` and runs a small app.
+Run it after `npm run build`, for example before a release.
 
 If everything went fine you can try out the example app:
 
