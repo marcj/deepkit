@@ -439,6 +439,18 @@ class CompilerProgram {
     }
 }
 
+/**
+ * Ambient declarations have no runtime implementation: either marked with `declare` or nested
+ * inside an ambient context like `declare global {}`, `declare module 'x' {}` or `declare namespace X {}`,
+ * whose members don't carry the modifier themselves.
+ */
+function isAmbientDeclaration(node: Node): boolean {
+    for (let current: Node | undefined = node; current; current = current.parent) {
+        if (hasModifier(current, SyntaxKind.DeclareKeyword)) return true;
+    }
+    return false;
+}
+
 function getAssignTypeExpression(call: Expression): Expression | undefined {
     if (isParenthesizedExpression(call) && isCallExpression(call.expression)) {
         call = call.expression;
@@ -698,10 +710,12 @@ export class ReflectionTransformer implements CustomTransformer {
             // Angular's linker only accepts a literal forwardRef(() => Type), so the lazy reference stays undecorated.
             if (isCallExpression(node) && isForwardRefCall(node)) return node;
 
+            const original = node;
             node = visitEachChild(node, visitor, this.context);
 
             if ((isInterfaceDeclaration(node) || isTypeAliasDeclaration(node) || isEnumDeclaration(node))) {
-                if (this.isWithReflection(sourceFile, node)) {
+                //ambient declarations are not emitted, so they don't get a type program either
+                if (!isAmbientDeclaration(original) && this.isWithReflection(sourceFile, node)) {
                     this.compileDeclarations.set(node, {
                         name: node.name,
                         sourceFile: this.sourceFile,
@@ -772,6 +786,8 @@ export class ReflectionTransformer implements CustomTransformer {
             } else if (isFunctionExpression(node)) {
                 return this.decorateFunctionExpression(this.injectResetΩ(node));
             } else if (isFunctionDeclaration(node)) {
+                //ambient functions don't exist at runtime, `fn.__type = ` would throw a ReferenceError
+                if (isAmbientDeclaration(original)) return node;
                 return this.decorateFunctionDeclaration(this.injectResetΩ(node));
             } else if (isMethodDeclaration(node) || isConstructorDeclaration(node)) {
                 return this.injectResetΩ(node);
@@ -2410,7 +2426,8 @@ export class ReflectionTransformer implements CustomTransformer {
                                 }
 
                                 const declarationReflection = this.isWithReflection(declarationSourceFile, declaration);
-                                if (!declarationReflection) {
+                                //ambient declarations have no __Ω{name} exported
+                                if (!declarationReflection || isAmbientDeclaration(declaration)) {
                                     this.resolveTypeOnlyImport(typeName, program);
                                     return;
                                 }
@@ -2421,7 +2438,8 @@ export class ReflectionTransformer implements CustomTransformer {
                     } else {
                         //it's a reference type inside the same file. Make sure its type is reflected
                         const reflection = this.isWithReflection(program.sourceFile, declaration);
-                        if (!reflection) {
+                        //ambient declarations get no __Ω{name}, see compileDeclarations
+                        if (!reflection || isAmbientDeclaration(declaration)) {
                             this.resolveTypeOnlyImport(typeName, program);
                             return;
                         }
@@ -2964,7 +2982,9 @@ export class DeclarationTransformer extends ReflectionTransformer {
         const visitor = (node: Node): any => {
             node = visitEachChild(node, visitor, this.context);
 
-            if ((isTypeAliasDeclaration(node) || isInterfaceDeclaration(node) || isEnumDeclaration(node)) && hasModifier(node, SyntaxKind.ExportKeyword)) {
+            if ((isTypeAliasDeclaration(node) || isInterfaceDeclaration(node) || isEnumDeclaration(node)) && hasModifier(node, SyntaxKind.ExportKeyword)
+                //declaration emit adds `declare` to e.g. enums, so check the source node instead
+                && !isAmbientDeclaration(ts.getOriginalNode(node))) {
                 const reflection = this.isWithReflection(sourceFile, node);
                 if (reflection) {
                     this.addExports.push({ identifier: getIdentifierName(this.getDeclarationVariableName(node.name)) });

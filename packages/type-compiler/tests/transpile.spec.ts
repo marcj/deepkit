@@ -639,3 +639,26 @@ test('resolves types from .mts and .d.mts files', () => {
     });
     expect(res.app).toContain('() => Service');
 });
+
+test('declare statements', () => {
+    // ambient declarations have no runtime implementation, so they get no type (#601)
+    const res = transpile({
+        'app': `
+            function getEnv() { return { MODE: 'production' }; }
+            type ENV = ReturnType<typeof getEnv>;
+            declare global {
+                var ENV: ENV;
+                interface Window {
+                    ENV: ENV;
+                }
+            }
+            declare function external(x: number): string;
+            export declare interface Declared { id: number }
+        `
+    });
+    expect(res.app).toContain('const __ΩENV = ');
+    expect(res.app).not.toContain('__ΩWindow');
+    expect(res.app).not.toContain('__ΩDeclared');
+    // would throw a ReferenceError
+    expect(res.app).not.toContain('external.__type');
+});
