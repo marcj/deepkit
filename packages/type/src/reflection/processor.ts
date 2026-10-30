@@ -389,8 +389,9 @@ export class Processor {
         //memory with useless types. For example a global type Partial<> would hold all its instances, what we do not want.
         //We cache only direct non-generic (inputs empty) types passed to typeOf<>() or resolveRuntimeType(). all other reflect() calls do not use this cache.
         //make sure the same type is returned if already known.
-        //packed.length === 0 for deserialized TypeClass with reconstructed classes.
-        if ((options.reuseCached || packed.length === 0) && packed.__type && inputs.length === 0) {
+        //packed.length === 0 for deserialized TypeClass with reconstructed classes. They have no program to run, so type arguments
+        //(e.g. from `extends Parent<T>`) can not be applied and the already computed type is returned.
+        if (packed.__type && (packed.length === 0 || (options.reuseCached && inputs.length === 0))) {
             return packed.__type;
         }
 

@@ -351,7 +351,9 @@ function serialize(type: Type, state: SerializerState): SerializedTypeReference 
             const parent = getParentClass(type.classType);
             let superClass: SerializedTypeReference | undefined = undefined;
             try {
-                superClass = parent ? serialize(reflect(parent), state) : undefined;
+                const parentType = parent ? reflect(parent) : undefined;
+                //parents without runtime type (e.g. plain functions) are not reflected as class, so they can not be used as superClass
+                if (parentType && parentType.kind === ReflectionKind.class) superClass = serialize(parentType, state);
             } catch {
             }
 
@@ -640,8 +642,12 @@ function deserialize(type: SerializedType | SerializedTypeReference, state: Dese
                 }
             }
 
+            //superClass of older serialized types can be a non-class type (e.g. a function), which can not be extended
+            const superType = newClass && type.superClass ? deserialize(type.superClass, state) : undefined;
+            const superClass = superType && superType.kind === ReflectionKind.class ? superType.classType : undefined;
+
             const classType = type.globalObject ? envGlobal[type.classType] : newClass
-                ? (type.superClass ? class extends (deserialize(type.superClass, state) as TypeClass).classType {
+                ? (superClass ? class extends superClass {
                     constructor(...args: any[]) {
                         super(...args);
                         for (const init of initialize) {

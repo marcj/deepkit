@@ -418,3 +418,40 @@ test('class reference with entity options', () => {
 
     expect(authorReflection.getProperty('firstName').isOptional()).toBe(true);
 });
+
+test('roundTrip class with generic parent (#241)', () => {
+    class Entity<T = never> {
+    }
+
+    class MyEntity extends Entity<unknown> {
+        id: number = 0;
+    }
+
+    const back = deserializeType(serializeType(reflect(MyEntity)), { disableReuse: true });
+    assertType(back, ReflectionKind.class);
+    expect(getClassName(back.classType)).toBe('MyEntity');
+    expect(getClassName(Object.getPrototypeOf(back.classType))).toBe('Entity');
+    expect(ReflectionClass.from(back).getPropertyNames()).toEqual(['id']);
+});
+
+test('roundTrip class with parent without runtime type (#241)', () => {
+    const Parent = function Parent() {
+    } as any as { new(): {} };
+    delete (Parent as any).__type;
+
+    class Child extends Parent {
+        a: string = '';
+    }
+
+    const back = deserializeType(serializeType(reflect(Child)), { disableReuse: true });
+    assertType(back, ReflectionKind.class);
+    expect(ReflectionClass.from(back).getPropertyNames()).toEqual(['a']);
+
+    //types serialized before the fix have a function as superClass
+    const old: any = [
+        { kind: ReflectionKind.class, classType: 'Child', types: [], superClass: 1 },
+        { kind: ReflectionKind.function, parameters: [], return: 2 },
+        { kind: ReflectionKind.any },
+    ];
+    expect(getClassName((deserializeType(old, { disableReuse: true }) as TypeClass).classType)).toBe('Child');
+});
