@@ -211,19 +211,6 @@ export class CommunityMessage {
     }
 }
 
-@entity.collection('community_message_vote')
-export class CommunityMessageVote {
-    id: number & PrimaryKey & AutoIncrement = 0;
-
-    vote: number = 0;
-
-    constructor(
-        public message: CommunityMessage & Reference,
-        public userId: string,
-    ) {
-    }
-}
-
 export interface CommunityQuestionListItem {
     id: number;
     slug: string;

@@ -9,14 +9,5 @@ export class AppConfig {
 
     benchmarkSecret: string = 'notSet';
 
-    openaiApiKey: string = '';
-
-    //see https://platform.openai.com/account/rate-limits
-    // see https://tiktokenizer.vercel.app/
-    openaiModel: string = 'gpt-3.5-turbo-16k';
-
-    discordToken: string = '';
-    discordChannel: string = '1154848447116091494';
-
     baseUrl: string = '';
 }

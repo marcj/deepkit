@@ -2,7 +2,6 @@ import { Page } from '@app/common/models';
 
 import frontMatterParser from 'gray-matter';
 import { cast } from '@deepkit/type';
-import type { Client } from 'discord.js';
 import { asyncOperation } from '@deepkit/core';
 
 function renderText(node: any): any {
@@ -129,21 +128,12 @@ export class MarkdownParser {
         });
     }
 
-    constructor(
-        private client?: Client,
-    ) {
-    }
-
     async loadAndParse(content: string): Promise<Page> {
         await this.load();
         return this.parse(content);
     }
 
     parse(content: string): Page {
-        if (this.client?.user) {
-            //replace bot id with @deepkit
-            content = content.replace(new RegExp(`<@!?${this.client?.user.id}>`, 'g'), '@deepkit');
-        }
         return this.parseRaw(content);
     }
 

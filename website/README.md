@@ -20,10 +20,3 @@ docker build -t website2 -f Dockerfile ../
 docker run --rm -p 8080:8080 -e app_databaseHost=host.docker.internal website2
 ```
 
-
-## Translate
-
-```sh
-export APP_OPENAI_API_KEY=your_openai_api_key
-npm run translate de
-```
