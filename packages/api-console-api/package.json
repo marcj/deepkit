@@ -23,12 +23,12 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "peerDependencies": {
-    "@deepkit/bson": "^1.0.1",
-    "@deepkit/core": "^1.0.1",
-    "@deepkit/injector": "^1.0.1",
-    "@deepkit/logger": "^1.0.1",
-    "@deepkit/rpc": "^1.0.1",
-    "@deepkit/type": "^1.0.1"
+    "@deepkit/bson": "^1.0.19",
+    "@deepkit/core": "^1.0.19",
+    "@deepkit/injector": "^1.0.19",
+    "@deepkit/logger": "^1.0.19",
+    "@deepkit/rpc": "^1.0.19",
+    "@deepkit/type": "^1.0.19"
   },
   "devDependencies": {
     "@deepkit/bson": "^1.0.19",

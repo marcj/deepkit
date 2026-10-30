@@ -23,9 +23,9 @@
     "access": "public"
   },
   "peerDependencies": {
-    "@deepkit/rpc": "^1.0.1",
-    "@deepkit/stopwatch": "^1.0.1",
-    "@deepkit/type": "^1.0.1"
+    "@deepkit/rpc": "^1.0.19",
+    "@deepkit/stopwatch": "^1.0.19",
+    "@deepkit/type": "^1.0.19"
   },
   "devDependencies": {
     "@deepkit/rpc": "^1.0.19",

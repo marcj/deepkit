@@ -24,7 +24,7 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "peerDependencies": {
-    "@deepkit/core": "^1.0.1",
+    "@deepkit/core": "^1.0.19",
     "rxjs": "*"
   },
   "devDependencies": {

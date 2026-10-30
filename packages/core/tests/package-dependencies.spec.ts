@@ -28,7 +28,9 @@ test('every @deepkit import of a published package is a declared dependency', ()
         const declared = new Set([...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.peerDependencies || {})]);
         const files = [...sourceFiles(join(packagesDir, dir, 'src')), join(packagesDir, dir, 'index.ts')].filter(existsSync);
         for (const file of files) {
-            const code = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+            const code = readFileSync(file, 'utf8')
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .replace(/^\s*\/\/.*$/gm, '');
             for (const m of code.matchAll(/(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\(\s*)['"](@deepkit\/[\w-]+)['"]/g)) {
                 if (m[1] === pkg.name || declared.has(m[1])) continue;
                 missing.push(`${pkg.name}: ${m[1]} (${relative(packagesDir, file)})`);
@@ -36,4 +38,25 @@ test('every @deepkit import of a published package is a declared dependency', ()
         }
     }
     expect([...new Set(missing.map(v => v.replace(/ \(.*/, '')))]).toEqual([]);
+});
+
+test('@deepkit peer dependencies require the current version', () => {
+    // lerna does not bump peer ranges: @deepkit/framework kept accepting @deepkit/broker ^1.0.1, which lacked
+    // the BrokerKeyValue export it imports (#574). `npm run version` (run by lerna on release) updates them.
+    const versions: { [name: string]: string } = {};
+    const pkgs: any[] = [];
+    for (const dir of readdirSync(packagesDir)) {
+        const pkgPath = join(packagesDir, dir, 'package.json');
+        if (!existsSync(pkgPath)) continue;
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+        versions[pkg.name] = pkg.version;
+        pkgs.push(pkg);
+    }
+    const outdated: string[] = [];
+    for (const pkg of pkgs) {
+        for (const [name, range] of Object.entries(pkg.peerDependencies || {})) {
+            if (versions[name] && range !== '^' + versions[name]) outdated.push(`${pkg.name}: ${name}@${range}`);
+        }
+    }
+    expect(outdated).toEqual([]);
 });

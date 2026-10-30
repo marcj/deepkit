@@ -23,15 +23,15 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "peerDependencies": {
-    "@deepkit/app": "^1.0.1",
-    "@deepkit/core": "^1.0.1",
-    "@deepkit/event": "^1.0.1",
-    "@deepkit/injector": "^1.0.1",
-    "@deepkit/logger": "^1.0.1",
-    "@deepkit/stopwatch": "^1.0.1",
-    "@deepkit/template": "^1.0.1",
-    "@deepkit/type": "^1.0.1",
-    "@deepkit/workflow": "^1.0.1"
+    "@deepkit/app": "^1.0.19",
+    "@deepkit/core": "^1.0.19",
+    "@deepkit/event": "^1.0.19",
+    "@deepkit/injector": "^1.0.19",
+    "@deepkit/logger": "^1.0.19",
+    "@deepkit/stopwatch": "^1.0.19",
+    "@deepkit/template": "^1.0.19",
+    "@deepkit/type": "^1.0.19",
+    "@deepkit/workflow": "^1.0.19"
   },
   "dependencies": {
     "formidable": "^3.5.2",

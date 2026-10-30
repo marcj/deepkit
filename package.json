@@ -20,6 +20,7 @@
     "clean:lock": "rm -rf packages/*/package-lock.json; rm -rf package-lock.json",
     "publish": "lerna publish --no-private patch",
     "publish-force": "npm run build && lerna publish --no-private --force-publish",
+    "version": "node scripts/sync-peer-versions.js",
     "check:circular": "madge --extensions ts --warning --circular",
     "publish-website": "heroku container:push web && heroku container:release web"
   },
