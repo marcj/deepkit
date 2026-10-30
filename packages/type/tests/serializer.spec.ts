@@ -1442,3 +1442,17 @@ test('large literal union does not create a guard per member (#478)', () => {
     expect(cast<Numbers>('3')).toBe(3);
     expect(is<Numbers>('3')).toBe(false);
 });
+
+test('large literal union keeps user hooks (#478)', () => {
+    type Numbers = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+    class HookSerializer extends Serializer {
+        protected registerSerializers() {
+            super.registerSerializers();
+            this.serializeRegistry.addPostHook((type, state) => {
+                if (type.kind === ReflectionKind.literal) state.addSetter(`'hooked'`);
+            });
+        }
+    }
+    expect(serialize<Numbers>(3, undefined, new HookSerializer())).toBe('hooked');
+    expect(serialize<Numbers>(3)).toBe(3);
+});

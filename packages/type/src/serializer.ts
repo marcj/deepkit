@@ -1740,12 +1740,27 @@ function typeGuardLiteralLoose(type: TypeLiteral, state: TemplateState) {
 }
 
 /**
+ * Whether a pre/post hook of the registry generates code for this type (e.g. user hooks for custom annotations).
+ * Runs the hooks on a throwaway state.
+ */
+function hooksGenerateCode(type: Type, registry: TemplateRegistry, state: TemplateState): boolean {
+    if (!registry.preHooks.length && !registry.postHooks.length) return false;
+    const probe = state.fork();
+    probe.registry = registry;
+    for (const hook of registry.preHooks) hook(type, probe);
+    for (const hook of registry.postHooks) hook(type, probe);
+    return !!probe.template || probe.ended;
+}
+
+/**
  * Returns the built-in literal guard if the literal can be checked together with the other literals of a union with a single Map lookup.
  */
 function getGroupableLiteralGuard(type: Type, typeGuard: TemplateRegistry, state: TemplateState): Template<any> | undefined {
     if (type.kind !== ReflectionKind.literal || !['string', 'number', 'boolean', 'bigint'].includes(typeof type.literal)) return;
     //annotated literals (e.g. validators or custom annotations handled in hooks) need their own guard
     if ((type.decorators && type.decorators.length) || (type.annotations && Reflect.ownKeys(type.annotations).length)) return;
+    //a literal a hook generates code for needs its own guard
+    if (hooksGenerateCode(type, typeGuard, state) || hooksGenerateCode(type, state.registry, state)) return;
     const guards = typeGuard.get(type);
     if (guards.length !== 1 || (guards[0] !== typeGuardLiteral && guards[0] !== typeGuardLiteralLoose) || typeGuard.getDecorator(type).length) return;
     if (!state.isValidation()) {
