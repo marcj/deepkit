@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { AppTitle } from '@app/app/components/title.js';
-import { ApiDocComponent, CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
+import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import {
     ButtonComponent,
@@ -192,14 +192,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 </dui-window-frame>
             </doc-code-frame>
 
-            <api-doc component="WindowComponent"></api-doc>
-            <api-doc component="WindowContentComponent"></api-doc>
-            <api-doc component="WindowHeaderComponent"></api-doc>
-            <api-doc component="WindowToolbarComponent"></api-doc>
-            <api-doc component="WindowSidebarComponent"></api-doc>
-            <api-doc component="WindowFooterComponent"></api-doc>
-            <api-doc component="WindowState"></api-doc>
-            <api-doc component="WindowRegistry"></api-doc>
         </div>
     `,
     styleUrls: ['./window.scss'],
@@ -211,7 +203,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         WindowHeaderComponent,
         WindowComponent,
         WindowHeaderComponent,
-        ApiDocComponent,
         ListItemComponent,
         ListTitleComponent,
         WindowSidebarComponent,

@@ -68,11 +68,6 @@
                 "glob": "**/*",
                 "input": ".desktop-ui-assets/fonts",
                 "output": "./assets/fonts"
-              },
-              {
-                "glob": "docs.json",
-                "input": ".desktop-ui-assets",
-                "output": "./assets"
               }
             ],
             "styles": [

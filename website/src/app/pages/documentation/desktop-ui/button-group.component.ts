@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { AppTitle } from '@app/app/components/title.js';
-import { ApiDocComponent, CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
+import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import {
     ButtonComponent,
@@ -17,7 +17,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         CodeFrameComponent,
         ButtonGroupComponent,
         ButtonComponent,
-        ApiDocComponent,
         DropdownComponent,
         OpenDropdownDirective,
         ButtonGroupsComponent,
@@ -81,8 +80,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
             <code-highlight lang="html" [code]="code"></code-highlight>
         </doc-code-frame>
 
-        <api-doc component="ButtonGroupComponent"></api-doc>
-        <api-doc component="ButtonGroupsComponent"></api-doc>
     `,
 })
 export class DocDesktopUIButtonGroupComponent {

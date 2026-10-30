@@ -1,7 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, forwardRef, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, forwardRef, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { HighlightCodeComponent } from '@app/app/components/highlight-code.component.js';
-import { ApiDocProvider } from '@app/app/pages/documentation/desktop-ui/api-doc.component';
+import { MarkdownParser } from '@app/common/markdown.js';
 import { derivedAsync } from 'ngxtension/derived-async';
 
 import { pendingTask } from '@deepkit/desktop-ui';
@@ -10,6 +10,7 @@ import type { ApiType } from '../../../api-docs';
 import { ContentRenderComponent } from './content-render.component';
 
 const docs = require('../../../api-docs.json');
+const markdownParser = new MarkdownParser();
 
 @Component({
     selector: 'app-content-api-package-summary',
@@ -92,13 +93,12 @@ export class ApiContentApiPackageDocs {
 })
 export class ApiContentApiType {
     type = input.required<ApiType>();
-    apiDocProvider = inject(ApiDocProvider);
 
     comment = derivedAsync(
         pendingTask(async () => {
             const description = this.type().description;
             if (!description) return undefined;
-            return this.apiDocProvider.parser.loadAndParse(description);
+            return markdownParser.loadAndParse(description);
         }),
     );
 }

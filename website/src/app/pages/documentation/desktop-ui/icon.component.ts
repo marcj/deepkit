@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
-import { ApiDocComponent, CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
+import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 import { IconBrowserComponent } from '@app/app/pages/documentation/desktop-ui/icon-browser.component.js';
 
 import {
@@ -26,7 +26,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         SelectBoxComponent,
         OptionDirective,
         FormsModule,
-        ApiDocComponent,
         IconBrowserComponent,
         CodeHighlightComponent,
         AppTitle,
@@ -106,7 +105,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
             <code-highlight lang="html" [code]="code"></code-highlight>
         </doc-code-frame>
 
-        <api-doc component="IconComponent"></api-doc>
 
         <h3>Icons available</h3>
 

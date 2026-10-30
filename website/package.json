@@ -2,7 +2,7 @@
   "name": "website",
   "version": "0.0.0",
   "scripts": {
-    "assets": "rm -rf .desktop-ui-assets && mkdir -p .desktop-ui-assets && cp -R ../packages/desktop-ui/src/assets/fonts .desktop-ui-assets/fonts && cp ../packages/desktop-ui/src/assets/docs.json .desktop-ui-assets/docs.json",
+    "assets": "rm -rf .desktop-ui-assets && mkdir -p .desktop-ui-assets && cp -R ../packages/desktop-ui/src/assets/fonts .desktop-ui-assets/fonts",
     "dev": "npm run assets && NODE_OPTIONS=--preserve-symlinks ng serve",
     "ng:build:dev": "npm run assets && NODE_OPTIONS=--preserve-symlinks ng build --watch --configuration development",
     "ng:test": "NODE_OPTIONS=--preserve-symlinks ng test",

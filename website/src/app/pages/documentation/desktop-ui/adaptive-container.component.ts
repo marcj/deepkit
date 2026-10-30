@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
-import { ApiDocComponent, CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
+import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import {
     AdaptiveContainerComponent,
@@ -27,7 +27,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         RadioButtonComponent,
         CheckboxComponent,
         RadioGroupComponent,
-        ApiDocComponent,
         OpenDropdownDirective,
     ],
     host: { ngSkipHydration: 'true' },
@@ -85,8 +84,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
             <code-highlight lang="html" [code]="code" />
         </doc-code-frame>
 
-        <api-doc component="AdaptiveContainerComponent"></api-doc>
-        <api-doc component="AdaptiveHiddenContainer"></api-doc>
     `,
     changeDetection: ChangeDetectionStrategy.Eager,
     styles: [

@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
-import { ApiDocComponent, CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
+import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import {
     ButtonComponent,
@@ -33,7 +33,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         ButtonComponent,
         FormsModule,
         TableCustomRowContextMenuDirective,
-        ApiDocComponent,
         AppTitle,
     ],
     host: { ngSkipHydration: 'true' },
@@ -129,12 +128,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="html" [code]="code2"></code-highlight>
             </doc-code-frame>
 
-            <api-doc component="TableComponent"></api-doc>
-            <api-doc component="TableColumnDirective"></api-doc>
-            <api-doc component="TableHeaderDirective"></api-doc>
-            <api-doc component="TableCellDirective"></api-doc>
-            <api-doc component="TableCustomHeaderContextMenuDirective"></api-doc>
-            <api-doc component="TableCustomRowContextMenuDirective"></api-doc>
         </div>
     `,
 })

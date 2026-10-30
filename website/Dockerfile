@@ -16,7 +16,7 @@ RUN apk add --no-cache \
 
 ADD .git /app/.git
 
-ADD package.json lerna.json tsconfig.json tsconfig.esm.json typedoc.js typedoc.decorators.js sync-tsconfig-deps.js install-compiler.sh /app/
+ADD package.json lerna.json tsconfig.json tsconfig.esm.json sync-tsconfig-deps.js install-compiler.sh /app/
 ADD .yarnrc.yml yarn.lock /app/
 ADD .yarn /app/.yarn
 

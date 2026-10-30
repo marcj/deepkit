@@ -17,7 +17,7 @@ import {
 } from '@deepkit/desktop-ui';
 import { CodeHighlightComponent } from '@deepkit/ui-library';
 
-import { CodeFrameComponent } from './api-doc.component.js';
+import { CodeFrameComponent } from './code-frame.component.js';
 
 @Component({
     host: { ngSkipHydration: 'true' },

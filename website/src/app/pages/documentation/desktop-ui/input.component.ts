@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
-import { ApiDocComponent, CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
+import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import { ButtonComponent, ButtonGroupComponent, InputComponent } from '@deepkit/desktop-ui';
 import { CodeHighlightComponent } from '@deepkit/ui-library';
@@ -14,7 +14,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         ButtonComponent,
         InputComponent,
         FormsModule,
-        ApiDocComponent,
         AppTitle,
     ],
     changeDetection: ChangeDetectionStrategy.Eager,
@@ -88,7 +87,6 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="html" [code]="code" />
             </doc-code-frame>
 
-            <api-doc component="InputComponent"></api-doc>
         </div>
     `,
 })

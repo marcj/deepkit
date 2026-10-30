@@ -10,5 +10,4 @@ This package can be copied when a new package should be created.
 - Put this package into root `/tsconfig.esm.json` "references".
 - Add dependencies to `package.json` and run `node sync-tsconfig-deps.js` to adjust tsconfig automatically.
 - Add to .github/workflows/main.yml tsc build step if necessary.
-- Add to typedoc build in deepkit-website if necessary.
 - Adjust README.md

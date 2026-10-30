@@ -18,7 +18,6 @@
     "clean": "find packages/*/dist/* ! -name 'package.json' -type f -exec rm -f {} +; rm -rf packages/*/.angular; rm -rf website/.angular; npm run postinstall",
     "clean:modules": "rm -rf packages/*/node_modules; rm -rf node_modules",
     "clean:lock": "rm -rf packages/*/package-lock.json; rm -rf package-lock.json",
-    "docs": "rm -rf docs && node --max-old-space-size=12096 node_modules/.bin/typedoc --options typedoc.js packages/*/index.ts",
     "publish": "lerna publish --no-private patch",
     "publish-force": "npm run build && lerna publish --no-private --force-publish",
     "check:circular": "madge --extensions ts --warning --circular",
@@ -50,7 +49,6 @@
     "ts-jest": "^29.4.15",
     "ts-node": "^10.9.1",
     "ts-node-dev": "^2.0.0",
-    "typedoc": "^0.23.17",
     "typescript": "~6.0.3"
   },
   "engines": {
