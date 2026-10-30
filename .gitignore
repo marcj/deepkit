@@ -18,3 +18,5 @@ packages/create-app/files/var
 .vs
 .fleet
 .DS_Store
+.build-stamp.json
+.test-certificate.json

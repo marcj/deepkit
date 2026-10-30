@@ -5,10 +5,10 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "test": "node --expose-gc --max_old_space_size=3048 node_modules/jest/bin/jest.js --forceExit --no-cache",
+    "test": "node scripts/test.js",
     "test:consumer": "scripts/consumer-smoke/run.sh",
     "test:coverage": "node --expose-gc --max_old_space_size=3048 node_modules/jest/bin/jest.js --coverage --forceExit --no-cache",
-    "build": "tsc --build tsconfig.json && tsc --build tsconfig.esm.json && lerna run build",
+    "build": "npm run clean && tsc --build tsconfig.json && tsc --build tsconfig.esm.json && lerna run build && node scripts/build-stamp.js write",
     "build:esm": "tsc --build tsconfig.esm.json",
     "tsc": "tsc --build",
     "postinstall": "lefthook install && sh install-compiler.sh",
@@ -18,8 +18,8 @@
     "clean": "find packages/*/dist/* ! -name 'package.json' -type f -exec rm -f {} +; rm -rf packages/*/.angular; rm -rf website/.angular; npm run postinstall",
     "clean:modules": "rm -rf packages/*/node_modules; rm -rf node_modules",
     "clean:lock": "rm -rf packages/*/package-lock.json; rm -rf package-lock.json",
-    "publish": "npm run clean && npm run build && lerna publish --no-private patch",
-    "publish-force": "npm run clean && npm run build && lerna publish --no-private --force-publish",
+    "publish": "node scripts/build-stamp.js check && lerna publish --no-private --no-commit-hooks patch",
+    "publish-force": "node scripts/build-stamp.js check && lerna publish --no-private --no-commit-hooks --force-publish",
     "version": "node scripts/sync-peer-versions.js",
     "check:circular": "madge --extensions ts --warning --circular",
     "publish-website": "heroku container:push web && heroku container:release web"

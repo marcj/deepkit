@@ -4,6 +4,7 @@ commit-msg:
     commitlint:
       run: npx commitlint --edit {1}
 pre-commit:
+  piped: true
   commands:
 #    github-actions:
 #      glob: '*.{yaml,yml}'
@@ -11,4 +12,9 @@ pre-commit:
 #      run: echo {staged_files} && actionlint
     prettier:
       glob: '[*.{json,yml,yaml,html,ts,tsx,js,jsx},!./package-lock.json]'
+      priority: 1
       run: ./node_modules/.bin/prettier --write {staged_files} && git add {staged_files}
+    # the staged sources must have passed the complete `npm run test` (see scripts/test.js)
+    test-certificate:
+      priority: 2
+      run: node scripts/test.js check
