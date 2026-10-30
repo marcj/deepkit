@@ -653,6 +653,65 @@ export class ReflectionTransformer implements CustomTransformer {
         return this.tempResultIdentifier;
     }
 
+    /**
+     * A call with type arguments is converted to `(fn.Ω = [...], fn())`, which is no valid part of an optional chain,
+     * e.g. `a?.b.fn<T>().c` would result in an invalid assignment `a?.b.fn.Ω = ` or crash TypeScript.
+     * So optional chains with such calls are converted to `(Ωr = a) == null ? void 0 : Ωr.b.fn<T>().c`
+     * (as TypeScript does for older targets), and the call is then converted as usual.
+     * Returns undefined if no conversion is necessary.
+     */
+    protected rewriteOptionalChain(node: ts.OptionalChain): Expression | undefined {
+        const spine: Expression[] = [];
+        let start: Expression | undefined;
+        let hasTypeArguments = false;
+        for (let current: Expression = node; ts.isOptionalChain(current); current = current.expression) {
+            if (!isPropertyAccessExpression(current) && !ts.isElementAccessExpression(current) && !isCallExpression(current)) return;
+            if (isCallExpression(current) && current.typeArguments && current.typeArguments.length > 0) hasTypeArguments = true;
+            spine.push(current);
+            if (current.questionDotToken) start = current;
+        }
+        if (!hasTypeArguments || !start) return;
+        // `a.fn?.<T>()` would lose its `this` when called as `Ωr()`, not supported
+        if (isCallExpression(start) && !isIdentifier(start.expression)) return;
+
+        const r = this.getTempResultIdentifier();
+        const startIndex = spine.indexOf(start);
+        let expression: Expression = r;
+        // whether the rebuilt expression is part of a later optional chain, e.g. `?.c` in `a?.b?.c`
+        let chain = false;
+        for (let i = startIndex; i >= 0; i--) {
+            const current = spine[i] as PropertyAccessExpression | ts.ElementAccessExpression | CallExpression;
+            const questionDotToken = i === startIndex ? undefined : current.questionDotToken;
+            if (questionDotToken) chain = true;
+            if (isPropertyAccessExpression(current)) {
+                expression = chain
+                    ? this.f.createPropertyAccessChain(expression, questionDotToken, current.name)
+                    : this.f.createPropertyAccessExpression(expression, current.name);
+            } else if (ts.isElementAccessExpression(current)) {
+                expression = chain
+                    ? this.f.createElementAccessChain(expression, questionDotToken, current.argumentExpression)
+                    : this.f.createElementAccessExpression(expression, current.argumentExpression);
+            } else {
+                expression = chain
+                    ? this.f.createCallChain(expression, questionDotToken, current.typeArguments, current.arguments)
+                    : this.f.createCallExpression(expression, current.typeArguments, current.arguments);
+            }
+        }
+
+        //(Ωr = a) == null ? void 0 : Ωr.b.fn<T>()
+        return this.f.createParenthesizedExpression(this.f.createConditionalExpression(
+            this.f.createBinaryExpression(
+                this.f.createParenthesizedExpression(this.f.createAssignment(r, (start as ts.OptionalChain).expression)),
+                SyntaxKind.EqualsEqualsToken,
+                this.f.createNull(),
+            ),
+            this.f.createToken(SyntaxKind.QuestionToken),
+            this.f.createVoidZero(),
+            this.f.createToken(SyntaxKind.ColonToken),
+            expression,
+        ));
+    }
+
     protected getConfigResolver(sourceFile: { fileName: string }): ConfigResolver {
         if (this.overriddenConfigResolver) return this.overriddenConfigResolver;
         return getConfigResolver(this.cache.resolver, this.parseConfigHost, this.compilerOptions, sourceFile);
@@ -716,6 +775,12 @@ export class ReflectionTransformer implements CustomTransformer {
         const visitor = (node: Node): any => {
             // Angular's linker only accepts a literal forwardRef(() => Type), so the lazy reference stays undecorated.
             if (isCallExpression(node) && isForwardRefCall(node)) return node;
+
+            // visited top-down, so this is the outermost node of an optional chain
+            if (ts.isOptionalChain(node)) {
+                const rewritten = this.rewriteOptionalChain(node);
+                if (rewritten) return visitor(rewritten);
+            }
 
             const original = node;
             node = visitEachChild(node, visitor, this.context);

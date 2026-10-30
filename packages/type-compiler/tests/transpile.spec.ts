@@ -714,3 +714,26 @@ test('module-level function __type is hoisted', () => {
     expect(res.app.indexOf('greet.__type = ')).toBeLessThan(res.app.indexOf('run(greet)'));
     expect(res.app.indexOf('inner.__type = ')).toBeGreaterThan(res.app.indexOf('function inner('));
 });
+
+test('optional chaining with type arguments', () => {
+    // `a?.fn<T>()` was converted to the invalid assignment `a?.fn.Ω = ...`, or crashed TypeScript
+    // when the chain continued after the call (#612)
+    for (const target of [ts.ScriptTarget.ES2015, ts.ScriptTarget.ES2022]) {
+        const res = transpileAndRun({
+            'app': `
+                const types: any[] = [];
+                class Service {
+                    fn<T>(type?: ReceiveType<T>) {
+                        types.push(type);
+                        return this;
+                    }
+                }
+                function run(service?: Service) {
+                    return [service?.fn<1>(), service?.fn<2>().fn<3>(), service?.fn<4>()?.fn<5>()];
+                }
+                [run(), run(new Service).map(v => v instanceof Service), types];
+            `
+        }, { target });
+        expect(res).toEqual([[undefined, undefined, undefined], [true, true, true], [[1, '.!'], [2, '.!'], [3, '.!'], [4, '.!'], [5, '.!']]]);
+    }
+});
