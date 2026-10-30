@@ -63,6 +63,13 @@ function stagedFingerprint() {
 }
 
 /**
+ * The sources of the last commit.
+ */
+function headFingerprint() {
+    return fingerprintOfTree('HEAD');
+}
+
+/**
  * Hash of all files in packages/*\/dist.
  */
 function distHash() {
@@ -100,4 +107,4 @@ function changedPaths(a, b) {
         .map(([path]) => path);
 }
 
-module.exports = { root, workingTreeFingerprint, stagedFingerprint, distHash, changedPaths };
+module.exports = { root, workingTreeFingerprint, stagedFingerprint, headFingerprint, distHash, changedPaths };

@@ -9,7 +9,7 @@ const { spawnSync } = require('child_process');
 const { existsSync, readFileSync, rmSync, writeFileSync } = require('fs');
 const { join } = require('path');
 const { tmpdir } = require('os');
-const { changedPaths, distHash, root, stagedFingerprint, workingTreeFingerprint } = require('./fingerprint.js');
+const { changedPaths, distHash, headFingerprint, root, stagedFingerprint, workingTreeFingerprint } = require('./fingerprint.js');
 
 const certificateFile = join(root, '.test-certificate.json');
 const jest = [process.execPath, '--expose-gc', '--max_old_space_size=3048', join(root, 'node_modules/jest/bin/jest.js')];
@@ -17,6 +17,8 @@ const jest = [process.execPath, '--expose-gc', '--max_old_space_size=3048', join
 const neutralFlags = /^(--runInBand|-i|--forceExit|--no-cache|--verbose|--silent|--ci|--detectOpenHandles|--logHeapUsage|--colors|--no-colors|(--maxWorkers|-w|--workerIdleMemoryLimit)(=.*)?)$/;
 
 function check() {
+    // a commit that doesn't change sources (e.g. docs, website) keeps the state of HEAD, which was tested
+    if (!changedPaths(headFingerprint(), stagedFingerprint()).length) return;
     if (!existsSync(certificateFile)) {
         console.error('Commit declined: no test certificate. Run `npm run test` (the complete suite) first.');
         process.exit(1);
@@ -38,7 +40,8 @@ function run(args) {
     }
 
     const sources = workingTreeFingerprint();
-    const tsc = spawnSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--build', 'tsconfig.json'], { cwd: root, stdio: 'inherit' });
+    // CommonJS and ESM: most tests use dist/cjs, some start processes that load dist/esm
+    const tsc = spawnSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--build', 'tsconfig.json', 'tsconfig.esm.json'], { cwd: root, stdio: 'inherit' });
     if (tsc.status !== 0) return tsc.status ?? 1;
 
     const expectedSuites = spawnSync(jest[0], [...jest.slice(1), '--listTests'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter(Boolean).length;
