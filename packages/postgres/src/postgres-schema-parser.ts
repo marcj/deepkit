@@ -9,7 +9,7 @@
  */
 
 import { isNumeric } from '@deepkit/core';
-import { Column, DatabaseModel, ForeignKey, parseType, SchemaParser, Table } from '@deepkit/sql';
+import { Column, DatabaseModel, ForeignKey, parseDefaultLiteral, parseType, SchemaParser, Table } from '@deepkit/sql';
 
 export class PostgresSchemaParser extends SchemaParser {
     protected defaultPrecisions = {
@@ -178,12 +178,8 @@ export class PostgresSchemaParser extends SchemaParser {
                 return;
             }
 
-            try {
-                //don't judge me
-                column.defaultValue = eval(dbDefault);
-                column.defaultValue = JSON.parse(column.defaultValue);
-            } catch (error: any) {
-            }
+            const literal = parseDefaultLiteral(dbDefault);
+            if (literal) column.defaultValue = literal.value;
         }
 
         if (dbDefault.includes('(')) {

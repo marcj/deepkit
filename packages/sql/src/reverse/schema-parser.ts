@@ -12,6 +12,31 @@ import { Column, DatabaseModel } from '../schema/table.js';
 import { SQLConnection } from '../sql-adapter.js';
 import { DefaultPlatform } from '../platform/default-platform.js';
 
+const numberLiteral = /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i;
+const stringLiteral = /^'((?:[^']|'')*)'$/s;
+
+/**
+ * Parses the default value of a column as reported by the database, if it is a literal (number, string,
+ * true, false, null). A string containing JSON is parsed as JSON. Returns undefined for expressions like
+ * CURRENT_TIMESTAMP, which are never evaluated.
+ */
+export function parseDefaultLiteral(dbDefault: string): { value: any } | undefined {
+    const literal = dbDefault.trim();
+    if (numberLiteral.test(literal)) return { value: Number(literal) };
+    if (literal === 'true') return { value: true };
+    if (literal === 'false') return { value: false };
+    if (literal === 'null') return { value: null };
+
+    const string = stringLiteral.exec(literal);
+    if (!string) return;
+    const value = string[1].replace(/''/g, "'");
+    try {
+        return { value: JSON.parse(value) };
+    } catch {
+        return { value };
+    }
+}
+
 const type3Regex = /^([^(]+)\(\s*(\d+)\s*,\s*(\d+)\s*\)$/;
 const type2Regex = /^([^(]+)\(\s*(\d+)\s*\)$/;
 

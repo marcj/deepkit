@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { DatabaseModel, ForeignKey, Table, parseType, SchemaParser, Column } from '@deepkit/sql';
+import { Column, DatabaseModel, ForeignKey, parseDefaultLiteral, parseType, SchemaParser, Table } from '@deepkit/sql';
 import { arrayRemoveItem } from '@deepkit/core';
 import { isJsonLike } from './sqlite-platform.js';
 
@@ -103,14 +103,11 @@ export class SQLiteSchemaParser extends SchemaParser {
     protected mapDefault(dbDefault: null | string, column: Column) {
         //https://www.sqlite.org/syntaxdiagrams.html#column-constraint its an expression;
         if ('string' === typeof dbDefault) {
-            try {
-                //don't judge me
-                column.defaultValue = eval(dbDefault);
-                column.defaultValue = JSON.parse(column.defaultValue);
-            } catch (error: any) {
-                if (column.defaultValue === undefined) {
-                    column.defaultExpression = '(' + dbDefault + ')';
-                }
+            const literal = parseDefaultLiteral(dbDefault);
+            if (literal) {
+                column.defaultValue = literal.value;
+            } else {
+                column.defaultExpression = '(' + dbDefault + ')';
             }
         } else {
             column.defaultValue = dbDefault || undefined;
