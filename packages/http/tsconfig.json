@@ -3,8 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist/cjs",
     "types": [
-      "node",
-      "send"
+      "node"
     ]
   },
   "reflection": true,

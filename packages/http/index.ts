@@ -13,3 +13,4 @@ export * from './src/middleware.js';
 export * from './src/filter.js';
 export * from './src/utils.js';
 export * from './src/query-string.js';
+export * from './src/mime.js';

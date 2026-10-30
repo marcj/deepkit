@@ -3623,9 +3623,7 @@ __metadata:
     "@deepkit/workflow": "npm:^1.0.19"
     "@types/formidable": "npm:^3.4.5"
     "@types/node": "npm:^22.13.1"
-    "@types/send": "npm:^0.14.6"
     formidable: "npm:^3.5.2"
-    send: "npm:^1.1.0"
   peerDependencies:
     "@deepkit/app": ^1.0.19
     "@deepkit/core": ^1.0.19
@@ -10079,16 +10077,6 @@ __metadata:
     "@types/mime": "npm:^1"
     "@types/node": "npm:*"
   checksum: 10c0/a86c9b89bb0976ff58c1cdd56360ea98528f4dbb18a5c2287bb8af04815513a576a42b4e0e1e7c4d14f7d6ea54733f6ef935ebff8c65e86d9c222881a71e1f15
-  languageName: node
-  linkType: hard
-
-"@types/send@npm:^0.14.6":
-  version: 0.14.7
-  resolution: "@types/send@npm:0.14.7"
-  dependencies:
-    "@types/mime": "npm:^1"
-    "@types/node": "npm:*"
-  checksum: 10c0/cc747ce4ffd403744f3d0083321a1de07b9b8b7dc425bcffa2367999b38f71ecdde5971d2aac2ccda1deeed7113a2bbf59cf8cf4a6893f6516a9225e4cd2f611
   languageName: node
   linkType: hard
 

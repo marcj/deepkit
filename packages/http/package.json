@@ -34,8 +34,7 @@
     "@deepkit/workflow": "^1.0.19"
   },
   "dependencies": {
-    "formidable": "^3.5.2",
-    "send": "^1.1.0"
+    "formidable": "^3.5.2"
   },
   "devDependencies": {
     "@deepkit/app": "^1.0.19",
@@ -48,8 +47,7 @@
     "@deepkit/type": "^1.0.19",
     "@deepkit/workflow": "^1.0.19",
     "@types/formidable": "^3.4.5",
-    "@types/node": "^22.13.1",
-    "@types/send": "^0.14.6"
+    "@types/node": "^22.13.1"
   },
   "jest": {
     "testEnvironment": "node",
