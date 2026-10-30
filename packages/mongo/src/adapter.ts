@@ -21,7 +21,7 @@ import {
     OrmEntity,
     RawFactory,
 } from '@deepkit/orm';
-import { AbstractClassType, ClassType, isArray } from '@deepkit/core';
+import { AbstractClassType, ClassType, formatError, isArray } from '@deepkit/core';
 import { MongoDatabaseQuery } from './query.js';
 import { MongoPersistence } from './persistence.js';
 import { MongoClient } from './client/client.js';
@@ -252,7 +252,11 @@ export class MongoDatabaseAdapter extends DatabaseAdapter {
             try {
                 await this.client.execute(new CreateIndexesCommand(schema, [createIndex]));
             } catch (error) {
-                console.log('failed index', indexName, '. Recreate ...');
+                this.logger.warn(
+                    `Failed to create index "${indexName}" on collection "${schema.getCollectionName()}", recreating it.`,
+                    { fields, unique: createIndex.unique, sparse: createIndex.sparse, expireAfterSeconds: createIndex.expireAfterSeconds },
+                    formatError(error),
+                );
                 //failed (because perhaps of incompatibilities). Dropping and creating a fresh index
                 //can resolve that. If the second create also fails, then it throws.
                 try {
