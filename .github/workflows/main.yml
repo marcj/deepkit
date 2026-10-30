@@ -35,6 +35,9 @@ jobs:
             (cd packages/$p && npm run build)
           done
 
+      - name: Test desktop-ui
+        run: cd packages/desktop-ui && npm test
+
       - name: Wait for test services
         run: docker compose up -d --wait
 

@@ -40,6 +40,7 @@
   "scripts": {
     "font": "node bin/create-font.js",
     "build": "npm run font && npm run docjson && rm -rf .angular && ng-packagr --config tsconfig.prod.json && rm dist/.npmignore",
+    "test": "ng test --watch=false",
     "watch": "ng-packagr --config tsconfig.prod.json --watch",
     "docjson": "typedoc --json docs.json --options ../../typedoc.js --plugin ../../typedoc.decorators.js src/index.ts && cp docs.json src/assets/docs.json",
     "prepublishOnly": "webpack && node bin/create-font.js"
