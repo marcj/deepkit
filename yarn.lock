@@ -21939,6 +21939,36 @@ __metadata:
   languageName: node
   linkType: hard
 
+"openai@npm:^7.45.1":
+  version: 7.45.1
+  resolution: "openai@npm:7.45.1"
+  peerDependencies:
+    "@aws-sdk/credential-provider-node": ">=3.972.0 <4"
+    "@smithy/hash-node": ">=4.3.0 <5"
+    "@smithy/signature-v4": ">=5.4.0 <6"
+    google-auth-library: ">=9.15.1 <12"
+    undici: ">=5 <9"
+    ws: ^8.21.0
+    zod: ^3.25 || ^4.0
+  peerDependenciesMeta:
+    "@aws-sdk/credential-provider-node":
+      optional: true
+    "@smithy/hash-node":
+      optional: true
+    "@smithy/signature-v4":
+      optional: true
+    google-auth-library:
+      optional: true
+    undici:
+      optional: true
+    ws:
+      optional: true
+    zod:
+      optional: true
+  checksum: 10c0/5376321a1d165f5b2c1ffb1c1bc353aeaad99ed278b2a53d03b263c244c7ee6deed194b6c6ac3bd6c63cd1c8a137141b137f036d68517d95ce84ad42fffe0ca8
+  languageName: node
+  linkType: hard
+
 "ora@npm:5.3.0":
   version: 5.3.0
   resolution: "ora@npm:5.3.0"
@@ -28329,6 +28359,7 @@ __metadata:
     marked: "npm:^18.1.2"
     ngx-markdown: "npm:^22.1.1"
     ngxtension: "npm:^7.3.1"
+    openai: "npm:^7.45.1"
     plotly.js-dist-min: "npm:^2.27.0"
     pngjs: "npm:^7.0.0"
     prismjs: "npm:^1.29.0"

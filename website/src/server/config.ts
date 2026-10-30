@@ -10,4 +10,8 @@ export class AppConfig {
     benchmarkSecret: string = 'notSet';
 
     baseUrl: string = '';
+
+    /** For `npm run translate <lang>`, see https://platform.openai.com/api-keys */
+    openaiApiKey: string = '';
+    openaiTranslationModel: string = 'gpt-6.1-sol';
 }

@@ -4,7 +4,7 @@ import path from 'path';
 import { findParentPath } from '@deepkit/app';
 import { getCurrentDirName } from '@deepkit/core';
 
-const translationsDir = findParentPath('src/translations', getCurrentDirName()) || '';
+export const translationsDir = findParentPath('src/translations', getCurrentDirName()) || '';
 
 export function readTranslationsFile(lang: string, name: string): Record<string, string> {
     const filePath = path.join(translationsDir, lang, `${name}.json`);
