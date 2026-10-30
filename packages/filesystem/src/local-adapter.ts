@@ -1,5 +1,5 @@
 import { FilesystemAdapter, FilesystemFile, FileType, FileVisibility, Reporter } from './filesystem.js';
-import { pathDirectory, pathNormalize } from '@deepkit/core';
+import { osPathDirectory, pathNormalize } from '@deepkit/core';
 import type * as fs from 'fs/promises';
 
 export interface FilesystemLocalAdapterOptions {
@@ -14,6 +14,16 @@ export interface FilesystemLocalAdapterOptions {
             private: number; //default 0o700
         }
     };
+}
+
+/**
+ * Windows paths (C:\data, \\server\share) are kept as they are, only trailing separators are removed.
+ * pathNormalize() would turn them into /C:\data.
+ */
+function normalizeRoot(root: string): string {
+    if (!/^([a-zA-Z]:[\\/]|\\\\)/.test(root)) return pathNormalize(root);
+    root = root.replace(/[\\/]+$/, '');
+    return /^[a-zA-Z]:$/.test(root) ? root + '\\' : root;
 }
 
 export class FilesystemLocalAdapter implements FilesystemAdapter {
@@ -35,7 +45,7 @@ export class FilesystemLocalAdapter implements FilesystemAdapter {
     };
 
     constructor(options: Partial<FilesystemLocalAdapterOptions>) {
-        this.root = options.root ? pathNormalize(options.root) : '/';
+        this.root = options.root ? normalizeRoot(options.root) : '/';
         Object.assign(this.options, options);
     }
 
@@ -209,7 +219,7 @@ export class FilesystemLocalAdapter implements FilesystemAdapter {
     async write(path: string, contents: Uint8Array, visibility: FileVisibility, reporter: Reporter): Promise<void> {
         path = this.getPath(path);
         const fs = await this.getFs();
-        await fs.mkdir(pathDirectory(path), { recursive: true, mode: this.getMode('directory', visibility) });
+        await fs.mkdir(osPathDirectory(path), { recursive: true, mode: this.getMode('directory', visibility) });
         await fs.writeFile(path, contents, { mode: this.getMode('file', visibility) });
     }
 

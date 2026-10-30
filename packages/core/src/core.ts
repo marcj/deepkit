@@ -552,10 +552,12 @@ export function iterableSize(value: Array<unknown> | Set<unknown> | Map<unknown,
  */
 export function getCurrentFileName(offset: number = 0): string {
     const e = new Error;
-    const initiator = e.stack!.split('\n').slice(2 + offset, 3 + offset)[0];
-    let path = /(?<path>[^(\s]+):[0-9]+:[0-9]+/.exec(initiator)!.groups!.path;
-    if (path.indexOf('file') >= 0) {
-        path = new URL(path).pathname;
+    const initiator = e.stack!.split('\n').slice(2 + offset, 3 + offset)[0].trim();
+    // `at fn (path:1:2)` or `at path:1:2`, the path can contain spaces
+    const match = /\((.+):\d+:\d+\)$/.exec(initiator) || /^at (.+):\d+:\d+$/.exec(initiator) || /(?<path>[^(\s]+):[0-9]+:[0-9]+/.exec(initiator)!;
+    let path = match[1];
+    if (path.startsWith('file:')) {
+        path = decodeURIComponent(new URL(path).pathname);
     }
     if (path[0] === '/' && 'undefined' !== typeof process && process.platform === 'win32') {
         path = path.slice(1);
@@ -567,7 +569,20 @@ export function getCurrentFileName(offset: number = 0): string {
  * Returns the directory name of the current file (__dirname), works in both cjs and esm.
  */
 export function getCurrentDirName(): string {
-    return pathDirectory(getCurrentFileName(1));
+    return osPathDirectory(getCurrentFileName(1));
+}
+
+/**
+ * dirname() for file system paths of the current OS, including Windows paths like `C:\dir\file.js`.
+ * Unlike pathDirectory(), which is for normalized `/` paths, this does not change the path otherwise.
+ */
+export function osPathDirectory(path: string): string {
+    const lastSeparator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+    if (lastSeparator === -1) return '.';
+    if (lastSeparator === 0) return path[0];
+    const directory = path.slice(0, lastSeparator);
+    // keep the root of a drive: C:\file.js -> C:\
+    return /^[a-zA-Z]:$/.test(directory) ? directory + path[lastSeparator] : directory;
 }
 
 /**
