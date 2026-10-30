@@ -13,9 +13,9 @@
       "default": "./dist/esm/index.js"
     },
     "./plugin": {
-      "types": "./dist/cjs/plugin.d.ts",
-      "require": "./dist/cjs/plugin.js",
-      "default": "./dist/esm/plugin.js"
+      "types": "./dist/cjs/src/plugin.d.ts",
+      "require": "./dist/cjs/src/plugin.js",
+      "default": "./dist/esm/src/plugin.js"
     }
   },
   "bin": {
