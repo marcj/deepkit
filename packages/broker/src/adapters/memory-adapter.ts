@@ -3,8 +3,8 @@ import { BrokerKernel } from '../kernel.js';
 import { RpcDirectClientAdapter } from '@deepkit/rpc';
 
 /**
- * This adapter is only for testing purposes. It uses the in-memory broker kernel (server)
- * and communicates with it via in-memory RPC transport adapter.
+ * In-process broker: uses the in-memory broker kernel (server)
+ * and communicates with it via in-memory RPC transport adapter. For tests and single-process setups.
  */
 export class BrokerMemoryAdapter extends BrokerDeepkitAdapter {
     constructor() {
