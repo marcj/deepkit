@@ -35,7 +35,6 @@
   },
   "dependencies": {
     "formidable": "^3.5.2",
-    "qs": "^6.14.0",
     "send": "^1.1.0"
   },
   "devDependencies": {

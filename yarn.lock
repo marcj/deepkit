@@ -3625,7 +3625,6 @@ __metadata:
     "@types/node": "npm:^22.13.1"
     "@types/send": "npm:^0.14.6"
     formidable: "npm:^3.5.2"
-    qs: "npm:^6.14.0"
     send: "npm:^1.1.0"
   peerDependencies:
     "@deepkit/app": ^1.0.19
@@ -23416,7 +23415,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"qs@npm:^6.12.3, qs@npm:^6.14.0":
+"qs@npm:^6.12.3":
   version: 6.14.0
   resolution: "qs@npm:6.14.0"
   dependencies:

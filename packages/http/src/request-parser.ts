@@ -19,7 +19,7 @@ import {
 } from '@deepkit/type';
 import { BodyValidationError, createRequestWithCachedBody, getRegExp, HttpRequest, ValidatedBody } from './model.js';
 import { getRouteActionLabel, RouteConfig, UploadedFile, UploadedFileSymbol } from './router.js';
-import qs from 'qs';
+import { parseQueryString } from './query-string.js';
 import formidable, { Fields, Files, Options } from 'formidable';
 import { HttpParserOptions } from './module.config.js';
 import type IncomingForm from 'formidable/Formidable.js';
@@ -231,10 +231,10 @@ export function buildRequestParser(parseOptions: HttpParserOptions, parameters: 
         routeConfig
     });
     compiler.context.set('ValidationError', ValidationError);
-    compiler.context.set('qs', qs);
+    compiler.context.set('parseQueryString', parseQueryString);
 
     let needsQueryString = !!params.find(v => v.query || v.queries || v.requestParser);
-    const query = needsQueryString ? '_qPosition === -1 ? {} : qs.parse(_url.substr(_qPosition + 1))' : '{}';
+    const query = needsQueryString ? '_qPosition === -1 ? {} : parseQueryString(_url.substr(_qPosition + 1))' : '{}';
 
     const regexVar = compiler.reserveVariable('regex', new RegExp('^' + pathRegex + '$'));
 

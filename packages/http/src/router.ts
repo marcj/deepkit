@@ -18,7 +18,7 @@ import { MiddlewareRegistry, MiddlewareRegistryEntry } from '@deepkit/app';
 import { HttpMiddlewareConfig, HttpMiddlewareFn } from './middleware.js';
 
 //@ts-ignore
-import qs from 'qs';
+import { parseQueryString } from './query-string.js';
 import { HtmlResponse, JSONResponse, Redirect, Response } from './http.js';
 import { getRequestParserCodeForParameters, ParameterForRequestParser, parseRoutePathToRegex } from './request-parser.js';
 import { HttpConfig } from './module.config.js';
@@ -699,7 +699,7 @@ export class HttpRouter {
         this.buildId = this.registry.getBuildId();
         const compiler = new CompilerContext;
         compiler.context.set('ValidationError', ValidationError);
-        compiler.context.set('qs', qs);
+        compiler.context.set('parseQueryString', parseQueryString);
 
         const code: string[] = [];
 
@@ -715,7 +715,7 @@ export class HttpRouter {
             const _qPosition = _url.indexOf('?');
             let uploadedFiles = {};
             const _path = _qPosition === -1 ? _url : _url.substr(0, _qPosition);
-            const _query = _qPosition === -1 ? {} : qs.parse(_url.substr(_qPosition + 1));
+            const _query = _qPosition === -1 ? {} : parseQueryString(_url.substr(_qPosition + 1));
             ${code.join('\n')}
         `, 'request') as any;
     }
