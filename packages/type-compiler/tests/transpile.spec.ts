@@ -700,3 +700,17 @@ test('type alias of external type and value with the same name', () => {
     });
     expect(res.app).toContain('const __ΩMyResult = [');
 });
+
+test('module-level function __type is hoisted', () => {
+    // function declarations are hoisted, so ReflectionFunction.from(fn) can be called before the declaration (#664)
+    const res = transpile({
+        'app': `
+            run(greet);
+            function greet(name: string) {
+                function inner(a: number) {}
+            }
+        `
+    });
+    expect(res.app.indexOf('greet.__type = ')).toBeLessThan(res.app.indexOf('run(greet)'));
+    expect(res.app.indexOf('inner.__type = ')).toBeGreaterThan(res.app.indexOf('function inner('));
+});

@@ -537,6 +537,12 @@ export class ReflectionTransformer implements CustomTransformer {
     protected addImports: { importDeclaration: ImportDeclaration | JSDocImportTag, identifier: Identifier }[] = [];
     protected additionalImports = new Map<ImportDeclaration | JSDocImportTag, Statement>();
 
+    /**
+     * `fn.__type = ` assignments of module-level function declarations. They are placed at the top of the file,
+     * since function declarations are hoisted and can be used (e.g. ReflectionFunction.from(fn)) before their declaration.
+     */
+    protected functionTypeAssignments: Statement[] = [];
+
     protected nodeConverter: NodeConverter;
     protected typeChecker?: TypeChecker;
     protected resolver: Resolver;
@@ -677,6 +683,7 @@ export class ReflectionTransformer implements CustomTransformer {
         this.embedAssignType = false;
         this.addImports = [];
         this.additionalImports.clear();
+        this.functionTypeAssignments = [];
 
         const start = Date.now();
         const configResolver = this.getConfigResolver(sourceFile);
@@ -788,7 +795,7 @@ export class ReflectionTransformer implements CustomTransformer {
             } else if (isFunctionDeclaration(node)) {
                 //ambient functions don't exist at runtime, `fn.__type = ` would throw a ReferenceError
                 if (isAmbientDeclaration(original)) return node;
-                return this.decorateFunctionDeclaration(this.injectResetΩ(node));
+                return this.decorateFunctionDeclaration(this.injectResetΩ(node), !!original.parent && isSourceFile(original.parent));
             } else if (isMethodDeclaration(node) || isConstructorDeclaration(node)) {
                 return this.injectResetΩ(node);
             } else if (isArrowFunction(node)) {
@@ -1109,6 +1116,8 @@ export class ReflectionTransformer implements CustomTransformer {
                 ),
             );
         }
+
+        newTopStatements.push(...this.functionTypeAssignments);
 
         // we want to keep "use strict", or "use client", etc at the very top
         const indexOfFirstLiteralExpression = this.sourceFile.statements.findIndex(v => isExpressionStatement(v) && isStringLiteral(v.expression));
@@ -2871,7 +2880,7 @@ export class ReflectionTransformer implements CustomTransformer {
      *
      * => function name() {}; name.__type = 34;
      */
-    protected decorateFunctionDeclaration(declaration: FunctionDeclaration) {
+    protected decorateFunctionDeclaration(declaration: FunctionDeclaration, moduleLevel: boolean = false) {
         const encodedType = this.getTypeOfType(declaration);
         if (!encodedType) return declaration;
 
@@ -2890,11 +2899,14 @@ export class ReflectionTransformer implements CustomTransformer {
             ));
         }
 
-        const statements: Statement[] = [declaration];
-        statements.push(this.f.createExpressionStatement(
+        const assignment = this.f.createExpressionStatement(
             this.f.createAssignment(this.f.createPropertyAccessExpression(serializeEntityNameAsExpression(this.f, declaration.name), '__type'), encodedType),
-        ));
-        return statements;
+        );
+        if (moduleLevel) {
+            this.functionTypeAssignments.push(assignment);
+            return declaration;
+        }
+        return [declaration, assignment];
     }
 
     /**
