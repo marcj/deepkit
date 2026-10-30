@@ -182,7 +182,46 @@ export class Formatter {
         return ref;
     }
 
-    protected hydrateModel(model: DatabaseQueryModel<any, any, any>, classSchema: ReflectionClass<any>, dbRecord: DBRecord) {
+    /**
+     * Turns an unhydrated reference into a full object in place, so all holders of the reference see the loaded data.
+     */
+    protected upgradeReference(item: any, classSchema: ReflectionClass<any>, dbRecord: DBRecord) {
+        //values the user assigned to the reference are stored in property symbols, we apply them again after the upgrade
+        const assigned: { name: string, value: any }[] = [];
+        for (const property of classSchema.getProperties()) {
+            if (Object.prototype.hasOwnProperty.call(item, property.symbol)) {
+                assigned.push({ name: property.name, value: item[property.symbol] });
+            }
+        }
+
+        //removes the getters of the reference class, so isReferenceInstance() returns false
+        Object.setPrototypeOf(item, classSchema.getClassType().prototype);
+
+        const converted: any = deserialize(dbRecord, undefined, this.serializer, undefined, classSchema.type);
+
+        for (const property of classSchema.getProperties()) {
+            if (property.isPrimaryKey()) continue;
+            if (Object.prototype.hasOwnProperty.call(item, property.name)) continue;
+
+            if (property.isReference()) {
+                if (property.isArray()) continue;
+                item[property.name] = this.getReference(classSchema, dbRecord, property, false);
+            } else if (property.isBackReference()) {
+                //unpopulated backReferences are inaccessible, joins assign them afterwards
+                this.makeInvalidReference(item, classSchema, property);
+            } else {
+                item[property.name] = converted[property.name];
+            }
+        }
+
+        markAsHydrated(item);
+        //the data is from the database, so mark it as persisted to not detect it as change
+        getInstanceState(getClassState(classSchema), item).markAsPersisted();
+
+        for (const { name, value } of assigned) item[name] = value;
+    }
+
+    protected hydrateModel(model: DatabaseQueryModel<any, any, any>, classSchema: ReflectionClass<any>, dbRecord: DBRecord, joined: boolean = false) {
         let pool: Map<PKHash, any> | undefined = undefined;
         let pkHash: any = undefined;
         const partial = model.isPartial();
@@ -209,12 +248,13 @@ export class Formatter {
 
             const found = pool.get(pkHash);
             //When in a record is a reference found, it will be put into the pool.
-            //If a subsequent record has the same PK as that reference, it would return that
-            //reference instead of the full record - which is wrong. This makes sure
-            //that references are excluded from the pool. However, that also breaks for
-            //references the identity. We could improve that with a more complex resolution algorithm,
-            //that involves changing already populated objects.
-            if (found && !isReferenceInstance(found)) {
+            //If a subsequent joined record has the same PK as that reference, we got the full record
+            //and upgrade the reference in place, so all holders of the reference see the full object.
+            //Root records and partial records create a new object instead, references to them stay references.
+            if (found && (!isReferenceInstance(found) || (joined && !partial))) {
+                if (isReferenceInstance(found) && !isReferenceHydrated(found)) {
+                    this.upgradeReference(found, classSchema, dbRecord);
+                }
                 //it could be that the found item was created as joined object, which could mean it was not yet fully populated.
                 this.assignJoins(model, classSchema, dbRecord, found);
                 return found;
@@ -230,10 +270,11 @@ export class Formatter {
             if (item) {
                 const fromDatabase = getInstanceState(classState, item).isFromDatabase();
 
-                //if its proxy a unhydrated proxy then we update property values
-                if (fromDatabase && !isReferenceHydrated(item)) {
+                if (isReferenceInstance(item) && !isReferenceHydrated(item)) {
                     //we automatically hydrate proxy object once someone fetches them from the database.
-                    //or we update a stale instance
+                    this.upgradeReference(item, classSchema, dbRecord);
+                } else if (fromDatabase && !isReferenceHydrated(item)) {
+                    //we update a stale instance
                     const converted: any = deserialize(dbRecord, undefined, this.serializer, undefined, classSchema.type);
 
                     for (const propName of classSchema.getPropertyNames()) {
@@ -302,14 +343,14 @@ export class Formatter {
                 if (join.propertySchema.isBackReference() && join.propertySchema.isArray()) {
                     if (hasValue) {
                         item[join.propertySchema.name] = dbRecord[refName].map((item: any) => {
-                            return this.hydrateModel(join.query.model, resolveForeignReflectionClass(join.propertySchema), item);
+                            return this.hydrateModel(join.query.model, resolveForeignReflectionClass(join.propertySchema), item, true);
                         });
                     } else if (!item[join.propertySchema.name]) {
                         item[join.propertySchema.name] = [];
                     }
                 } else if (hasValue) {
                     item[join.propertySchema.name] = this.hydrateModel(
-                        join.query.model, resolveForeignReflectionClass(join.propertySchema), dbRecord[refName]
+                        join.query.model, resolveForeignReflectionClass(join.propertySchema), dbRecord[refName], true
                     );
                 } else {
                     item[join.propertySchema.name] = undefined;

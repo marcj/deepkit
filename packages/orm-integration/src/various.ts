@@ -14,7 +14,7 @@ import {
 } from '@deepkit/type';
 import { identifier, sql, SQLDatabaseAdapter } from '@deepkit/sql';
 import { DatabaseFactory } from './test.js';
-import { hydrateEntity, isDatabaseOf, UniqueConstraintFailure } from '@deepkit/orm';
+import { DatabaseSession, hydrateEntity, isDatabaseOf, UniqueConstraintFailure } from '@deepkit/orm';
 import { randomBytes } from 'crypto';
 
 Error.stackTraceLimit = 20;
@@ -63,6 +63,86 @@ export const variousTests = {
         expect(await query.page(4).count()).toBe(5);
         expect(await database.query(Item).skip(1).limit(2).count()).toBe(5);
         expect(await database.query(Item).filter({ name: { $gt: 'b' } }).orderBy('name').limit(1).count()).toBe(3);
+    },
+
+    async testReferenceHydratedByJoin(databaseFactory: DatabaseFactory) {
+        // review.book.author is not joined, but it is the same entity as the joined review.user (#636)
+        @entity.name('trhj_user')
+        class User {
+            id: number & PrimaryKey & AutoIncrement = 0;
+            constructor(public name: string) {}
+        }
+
+        @entity.name('trhj_book')
+        class Book {
+            id: number & PrimaryKey & AutoIncrement = 0;
+            constructor(public author: User & Reference, public title: string) {}
+        }
+
+        @entity.name('trhj_review')
+        class Review {
+            id: number & PrimaryKey & AutoIncrement = 0;
+            constructor(public user: User & Reference, public book: Book & Reference) {}
+        }
+
+        const database = await databaseFactory([User, Book, Review]);
+        const user = new User('Peter');
+        const book = new Book(user, 'Great');
+        await database.persist(user, book, new Review(user, book));
+
+        for (const query of [database.query(Review), database.createSession().query(Review)]) {
+            const review = await query.innerJoinWith('book').innerJoinWith('user').findOne();
+            expect(review.user.name).toBe('Peter');
+            expect(review.book.title).toBe('Great');
+            expect(review.book.author).toBe(review.user);
+            expect(review.book.author.name).toBe('Peter');
+        }
+    },
+
+    async testReferenceHydratedByLaterQuery(databaseFactory: DatabaseFactory) {
+        // a reference in the identity map is hydrated when the entity is fetched later (#636)
+        @entity.name('trhlq_user')
+        class User {
+            id: number & PrimaryKey & AutoIncrement = 0;
+            constructor(public name: string) {}
+        }
+
+        @entity.name('trhlq_book')
+        class Book {
+            id: number & PrimaryKey & AutoIncrement = 0;
+            constructor(public author: User & Reference) {}
+        }
+
+        const database = await databaseFactory([User, Book]);
+        await database.persist(new Book(new User('Peter')));
+
+        let updates = 0;
+        const sub = database.listen(DatabaseSession.onUpdatePre, event => {
+            if (event.isSchemaOf(User)) updates += event.changeSets.length;
+        });
+
+        try {
+            const session = database.createSession();
+            const book = await session.query(Book).findOne();
+            expect(isReferenceInstance(book.author)).toBe(true);
+
+            const user = await session.query(User).findOne();
+            expect(user).toBe(book.author);
+            expect(user.name).toBe('Peter');
+
+            // the hydrated data comes from the database, so committing must not update anything
+            await session.commit();
+            expect(updates).toBe(0);
+
+            // a value assigned to the reference before it is hydrated is kept and saved
+            const session2 = database.createSession();
+            (await session2.query(Book).findOne()).author.name = 'Peter2';
+            expect((await session2.query(User).findOne()).name).toBe('Peter2');
+            await session2.commit();
+            expect(updates).toBe(1);
+        } finally {
+            sub();
+        }
     },
 
     async testOneToOneCircularReferenceRelation(databaseFactory: DatabaseFactory) {
