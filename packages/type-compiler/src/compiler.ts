@@ -1118,10 +1118,14 @@ export class ReflectionTransformer implements CustomTransformer {
 
     protected getModuleType(): 'cjs' | 'esm' {
         if (this.compilerOptions.module === ts.ModuleKind.Node16 || this.compilerOptions.module === ts.ModuleKind.NodeNext) {
-            if (this.sourceFile.fileName.endsWith('.mjs')) return 'esm';
-            if (this.sourceFile.fileName.endsWith('.cjs')) return 'cjs';
-            const pkg = readNearestPackageJson(this.sourceFile.fileName);
-            return pkg?.type === 'module' ? 'esm' : 'cjs';
+            // set by a full program, but not in transpile-only setups
+            if (this.sourceFile.impliedNodeFormat !== undefined) {
+                return this.sourceFile.impliedNodeFormat === ts.ModuleKind.ESNext ? 'esm' : 'cjs';
+            }
+            const fileName = this.sourceFile.fileName;
+            if (fileName.endsWith('.mts') || fileName.endsWith('.mjs')) return 'esm';
+            if (fileName.endsWith('.cts') || fileName.endsWith('.cjs')) return 'cjs';
+            return readNearestPackageJson(fileName)?.type === 'module' ? 'esm' : 'cjs';
         }
         return this.compilerOptions.module === ts.ModuleKind.CommonJS ? 'cjs' : 'esm';
     }

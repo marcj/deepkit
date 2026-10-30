@@ -10,30 +10,38 @@ import {
     StringLiteral,
 } from 'typescript';
 import ts from 'typescript';
-import { parse, join, dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 
 const { createSourceFile, resolveModuleName, isStringLiteral, JSDocParsingMode, ScriptTarget } = ts;
 
-const packageJsonCache: { dir: string, content: any | null }[] = [];
+/**
+ * Nearest package.json content per directory (null if there is none).
+ */
+const packageJsonCache = new Map<string, any>();
 
 export function readNearestPackageJson(filePath: string): any {
-    const cachedEntry = packageJsonCache
-        .filter(entry => filePath.startsWith(entry.dir))
-        .sort((a, b) => b.dir.length - a.dir.length)[0];
-
-    if (cachedEntry) return cachedEntry.content;
-
+    const visited: string[] = [];
     let dir = dirname(filePath);
-    while (dir !== parse(dir).root) {
+    let content: any = null;
+    while (true) {
+        const cached = packageJsonCache.get(dir);
+        if (cached !== undefined) {
+            content = cached;
+            break;
+        }
+        visited.push(dir);
         const packageJsonPath = join(dir, 'package.json');
         if (existsSync(packageJsonPath)) {
-            const content = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-            packageJsonCache.push({ dir, content });
-            return content;
+            content = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+            break;
         }
-        dir = dirname(dir);
+        const parent = dirname(dir);
+        if (parent === dir) break;
+        dir = parent;
     }
+    for (const v of visited) packageJsonCache.set(v, content);
+    return content ?? undefined;
 }
 
 export function patternMatch(path: string, patterns: string[], base?: string): boolean {
