@@ -621,3 +621,21 @@ test('forwardRef argument is not wrapped', () => {
     expect(res.app).toContain('ref2 = i0.forwardRef(() => A)');
     expect(res.app).toContain('other = __assignType(() => A');
 });
+
+test('resolves types from .mts and .d.mts files', () => {
+    // the resolver only accepted .ts, .tsx and .d.ts, so with moduleResolution bundler or nodenext a class from a
+    // package shipping .d.mts types (e.g. openai) was reflected as never: "Undefined dependency openAi: never"
+    const res = transpile({
+        'app': `
+            import { Service } from './lib.mjs';
+            export class Controller {
+                constructor(public service: Service) {}
+            }
+        `,
+        'lib.mts': `export class Service {}`,
+    }, {
+        module: ts.ModuleKind.ES2022,
+        moduleResolution: ts.ModuleResolutionKind.Bundler,
+    });
+    expect(res.app).toContain('() => Service');
+});

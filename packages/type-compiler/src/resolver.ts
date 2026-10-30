@@ -111,12 +111,8 @@ export class Resolver {
         const result = this.resolveImpl(modulePath, sourceFile);
         if (!result) return;
 
-        // only .ts, .tsx and .d.ts files are supported
-        if (!result.resolvedFileName.endsWith('.ts')
-            && !result.resolvedFileName.endsWith('.tsx')
-            && !result.resolvedFileName.endsWith('.d.ts')) {
-            return;
-        }
+        // only TypeScript files are supported: .ts, .tsx, .mts, .cts and their .d.* declarations
+        if (!/\.(ts|tsx|mts|cts)$/.test(result.resolvedFileName)) return;
 
         const fileName = result.resolvedFileName;
         if (this.sourceFiles[fileName]) return this.sourceFiles[fileName];
