@@ -1194,6 +1194,7 @@ export class ReflectionTransformer implements CustomTransformer {
                 ...newTopStatements,
                 ...this.attachAdditionalStatements(this.sourceFile.statements.slice(indexOfFirstLiteralExpression + 1)),
             ];
+        newStatements.push(...this.createTypeProgramReExports(this.sourceFile.statements));
         this.sourceFile = this.f.updateSourceFile(this.sourceFile, newStatements);
 
         // console.log(createPrinter().printNode(EmitHint.SourceFile, this.sourceFile, this.sourceFile));
@@ -1201,6 +1202,84 @@ export class ReflectionTransformer implements CustomTransformer {
         debug(`Transform file with reflection=${reflection.mode} took ${took}ms (${this.getModuleType()}) ${sourceFile.fileName} via config ${reflection.tsConfigPath || 'none'}.`);
         (this.sourceFile as any).deepkitTransformed = true;
         return this.sourceFile;
+    }
+
+    /**
+     * For `export {X, Y as Z} from './module'` creates `export {__ΩX, __ΩY as __ΩZ} from './module'`,
+     * so that the type of X can be imported from this file as well (#634).
+     * Only type programs actually exported by the module are added, since with ES modules a missing export is an error.
+     */
+    protected createTypeProgramReExports(statements: readonly Statement[]): Statement[] {
+        const exported = new Set<string>();
+        for (const statement of statements) {
+            if (!isExportDeclaration(statement) || !statement.exportClause || !isNamedExports(statement.exportClause)) continue;
+            for (const element of statement.exportClause.elements) exported.add(getIdentifierName(element.name));
+        }
+
+        const result: Statement[] = [];
+        for (const statement of statements) {
+            // the declaration transformer gets the emitted declaration nodes, resolve using the source
+            const original = ts.getOriginalNode(statement);
+            if (!isExportDeclaration(original) || !original.moduleSpecifier || !isStringLiteral(original.moduleSpecifier)) continue;
+            if (!original.exportClause || !isNamedExports(original.exportClause)) continue;
+            const sourceFile = findSourceFile(original);
+            if (!sourceFile) continue;
+
+            const specifiers: ts.ExportSpecifier[] = [];
+            for (const element of original.exportClause.elements) {
+                const propertyName = element.propertyName || element.name;
+                if (!isIdentifier(propertyName)) continue;
+                const runtimeName = '__Ω' + getIdentifierName(propertyName);
+                const exportedName = '__Ω' + getIdentifierName(element.name);
+                if (exported.has(exportedName) || !this.isTypeProgramExported(getEscapedText(propertyName), original, sourceFile)) continue;
+                exported.add(exportedName);
+                specifiers.push(this.f.createExportSpecifier(false, runtimeName === exportedName ? undefined : runtimeName, exportedName));
+            }
+            if (specifiers.length) {
+                result.push(this.f.createExportDeclaration(undefined, false, this.f.createNamedExports(specifiers), this.f.createStringLiteral(original.moduleSpecifier.text)));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Whether the module of `exportDeclaration` exports the type program __Ω{name} of `name` (escaped).
+     */
+    protected isTypeProgramExported(name: string, exportDeclaration: ExportDeclaration, sourceFile: SourceFile, depth: number = 0): boolean {
+        if (depth > 32) return false;
+        const source = this.resolver.resolve(sourceFile, exportDeclaration);
+        if (!source) return false;
+
+        if (/\.d\.[mc]?ts$/.test(source.fileName)) {
+            // libraries built with runtime types declare __Ω{name}
+            const runtimeName = escapeLeadingUnderscores('__Ω' + ts.unescapeLeadingUnderscores(name as __String)) as string;
+            return !!this.resolveImportSpecifier(runtimeName, exportDeclaration, sourceFile);
+        }
+
+        // a file of the current compilation, see compileDeclarations and createProgramVarFromNode
+        if (this.getReflectionConfig(source).mode === 'never') return false;
+        const declaration = this.findDeclarationInFile(source, name);
+        if (declaration) {
+            return (isInterfaceDeclaration(declaration) || isTypeAliasDeclaration(declaration) || isEnumDeclaration(declaration))
+                && hasModifier(declaration, SyntaxKind.ExportKeyword)
+                && !isAmbientDeclaration(declaration)
+                && !!this.isWithReflection(source, declaration);
+        }
+
+        // re-exported by the module
+        for (const statement of source.statements) {
+            if (!isExportDeclaration(statement) || !statement.moduleSpecifier) continue;
+            if (!statement.exportClause) {
+                //export * from './x'
+                if (this.isTypeProgramExported(name, statement, source, depth + 1)) return true;
+            } else if (isNamedExports(statement.exportClause)) {
+                const element = statement.exportClause.elements.find(v => getEscapedText(v.name) === name);
+                if (!element) continue;
+                const propertyName = element.propertyName || element.name;
+                return isIdentifier(propertyName) && this.isTypeProgramExported(getEscapedText(propertyName), statement, source, depth + 1);
+            }
+        }
+        return false;
     }
 
     attachAdditionalStatements(statements: NodeArray<Statement> | Statement[]): Statement[] {
@@ -3069,6 +3148,9 @@ export class DeclarationTransformer extends ReflectionTransformer {
             return node;
         };
         this.sourceFile = visitNode(this.sourceFile, visitor);
+
+        const reExports = this.createTypeProgramReExports(this.sourceFile.statements);
+        if (reExports.length) this.sourceFile = this.f.updateSourceFile(this.sourceFile, [...this.sourceFile.statements, ...reExports]);
 
         if (this.addExports.length) {
             const exports: Statement[] = [];
