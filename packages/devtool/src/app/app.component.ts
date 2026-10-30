@@ -1,6 +1,8 @@
-import { Component, ElementRef, OnInit, signal } from '@angular/core';
-import { ButtonComponent, WindowComponent, WindowContentComponent } from '@deepkit/desktop-ui';
+import { ChangeDetectionStrategy, Component, ElementRef, OnInit, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+
+import { ButtonComponent, WindowComponent, WindowContentComponent } from '@deepkit/desktop-ui';
+
 import { RpcCollector } from './collector';
 
 declare var chrome: any;
@@ -16,37 +18,33 @@ declare var chrome: any;
         }
     `,
     template: `
-      <dui-window>
-        <dui-window-content class="no-padding text-selection">
-          @switch (status()) {
-            @case ('pending') {
-              <div class="center">
-                <div>Loading...</div>
-              </div>
-            }
-            @case ('no-permission') {
-              <div class="center">
-                <dui-button (click)="request()">Request permission</dui-button>
-              </div>
-            }
-            @case ('reload-needed') {
-              <div class="center">
-                <div>Permission granted. Please reload the page to enable injecting into website data.</div>
-              </div>
-            }
-            @case ('ready') {
-              <router-outlet></router-outlet>
-            }
-          }
-        </dui-window-content>
-      </dui-window>
+        <dui-window>
+            <dui-window-content class="no-padding text-selection">
+                @switch (status()) {
+                    @case ('pending') {
+                        <div class="center">
+                            <div>Loading...</div>
+                        </div>
+                    }
+                    @case ('no-permission') {
+                        <div class="center">
+                            <dui-button (click)="request()">Request permission</dui-button>
+                        </div>
+                    }
+                    @case ('reload-needed') {
+                        <div class="center">
+                            <div>Permission granted. Please reload the page to enable injecting into website data.</div>
+                        </div>
+                    }
+                    @case ('ready') {
+                        <router-outlet></router-outlet>
+                    }
+                }
+            </dui-window-content>
+        </dui-window>
     `,
-    imports: [
-        RouterOutlet,
-        WindowComponent,
-        WindowContentComponent,
-        ButtonComponent,
-    ],
+    imports: [RouterOutlet, WindowComponent, WindowContentComponent, ButtonComponent],
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./app.component.scss'],
 })
 export class AppComponent implements OnInit {
@@ -55,8 +53,7 @@ export class AppComponent implements OnInit {
     constructor(
         public host: ElementRef<HTMLElement>,
         private collector: RpcCollector,
-    ) {
-    }
+    ) {}
 
     checkCommunication() {
         this.status.set('checking');
@@ -91,61 +88,75 @@ export class AppComponent implements OnInit {
                 return;
             }
 
-            chrome.scripting.registerContentScripts([{
-                id: 'deepkit-devtools-' + origin,
-                matches: [origin + '/*'],
-                js: ['content.js'],
-                runAt: 'document_start',
-            }], () => {
-                if (chrome.runtime.lastError) {
-                    console.error('Failed to register content script:', chrome.runtime.lastError);
-                } else {
-                    console.log('Content script registered for', origin);
-                }
-            });
+            chrome.scripting.registerContentScripts(
+                [
+                    {
+                        id: 'deepkit-devtools-' + origin,
+                        matches: [origin + '/*'],
+                        js: ['content.js'],
+                        runAt: 'document_start',
+                    },
+                ],
+                () => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Failed to register content script:', chrome.runtime.lastError);
+                    } else {
+                        console.log('Content script registered for', origin);
+                    }
+                },
+            );
             this.checkCommunication();
         });
     }
 
     ngOnInit() {
         chrome.devtools.inspectedWindow.eval('window.location.origin', (origin: string) => {
-            chrome.permissions.contains({
-                permissions: ['scripting'],
-                origins: [origin + '/*'],
-            }, (granted: boolean) => {
-                console.log('permission request', granted);
-                if (granted) {
-                    this.registerContentScript(origin);
-                } else {
-                    this.status.set('no-permission');
-                }
-            });
+            chrome.permissions.contains(
+                {
+                    permissions: ['scripting'],
+                    origins: [origin + '/*'],
+                },
+                (granted: boolean) => {
+                    console.log('permission request', granted);
+                    if (granted) {
+                        this.registerContentScript(origin);
+                    } else {
+                        this.status.set('no-permission');
+                    }
+                },
+            );
         });
     }
 
     request() {
         chrome.devtools.inspectedWindow.eval('window.location.origin', (origin: string) => {
-            chrome.permissions.contains({
-                permissions: ['scripting'],
-                origins: [origin + '/*'],
-            }, (granted: boolean) => {
-                console.log('permission request', granted);
-                if (granted) {
-                    this.registerContentScript(origin);
-                } else {
-                    chrome.permissions.request({
-                        permissions: ['scripting'],
-                        origins: [origin + '/*'],
-                    }, (granted: any) => {
-                        console.log('permission request', origin, granted);
-                        if (granted) {
-                            this.registerContentScript(origin);
-                        } else {
-                            this.status.set('no-permission');
-                        }
-                    });
-                }
-            });
+            chrome.permissions.contains(
+                {
+                    permissions: ['scripting'],
+                    origins: [origin + '/*'],
+                },
+                (granted: boolean) => {
+                    console.log('permission request', granted);
+                    if (granted) {
+                        this.registerContentScript(origin);
+                    } else {
+                        chrome.permissions.request(
+                            {
+                                permissions: ['scripting'],
+                                origins: [origin + '/*'],
+                            },
+                            (granted: any) => {
+                                console.log('permission request', origin, granted);
+                                if (granted) {
+                                    this.registerContentScript(origin);
+                                } else {
+                                    this.status.set('no-permission');
+                                }
+                            },
+                        );
+                    }
+                },
+            );
         });
     }
 }

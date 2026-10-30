@@ -5,13 +5,8 @@
     "outDir": "./out-tsc/app",
     "types": []
   },
-  "files": [
-    "src/main.ts"
-  ],
-  "exclude": [
-    "**/*.spec.ts",
-    "../../node_modules/@deepkit/*/src/**/*.spec.ts"
-  ],
+  "files": ["src/main.ts"],
+  "exclude": ["**/*.spec.ts", "../../node_modules/@deepkit/*/src/**/*.spec.ts"],
   "include": [
     "src/**/*.d.ts",
     "../../node_modules/@deepkit/ui-library/index.ts",
@@ -24,5 +19,13 @@
     "../../node_modules/@deepkit/api-console-gui/src/**/*.ts",
     "../../node_modules/@deepkit/desktop-ui/index.ts",
     "../../node_modules/@deepkit/desktop-ui/src/**/*.ts"
-  ]
+  ],
+  "angularCompilerOptions": {
+    "extendedDiagnostics": {
+      "checks": {
+        "nullishCoalescingNotNullable": "suppress",
+        "optionalChainNotNullable": "suppress"
+      }
+    }
+  }
 }

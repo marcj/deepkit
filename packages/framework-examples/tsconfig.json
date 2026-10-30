@@ -5,8 +5,9 @@
     "composite": false,
     "useDefineForClassFields": false,
     "target": "es2022",
-    "baseUrl": ".",
     "outDir": "./dist",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "jsx": "react-jsx",
     "jsxImportSource": "@deepkit/framework",
     "types": []

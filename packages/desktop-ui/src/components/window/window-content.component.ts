@@ -7,13 +7,24 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { booleanAttribute, Component, effect, ElementRef, input, model, signal, TemplateRef, viewChild } from '@angular/core';
-import { WindowState } from './window-state';
-import { triggerResize } from '../../core/utils';
 import { NgTemplateOutlet } from '@angular/common';
-import { SplitterComponent } from '../splitter/splitter.component';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ElementRef,
+    TemplateRef,
+    booleanAttribute,
+    effect,
+    input,
+    model,
+    signal,
+    viewChild,
+} from '@angular/core';
+
+import { triggerResize } from '../../core/utils';
 import { clamp } from '../app/utils';
+import { SplitterComponent } from '../splitter/splitter.component';
+import { WindowState } from './window-state';
 
 export interface WinSidebar {
     template: TemplateRef<any>;
@@ -22,36 +33,47 @@ export interface WinSidebar {
 @Component({
     selector: 'dui-window-content',
     template: `
-      <div class="top-line"></div>
+        <div class="top-line"></div>
 
-      <div class="content {{class()}}" #content>
-        <ng-content></ng-content>
-      </div>
-
-      @if (toolbar(); as toolbar) {
-        <div class="sidebar"
-             (transitionend)="transitionEnded()"
-             #sidebar [class.hidden]="!sidebarVisible() " [class.with-animation]="withAnimation()"
-             [style.min-width.px]="sidebarVisible() && !withAnimation() ? sidebarMinWidth() : undefined"
-             [style.max-width.px]="sidebarMaxWidth()"
-             [style.width.px]="sidebarWidth()">
-          <div class="sidebar-container overlay-scrollbar-small" [style.width.px]="sidebarWidth()" #sidebarContainer>
-            <ng-container [ngTemplateOutlet]="toolbar.template" [ngTemplateOutletContext]="{}"></ng-container>
-          </div>
-          @if (sidebarVisible()) {
-            <dui-splitter position="right" [element]="sidebar" property="width" [(size)]="sidebarWidth"></dui-splitter>
-          }
+        <div class="content {{ class() }}" #content>
+            <ng-content></ng-content>
         </div>
-      }
+
+        @if (toolbar(); as toolbar) {
+            <div
+                class="sidebar"
+                (transitionend)="transitionEnded()"
+                #sidebar
+                [class.hidden]="!sidebarVisible()"
+                [class.with-animation]="withAnimation()"
+                [style.min-width.px]="sidebarVisible() && !withAnimation() ? sidebarMinWidth() : undefined"
+                [style.max-width.px]="sidebarMaxWidth()"
+                [style.width.px]="sidebarWidth()"
+            >
+                <div
+                    class="sidebar-container overlay-scrollbar-small"
+                    [style.width.px]="sidebarWidth()"
+                    #sidebarContainer
+                >
+                    <ng-container [ngTemplateOutlet]="toolbar.template" [ngTemplateOutletContext]="{}"></ng-container>
+                </div>
+                @if (sidebarVisible()) {
+                    <dui-splitter
+                        position="right"
+                        [element]="sidebar"
+                        property="width"
+                        [(size)]="sidebarWidth"
+                    ></dui-splitter>
+                }
+            </div>
+        }
     `,
     host: {
         '[class.transparent]': 'transparent()',
     },
     styleUrls: ['./window-content.component.scss'],
-    imports: [
-        NgTemplateOutlet,
-        SplitterComponent,
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [NgTemplateOutlet, SplitterComponent],
 })
 export class WindowContentComponent {
     transparent = input(false, { transform: booleanAttribute });
@@ -72,9 +94,7 @@ export class WindowContentComponent {
 
     withAnimation = signal(false);
 
-    constructor(
-        private windowState: WindowState,
-    ) {
+    constructor(private windowState: WindowState) {
         effect(() => {
             const normalized = clamp(this.sidebarWidth(), this.sidebarMinWidth(), this.sidebarMaxWidth());
             this.sidebarWidth.set(normalized);

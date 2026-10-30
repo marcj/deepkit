@@ -7,19 +7,46 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { booleanAttribute, Component, contentChildren, Directive, effect, EmbeddedViewRef, forwardRef, inject, input, OnDestroy, output, Renderer2, signal, TemplateRef, viewChild, ViewContainerRef } from '@angular/core';
-import { WindowMenuState } from '../window/window-menu';
-import { Electron } from '../../core/utils';
-import { injectElementRef, OnDomCreationDirective } from './utils';
-import { DropdownComponent, DropdownContainerDirective, DropdownItemComponent, DropdownSplitterComponent, OpenDropdownDirective } from '../button/dropdown.component';
-import { AdaptiveContainerComponent, AdaptiveHiddenContainer } from '../adaptive-container/adaptive-container.component';
 import { ConnectedPosition } from '@angular/cdk/overlay';
-import { OverlayStack } from './app';
 import { NgTemplateOutlet } from '@angular/common';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    Directive,
+    EmbeddedViewRef,
+    OnDestroy,
+    Renderer2,
+    TemplateRef,
+    ViewContainerRef,
+    booleanAttribute,
+    contentChildren,
+    effect,
+    forwardRef,
+    inject,
+    input,
+    output,
+    signal,
+    viewChild,
+} from '@angular/core';
+
+import { Electron } from '../../core/utils';
+import {
+    AdaptiveContainerComponent,
+    AdaptiveHiddenContainer,
+} from '../adaptive-container/adaptive-container.component';
 import { ActiveComponent, ButtonHotkeyComponent, HotkeyRegistry } from '../button/button.component';
+import {
+    DropdownComponent,
+    DropdownContainerDirective,
+    DropdownItemComponent,
+    DropdownSplitterComponent,
+    OpenDropdownDirective,
+} from '../button/dropdown.component';
 import { IconComponent } from '../icon/icon.component';
+import { WindowMenuState } from '../window/window-menu';
+import { OverlayStack } from './app';
 import type { BuiltTemplateItem } from './menu-electron';
+import { OnDomCreationDirective, injectElementRef } from './utils';
 
 @Directive()
 export abstract class MenuBase implements ActiveComponent, OnDestroy {
@@ -60,9 +87,7 @@ export abstract class MenuBase implements ActiveComponent, OnDestroy {
         this.destroy.emit();
     }
 
-    buildTemplate(item: BuiltTemplateItem) {
-
-    }
+    buildTemplate(item: BuiltTemplateItem) {}
 
     activate() {
         this.click.emit();
@@ -95,14 +120,15 @@ export abstract class MenuBase implements ActiveComponent, OnDestroy {
     selector: 'dui-menu-item',
     providers: [{ provide: MenuBase, useExisting: forwardRef(() => MenuItemComponent) }],
     template: `
-      <ng-template #template>
-        <ng-content />
-      </ng-template>
+        <ng-template #template>
+            <ng-content />
+        </ng-template>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: `
-      :host {
-        display: none;
-      }
+        :host {
+            display: none;
+        }
     `,
 })
 export class MenuItemComponent extends MenuBase {
@@ -113,14 +139,15 @@ export class MenuItemComponent extends MenuBase {
     selector: 'dui-menu-div',
     providers: [{ provide: MenuBase, useExisting: forwardRef(() => MenuDivComponent) }],
     template: `
-      <ng-template #template>
-        <ng-content />
-      </ng-template>
+        <ng-template #template>
+            <ng-content />
+        </ng-template>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: `
-      :host {
-        display: none;
-      }
+        :host {
+            display: none;
+        }
     `,
 })
 export class MenuDivComponent extends MenuBase {
@@ -185,7 +212,9 @@ export class MenuRenderDirective implements OnDestroy {
             }
             this.createdViews = [];
 
-            const needsCheckboxStyle = items.some(item => item.visible() && item instanceof MenuCheckboxDirective || item instanceof MenuRadioComponent);
+            const needsCheckboxStyle = items.some(
+                item => (item.visible() && item instanceof MenuCheckboxDirective) || item instanceof MenuRadioComponent,
+            );
 
             for (const item of items) {
                 if (!item.visible()) continue;
@@ -221,100 +250,115 @@ export class MenuItemTemplate {
 @Component({
     selector: 'dui-menu',
     host: {
-        'ngSkipHydration': 'true',
+        ngSkipHydration: 'true',
     },
     template: `
-      <ng-template #template2 menuItemTemplate let-item>
-        @if (item.type === 'separator') {
-          <dui-dropdown-separator />
-        } @else if (item.type === 'radio') {
-        } @else if (item.type === 'spacer') {
-          @if (item.template(); as itemTemplate) {
-            <div *ngTemplateOutlet="itemTemplate; context: {$implicit: item}"></div>
-          }
-        } @else {
-          @if (item.children().length) {
-            <dui-dropdown #dropdown
-                          (shown)="dropdownShown(dropdown, item.level())"
-                          (hidden)="dropdownHidden(dropdown, item.level())"
-                          (lostFocus)="lostFocus($event)"
-                          [connectedPositions]="item.level() === 0 ? dropdownPositionsRoot : dropdownPositions">
-              <ng-container *dropdownContainer [duiMenuRender]="item.children()" [template]="template2" />
-            </dui-dropdown>
-            <dui-dropdown-item [class.first-level]="item.level() === 0"
-                               [active]="item.active()"
-                               [checkbox]="item.checkboxStyle"
-                               [disabled]="item.disabled()"
-                               (onDomCreation)="registerDropdownItem($event, item)"
-                               [openDropdown]="dropdown" [openDropdownHover]="active()">
-              @if (!item.label() && item.template(); as itemTemplate) {
-                <ng-container *ngTemplateOutlet="itemTemplate; context: {$implicit: item}"></ng-container>
-              } @else {
-                <span class="label">{{ item.label() }}</span>
-              }
-              @if (item.hotkey(); as hotkey) {
-                <dui-button-hotkey [hotkey]="hotkey"></dui-button-hotkey>
-              }
-              @if (item.level() > 0) {
-                <span class="space"></span>
-                <dui-icon class="more" name="arrow_right" />
-              }
-            </dui-dropdown-item>
-          } @else {
-            <dui-dropdown-item [class.first-level]="item.level() === 1" (click)="activate(item)"
-                               [active]="item.active()"
-                               [checkbox]="item.checkboxStyle"
-                               [selected]="selected(item)"
-                               [disabled]="item.disabled()"
-                               (onDomCreation)="registerDropdownItem($event, item)"
-                               (pointerenter)="hideSiblingsAndAbove(item)">
-              @if (!item.label() && item.template(); as itemTemplate) {
-                <ng-container *ngTemplateOutlet="itemTemplate; context: {$implicit: item}"></ng-container>
-              } @else {
-                <span class="label">{{ item.label() }}</span>
-              }
-              @if (item.hotkey(); as hotkey) {
-                <span class="space"></span>
-                <dui-button-hotkey [hotkey]="hotkey"></dui-button-hotkey>
-              }
-            </dui-dropdown-item>
-          }
-        }
-      </ng-template>
+        <ng-template #template2 menuItemTemplate let-item>
+            @if (item.type === 'separator') {
+                <dui-dropdown-separator />
+            } @else if (item.type === 'radio') {
+            } @else if (item.type === 'spacer') {
+                @if (item.template(); as itemTemplate) {
+                    <div *ngTemplateOutlet="itemTemplate; context: { $implicit: item }"></div>
+                }
+            } @else {
+                @if (item.children().length) {
+                    <dui-dropdown
+                        #dropdown
+                        (shown)="dropdownShown(dropdown, item.level())"
+                        (hidden)="dropdownHidden(dropdown, item.level())"
+                        (lostFocus)="lostFocus($event)"
+                        [connectedPositions]="item.level() === 0 ? dropdownPositionsRoot : dropdownPositions"
+                    >
+                        <ng-container *dropdownContainer [duiMenuRender]="item.children()" [template]="template2" />
+                    </dui-dropdown>
+                    <dui-dropdown-item
+                        [class.first-level]="item.level() === 0"
+                        [active]="item.active()"
+                        [checkbox]="item.checkboxStyle"
+                        [disabled]="item.disabled()"
+                        (onDomCreation)="registerDropdownItem($event, item)"
+                        [openDropdown]="dropdown"
+                        [openDropdownHover]="active()"
+                    >
+                        @if (!item.label() && item.template(); as itemTemplate) {
+                            <ng-container *ngTemplateOutlet="itemTemplate; context: { $implicit: item }"></ng-container>
+                        } @else {
+                            <span class="label">{{ item.label() }}</span>
+                        }
+                        @if (item.hotkey(); as hotkey) {
+                            <dui-button-hotkey [hotkey]="hotkey"></dui-button-hotkey>
+                        }
+                        @if (item.level() > 0) {
+                            <span class="space"></span>
+                            <dui-icon class="more" name="arrow_right" />
+                        }
+                    </dui-dropdown-item>
+                } @else {
+                    <dui-dropdown-item
+                        [class.first-level]="item.level() === 1"
+                        (click)="activate(item)"
+                        [active]="item.active()"
+                        [checkbox]="item.checkboxStyle"
+                        [selected]="selected(item)"
+                        [disabled]="item.disabled()"
+                        (onDomCreation)="registerDropdownItem($event, item)"
+                        (pointerenter)="hideSiblingsAndAbove(item)"
+                    >
+                        @if (!item.label() && item.template(); as itemTemplate) {
+                            <ng-container *ngTemplateOutlet="itemTemplate; context: { $implicit: item }"></ng-container>
+                        } @else {
+                            <span class="label">{{ item.label() }}</span>
+                        }
+                        @if (item.hotkey(); as hotkey) {
+                            <span class="space"></span>
+                            <dui-button-hotkey [hotkey]="hotkey"></dui-button-hotkey>
+                        }
+                    </dui-dropdown-item>
+                }
+            }
+        </ng-template>
 
-      <dui-adaptive-container #adaptiveContainer>
-        <ng-container [duiMenuRender]="children()" [template]="template2"></ng-container>
-        <dui-dropdown-item class="first-level dui-adaptive-fallback"
-                           [openDropdown]="adaptiveContainer.dropdown()" [openDropdownHover]="active()">
-          {{ moreLabel() }}
-        </dui-dropdown-item>
-        <dui-dropdown #moreDropdown (shown)="dropdownShown(moreDropdown, 0)"
-                      (hidden)="dropdownHidden(moreDropdown, 0)"
-                      (lostFocus)="lostFocus($event)">
-          <div class="dui-dropdown-content" *dropdownContainer duiAdaptiveHiddenContainer></div>
-        </dui-dropdown>
-      </dui-adaptive-container>
+        <dui-adaptive-container #adaptiveContainer>
+            <ng-container [duiMenuRender]="children()" [template]="template2"></ng-container>
+            <dui-dropdown-item
+                class="first-level dui-adaptive-fallback"
+                [openDropdown]="adaptiveContainer.dropdown()"
+                [openDropdownHover]="active()"
+            >
+                {{ moreLabel() }}
+            </dui-dropdown-item>
+            <dui-dropdown
+                #moreDropdown
+                (shown)="dropdownShown(moreDropdown, 0)"
+                (hidden)="dropdownHidden(moreDropdown, 0)"
+                (lostFocus)="lostFocus($event)"
+            >
+                <div class="dui-dropdown-content" *dropdownContainer duiAdaptiveHiddenContainer></div>
+            </dui-dropdown>
+        </dui-adaptive-container>
     `,
     styles: `
-      dui-button-hotkey {
-        justify-self: flex-end;
-        margin-left: auto;
-      }
+        dui-button-hotkey {
+            justify-self: flex-end;
+            margin-left: auto;
+        }
 
-      .space {
-        width: 8px;
-      }
+        .space {
+            width: 8px;
+        }
 
-      dui-icon.more {
-        justify-self: flex-end;
-        margin-left: auto;
-        margin-right: -4px;
-      }
+        dui-icon.more {
+            justify-self: flex-end;
+            margin-left: auto;
+            margin-right: -4px;
+        }
 
-      dui-dropdown-item {
-        flex: 0 0 auto;
-      }
+        dui-dropdown-item {
+            flex: 0 0 auto;
+        }
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         forwardRef(() => AdaptiveContainerComponent),
         forwardRef(() => AdaptiveHiddenContainer),
@@ -410,7 +454,10 @@ export class MenuComponent implements OnDestroy {
     }
 
     lostFocus(event: FocusEvent) {
-        event.view?.addEventListener('click', e => (e.preventDefault(), e.stopImmediatePropagation()), { once: true, capture: true });
+        event.view?.addEventListener('click', e => (e.preventDefault(), e.stopImmediatePropagation()), {
+            once: true,
+            capture: true,
+        });
         this.close();
     }
 

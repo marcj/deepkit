@@ -1,9 +1,10 @@
-import { Component, signal } from '@angular/core';
-import { CodeHighlightComponent } from '@deepkit/ui-library';
-import { ApiDocComponent, CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
-import { ButtonComponent, DynamicOptionDirective, OptionDirective, SelectBoxComponent } from '@deepkit/desktop-ui';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent, CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
+
+import { ButtonComponent, DynamicOptionDirective, OptionDirective, SelectBoxComponent } from '@deepkit/desktop-ui';
+import { CodeHighlightComponent } from '@deepkit/ui-library';
 
 @Component({
     imports: [
@@ -18,86 +19,79 @@ import { AppTitle } from '@app/app/components/title.js';
         AppTitle,
     ],
     template: `
-      <div class="app-content normalize-text">
-        <div class="app-pre-headline">Desktop UI</div>
-        <h1>Select</h1>
-        <app-title value="Select Box"></app-title>
+        <div class="app-content normalize-text">
+            <div class="app-pre-headline">Desktop UI</div>
+            <h1>Select</h1>
+            <app-title value="Select Box"></app-title>
 
-        <doc-code-frame>
-          <div class="examples">
-            <div>
-              <dui-select [(ngModel)]="value" placeholder="Please choose">
-                <dui-option value="a">Option A</dui-option>
-                <dui-option value="b">Option B</dui-option>
-                <dui-option value="c">Option C</dui-option>
-              </dui-select>
-              <dui-select small [(ngModel)]="value" placeholder="Please choose">
-                <dui-option value="a">Option A</dui-option>
-                <dui-option value="b">Option B</dui-option>
-                <dui-option value="c">Option C</dui-option>
-              </dui-select>
-            </div>
-            <dui-select [(ngModel)]="value" textured placeholder="Please choose">
-              <dui-option value="a">Option A</dui-option>
-              <dui-option value="b">Option B</dui-option>
-              <dui-option value="c">Option C</dui-option>
-            </dui-select>
-            <dui-select [disabled]="true" [(ngModel)]="value" textured placeholder="Please choose">
-              <dui-option value="a">Option A</dui-option>
-              <dui-option value="b">Option B</dui-option>
-              <dui-option value="c">Option C</dui-option>
-            </dui-select>
-            <dui-select small [(ngModel)]="value" textured placeholder="Please choose">
-              <dui-option value="a">Option A</dui-option>
-              <dui-option value="b">Option B</dui-option>
-              <dui-option value="c">Option C</dui-option>
-            </dui-select>
-            <p>
-              Chosen: {{ value() }}
-            </p>
-            <div>
-              <dui-select [(ngModel)]="value" placeholder="Please choose">
-                <dui-option value="a">
-                  <ng-container *dynamicOption>
-                    Option A
-                  </ng-container>
-                </dui-option>
-                <dui-option value="b">
-                  <ng-container *dynamicOption>
-                    Option B
-                  </ng-container>
-                </dui-option>
-                <dui-option value="c">
-                  <ng-container *dynamicOption>
-                    Option CCCCCCCCCC
-                  </ng-container>
-                </dui-option>
-              </dui-select>
-            </div>
-            <div>
-              <dui-select [(ngModel)]="value">
-                <dui-button textured (click)="value.set('')">Reset</dui-button>
-                <dui-option value="a">Option A</dui-option>
-                <dui-option value="b">Option B</dui-option>
-                <dui-option value="c">Option C</dui-option>
-              </dui-select>
-            </div>
-            <div>
-              <dui-select placeholder="Many items">
-                @for (item of manyItems; track item) {
-                  <dui-option [value]="item">Option #{{ item }}</dui-option>
-                }
-              </dui-select>
-            </div>
-          </div>
-          <code-highlight lang="html" [code]="code" />
-        </doc-code-frame>
+            <doc-code-frame>
+                <div class="examples">
+                    <div>
+                        <dui-select [(ngModel)]="value" placeholder="Please choose">
+                            <dui-option value="a">Option A</dui-option>
+                            <dui-option value="b">Option B</dui-option>
+                            <dui-option value="c">Option C</dui-option>
+                        </dui-select>
+                        <dui-select small [(ngModel)]="value" placeholder="Please choose">
+                            <dui-option value="a">Option A</dui-option>
+                            <dui-option value="b">Option B</dui-option>
+                            <dui-option value="c">Option C</dui-option>
+                        </dui-select>
+                    </div>
+                    <dui-select [(ngModel)]="value" textured placeholder="Please choose">
+                        <dui-option value="a">Option A</dui-option>
+                        <dui-option value="b">Option B</dui-option>
+                        <dui-option value="c">Option C</dui-option>
+                    </dui-select>
+                    <dui-select [disabled]="true" [(ngModel)]="value" textured placeholder="Please choose">
+                        <dui-option value="a">Option A</dui-option>
+                        <dui-option value="b">Option B</dui-option>
+                        <dui-option value="c">Option C</dui-option>
+                    </dui-select>
+                    <dui-select small [(ngModel)]="value" textured placeholder="Please choose">
+                        <dui-option value="a">Option A</dui-option>
+                        <dui-option value="b">Option B</dui-option>
+                        <dui-option value="c">Option C</dui-option>
+                    </dui-select>
+                    <p>Chosen: {{ value() }}</p>
+                    <div>
+                        <dui-select [(ngModel)]="value" placeholder="Please choose">
+                            <dui-option value="a">
+                                <ng-container *dynamicOption> Option A </ng-container>
+                            </dui-option>
+                            <dui-option value="b">
+                                <ng-container *dynamicOption> Option B </ng-container>
+                            </dui-option>
+                            <dui-option value="c">
+                                <ng-container *dynamicOption> Option CCCCCCCCCC </ng-container>
+                            </dui-option>
+                        </dui-select>
+                    </div>
+                    <div>
+                        <dui-select [(ngModel)]="value">
+                            <dui-button textured (click)="value.set('')">Reset</dui-button>
+                            <dui-option value="a">Option A</dui-option>
+                            <dui-option value="b">Option B</dui-option>
+                            <dui-option value="c">Option C</dui-option>
+                        </dui-select>
+                    </div>
+                    <div>
+                        <dui-select placeholder="Many items">
+                            @for (item of manyItems; track item) {
+                                <dui-option [value]="item">Option #{{ item }}</dui-option>
+                            }
+                        </dui-select>
+                    </div>
+                </div>
+                <code-highlight lang="html" [code]="code" />
+            </doc-code-frame>
 
-        <api-doc component="SelectBoxComponent"></api-doc>
-        <api-doc component="OptionDirective"></api-doc>
-        <api-doc component="OptionSeparatorDirective"></api-doc>
-      </div>
+            <api-doc component="SelectBoxComponent"></api-doc>
+            <api-doc component="OptionDirective"></api-doc>
+            <api-doc component="OptionSeparatorDirective"></api-doc>
+        </div>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: `
         .examples > div {
             margin-bottom: 14px;

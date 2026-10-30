@@ -4,11 +4,9 @@
     "module": "ES2022",
     "declaration": false,
     "composite": false,
-    "baseUrl": "./",
     "outDir": "./dist",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "experimentalDecorators": true,
-    "downlevelIteration": true,
     "sourceMap": true,
     "strict": true,
     "target": "es2022",
@@ -22,7 +20,7 @@
     ],
     "paths": {
       "angular-desktop-ui": [
-        "dist/"
+        "./dist/"
       ]
     },
     "skipLibCheck": true

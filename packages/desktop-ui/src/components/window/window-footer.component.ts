@@ -7,12 +7,12 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 @Component({
     selector: 'dui-window-footer',
     template: '<ng-content></ng-content>',
-    styleUrls: ['./window-footer.component.scss']
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styleUrls: ['./window-footer.component.scss'],
 })
-export class WindowFooterComponent { }
+export class WindowFooterComponent {}

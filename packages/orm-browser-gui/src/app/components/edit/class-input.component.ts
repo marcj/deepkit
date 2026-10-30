@@ -1,105 +1,162 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, Optional, Output, SkipSelf } from '@angular/core';
+import {
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    ElementRef,
+    EventEmitter,
+    Input,
+    OnChanges,
+    OnDestroy,
+    Optional,
+    Output,
+    SkipSelf,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+
 import { arrayRemoveItem } from '@deepkit/core';
-import { ButtonComponent, CloseDialogDirective, DialogActionsComponent, DialogComponent, DuiDialog, InputComponent } from '@deepkit/desktop-ui';
-import { deserialize, getPrimaryKeyHashGenerator, isNullable, isOptional, isReferenceType, ReflectionClass, ReflectionKind, resolveClassType, serialize, Type } from '@deepkit/type';
+import {
+    ButtonComponent,
+    CloseDialogDirective,
+    DialogActionsComponent,
+    DialogComponent,
+    DuiDialog,
+    InputComponent,
+} from '@deepkit/desktop-ui';
+import {
+    ReflectionClass,
+    ReflectionKind,
+    Type,
+    deserialize,
+    getPrimaryKeyHashGenerator,
+    isNullable,
+    isOptional,
+    isReferenceType,
+    resolveClassType,
+    serialize,
+} from '@deepkit/type';
+
 import { BrowserState } from '../../browser-state';
 import { getParentProperty } from '../../utils';
-import { FormsModule } from '@angular/forms';
 import { DatabaseBrowserComponent } from '../../views/database-browser.component';
 
 @Component({
     template: `
-      @if (jsonEditor) {
-        <dui-dialog class="class-field-dialog" noPadding [visible]="true" (closed)="done.emit()"
-                    [backDropCloses]="true"
-                    [minWidth]="450" [minHeight]="350">
-          <div class="json-editor">
-            <h3>JSON</h3>
-            <dui-input type="textarea" [(ngModel)]="jsonContent"></dui-input>
-          </div>
-          <dui-dialog-actions>
-            <dui-button closeDialog>Cancel</dui-button>
-            <dui-button (click)="jsonDone()">Ok</dui-button>
-          </dui-dialog-actions>
-        </dui-dialog>
-      }
-      @if (!parent && open) {
-        {{browserStack.length}}
-        <dui-dialog class="class-field-dialog" noPadding [backDropCloses]="true"
-                    [visible]="browserStack.length > 0" (closed)="dialogClosed()" minWidth="80%"
-                    minHeight="75%">
-          <div class="layout">
-            @if (schema) {
-              <div class="header">
-                @for (browser of browserStack; track browser) {
-                  <span>
-                      &raquo; {{ browser.schema?.getClassName() }}
-                    </span>
-                }
-              </div>
-            }
-            @for (browser of browserStack; track browser) {
-              @if (state.database && browser.schema) {
-                <orm-browser-database-browser
-                  [class.hidden]="browserStack.length > 0 && browser !== browserStack[browserStack.length - 1]"
-                  [dialog]="true"
-                  [withBack]="browser !== browserStack[0]"
-                  (back)="popBrowser()"
-                  [selectedPkHashes]="browser.selectedPkHashes"
-                  [multiSelect]="isArrayType(browser.type)"
-                  (select)="browser.onSelect($event)"
-                  [database]="state.database"
-                  [entity]="browser.schema"></orm-browser-database-browser>
-              }
-            }
-          </div>
-        </dui-dialog>
-      }
+        @if (jsonEditor) {
+            <dui-dialog
+                class="class-field-dialog"
+                noPadding
+                [visible]="true"
+                (closed)="done.emit()"
+                [backDropCloses]="true"
+                [minWidth]="450"
+                [minHeight]="350"
+            >
+                <div class="json-editor">
+                    <h3>JSON</h3>
+                    <dui-input type="textarea" [(ngModel)]="jsonContent"></dui-input>
+                </div>
+                <dui-dialog-actions>
+                    <dui-button closeDialog>Cancel</dui-button>
+                    <dui-button (click)="jsonDone()">Ok</dui-button>
+                </dui-dialog-actions>
+            </dui-dialog>
+        }
+        @if (!parent && open) {
+            {{ browserStack.length }}
+            <dui-dialog
+                class="class-field-dialog"
+                noPadding
+                [backDropCloses]="true"
+                [visible]="browserStack.length > 0"
+                (closed)="dialogClosed()"
+                minWidth="80%"
+                minHeight="75%"
+            >
+                <div class="layout">
+                    @if (schema) {
+                        <div class="header">
+                            @for (browser of browserStack; track browser) {
+                                <span> &raquo; {{ browser.schema?.getClassName() }} </span>
+                            }
+                        </div>
+                    }
+                    @for (browser of browserStack; track browser) {
+                        @if (state.database && browser.schema) {
+                            <orm-browser-database-browser
+                                [class.hidden]="
+                                    browserStack.length > 0 && browser !== browserStack[browserStack.length - 1]
+                                "
+                                [dialog]="true"
+                                [withBack]="browser !== browserStack[0]"
+                                (back)="popBrowser()"
+                                [selectedPkHashes]="browser.selectedPkHashes"
+                                [multiSelect]="isArrayType(browser.type)"
+                                (select)="browser.onSelect($event)"
+                                [database]="state.database"
+                                [entity]="browser.schema"
+                            ></orm-browser-database-browser>
+                        }
+                    }
+                </div>
+            </dui-dialog>
+        }
     `,
     host: {
         '(click)': 'open = true',
         '[attr.tabIndex]': '1',
     },
-    styles: [`
-        .json-editor {
-            height: 100%;
-            padding: 0 12px;
-            display: flex;
-            flex-direction: column;
-        }
+    styles: [
+        `
+            .json-editor {
+                height: 100%;
+                padding: 0 12px;
+                display: flex;
+                flex-direction: column;
+            }
 
-        .json-editor dui-input {
-            margin-top: 15px;
-            width: 100%;
-            flex: 1;
-        }
+            .json-editor dui-input {
+                margin-top: 15px;
+                width: 100%;
+                flex: 1;
+            }
 
-        .layout {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
+            .layout {
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+            }
 
-        ::ng-deep dui-window-content > div.class-field-dialog {
-            padding: 0 !important;
-            padding-top: 10px !important;
-        }
+            ::ng-deep dui-window-content > div.class-field-dialog {
+                padding: 0 !important;
+                padding-top: 10px !important;
+            }
 
-        .header {
-            flex: 0 0 18px;
-            padding: 0 15px;
-            padding-top: 4px;
-        }
+            .header {
+                flex: 0 0 18px;
+                padding: 0 15px;
+                padding-top: 4px;
+            }
 
-        orm-browser-database-browser {
-            flex: 1;
-        }
+            orm-browser-database-browser {
+                flex: 1;
+            }
 
-        .hidden {
-            display: none;
-        }
-    `],
-    imports: [DialogComponent, InputComponent, FormsModule, DialogActionsComponent, ButtonComponent, CloseDialogDirective, DatabaseBrowserComponent],
+            .hidden {
+                display: none;
+            }
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [
+        DialogComponent,
+        InputComponent,
+        FormsModule,
+        DialogActionsComponent,
+        ButtonComponent,
+        CloseDialogDirective,
+        DatabaseBrowserComponent,
+    ],
 })
 export class ClassInputComponent implements AfterViewInit, OnChanges, OnDestroy {
     @Input() model: any;
@@ -219,7 +276,7 @@ export class ClassInputComponent implements AfterViewInit, OnChanges, OnDestroy 
         }
     }
 
-    onSelect(event: { items: any[], pkHashes: string[] }) {
+    onSelect(event: { items: any[]; pkHashes: string[] }) {
         if (!this.schema) return;
 
         const selected = event.items[0];

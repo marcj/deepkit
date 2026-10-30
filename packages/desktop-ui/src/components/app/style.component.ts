@@ -1,11 +1,21 @@
-import { booleanAttribute, Component, effect, inject, input, ViewEncapsulation } from '@angular/core';
-import { DuiApp } from './app';
 import { DOCUMENT } from '@angular/common';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ViewEncapsulation,
+    booleanAttribute,
+    effect,
+    inject,
+    input,
+} from '@angular/core';
+
+import { DuiApp } from './app';
 
 @Component({
     selector: 'dui-style',
     template: '',
     styleUrl: '../../scss/dui.css',
+    changeDetection: ChangeDetectionStrategy.Eager,
     encapsulation: ViewEncapsulation.None,
 })
 export class DuiStyleComponent {

@@ -1,43 +1,40 @@
-import { Component, effect, inject, input, model, OnDestroy, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, effect, inject, input, model, signal } from '@angular/core';
+
 import { ObjectURLPipe } from '../../app/pipes';
 import { IndicatorComponent } from '../../indicator/indicator.component';
-import { FilesystemApi, FilesystemApiFile } from '../api';
 import { LoadingSpinnerComponent } from '../../indicator/loading-spinner.component';
+import { FilesystemApi, FilesystemApiFile } from '../api';
 import { CacheData, FilesystemFileDataCache } from '../cache';
 
 @Component({
     selector: 'dui-filesystem-detail',
     template: `
-      @if (cacheData(); as cacheData) {
-        @if (cacheData.result(); as result) {
-          @if (result.mimeType.startsWith('image/')) {
-            <img class="image" [src]="result.data|objectURL:result.mimeType" alt="File preview" />
-          } @else if (result.mimeType.startsWith('video/')) {
-            <video controls autoplay>
-              <source [src]="result.data|objectURL:result.mimeType" type="{{ result.mimeType }}">
-              Your browser does not support the video tag.
-            </video>
-          } @else {
-            <iframe [src]="result.data|objectURL:result.mimeType" frameborder="0" height="100%" width="100%">
-            </iframe>
-          }
-        } @else if (cacheData.invalid()) {
-          <div class="icon unknown-icon"></div>
+        @if (cacheData(); as cacheData) {
+            @if (cacheData.result(); as result) {
+                @if (result.mimeType.startsWith('image/')) {
+                    <img class="image" [src]="result.data | objectURL: result.mimeType" alt="File preview" />
+                } @else if (result.mimeType.startsWith('video/')) {
+                    <video controls autoplay>
+                        <source [src]="result.data | objectURL: result.mimeType" type="{{ result.mimeType }}" />
+                        Your browser does not support the video tag.
+                    </video>
+                } @else {
+                    <iframe [src]="result.data | objectURL: result.mimeType" frameborder="0" height="100%" width="100%">
+                    </iframe>
+                }
+            } @else if (cacheData.invalid()) {
+                <div class="icon unknown-icon"></div>
+            } @else {
+                <dui-loading-spinner></dui-loading-spinner>
+                <dui-indicator [step]="cacheData.progress()" />
+            }
         } @else {
-          <dui-loading-spinner></dui-loading-spinner>
-          <dui-indicator [step]="cacheData.progress()" />
+            <div class="icon unknown-icon"></div>
         }
-      } @else {
-        <div class="icon unknown-icon"></div>
-      }
     `,
     styleUrl: './file-detail.component.scss',
-    imports: [
-        ObjectURLPipe,
-        IndicatorComponent,
-        ObjectURLPipe,
-        LoadingSpinnerComponent,
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [ObjectURLPipe, IndicatorComponent, ObjectURLPipe, LoadingSpinnerComponent],
 })
 export class FilesystemFileDetail implements OnDestroy {
     api = input.required<FilesystemApi>();

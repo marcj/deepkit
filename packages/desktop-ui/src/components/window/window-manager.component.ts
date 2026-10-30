@@ -1,27 +1,26 @@
-import { Component, Directive, ElementRef, TemplateRef } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Directive, ElementRef, TemplateRef } from '@angular/core';
+
 import { WindowRegistry } from './window-state';
 
 @Component({
     selector: 'dui-window-manager',
-    template: `
-    `,
-    styles: [`
-      :host {
-        display: block;
-        position: relative;
-        flex: 1;
-      }
-    `],
-    providers: [
-        WindowRegistry,
+    template: ``,
+    styles: [
+        `
+            :host {
+                display: block;
+                position: relative;
+                flex: 1;
+            }
+        `,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    providers: [WindowRegistry],
 })
 export class WindowManagerComponent {
     templates = new Map<string, TemplateRef<any>>();
 
-    open(component: any, options: { [key: string]: any } = {}): void {
-
-    }
+    open(component: any, options: { [key: string]: any } = {}): void {}
 }
 
 /**

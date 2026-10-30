@@ -7,42 +7,43 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
+import { ComponentPortal, DomPortalOutlet } from '@angular/cdk/portal';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
     AfterViewInit,
     ApplicationRef,
+    ChangeDetectionStrategy,
     ChangeDetectorRef,
     Component,
-    ComponentFactoryResolver,
     ComponentRef,
     Directive,
     Injector,
-    input,
-    model,
     OnChanges,
     OnDestroy,
-    output,
     SimpleChanges,
     TemplateRef,
     Type,
     ViewChild,
     ViewContainerRef,
+    input,
+    model,
+    output,
 } from '@angular/core';
-import { ComponentPortal, DomPortalOutlet } from '@angular/cdk/portal';
-import { WindowComponent } from '../window/window.component';
-import { WindowRegistry } from '../window/window-state';
-import { RenderComponentDirective } from '../core/render-component.directive';
 import { Subscription } from 'rxjs';
-import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
-import { DuiDialog } from '../dialog/dialog';
-import { BrowserWindow, Electron } from '../../core/utils';
+
 import { nextTick } from '@deepkit/core';
 
+import { BrowserWindow, Electron } from '../../core/utils';
+import { RenderComponentDirective } from '../core/render-component.directive';
+import { DuiDialog } from '../dialog/dialog';
+import { WindowRegistry } from '../window/window-state';
+import { WindowComponent } from '../window/window.component';
+
 function PopupCenter(url: string, title: string, w: number, h: number): Window {
-    let top = window.screenTop + (window.outerHeight / 2) - w / 2;
+    let top = window.screenTop + window.outerHeight / 2 - w / 2;
     top = top > 0 ? top : 0;
 
-    let left = window.screenLeft + (window.outerWidth / 2) - w / 2;
+    let left = window.screenLeft + window.outerWidth / 2 - w / 2;
     left = left > 0 ? left : 0;
 
     return window.open(url, title, 'width=' + w + ', height=' + h + ', top=' + top + ', left=' + left)!;
@@ -50,33 +51,32 @@ function PopupCenter(url: string, title: string, w: number, h: number): Window {
 
 @Component({
     template: `
-      @if (component()) {
-        <ng-container
-          #renderComponentDirective
-          [renderComponent]="component()" [renderComponentInputs]="componentInputs()"
-        >
-        </ng-container>
-      }
+        @if (component()) {
+            <ng-container
+                #renderComponentDirective
+                [renderComponent]="component()"
+                [renderComponentInputs]="componentInputs()"
+            >
+            </ng-container>
+        }
 
-      @if (content) {
-        <ng-container [ngTemplateOutlet]="content"></ng-container>
-      }
+        @if (content) {
+            <ng-container [ngTemplateOutlet]="content"></ng-container>
+        }
 
-      @if (container) {
-        <ng-container [ngTemplateOutlet]="container"></ng-container>
-      }
+        @if (container) {
+            <ng-container [ngTemplateOutlet]="container"></ng-container>
+        }
 
-      @if (!container) {
-        <ng-content></ng-content>
-      }
+        @if (!container) {
+            <ng-content></ng-content>
+        }
     `,
     host: {
         '[attr.tabindex]': '1',
     },
-    imports: [
-        RenderComponentDirective,
-        NgTemplateOutlet,
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [RenderComponentDirective, NgTemplateOutlet],
 })
 export class ExternalDialogWrapperComponent {
     component = input<Type<any>>();
@@ -93,8 +93,7 @@ export class ExternalDialogWrapperComponent {
     constructor(
         protected cd: ChangeDetectorRef,
         public injector: Injector,
-    ) {
-    }
+    ) {}
 
     public setDialogContainer(container: TemplateRef<any> | undefined) {
         this.container = container;
@@ -104,10 +103,11 @@ export class ExternalDialogWrapperComponent {
 
 @Component({
     selector: 'dui-external-dialog',
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
-      <ng-template #template>
-        <ng-content></ng-content>
-      </ng-template>
+        <ng-template #template>
+            <ng-content></ng-content>
+        </ng-template>
     `,
 })
 export class ExternalWindowComponent implements AfterViewInit, OnDestroy, OnChanges {
@@ -139,16 +139,13 @@ export class ExternalWindowComponent implements AfterViewInit, OnDestroy, OnChan
     parentWindow?: WindowComponent;
 
     constructor(
-        protected componentFactoryResolver: ComponentFactoryResolver,
         protected applicationRef: ApplicationRef,
         protected injector: Injector,
         protected dialog: DuiDialog,
         protected registry: WindowRegistry,
         protected cd: ChangeDetectorRef,
         protected viewContainerRef: ViewContainerRef,
-    ) {
-
-    }
+    ) {}
 
     ngOnChanges(changes: SimpleChanges): void {
         if (this.visible()) {
@@ -226,7 +223,6 @@ export class ExternalWindowComponent implements AfterViewInit, OnDestroy, OnChan
             }
         };
 
-
         this.observerClass = new MutationObserver((mutations: MutationRecord[]) => {
             copyBodyClass();
         });
@@ -238,7 +234,9 @@ export class ExternalWindowComponent implements AfterViewInit, OnDestroy, OnChan
 
         copyBodyClass();
 
-        this.electronWindow = Electron.isAvailable() ? Electron.getRemote().BrowserWindow.getAllWindows()[0] : undefined;
+        this.electronWindow = Electron.isAvailable()
+            ? Electron.getRemote().BrowserWindow.getAllWindows()[0]
+            : undefined;
         this.parentWindow = this.registry.getOuterActiveWindow() as WindowComponent;
 
         if (this.parentWindow && this.alwaysRaised()) {
@@ -307,8 +305,7 @@ export class ExternalWindowComponent implements AfterViewInit, OnDestroy, OnChan
         }
     }
 
-    ngAfterViewInit() {
-    }
+    ngAfterViewInit() {}
 
     public close() {
         this.visible.set(false);
@@ -323,7 +320,6 @@ export class ExternalWindowComponent implements AfterViewInit, OnDestroy, OnChan
     }
 }
 
-
 /**
  * This directive is necessary if you want to load and render the dialog content
  * only when opening the dialog. Without it it is immediately render, which can cause
@@ -331,7 +327,10 @@ export class ExternalWindowComponent implements AfterViewInit, OnDestroy, OnChan
  */
 @Directive({ selector: '[externalDialogContainer]' })
 export class ExternalDialogDirective {
-    constructor(protected dialog: ExternalWindowComponent, public template: TemplateRef<any>) {
+    constructor(
+        protected dialog: ExternalWindowComponent,
+        public template: TemplateRef<any>,
+    ) {
         this.dialog.setDialogContainer(this.template);
     }
 }

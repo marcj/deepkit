@@ -4,7 +4,6 @@
     "preserveSymlinks": true,
     "useDefineForClassFields": false,
     "target": "es2022",
-    "baseUrl": ".",
     "outDir": "./dist/cjs",
     "types": []
   },

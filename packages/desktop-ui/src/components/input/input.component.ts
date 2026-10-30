@@ -7,55 +7,74 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { AfterViewInit, booleanAttribute, Component, computed, ElementRef, inject, input, LOCALE_ID, output, viewChild } from '@angular/core';
-import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
 import { formatDate } from '@angular/common';
-import { IconComponent } from '../icon/icon.component';
+import {
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    Component,
+    ElementRef,
+    LOCALE_ID,
+    booleanAttribute,
+    computed,
+    inject,
+    input,
+    output,
+    viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+
+import { ValueAccessorBase, ngValueAccessor } from '../../core/form';
 import { DuiDocument } from '../document';
+import { IconComponent } from '../icon/icon.component';
 
 const dateTimeTypes: string[] = ['time', 'date', 'datetime', 'datetime-local'];
 
 @Component({
     selector: 'dui-input',
     template: `
-      @if (icon(); as icon) {
-        <dui-icon class="icon" [size]="iconSize()" [name]="icon"></dui-icon>
-      }
-      @if (type() === 'textarea') {
-        <textarea
-          #input
-          [readOnly]="readonly()"
-          [placeholder]="placeholder()" (keyup)="onKeyUp($event)" (keydown)="onKeyDown($event)"
-          (focus)="focus.emit($event)" (blur)="blur.emit($event)"
-          [disabled]="isDisabled"
-          [ngModel]="normalizeValue()" (ngModelChange)="setValue($event)"></textarea>
-      } @else {
-        @if (type() !== 'textarea') {
-          <input
-            #input
-            [name]="name()"
-            [step]="step()"
-            [readOnly]="readonly()"
-            [attr.min]="min()"
-            [attr.max]="max()"
-            [attr.minLength]="minLength()"
-            [attr.maxLength]="maxLength()"
-            [type]="type()"
-            (change)="handleFileInput($event)"
-            [placeholder]="placeholder()"
-            (keyup)="onKeyUp($event)" (keydown)="onKeyDown($event)"
-            (focus)="focus.emit($event)" (blur)="blur.emit($event)"
-            [disabled]="isDisabled"
-            [ngModel]="type() === 'file' ? undefined : normalizeValue()"
-            (ngModelChange)="setValue($event)"
-          />
+        @if (icon(); as icon) {
+            <dui-icon class="icon" [size]="iconSize()" [name]="icon"></dui-icon>
         }
-      }
-      @if (clearer() && !disabled()) {
-        <dui-icon class="clearer" name="clear" (click)="clear()"></dui-icon>
-      }
+        @if (type() === 'textarea') {
+            <textarea
+                #input
+                [readOnly]="readonly()"
+                [placeholder]="placeholder()"
+                (keyup)="onKeyUp($event)"
+                (keydown)="onKeyDown($event)"
+                (focus)="focus.emit($event)"
+                (blur)="blur.emit($event)"
+                [disabled]="isDisabled"
+                [ngModel]="normalizeValue()"
+                (ngModelChange)="setValue($event)"
+            ></textarea>
+        } @else {
+            @if (type() !== 'textarea') {
+                <input
+                    #input
+                    [name]="name()"
+                    [step]="step()"
+                    [readOnly]="readonly()"
+                    [attr.min]="min()"
+                    [attr.max]="max()"
+                    [attr.minLength]="minLength()"
+                    [attr.maxLength]="maxLength()"
+                    [type]="type()"
+                    (change)="handleFileInput($event)"
+                    [placeholder]="placeholder()"
+                    (keyup)="onKeyUp($event)"
+                    (keydown)="onKeyDown($event)"
+                    (focus)="focus.emit($event)"
+                    (blur)="blur.emit($event)"
+                    [disabled]="isDisabled"
+                    [ngModel]="type() === 'file' ? undefined : normalizeValue()"
+                    (ngModelChange)="setValue($event)"
+                />
+            }
+        }
+        @if (clearer() && !disabled()) {
+            <dui-icon class="clearer" name="clear" (click)="clear()"></dui-icon>
+        }
     `,
     styleUrls: ['./input.component.scss'],
     host: {
@@ -72,6 +91,7 @@ const dateTimeTypes: string[] = ['time', 'date', 'datetime', 'datetime-local'];
         '[class.focused]': 'isFocused()',
     },
     providers: [ngValueAccessor(InputComponent)],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [IconComponent, FormsModule],
 })
 export class InputComponent extends ValueAccessorBase<any> implements AfterViewInit {
@@ -145,7 +165,6 @@ export class InputComponent extends ValueAccessorBase<any> implements AfterViewI
         return this.value();
     });
 
-
     constructor() {
         super();
         this.value.set('');
@@ -166,7 +185,6 @@ export class InputComponent extends ValueAccessorBase<any> implements AfterViewI
 
         if (this.type() === 'file') return;
         if (this.type() === 'text') {
-
         } else if (this.type() === 'number') {
             if (value && 'number' !== typeof value) {
                 value = parseFloat(value);
@@ -225,7 +243,7 @@ export class InputComponent extends ValueAccessorBase<any> implements AfterViewI
                         }
                     }
                 };
-                reader.onerror = (error) => {
+                reader.onerror = error => {
                     console.log('Error: ', error);
                     reject();
                 };

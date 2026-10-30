@@ -1,55 +1,85 @@
-import { ApplicationRef, Component, ComponentRef, effect, EventEmitter, inject, Injector, input, inputBinding, model, OnDestroy, Output, twoWayBinding, viewChild, ViewContainerRef } from '@angular/core';
-import { CheckboxComponent, DropdownComponent, DropdownContainerDirective, IconComponent, OpenDropdownDirective, unsubscribe } from '@deepkit/desktop-ui';
-import { hasDefaultValue, isOptional, ReflectionKind, Type } from '@deepkit/type';
+import {
+    ApplicationRef,
+    ChangeDetectionStrategy,
+    Component,
+    ComponentRef,
+    EventEmitter,
+    Injector,
+    OnDestroy,
+    Output,
+    ViewContainerRef,
+    effect,
+    inject,
+    input,
+    inputBinding,
+    model,
+    twoWayBinding,
+    viewChild,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+
+import {
+    CheckboxComponent,
+    DropdownComponent,
+    DropdownContainerDirective,
+    IconComponent,
+    OpenDropdownDirective,
+    unsubscribe,
+} from '@deepkit/desktop-ui';
+import { ReflectionKind, Type, hasDefaultValue, isOptional } from '@deepkit/type';
+import { CodeHighlightComponent } from '@deepkit/ui-library';
+
 import type { DataStructure } from '../../store';
 import { TypeDecoration, typeToTSJSONInterface } from '../../utils';
 import { InputRegistry } from './registry';
-import { FormsModule } from '@angular/forms';
-import { CodeHighlightComponent } from '@deepkit/ui-library';
 
 @Component({
     selector: 'api-console-input',
     template: `
-      @if (decoration(); as decoration) {
-        <div class="decoration">
-          <div class="title">
-            @if (!isValueRequired) {
-              <dui-checkbox [ngModel]="enabled"
-                            (ngModelChange)="setEnabled($event)"
-              >{{ String(decoration.name) }}
-              </dui-checkbox>
-            }
-            @if (isValueRequired) {
-              <div>{{ String(decoration.name) }}</div>
-            }
-            <dui-icon class="help-icon" clickable [openDropdown]="helpDropdown" name="help"></dui-icon>
-          </div>
-          @if (decoration.description) {
-            <div class="description">{{ decoration.description }}</div>
-          }
-          <div #container></div>
-        </div>
-      } @else {
-        <div class="non-decoration">
-          @if (!isValueRequired) {
-            <dui-checkbox
-              [ngModel]="enabled"
-              (ngModelChange)="setEnabled($event)"></dui-checkbox>
-          }
-          <div #container></div>
-          <dui-icon class="help-icon" style="flex: 0;" clickable [openDropdown]="helpDropdown" name="help"></dui-icon>
-        </div>
-      }
-      <dui-dropdown #helpDropdown>
-        <ng-container *dropdownContainer>
-          <div class="help-code">
-            <code-highlight [code]="typeToTSJSONInterface(type())"></code-highlight>
-          </div>
-        </ng-container>
-      </dui-dropdown>
+        @if (decoration(); as decoration) {
+            <div class="decoration">
+                <div class="title">
+                    @if (!isValueRequired) {
+                        <dui-checkbox [ngModel]="enabled" (ngModelChange)="setEnabled($event)"
+                            >{{ String(decoration.name) }}
+                        </dui-checkbox>
+                    }
+                    @if (isValueRequired) {
+                        <div>{{ String(decoration.name) }}</div>
+                    }
+                    <dui-icon class="help-icon" clickable [openDropdown]="helpDropdown" name="help"></dui-icon>
+                </div>
+                @if (decoration.description) {
+                    <div class="description">{{ decoration.description }}</div>
+                }
+                <div #container></div>
+            </div>
+        } @else {
+            <div class="non-decoration">
+                @if (!isValueRequired) {
+                    <dui-checkbox [ngModel]="enabled" (ngModelChange)="setEnabled($event)"></dui-checkbox>
+                }
+                <div #container></div>
+                <dui-icon
+                    class="help-icon"
+                    style="flex: 0;"
+                    clickable
+                    [openDropdown]="helpDropdown"
+                    name="help"
+                ></dui-icon>
+            </div>
+        }
+        <dui-dropdown #helpDropdown>
+            <ng-container *dropdownContainer>
+                <div class="help-code">
+                    <code-highlight [code]="typeToTSJSONInterface(type())"></code-highlight>
+                </div>
+            </ng-container>
+        </dui-dropdown>
     `,
     styleUrls: ['./input.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         CheckboxComponent,
         FormsModule,
@@ -134,7 +164,10 @@ export class InputComponent implements OnDestroy {
         this.model(); // subscribe
 
         const typeValue = this.type();
-        const type = typeValue.kind === ReflectionKind.propertySignature || typeValue.kind === ReflectionKind.property ? typeValue.type : typeValue;
+        const type =
+            typeValue.kind === ReflectionKind.propertySignature || typeValue.kind === ReflectionKind.property
+                ? typeValue.type
+                : typeValue;
         const component = this.inputRegistry.registry.get(type);
         if (!component) {
             console.log('no component for', type);

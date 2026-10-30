@@ -66,12 +66,12 @@
               "src/assets",
               {
                 "glob": "**/*",
-                "input": "../packages/desktop-ui/src/assets/fonts",
+                "input": ".desktop-ui-assets/fonts",
                 "output": "./assets/fonts"
               },
               {
                 "glob": "docs.json",
-                "input": "../packages/desktop-ui/src/assets",
+                "input": ".desktop-ui-assets",
                 "output": "./assets"
               }
             ],

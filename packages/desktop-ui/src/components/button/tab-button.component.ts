@@ -7,24 +7,21 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { booleanAttribute, Component, HostListener, inject, input } from '@angular/core';
-import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
+import { ChangeDetectionStrategy, Component, HostListener, booleanAttribute, inject, input } from '@angular/core';
 import { RouterLinkActive } from '@angular/router';
+
+import { ValueAccessorBase, ngValueAccessor } from '../../core/form';
 
 @Component({
     selector: 'dui-tab-button',
-    template: `
-      <ng-content></ng-content>
-    `,
+    template: ` <ng-content></ng-content> `,
     host: {
         '[attr.tabindex]': '1',
         '[class.active]': 'isActive()',
     },
     styleUrls: ['./tab-button.component.scss'],
-    hostDirectives: [
-        { directive: RouterLinkActive, inputs: ['routerLinkActiveOptions'] },
-    ],
+    hostDirectives: [{ directive: RouterLinkActive, inputs: ['routerLinkActiveOptions'] }],
+    changeDetection: ChangeDetectionStrategy.Eager,
     providers: [ngValueAccessor(TabButtonComponent)],
 })
 export class TabButtonComponent extends ValueAccessorBase<any> {

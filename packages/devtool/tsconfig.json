@@ -2,12 +2,10 @@
   "extends": "../../tsconfig.base.json",
   "compileOnSave": false,
   "compilerOptions": {
-    "baseUrl": "./",
     "outDir": "./dist/out-tsc",
     "allowSyntheticDefaultImports": true,
     "declaration": false,
     "composite": false,
-    "downlevelIteration": true,
     "importHelpers": true,
     "target": "es2022",
     "module": "ES2022",

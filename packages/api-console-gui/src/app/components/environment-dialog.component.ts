@@ -1,30 +1,45 @@
-import { Component, input } from '@angular/core';
-import { Environment, Store } from '../store';
-import { arrayRemoveItem, copy } from '@deepkit/core';
-import { ButtonComponent, CloseDialogDirective, DialogActionsComponent, DialogComponent, FormRowComponent, InputComponent } from '@deepkit/desktop-ui';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+
+import { arrayRemoveItem, copy } from '@deepkit/core';
+import {
+    ButtonComponent,
+    CloseDialogDirective,
+    DialogActionsComponent,
+    DialogComponent,
+    FormRowComponent,
+    InputComponent,
+} from '@deepkit/desktop-ui';
+
+import { Environment, Store } from '../store';
 import { HeadersComponent } from './headers.component';
 
 @Component({
     template: `
-      <h2>Environment</h2>
+        <h2>Environment</h2>
 
-      <div style="margin-top: 10px;">
-        <dui-form-row label="Name:">
-          <dui-input [required]="true" [(ngModel)]="environment().name"></dui-input>
-        </dui-form-row>
+        <div style="margin-top: 10px;">
+            <dui-form-row label="Name:">
+                <dui-input [required]="true" [(ngModel)]="environment().name"></dui-input>
+            </dui-form-row>
 
-        <div>
-          <h3 style="margin-bottom: 5px;">Headers</h3>
-          <api-console-headers [(model)]="environment().headers"></api-console-headers>
+            <div>
+                <h3 style="margin-bottom: 5px;">Headers</h3>
+                <api-console-headers [(model)]="environment().headers"></api-console-headers>
+            </div>
         </div>
-      </div>
 
-      <dui-dialog-actions>
-        <dui-button style="margin-right: auto;" [disabled]="store.state.environments.length === 1" (click)="remove()">Delete</dui-button>
-        <dui-button closeDialog>OK</dui-button>
-      </dui-dialog-actions>
+        <dui-dialog-actions>
+            <dui-button
+                style="margin-right: auto;"
+                [disabled]="store.state.environments.length === 1"
+                (click)="remove()"
+                >Delete</dui-button
+            >
+            <dui-button closeDialog>OK</dui-button>
+        </dui-dialog-actions>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FormRowComponent,
         InputComponent,
@@ -42,8 +57,10 @@ export class EnvironmentDialogComponent {
 
     environment = input.required<Environment>();
 
-    constructor(public store: Store, protected dialogComponent: DialogComponent) {
-    }
+    constructor(
+        public store: Store,
+        protected dialogComponent: DialogComponent,
+    ) {}
 
     remove() {
         if (!this.store.state.environments.length) return;

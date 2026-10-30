@@ -124,7 +124,7 @@ export const Image = Node.create<ImageOptions, Image2Storage>({
                                 URL.revokeObjectURL(cache.blob.url);
                             }
                             if (!content) return;
-                            const blob = new Blob([content.data], { type: content.mimeType });
+                            const blob = new Blob([content.data as BlobPart], { type: content.mimeType });
                             cache.blob = {
                                 blob,
                                 path: path,

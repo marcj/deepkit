@@ -14,18 +14,18 @@
       "default": "./package.json"
     },
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./dist/types/deepkit-ui-library.d.ts",
       "default": "./dist/fesm2022/deepkit-ui-library.mjs"
     }
   },
   "scripts": {
-    "build": "rm -rf .angular && ng-packagr --config tsconfig.prod.json && rm dist/.npmignore",
+    "build": "rm -rf .angular && ng-packagr --config tsconfig.prod.json && rm -f dist/.npmignore",
     "watch": "ng-packagr --config tsconfig.prod.json --watch"
   },
   "peerDependencies": {
-    "@angular/common": "20.0.4",
-    "@angular/core": "^20.0.4",
-    "@angular/forms": "^20.0.4",
+    "@angular/common": "^22.2.4",
+    "@angular/core": "^22.2.4",
+    "@angular/forms": "^22.2.4",
     "@deepkit/core": "^1.0.1",
     "@deepkit/desktop-ui": "^1.0.1",
     "@deepkit/rpc": "^1.0.1",
@@ -40,8 +40,8 @@
     "@deepkit/rpc": "^1.0.1",
     "@deepkit/type": "^1.0.1",
     "@types/prismjs": "^1.26.0",
-    "ng-packagr": "^20.0.1",
-    "ngxtension": "^5.1.0",
+    "ng-packagr": "^22.2.5",
+    "ngxtension": "^7.3.1",
     "rxjs": "~7.8.0"
   },
   "jest": {

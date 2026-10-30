@@ -7,9 +7,17 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import {
+    ChangeDetectionStrategy,
+    Component,
+    HostBinding,
+    HostListener,
+    booleanAttribute,
+    inject,
+    input,
+} from '@angular/core';
 
-import { booleanAttribute, Component, HostBinding, HostListener, inject, input } from '@angular/core';
-import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
+import { ValueAccessorBase, ngValueAccessor } from '../../core/form';
 
 /**
  * Radio group component to group multiple radio buttons together.
@@ -17,11 +25,10 @@ import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
 @Component({
     selector: 'dui-radio-group',
     providers: [ngValueAccessor(RadioGroupComponent)],
-    template: `
-      <ng-content></ng-content>`,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    template: ` <ng-content></ng-content>`,
 })
-export class RadioGroupComponent extends ValueAccessorBase<any> {
-}
+export class RadioGroupComponent extends ValueAccessorBase<any> {}
 
 /**
  * Radio button component to toggle between multiple options.
@@ -35,14 +42,15 @@ export class RadioGroupComponent extends ValueAccessorBase<any> {
 @Component({
     selector: 'dui-radio-button',
     template: `
-      <span class="box"><div class="circle"></div></span>
-      <ng-content></ng-content>
+        <span class="box"><div class="circle"></div></span>
+        <ng-content></ng-content>
     `,
     host: {
         '[class.dui-normalized]': 'true',
         '[class.disabled]': 'disabled()',
         '[class.checked]': 'isChecked',
     },
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./radio-box.component.scss'],
 })
 export class RadioButtonComponent {

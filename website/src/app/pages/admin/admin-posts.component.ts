@@ -1,56 +1,68 @@
-import { Component, computed, effect, input, signal } from '@angular/core';
-import { ButtonGroupComponent, ButtonGroupsComponent, CheckboxComponent, FilesystemApi, InputComponent, ListComponent, ListItemComponent, MenuComponent, MenuItemComponent, SplitterComponent } from '@deepkit/desktop-ui';
-import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
-import { TextEditorComponent } from '@app/app/pages/admin/text-editor.component.js';
+import { ChangeDetectionStrategy, Component, computed, effect, input, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { injectAdminRpc } from '@app/app/pages/admin/admin-client.js';
+import { TextEditorComponent } from '@app/app/pages/admin/text-editor.component.js';
 import { injectLocalStorageNumber } from '@app/app/utils.js';
+import { BlogEntity, blogDateFormat, isBlocksEqual } from '@app/common/models.js';
 import { JSONContent } from '@tiptap/core';
-import { linkedQueryParam } from 'ngxtension/linked-query-param';
 import { createNotifier } from 'ngxtension/create-notifier';
 import { derivedAsync } from 'ngxtension/derived-async';
-import { blogDateFormat, BlogEntity, isBlocksEqual } from '@app/common/models.js';
+import { linkedQueryParam } from 'ngxtension/linked-query-param';
+
 import { formatError } from '@deepkit/core';
+import {
+    ButtonGroupComponent,
+    ButtonGroupsComponent,
+    CheckboxComponent,
+    FilesystemApi,
+    InputComponent,
+    ListComponent,
+    ListItemComponent,
+    MenuComponent,
+    MenuItemComponent,
+    SplitterComponent,
+} from '@deepkit/desktop-ui';
 
 @Component({
     selector: 'dw-admin-posts',
     template: `
-      <div class="sidebar" #sidebar>
-        <dui-menu>
-          <dui-menu-item label="File">
-            <dui-menu-item label="New" (click)="create()" hotkey="meta+n" />
-            <dui-menu-item label="Save" (click)="save()" hotkey="meta+s" />
-          </dui-menu-item>
-        </dui-menu>
-        <dui-list class="overlay-scrollbar-small">
-          @for (post of posts(); track post.id) {
-            <dui-list-item (click)="postId.set(post.id); view.set('edit')" [active]="postId() === post.id">
-              <span>{{ post.publishedAt | date: noteDateFormat }}</span>
-              {{ post.title || post.id }}
-            </dui-list-item>
-          }
-        </dui-list>
-      </div>
-      <dui-splitter indicator [(size)]="sidebarSize" [element]="sidebar" />
-      <div class="container">
-        <dui-button-groups>
-          <dui-button-group>
-            @if (error(); as error) {
-              <div>(Error: {{ error }})</div>
-            }
-          </dui-button-group>
-          @if (post(); as post) {
-            <dui-button-group>
-              @if (changed()) {
-                <span>(changed)</span>
-              }
-              <dui-checkbox [(ngModel)]="post.published">Published</dui-checkbox>
-              <dui-input round type="date" [(ngModel)]="post.publishedAt" />
-            </dui-button-group>
-          }
-        </dui-button-groups>
-        <app-text-editor [(ngModel)]="content" [filesystemApi]="api()" />
-      </div>
+        <div class="sidebar" #sidebar>
+            <dui-menu>
+                <dui-menu-item label="File">
+                    <dui-menu-item label="New" (click)="create()" hotkey="meta+n" />
+                    <dui-menu-item label="Save" (click)="save()" hotkey="meta+s" />
+                </dui-menu-item>
+            </dui-menu>
+            <dui-list class="overlay-scrollbar-small">
+                @for (post of posts(); track post.id) {
+                    <dui-list-item (click)="postId.set(post.id); view.set('edit')" [active]="postId() === post.id">
+                        <span>{{ post.publishedAt | date: noteDateFormat }}</span>
+                        {{ post.title || post.id }}
+                    </dui-list-item>
+                }
+            </dui-list>
+        </div>
+        <dui-splitter indicator [(size)]="sidebarSize" [element]="sidebar" />
+        <div class="container">
+            <dui-button-groups>
+                <dui-button-group>
+                    @if (error(); as error) {
+                        <div>(Error: {{ error }})</div>
+                    }
+                </dui-button-group>
+                @if (post(); as post) {
+                    <dui-button-group>
+                        @if (changed()) {
+                            <span>(changed)</span>
+                        }
+                        <dui-checkbox [(ngModel)]="post.published">Published</dui-checkbox>
+                        <dui-input round type="date" [(ngModel)]="post.publishedAt" />
+                    </dui-button-group>
+                }
+            </dui-button-groups>
+            <app-text-editor [(ngModel)]="content" [filesystemApi]="api()" />
+        </div>
     `,
     imports: [
         ListComponent,
@@ -66,73 +78,74 @@ import { formatError } from '@deepkit/core';
         DatePipe,
         TextEditorComponent,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     styles: `
-      :host {
-        display: flex;
-        flex-direction: row;
-        flex: 1;
-        background-color: #0F1217;
-        overflow: hidden;
-      }
-
-      dui-button-groups {
-        justify-content: end;
-      }
-
-      dui-list-item {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 6px;
-      }
-
-      dui-list-item span {
-        color: var(--dui-text-light);
-      }
-
-      dui-menu {
-        padding: 4px;
-      }
-
-      app-text-editor {
-        flex: 1;
-      }
-
-      .normalize-text {
-        padding: 40px;
-        max-width: unset;
-      }
-
-      dui-splitter {
-        /*background-color: var(--dui-line-color-light);*/
-        /*border-radius: 3px;*/
-        /*height: 150px;*/
-        /*margin: auto;*/
-        border-right: 1px solid var(--dui-line-color-light);
-      }
-
-      .sidebar {
-        width: 320px;
-        display: flex;
-        flex-direction: column;
-
-        dui-button-group {
-          margin: 8px;
+        :host {
+            display: flex;
+            flex-direction: row;
+            flex: 1;
+            background-color: #0f1217;
+            overflow: hidden;
         }
 
-        dui-list {
-          flex: 1;
+        dui-button-groups {
+            justify-content: end;
         }
-      }
 
-      .container {
-        flex: 1;
-        padding: 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        overflow: hidden;
-      }
+        dui-list-item {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 6px;
+        }
+
+        dui-list-item span {
+            color: var(--dui-text-light);
+        }
+
+        dui-menu {
+            padding: 4px;
+        }
+
+        app-text-editor {
+            flex: 1;
+        }
+
+        .normalize-text {
+            padding: 40px;
+            max-width: unset;
+        }
+
+        dui-splitter {
+            /*background-color: var(--dui-line-color-light);*/
+            /*border-radius: 3px;*/
+            /*height: 150px;*/
+            /*margin: auto;*/
+            border-right: 1px solid var(--dui-line-color-light);
+        }
+
+        .sidebar {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+
+            dui-button-group {
+                margin: 8px;
+            }
+
+            dui-list {
+                flex: 1;
+            }
+        }
+
+        .container {
+            flex: 1;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+        }
     `,
 })
 export class AdminPostsComponent {
@@ -162,14 +175,17 @@ export class AdminPostsComponent {
     });
 
     reload = createNotifier();
-    posts = derivedAsync(() => {
-        this.reload.listen();
-        return this.adminRpc.getPosts();
-    }, { initialValue: [] });
+    posts = derivedAsync(
+        () => {
+            this.reload.listen();
+            return this.adminRpc.getPosts();
+        },
+        { initialValue: [] },
+    );
 
     postId = linkedQueryParam('post', {
-        parse: (value) => value ? Number(value) : 0,
-        stringify: value => value ? value : undefined,
+        parse: value => (value ? Number(value) : 0),
+        stringify: value => (value ? value : undefined),
     });
 
     post = signal<BlogEntity | undefined>(undefined);
@@ -228,7 +244,7 @@ export class AdminPostsComponent {
             } else {
                 post.content = this.content();
                 await this.adminRpc.savePost(post);
-                this.post.update(v => (v && { ...v }));
+                this.post.update(v => v && { ...v });
             }
             this.reload.notify();
         } catch (error) {

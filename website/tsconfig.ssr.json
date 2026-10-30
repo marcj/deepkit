@@ -4,11 +4,15 @@
   "compilerOptions": {
     "outDir": "./out-tsc/ssr",
     "module": "commonjs",
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
-  "files": [
-    "src/main.server.ts"
-  ]
+  "files": ["src/main.server.ts"],
+  "angularCompilerOptions": {
+    "extendedDiagnostics": {
+      "checks": {
+        "nullishCoalescingNotNullable": "suppress",
+        "optionalChainNotNullable": "suppress"
+      }
+    }
+  }
 }

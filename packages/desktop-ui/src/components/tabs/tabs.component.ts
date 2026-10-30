@@ -1,10 +1,9 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 @Component({
     selector: 'dui-tabs',
-    template: `
-        <ng-content></ng-content>`,
-    styleUrls: ['./tabs.component.scss']
+    template: ` <ng-content></ng-content>`,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styleUrls: ['./tabs.component.scss'],
 })
-export class TabsComponent {
-}
+export class TabsComponent {}

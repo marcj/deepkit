@@ -8,14 +8,13 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { ApplicationRef, ComponentFactoryResolver, Injectable, Injector, Type, ViewContainerRef } from '@angular/core';
+import { ApplicationRef, Injectable, Injector, Type, ViewContainerRef } from '@angular/core';
 import { ExternalWindowComponent } from './external-window.component';
 import { ComponentPortal, DomPortalOutlet } from '@angular/cdk/portal';
 
 @Injectable({ providedIn: 'root' })
 export class DuiExternalWindow {
     constructor(
-        protected resolver: ComponentFactoryResolver,
         protected app: ApplicationRef,
         protected injector: Injector,
     ) {

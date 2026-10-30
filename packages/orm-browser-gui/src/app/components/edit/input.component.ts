@@ -1,18 +1,36 @@
-import { Component, ComponentRef, EventEmitter, inject, Input, OnChanges, OnDestroy, Optional, Output, SimpleChanges, ViewContainerRef } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ComponentRef,
+    EventEmitter,
+    Input,
+    OnChanges,
+    OnDestroy,
+    Optional,
+    Output,
+    SimpleChanges,
+    ViewContainerRef,
+    inject,
+} from '@angular/core';
+import { Subscription } from 'rxjs';
+
 import { TableComponent, unsubscribe } from '@deepkit/desktop-ui';
 import { Type } from '@deepkit/type';
-import { Subscription } from 'rxjs';
+
 import { ComponentRegistry } from '../../registry';
 import { isProperty } from '../../utils';
 
 @Component({
     selector: 'orm-browser-property-editing',
     template: ``,
-    styles: [`
-        :host {
-            display: none;
-        }
-    `],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [
+        `
+            :host {
+                display: none;
+            }
+        `,
+    ],
 })
 export class InputEditingComponent implements OnDestroy, OnChanges {
     @Input() model: any;
@@ -38,8 +56,7 @@ export class InputEditingComponent implements OnDestroy, OnChanges {
     constructor(
         private containerRef: ViewContainerRef,
         @Optional() private table?: TableComponent<any>,
-    ) {
-    }
+    ) {}
 
     ngOnDestroy() {
         this.unlink();
@@ -73,7 +90,8 @@ export class InputEditingComponent implements OnDestroy, OnChanges {
         const property = this.type.parent && isProperty(this.type.parent) ? this.type.parent : undefined;
 
         this.subDone = this.componentRef.instance.done.subscribe(() => {
-            if (this.row && property && this.row.$__activeColumn === property.name) this.row.$__activeColumn = undefined;
+            if (this.row && property && this.row.$__activeColumn === property.name)
+                this.row.$__activeColumn = undefined;
             this.done.emit(this.row);
         });
 

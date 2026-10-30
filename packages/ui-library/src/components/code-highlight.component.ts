@@ -1,6 +1,17 @@
-import { booleanAttribute, Component, computed, inject, Injectable, input, PendingTasks, ViewEncapsulation } from '@angular/core';
-import { type default as PrismT } from 'prismjs';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    Injectable,
+    PendingTasks,
+    ViewEncapsulation,
+    booleanAttribute,
+    computed,
+    inject,
+    input,
+} from '@angular/core';
 import { derivedAsync } from 'ngxtension/derived-async';
+import { type default as PrismT } from 'prismjs';
+
 import { asyncOperation } from '@deepkit/core';
 import { pendingTask } from '@deepkit/desktop-ui';
 
@@ -11,9 +22,14 @@ import { pendingTask } from '@deepkit/desktop-ui';
     },
     styleUrl: './code-highlight.component.scss',
     template: `
-      <ng-content></ng-content>
-      <pre class="code codeHighlight text-selection language-{{lang()}}" [attr.title]="title() || undefined" [innerHTML]="html()"></pre>
+        <ng-content></ng-content>
+        <pre
+            class="code codeHighlight text-selection language-{{ lang() }}"
+            [attr.title]="title() || undefined"
+            [innerHTML]="html()"
+        ></pre>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     encapsulation: ViewEncapsulation.None,
 })
 export class CodeHighlightComponent {
@@ -31,8 +47,8 @@ export class CodeHighlightComponent {
     });
 }
 
-const prism = asyncOperation<typeof PrismT>(async (resolve) => {
-    const Prism = globalThis.Prism = (await import('prismjs')).default;
+const prism = asyncOperation<typeof PrismT>(async resolve => {
+    const Prism = (globalThis.Prism = (await import('prismjs')).default);
     // @ts-ignore
     await import('prismjs/components/prism-typescript');
     // @ts-ignore
@@ -73,7 +89,11 @@ export class Prism {
         const code = 'string' === typeof raw ? raw : JSON.stringify(raw) || '';
         const firstLineIndentLength = code.match(/^\s+/)?.[0].length || 1;
         // Remove leading whitespace from each line
-        const trimmedCode = code.split('\n').map(line => line.slice(firstLineIndentLength - 1)).join('\n').trim();
+        const trimmedCode = code
+            .split('\n')
+            .map(line => line.slice(firstLineIndentLength - 1))
+            .join('\n')
+            .trim();
 
         lang ||= 'typescript';
         if (!prism.languages[lang]) lang = 'text';

@@ -1,51 +1,71 @@
-import { Component, EventEmitter, forwardRef, input, model, OnChanges, OnInit, Output } from '@angular/core';
-import { getKeyType, getValueType, Type, TypeClass, TypeObjectLiteral } from '@deepkit/type';
-import { DataStructure } from '../../store';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    EventEmitter,
+    OnChanges,
+    OnInit,
+    Output,
+    forwardRef,
+    input,
+    model,
+} from '@angular/core';
+
 import { arrayMoveItem } from '@deepkit/core';
-import { InputComponent } from './input.component';
 import { ButtonComponent, IconComponent } from '@deepkit/desktop-ui';
+import { Type, TypeClass, TypeObjectLiteral, getKeyType, getValueType } from '@deepkit/type';
+
+import { DataStructure } from '../../store';
 import { TypeDecoration } from '../../utils.js';
+import { InputComponent } from './input.component';
 
 @Component({
     template: `
-      @if (model() && valueType && keyType) {
-        @for (item of model().children(); track $index; let i = $index; let last = $last) {
-          <div class="item">
-            <api-console-input style="margin-right: 5px;" [type]="keyType" [model]="item.getProperty('key')" (keyDown)="keyDown.emit($event)"></api-console-input>
-            <api-console-input [type]="valueType" [model]="item.getProperty('value')" (keyDown)="keyDown.emit($event)"></api-console-input>
-            <dui-icon clickable name="arrow_up" [disabled]="i === 0" (click)="up(item)"></dui-icon>
-            <dui-icon clickable name="arrow_down" [disabled]="last" (click)="down(item)"></dui-icon>
-            <dui-icon clickable name="garbage" (click)="remove(i)"></dui-icon>
-          </div>
+        @if (model() && valueType && keyType) {
+            @for (item of model().children(); track $index; let i = $index; let last = $last) {
+                <div class="item">
+                    <api-console-input
+                        style="margin-right: 5px;"
+                        [type]="keyType"
+                        [model]="item.getProperty('key')"
+                        (keyDown)="keyDown.emit($event)"
+                    ></api-console-input>
+                    <api-console-input
+                        [type]="valueType"
+                        [model]="item.getProperty('value')"
+                        (keyDown)="keyDown.emit($event)"
+                    ></api-console-input>
+                    <dui-icon clickable name="arrow_up" [disabled]="i === 0" (click)="up(item)"></dui-icon>
+                    <dui-icon clickable name="arrow_down" [disabled]="last" (click)="down(item)"></dui-icon>
+                    <dui-icon clickable name="garbage" (click)="remove(i)"></dui-icon>
+                </div>
+            }
         }
-      }
-      <div class="actions">
-        <dui-button square icon="add" (click)="add()"></dui-button>
-      </div>
+        <div class="actions">
+            <dui-button square icon="add" (click)="add()"></dui-button>
+        </div>
     `,
-    styles: [`
-        .actions {
-            margin-top: 6px;
-        }
+    styles: [
+        `
+            .actions {
+                margin-top: 6px;
+            }
 
-        .item {
-            padding: 2px 0;
-            display: flex;
-        }
+            .item {
+                padding: 2px 0;
+                display: flex;
+            }
 
-        .item > * {
-            flex: 1;
-        }
+            .item > * {
+                flex: 1;
+            }
 
-        .item dui-icon {
-            flex: 0;
-        }
-    `],
-    imports: [
-        forwardRef(() => InputComponent),
-        IconComponent,
-        ButtonComponent,
+            .item dui-icon {
+                flex: 0;
+            }
+        `,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [forwardRef(() => InputComponent), IconComponent, ButtonComponent],
 })
 export class MapInputComponent implements OnInit, OnChanges {
     model = model.required<DataStructure>();

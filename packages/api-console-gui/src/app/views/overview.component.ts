@@ -1,25 +1,22 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { ControllerClient } from '../client';
-import { ApiDocument, ApiRoute } from '@deepkit/api-console-api';
-import { filterAndSortRoutes } from './view-helper';
-import { headerStatusCodes, typeToTSJSONInterface } from '../utils';
-import { Subscriptions } from '@deepkit/core-rxjs';
-import { typeSettings } from '@deepkit/type';
 import { AsyncPipe } from '@angular/common';
-import { MarkdownComponent } from 'ngx-markdown';
-import { ButtonComponent } from '@deepkit/desktop-ui';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { MarkdownComponent } from 'ngx-markdown';
+
+import { ApiDocument, ApiRoute } from '@deepkit/api-console-api';
+import { Subscriptions } from '@deepkit/core-rxjs';
+import { ButtonComponent } from '@deepkit/desktop-ui';
+import { typeSettings } from '@deepkit/type';
 import { CodeHighlightComponent } from '@deepkit/ui-library';
+
+import { ControllerClient } from '../client';
+import { headerStatusCodes, typeToTSJSONInterface } from '../utils';
+import { filterAndSortRoutes } from './view-helper';
 
 @Component({
     templateUrl: './overview.component.html',
-    imports: [
-        AsyncPipe,
-        MarkdownComponent,
-        ButtonComponent,
-        RouterLink,
-        CodeHighlightComponent,
-    ],
+    imports: [AsyncPipe, MarkdownComponent, ButtonComponent, RouterLink, CodeHighlightComponent],
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./overview.component.scss'],
 })
 export class OverviewComponent implements OnDestroy, OnInit {
@@ -33,13 +30,13 @@ export class OverviewComponent implements OnDestroy, OnInit {
     public categories: string[] = [];
     public groups: string[] = [];
 
-    showDetails: {[id: string]: boolean} = {};
+    showDetails: { [id: string]: boolean } = {};
 
     public initiallyLoaded: boolean = false;
     public loading: boolean = true;
     public error: string = '';
 
-    protected subscriptions = new Subscriptions
+    protected subscriptions = new Subscriptions();
 
     constructor(
         public client: ControllerClient,
@@ -62,7 +59,7 @@ export class OverviewComponent implements OnDestroy, OnInit {
             filterMethod: '',
             filterGroup: '',
             filterPath: '',
-            groupBy: this.groupBy
+            groupBy: this.groupBy,
         });
     }
 
@@ -83,7 +80,7 @@ export class OverviewComponent implements OnDestroy, OnInit {
     async loadRoutes() {
         //only display loading bar when not already initially loaded
         if (!this.initiallyLoaded) this.loading = true;
-        this.error =  '';
+        this.error = '';
         this.cd.detectChanges();
 
         console.log('ApiDocument type', ApiDocument, typeSettings);

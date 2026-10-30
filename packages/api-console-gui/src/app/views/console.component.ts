@@ -1,10 +1,10 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ControllerClient } from '../client';
-import { ApiAction, ApiEntryPoints, ApiRoute } from '@deepkit/api-console-api';
-import { methods } from '../utils';
-import { Environment, RouteState, Store } from '../store';
-import { copy } from '@deepkit/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription } from 'rxjs';
+
+import { ApiAction, ApiEntryPoints, ApiRoute } from '@deepkit/api-console-api';
+import { copy } from '@deepkit/core';
 import {
     ButtonComponent,
     ButtonGroupComponent,
@@ -24,14 +24,16 @@ import {
     SplitterComponent,
     TabButtonComponent,
 } from '@deepkit/desktop-ui';
-import { EnvironmentDialogComponent } from '../components/environment-dialog.component';
-import { filterAndSortActions, filterAndSortRoutes } from './view-helper';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { HttpRouteDetailComponent } from './http/route-detail.component';
-import { HttpRequestsComponent } from './http/results.component';
 import { ReflectionKind, stringifyType } from '@deepkit/type';
-import { FormsModule } from '@angular/forms';
+
+import { ControllerClient } from '../client';
+import { EnvironmentDialogComponent } from '../components/environment-dialog.component';
+import { Environment, RouteState, Store } from '../store';
+import { methods } from '../utils';
+import { HttpRequestsComponent } from './http/results.component';
+import { HttpRouteDetailComponent } from './http/route-detail.component';
 import { RpcDetailComponent } from './rpc/rpc-detail.component';
+import { filterAndSortActions, filterAndSortRoutes } from './view-helper';
 
 @Component({
     templateUrl: './console.component.html',
@@ -58,12 +60,13 @@ import { RpcDetailComponent } from './rpc/rpc-detail.component';
         HttpRouteDetailComponent,
         HttpRequestsComponent,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./console.component.scss'],
 })
 export class ConsoleComponent implements OnInit, OnDestroy {
     methods = methods;
 
-    public entryPoints = new ApiEntryPoints;
+    public entryPoints = new ApiEntryPoints();
 
     public filteredActions: ApiAction[] = [];
     public filteredRoutes: ApiRoute[] = [];
@@ -219,7 +222,12 @@ export class ConsoleComponent implements OnInit, OnDestroy {
         for (const action of this.entryPoints.rpcActions) {
             const args: string[] = [];
             for (const property of action.getParametersType()) {
-                args.push(property.name + (property.optional || property.default !== undefined ? '?' : '') + ': ' + stringifyType(property.type, { showNames: true, showFullDefinition: false }));
+                args.push(
+                    property.name +
+                        (property.optional || property.default !== undefined ? '?' : '') +
+                        ': ' +
+                        stringifyType(property.type, { showNames: true, showFullDefinition: false }),
+                );
             }
 
             action.parameterSignature = args.join(', ');
@@ -265,7 +273,7 @@ export class ConsoleComponent implements OnInit, OnDestroy {
     protected selectRouteFromRoute(force: boolean = false) {
         const selectedRoute = this.activatedRoute.snapshot.queryParams.route;
         console.log('this.activatedRoute.snapshot.queryParams', this.activatedRoute.snapshot.queryParams);
-        if (force || selectedRoute && (!this.store.state.route || this.store.state.route.id !== selectedRoute)) {
+        if (force || (selectedRoute && (!this.store.state.route || this.store.state.route.id !== selectedRoute))) {
             const route = this.entryPoints.httpRoutes.find(v => v.id === selectedRoute);
             if (!route) return;
             this.setRoute(route);
@@ -274,11 +282,10 @@ export class ConsoleComponent implements OnInit, OnDestroy {
 
     protected selectActionFromRoute(force: boolean = false) {
         const selectedAction = this.activatedRoute.snapshot.queryParams.action;
-        if (force || selectedAction && (!this.store.state.action || this.store.state.action.id !== selectedAction)) {
+        if (force || (selectedAction && (!this.store.state.action || this.store.state.action.id !== selectedAction))) {
             const action = this.entryPoints.rpcActions.find(v => v.id === selectedAction);
             if (!action) return;
             this.setAction(action);
         }
     }
-
 }

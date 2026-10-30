@@ -1,81 +1,88 @@
-import { ChangeDetectorRef, Component, Input, OnDestroy, Optional } from '@angular/core';
-import { ButtonComponent, ButtonGroupComponent, DuiDialog, TabButtonComponent, unsubscribe } from '@deepkit/desktop-ui';
-import { DatabaseInfo } from '@deepkit/orm-browser-api';
-import { empty } from '@deepkit/core';
-import { BrowserState } from '../browser-state';
-import { ControllerClient } from '../client';
+import { KeyValuePipe } from '@angular/common';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, Optional } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { DatabaseSeedComponent } from '../components/database-seed.component';
+
+import { empty } from '@deepkit/core';
+import { ButtonComponent, ButtonGroupComponent, DuiDialog, TabButtonComponent, unsubscribe } from '@deepkit/desktop-ui';
+import { DatabaseInfo } from '@deepkit/orm-browser-api';
+
+import { BrowserState } from '../browser-state';
+import { ControllerClient } from '../client';
 import { DatabaseGraphComponent } from '../components/database-graph.component';
-import { KeyValuePipe } from '@angular/common';
+import { DatabaseSeedComponent } from '../components/database-seed.component';
 
 @Component({
     selector: 'orm-browser-database',
     template: `
-      <div class="header">
-        <dui-button-group>
-          <dui-tab-button [active]="tab === 'model'" (click)="setTab('model')">Model</dui-tab-button>
-          <dui-tab-button [active]="tab === 'migration'" (click)="setTab('migration')">Migration
-          </dui-tab-button>
-          <dui-tab-button [active]="tab === 'seed'" (click)="setTab('seed')">Seed</dui-tab-button>
-        </dui-button-group>
-      </div>
+        <div class="header">
+            <dui-button-group>
+                <dui-tab-button [active]="tab === 'model'" (click)="setTab('model')">Model</dui-tab-button>
+                <dui-tab-button [active]="tab === 'migration'" (click)="setTab('migration')">Migration </dui-tab-button>
+                <dui-tab-button [active]="tab === 'seed'" (click)="setTab('seed')">Seed</dui-tab-button>
+            </dui-button-group>
+        </div>
 
-      <div class="layout" [hidden]="tab !== 'seed'">
-        <orm-browser-seed [database]="database"></orm-browser-seed>
-      </div>
+        <div class="layout" [hidden]="tab !== 'seed'">
+            <orm-browser-seed [database]="database"></orm-browser-seed>
+        </div>
 
-      <div class="layout" [hidden]="tab !== 'model'">
-        @if (database) {
-          <database-graph [database]=database></database-graph>
-        }
-      </div>
+        <div class="layout" [hidden]="tab !== 'model'">
+            @if (database) {
+                <database-graph [database]="database"></database-graph>
+            }
+        </div>
 
-      <div class="layout migration-container" [hidden]="tab !== 'migration'">
-        @if (database) {
-          @if (loadingMigrations) {
-            <div>
-              Load migration
-            </div>
-          }
-          @if (!loadingMigrations) {
-            <div>
-              <dui-button (click)="resetAll()">Reset all</dui-button>
-              <dui-button (click)="migrate()">Migrate all</dui-button>
-              @if (empty(migrations)) {
-                <div class="migrations">
-                  No migrations available. Your models are in sync with the database schema.
-                </div>
-              }
-              @if (!empty(migrations)) {
-                <div class="migrations">
-                  @for (kv of migrations|keyvalue; track kv) {
+        <div class="layout migration-container" [hidden]="tab !== 'migration'">
+            @if (database) {
+                @if (loadingMigrations) {
+                    <div>Load migration</div>
+                }
+                @if (!loadingMigrations) {
                     <div>
-                      <h3>{{ kv.key }}</h3>
-                      <div class="diff text-selection">{{ kv.value.diff }}</div>
-                      @for (sql of kv.value.sql; track sql) {
-                        <div class="sql text-selection">
-                          {{ sql }}
-                        </div>
-                      }
+                        <dui-button (click)="resetAll()">Reset all</dui-button>
+                        <dui-button (click)="migrate()">Migrate all</dui-button>
+                        @if (empty(migrations)) {
+                            <div class="migrations">
+                                No migrations available. Your models are in sync with the database schema.
+                            </div>
+                        }
+                        @if (!empty(migrations)) {
+                            <div class="migrations">
+                                @for (kv of migrations | keyvalue; track kv) {
+                                    <div>
+                                        <h3>{{ kv.key }}</h3>
+                                        <div class="diff text-selection">{{ kv.value.diff }}</div>
+                                        @for (sql of kv.value.sql; track sql) {
+                                            <div class="sql text-selection">
+                                                {{ sql }}
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
                     </div>
-                  }
-                </div>
-              }
-            </div>
-          }
-        }
-      </div>
+                }
+            }
+        </div>
     `,
     styleUrls: ['./database.component.scss'],
-    imports: [ButtonGroupComponent, TabButtonComponent, DatabaseSeedComponent, DatabaseGraphComponent, ButtonComponent, KeyValuePipe],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [
+        ButtonGroupComponent,
+        TabButtonComponent,
+        DatabaseSeedComponent,
+        DatabaseGraphComponent,
+        ButtonComponent,
+        KeyValuePipe,
+    ],
 })
 export class DatabaseComponent implements OnDestroy {
     tab: string = 'model';
     empty = empty;
 
-    migrations: { [name: string]: { sql: string[], diff: string } } = {};
+    migrations: { [name: string]: { sql: string[]; diff: string } } = {};
 
     loadingMigrations: boolean = false;
 
@@ -92,7 +99,7 @@ export class DatabaseComponent implements OnDestroy {
         @Optional() protected activatedRoute?: ActivatedRoute,
     ) {
         if (activatedRoute) {
-            this.routeSub = activatedRoute.params.subscribe(async (params) => {
+            this.routeSub = activatedRoute.params.subscribe(async params => {
                 this.state.databases = await this.controllerClient.getDatabases();
                 this.database = this.state.getDatabase(decodeURIComponent(params.database));
                 this.cd.detectChanges();
@@ -100,8 +107,7 @@ export class DatabaseComponent implements OnDestroy {
         }
     }
 
-    ngOnDestroy(): void {
-    }
+    ngOnDestroy(): void {}
 
     async setTab(tab: string) {
         this.tab = tab;
@@ -112,7 +118,8 @@ export class DatabaseComponent implements OnDestroy {
 
     async resetAll() {
         if (!this.database) return;
-        if (!await this.duiDialog.confirm('Reset all?', 'All database tables will be reset. All content deleted.')) return;
+        if (!(await this.duiDialog.confirm('Reset all?', 'All database tables will be reset. All content deleted.')))
+            return;
 
         try {
             await this.controllerClient.browser.resetAllTables(this.database.name);
@@ -135,8 +142,7 @@ export class DatabaseComponent implements OnDestroy {
         this.state.onDataChange.emit();
     }
 
-    async loadSeed() {
-    }
+    async loadSeed() {}
 
     async loadMigration() {
         this.loadingMigrations = true;

@@ -126,7 +126,7 @@ export class RpcWebSocketClientAdapter implements ClientTransportAdapter {
                     socket.close();
                 },
                 writeBinary(message) {
-                    socket.send(message);
+                    socket.send(message as Uint8Array<ArrayBuffer>);
                 },
             });
         };

@@ -7,17 +7,18 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import { ChangeDetectionStrategy, Component, OnDestroy, TemplateRef, ViewChild } from '@angular/core';
 
-import { Component, OnDestroy, TemplateRef, ViewChild } from '@angular/core';
 import { WindowContentComponent } from './window-content.component';
 
 @Component({
     selector: 'dui-window-sidebar',
     template: `
-      <ng-template #templateRef>
-        <ng-content></ng-content>
-      </ng-template>
+        <ng-template #templateRef>
+            <ng-content></ng-content>
+        </ng-template>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./window-sidebar.component.scss'],
 })
 export class WindowSidebarComponent implements OnDestroy {

@@ -7,57 +7,90 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
-import { DatabaseInfo } from '@deepkit/orm-browser-api';
+import {
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    ElementRef,
+    Input,
+    OnChanges,
+    SimpleChanges,
+    ViewChild,
+} from '@angular/core';
 import { graphlib, layout } from 'dagre';
 import panzoom from 'panzoom';
-import { BrowserText } from './browser-text';
-import { isAutoIncrementType, isBackReferenceType, isPrimaryKeyType, isReferenceType, isSetType, ReflectionClass, ReflectionKind, resolveClassType, stringifyType, Type, TypeProperty, TypePropertySignature } from '@deepkit/type';
 
-type EdgeNode = { d: string, class?: string };
-type DKNode = { entity: ReflectionClass<any>, properties: (TypeProperty | TypePropertySignature)[], height: number, width: number, x: number, y: number };
+import { DatabaseInfo } from '@deepkit/orm-browser-api';
+import {
+    ReflectionClass,
+    ReflectionKind,
+    Type,
+    TypeProperty,
+    TypePropertySignature,
+    isAutoIncrementType,
+    isBackReferenceType,
+    isPrimaryKeyType,
+    isReferenceType,
+    isSetType,
+    resolveClassType,
+    stringifyType,
+} from '@deepkit/type';
+
+import { BrowserText } from './browser-text';
+
+type EdgeNode = { d: string; class?: string };
+type DKNode = {
+    entity: ReflectionClass<any>;
+    properties: (TypeProperty | TypePropertySignature)[];
+    height: number;
+    width: number;
+    x: number;
+    y: number;
+};
 
 @Component({
     selector: 'database-graph',
     template: `
-      <div class="nodes" (dblclick)="zoomToFit()"
-           #graph
-           [style.width.px]="graphWidth"
-           [style.height.px]="graphHeight">
-        <svg
-          [style.width.px]="graphWidth"
-          [style.height.px]="graphHeight">
-          @for (edge of edges; track edge) {
-            <path
-              [attr.d]="edge.d" [class]="edge.class"></path>
-          }
-        </svg>
+        <div
+            class="nodes"
+            (dblclick)="zoomToFit()"
+            #graph
+            [style.width.px]="graphWidth"
+            [style.height.px]="graphHeight"
+        >
+            <svg [style.width.px]="graphWidth" [style.height.px]="graphHeight">
+                @for (edge of edges; track edge) {
+                    <path [attr.d]="edge.d" [class]="edge.class"></path>
+                }
+            </svg>
 
-        @for (node of nodes; track node) {
-          <div
-            [style.left.px]="(node.x - (node.width/2))"
-            [style.top.px]="(node.y - (node.height/2))"
-            [style.width.px]="node.width"
-            [style.height.px]="node.height"
-            class="node">
-            @if (node.property) {
-              {{ node.property.name }}
-            }
-            @if (node.entity && node.properties) {
-              <div class="header">
-                {{ node.entity.getClassName() }}
-              </div>
-              @for (property of node.properties; track property) {
-                <div>
-                  {{ propertyLabel(property) }}
+            @for (node of nodes; track node) {
+                <div
+                    [style.left.px]="node.x - node.width / 2"
+                    [style.top.px]="node.y - node.height / 2"
+                    [style.width.px]="node.width"
+                    [style.height.px]="node.height"
+                    class="node"
+                >
+                    @if (node.property) {
+                        {{ node.property.name }}
+                    }
+                    @if (node.entity && node.properties) {
+                        <div class="header">
+                            {{ node.entity.getClassName() }}
+                        </div>
+                        @for (property of node.properties; track property) {
+                            <div>
+                                {{ propertyLabel(property) }}
+                            </div>
+                        }
+                    }
                 </div>
-              }
             }
-          </div>
-        }
-      </div>
+        </div>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./database-graph.component.scss'],
 })
 export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
@@ -83,8 +116,7 @@ export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
     constructor(
         protected cd: ChangeDetectorRef,
         protected host: ElementRef<HTMLElement>,
-    ) {
-    }
+    ) {}
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes.database) this.loadGraph();
@@ -160,7 +192,12 @@ export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
                 if (w > maxWidth) maxWidth = w;
             }
 
-            g.setNode(entity.getName(), { entity: entity, properties, width: maxWidth, height: propertyListOffset + (entity.getProperties().length * propertyHeight) });
+            g.setNode(entity.getName(), {
+                entity: entity,
+                properties,
+                width: maxWidth,
+                height: propertyListOffset + entity.getProperties().length * propertyHeight,
+            });
         }
 
         function addEdge(entity: ReflectionClass<any>, rootType: Type, property: Type) {
@@ -230,7 +267,12 @@ export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
             this.nodes.push(node as any);
         }
 
-        const extractEdges = (i: number, node: DKNode, rootProperty: TypePropertySignature | TypeProperty, type: Type) => {
+        const extractEdges = (
+            i: number,
+            node: DKNode,
+            rootProperty: TypePropertySignature | TypeProperty,
+            type: Type,
+        ) => {
             if (type.kind === ReflectionKind.array) {
                 extractEdges(i, node, rootProperty, type.type);
             } else if (isSetType(type) && type.typeArguments) {
@@ -241,7 +283,10 @@ export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
                 if (!toNode) return;
 
                 let from = { x: node.x - Math.floor(node.width / 2), y: node.y - Math.floor(node.height / 2) };
-                let to = { x: toNode.x - Math.floor(toNode.width / 2), y: toNode.y - Math.floor(toNode.height / 2) + Math.floor(propertyListOffset / 2) };
+                let to = {
+                    x: toNode.x - Math.floor(toNode.width / 2),
+                    y: toNode.y - Math.floor(toNode.height / 2) + Math.floor(propertyListOffset / 2),
+                };
 
                 if (to.x > from.x) {
                     from.x += node.width;
@@ -249,7 +294,7 @@ export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
                     to.x += toNode.width;
                 }
 
-                from.y += propertyListOffset + (i * propertyHeight) + Math.floor(propertyHeight / 2);
+                from.y += propertyListOffset + i * propertyHeight + Math.floor(propertyHeight / 2);
 
                 if (from.x > to.x) {
                     const t = from;
@@ -258,7 +303,9 @@ export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
                 }
                 const middleX = to.x - Math.floor(Math.abs(to.x - from.x) / 2);
 
-                const edge: EdgeNode = { d: `M ${from.x} ${from.y} C ${middleX} ${from.y} ${middleX} ${to.y} ${to.x} ${to.y}` };
+                const edge: EdgeNode = {
+                    d: `M ${from.x} ${from.y} C ${middleX} ${from.y} ${middleX} ${to.y} ${to.x} ${to.y}`,
+                };
                 if (isBackReferenceType(rootProperty.type)) {
                     edge.class = 'back-reference';
                 } else if (!isReferenceType(rootProperty.type)) {
@@ -333,11 +380,7 @@ export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
                 if (!force) {
                     if (xys.scale > 1.001) {
                         //zoom back to 100% first before to bigpicture
-                        this.graphPanZoom.smoothZoomAbs(
-                            rectParent.width / 2,
-                            rectParent.height / 2,
-                            1,
-                        );
+                        this.graphPanZoom.smoothZoomAbs(rectParent.width / 2, rectParent.height / 2, 1);
                         return;
                     } else if (Math.abs(targetScale - xys.scale) < 0.005) {
                         //when target scale is the same as currently, we reset back to 100%, so it acts as toggle.
@@ -350,23 +393,25 @@ export class DatabaseGraphComponent implements OnChanges, AfterViewInit {
 
                 const targetWidth = originWidth * xys.scale;
                 const targetHeight = originHeight * xys.scale;
-                const newX = targetWidth > rectParent.width ? -(targetWidth / 2) + rectParent.width / 2 : (rectParent.width / 2) - (targetWidth / 2);
-                const newY = targetHeight > rectParent.height ? -(targetHeight / 2) + rectParent.height / 2 : (rectParent.height / 2) - (targetHeight / 2);
+                const newX =
+                    targetWidth > rectParent.width
+                        ? -(targetWidth / 2) + rectParent.width / 2
+                        : rectParent.width / 2 - targetWidth / 2;
+                const newY =
+                    targetHeight > rectParent.height
+                        ? -(targetHeight / 2) + rectParent.height / 2
+                        : rectParent.height / 2 - targetHeight / 2;
 
                 //we need to cancel current running animations
                 this.graphPanZoom.pause();
                 this.graphPanZoom.resume();
 
-                this.graphPanZoom.moveBy(
-                    Math.floor(newX - xys.x),
-                    Math.floor(newY - xys.y),
-                    false,
-                );
+                this.graphPanZoom.moveBy(Math.floor(newX - xys.x), Math.floor(newY - xys.y), false);
 
                 //correct way to zoom with center of graph as origin when scaled
                 this.graphPanZoom.smoothZoomAbs(
-                    Math.floor(xys.x + originWidth * xys.scale / 2),
-                    Math.floor(xys.y + originHeight * xys.scale / 2),
+                    Math.floor(xys.x + (originWidth * xys.scale) / 2),
+                    Math.floor(xys.y + (originHeight * xys.scale) / 2),
                     1,
                 );
             }

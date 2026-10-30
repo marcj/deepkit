@@ -4,5 +4,8 @@
     "src",
     "index.ts",
     "tests"
-  ]
+  ],
+  "compilerOptions": {
+    "rootDir": "."
+  }
 }

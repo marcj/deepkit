@@ -357,6 +357,8 @@ function getKind(node: ts.Node, checker: ts.TypeChecker): ApiType['kind'] | unde
  * /root/path/packages/core/dist/cjs/index.d.ts -> /root/path/packages/core/src/index.ts
  */
 function fixDtsFileName(path: string): string {
+    // ng-packagr libraries: dist/types/<package>.d.ts is built from src/index.ts
+    path = path.replace(/dist\/types\/[^/]+\.d\.ts$/, 'src/index.ts');
     // replace dist/cjs with src
     path = path.replace(/dist\/cjs\//, '');
     path = path.replace(/dist\//, 'src/');

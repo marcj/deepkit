@@ -7,15 +7,28 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import { NgTemplateOutlet } from '@angular/common';
+import {
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    ContentChildren,
+    Input,
+    OnChanges,
+    QueryList,
+    SimpleChanges,
+    TemplateRef,
+    ViewChild,
+} from '@angular/core';
+import { Node, graphlib, layout } from 'dagre';
 
-import { AfterViewInit, ChangeDetectorRef, Component, ContentChildren, Input, OnChanges, QueryList, SimpleChanges, TemplateRef, ViewChild } from '@angular/core';
 import { BrowserText } from '@deepkit/desktop-ui';
 import { Workflow } from '@deepkit/framework-debug-api';
-import { graphlib, layout, Node } from 'dagre';
-import { NgTemplateOutlet } from '@angular/common';
 
 @Component({
     selector: 'app-workflow-card',
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: '<ng-template #templateRef><ng-content></ng-content></ng-template>',
 })
 export class WorkflowCardComponent {
@@ -32,41 +45,37 @@ export class WorkflowCardComponent {
 @Component({
     selector: 'app-workflow',
     template: `
-      <div class="nodes"
-           [style.width.px]="graphWidth"
-           [style.height.px]="graphHeight">
-        <svg
-          [style.width.px]="graphWidth"
-          [style.height.px]="graphHeight">
-          @for (edge of edges; track edge) {
-            <path
-              [attr.d]="edge"></path>
-          }
-        </svg>
+        <div class="nodes" [style.width.px]="graphWidth" [style.height.px]="graphHeight">
+            <svg [style.width.px]="graphWidth" [style.height.px]="graphHeight">
+                @for (edge of edges; track edge) {
+                    <path [attr.d]="edge"></path>
+                }
+            </svg>
 
-        @for (node of nodes; track node) {
-          <div
-            [style.left.px]="(node.x - (node.width/2))"
-            [style.top.px]="(node.y - (node.height/2))"
-            [style.width.px]="node.width"
-            [style.height.px]="node.height"
-            class="node {{cardMap[node.label!] ? cardMap[node.label!].class : ''}}">
-            <div class="label">
-              {{ node.label }}
-              @if (cardMap[node.label!]) {
-                <ng-container
-                  [ngTemplateOutlet]="cardMap[node.label!].template"
-                  [ngTemplateOutletContext]="{$implicit: node}"></ng-container>
-              }
-            </div>
-          </div>
-        }
-      </div>
+            @for (node of nodes; track node) {
+                <div
+                    [style.left.px]="node.x - node.width / 2"
+                    [style.top.px]="node.y - node.height / 2"
+                    [style.width.px]="node.width"
+                    [style.height.px]="node.height"
+                    class="node {{ cardMap[node.label!] ? cardMap[node.label!].class : '' }}"
+                >
+                    <div class="label">
+                        {{ node.label }}
+                        @if (cardMap[node.label!]) {
+                            <ng-container
+                                [ngTemplateOutlet]="cardMap[node.label!].template"
+                                [ngTemplateOutletContext]="{ $implicit: node }"
+                            ></ng-container>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
     `,
     styleUrls: ['./workflow.component.scss'],
-    imports: [
-        NgTemplateOutlet,
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [NgTemplateOutlet],
 })
 export class WorkflowComponent implements OnChanges, AfterViewInit {
     @Input() workflow?: Workflow;
@@ -82,8 +91,7 @@ export class WorkflowComponent implements OnChanges, AfterViewInit {
 
     @ContentChildren(WorkflowCardComponent) cards?: QueryList<WorkflowCardComponent>;
 
-    constructor(protected cd: ChangeDetectorRef) {
-    }
+    constructor(protected cd: ChangeDetectorRef) {}
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes.workflow) this.loadGraph();
@@ -91,7 +99,7 @@ export class WorkflowComponent implements OnChanges, AfterViewInit {
 
     ngAfterViewInit(): void {
         if (!this.cards) return;
-        this.cards.changes.subscribe((cards) => {
+        this.cards.changes.subscribe(cards => {
             this.loadCards(cards);
         });
         this.loadCards(this.cards.toArray());
@@ -197,5 +205,4 @@ export class WorkflowComponent implements OnChanges, AfterViewInit {
             this.edges.push(d.join(' '));
         }
     }
-
 }

@@ -64,7 +64,7 @@ export class DebugHttpController {
             const size = imageSize.sync(Buffer.from(data));
             if (size.width || 0 > 400 || size.height || 0 > 400) {
                 try {
-                    const img = await Jimp.read(data);
+                    const img = await Jimp.read(Buffer.from(data.buffer, data.byteOffset, data.byteLength));
                     const buffer = await img.scaleToFit({w: 800, h: 800}).getBuffer(mimeType as any);
                     send(response, buffer, file.name, mimeType, file.lastModified);
                     return;

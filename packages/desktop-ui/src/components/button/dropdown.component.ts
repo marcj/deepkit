@@ -7,44 +7,45 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
+import { ConnectedPosition, Overlay, OverlayConfig, OverlayRef, PositionStrategy } from '@angular/cdk/overlay';
+import { TemplatePortal } from '@angular/cdk/portal';
+import { NgTemplateOutlet } from '@angular/common';
 import {
     AfterViewInit,
-    booleanAttribute,
     ChangeDetectionStrategy,
     Component,
     Directive,
-    effect,
     ElementRef,
     EmbeddedViewRef,
-    forwardRef,
     HostListener,
-    inject,
     Injector,
-    input,
-    model,
     OnChanges,
     OnDestroy,
-    output,
     OutputRefSubscription,
-    signal,
     SimpleChanges,
     TemplateRef,
     ViewChild,
     ViewContainerRef,
+    booleanAttribute,
+    effect,
+    forwardRef,
+    inject,
+    input,
+    model,
+    output,
+    signal,
 } from '@angular/core';
-import { TemplatePortal } from '@angular/cdk/portal';
-import { ConnectedPosition, Overlay, OverlayConfig, OverlayRef, PositionStrategy } from '@angular/cdk/overlay';
-import { focusWatcher } from '../../core/utils';
+
 import { isArray } from '@deepkit/core';
-import { ActiveComponent } from './button.component';
-import { NgTemplateOutlet } from '@angular/common';
-import { IconComponent } from '../icon/icon.component';
+
+import { focusWatcher } from '../../core/utils';
 import { OverlayStack, OverlayStackItem } from '../app/app';
+import { PositionObserverDisconnect, observePosition } from '../app/position';
 import { unsubscribe } from '../app/reactivate-change-detection';
-import { WindowComponent } from '../window/window.component';
 import { injectElementRef } from '../app/utils';
-import { observePosition, PositionObserverDisconnect } from '../app/position';
+import { IconComponent } from '../icon/icon.component';
+import { WindowComponent } from '../window/window.component';
+import { ActiveComponent } from './button.component';
 
 /**
  * A dropdown component that can be used to display a list of items or content in a popup.
@@ -56,19 +57,22 @@ import { observePosition, PositionObserverDisconnect } from '../app/position';
 @Component({
     selector: 'dui-dropdown',
     template: `
-      <ng-template #dropdownTemplate>
-        <div class="dui-body dui-dropdown {{dropdownClass()}}"
-             [class.dui-normalized]="normalizeStyle() || windowComponent?.normalizeStyle()"
-             tabindex="1" #dropdown>
-          <div class="dui-dropdown-content" [class.overlay-scrollbar-small]="scrollbars()">
-            @if (container(); as container) {
-              <ng-container [ngTemplateOutlet]="container"></ng-container>
-            } @else {
-              <ng-content></ng-content>
-            }
-          </div>
-        </div>
-      </ng-template>
+        <ng-template #dropdownTemplate>
+            <div
+                class="dui-body dui-dropdown {{ dropdownClass() }}"
+                [class.dui-normalized]="normalizeStyle() || windowComponent?.normalizeStyle()"
+                tabindex="1"
+                #dropdown
+            >
+                <div class="dui-dropdown-content" [class.overlay-scrollbar-small]="scrollbars()">
+                    @if (container(); as container) {
+                        <ng-container [ngTemplateOutlet]="container"></ng-container>
+                    } @else {
+                        <ng-content></ng-content>
+                    }
+                </div>
+            </div>
+        </ng-template>
     `,
     host: {
         '[class.overlay]': 'overlay()',
@@ -164,7 +168,8 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
     @ViewChild('dropdownTemplate', {
         static: false,
         read: TemplateRef,
-    }) dropdownTemplate?: TemplateRef<any>;
+    })
+    dropdownTemplate?: TemplateRef<any>;
     @ViewChild('dropdown', { static: false, read: ElementRef }) protected dropdown?: ElementRef<HTMLElement>;
 
     protected container = signal<TemplateRef<any> | undefined>(undefined);
@@ -216,7 +221,13 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
 
     @HostListener('window:keydown', ['$event'])
     protected key(event: KeyboardEvent) {
-        if (!this.keepOpen() && this.isOpen() && event.key.toLowerCase() === 'escape' && this.lastOverlayStackItem && this.lastOverlayStackItem.isLast()) {
+        if (
+            !this.keepOpen() &&
+            this.isOpen() &&
+            event.key.toLowerCase() === 'escape' &&
+            this.lastOverlayStackItem &&
+            this.lastOverlayStackItem.isLast()
+        ) {
             this.close();
         }
     }
@@ -244,12 +255,18 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
     /**
      * Opens the dropdown at the given target element or mouse position.
      */
-    open(target?: Element | ElementRef | MouseEvent | EventTarget | 'center' | null, initiator?: HTMLElement | ElementRef | {
-        x: number,
-        y: number,
-        width: number,
-        height: number
-    }) {
+    open(
+        target?: Element | ElementRef | MouseEvent | EventTarget | 'center' | null,
+        initiator?:
+            | HTMLElement
+            | ElementRef
+            | {
+                  x: number;
+                  y: number;
+                  width: number;
+                  height: number;
+              },
+    ) {
         if (this.isOpen()) return;
         this.lastFocusWatcher?.();
         if (this.positionStrategy) {
@@ -341,7 +358,9 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
             }, 50);
 
             if (this.lastOverlayStackItem) this.lastOverlayStackItem.release();
-            this.lastOverlayStackItem = this.overlayStack.register(this.overlayRef.hostElement, this, () => this.close());
+            this.lastOverlayStackItem = this.overlayStack.register(this.overlayRef.hostElement, this, () =>
+                this.close(),
+            );
         }
 
         this.watchOpen(this.overlayRef, target);
@@ -367,8 +386,14 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
         }
 
         const allowedFocusValue = this.allowedFocus();
-        const normalizedAllowedFocus = isArray(allowedFocusValue) ? allowedFocusValue : (allowedFocusValue ? [allowedFocusValue] : []);
-        const allowedFocus = normalizedAllowedFocus.map(v => v instanceof ElementRef ? v.nativeElement : v) as Element[];
+        const normalizedAllowedFocus = isArray(allowedFocusValue)
+            ? allowedFocusValue
+            : allowedFocusValue
+              ? [allowedFocusValue]
+              : [];
+        const allowedFocus = normalizedAllowedFocus.map(v =>
+            v instanceof ElementRef ? v.nativeElement : v,
+        ) as Element[];
         allowedFocus.push(overlayRef.hostElement);
 
         if (target instanceof ElementRef) allowedFocus.push(overlayRef.hostElement);
@@ -389,13 +414,13 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
             this.lastFocusWatcher = focusWatcher(
                 overlayRef.overlayElement,
                 allowedFocus,
-                (event) => {
+                event => {
                     if (!this.keepOpen()) {
                         this.lostFocus.emit(event);
                         this.close();
                     }
                 },
-                (element) => {
+                element => {
                     // If the element is a dialog as well, we don't close
                     if (!element) return false;
 
@@ -405,11 +430,14 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
                     }
 
                     return false;
-                });
+                },
+            );
         }
     }
 
-    protected createPositionStrategy(target: Element | ElementRef | MouseEvent | EventTarget | 'center' | null): PositionStrategy {
+    protected createPositionStrategy(
+        target: Element | ElementRef | MouseEvent | EventTarget | 'center' | null,
+    ): PositionStrategy {
         if (target instanceof MouseEvent) {
             const mousePosition = { x: target.pageX, y: target.pageY };
             return this.overlayService
@@ -447,9 +475,7 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
                     },
                 ]);
         } else if (target === 'center') {
-            return this.overlayService
-                .position()
-                .global().centerHorizontally().centerVertically();
+            return this.overlayService.position().global().centerHorizontally().centerVertically();
         } else {
             return this.overlayService
                 .position()
@@ -482,7 +508,7 @@ export class DropdownComponent implements OnChanges, OnDestroy, AfterViewInit {
         }
     }
 
-    setInitiator(initiator?: HTMLElement | ElementRef | { x: number, y: number, width: number, height: number }) {
+    setInitiator(initiator?: HTMLElement | ElementRef | { x: number; y: number; width: number; height: number }) {
         if (!this.overlayRef) return;
 
         initiator = initiator instanceof ElementRef ? initiator.nativeElement : initiator;
@@ -603,8 +629,7 @@ export class OpenDropdownDirective implements AfterViewInit, OnDestroy {
         }
     }
 
-    ngOnDestroy() {
-    }
+    ngOnDestroy() {}
 
     @HostListener('click')
     protected onClick() {
@@ -649,10 +674,7 @@ export class OpenDropdownHoverDirective implements OnDestroy {
     protected enter = () => this.onHover();
     protected leave = () => this.onLeave();
 
-    constructor(
-        protected elementRef: ElementRef,
-    ) {
-    }
+    constructor(protected elementRef: ElementRef) {}
 
     ngOnDestroy() {
         this.cleanup();
@@ -732,26 +754,26 @@ export class ContextDropdownDirective {
  */
 @Component({
     selector: 'dui-dropdown-splitter,dui-dropdown-separator',
-    template: `
-      <div></div>
-    `,
+    template: ` <div></div> `,
     host: {
         '[class.dui-normalized]': 'true',
     },
-    styles: [`
-      :host {
-        display: block;
-        padding: 4px 0;
-        border-radius: 4px;
-      }
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [
+        `
+            :host {
+                display: block;
+                padding: 4px 0;
+                border-radius: 4px;
+            }
 
-      div {
-        border-top: 1px solid var(--dui-line-color-light);
-      }
-    `],
+            div {
+                border-top: 1px solid var(--dui-line-color-light);
+            }
+        `,
+    ],
 })
-export class DropdownSplitterComponent {
-}
+export class DropdownSplitterComponent {}
 
 /**
  * This directive is necessary if you want to load and render the dialog content
@@ -769,7 +791,10 @@ export class DropdownSplitterComponent {
  */
 @Directive({ selector: '[dropdownContainer]' })
 export class DropdownContainerDirective {
-    constructor(protected dropdown: DropdownComponent, public template: TemplateRef<any>) {
+    constructor(
+        protected dropdown: DropdownComponent,
+        public template: TemplateRef<any>,
+    ) {
         this.dropdown.setContainer(this.template);
     }
 }
@@ -788,12 +813,12 @@ export class DropdownContainerDirective {
 @Component({
     selector: 'dui-dropdown-item',
     template: `
-      @if (selected()) {
-        <dui-icon [size]="14" class="selected" name="check"></dui-icon>
-      } @else if (checkbox()) {
-        <dui-icon [size]="14" class="selected" name=""></dui-icon>
-      }
-      <ng-content></ng-content>
+        @if (selected()) {
+            <dui-icon [size]="14" class="selected" name="check"></dui-icon>
+        } @else if (checkbox()) {
+            <dui-icon [size]="14" class="selected" name=""></dui-icon>
+        }
+        <ng-content></ng-content>
     `,
     host: {
         '[attr.tabindex]': '0',
@@ -804,9 +829,8 @@ export class DropdownContainerDirective {
         '[class.active]': 'active()',
     },
     styleUrls: ['./dropdown-item.component.scss'],
-    providers: [
-        { provide: ActiveComponent, useExisting: forwardRef(() => DropdownItemComponent) },
-    ],
+    providers: [{ provide: ActiveComponent, useExisting: forwardRef(() => DropdownItemComponent) }],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [IconComponent],
 })
 export class DropdownItemComponent implements ActiveComponent, OnDestroy {

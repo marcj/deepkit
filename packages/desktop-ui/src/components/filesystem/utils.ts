@@ -1,5 +1,5 @@
 export function imageSize(data: Uint8Array): Promise<{ width: number, height: number } | undefined> {
-    const blob = new Blob([data]);
+    const blob = new Blob([data as BlobPart]);
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.src = URL.createObjectURL(blob);

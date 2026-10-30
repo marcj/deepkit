@@ -1,10 +1,22 @@
-import { Component, EventEmitter, forwardRef, input, model, OnChanges, OnInit, Output } from '@angular/core';
-import { isType, ReflectionKind, stringifyType, Type, TypeUnion } from '@deepkit/type';
-import { DataStructure } from '../../store';
-import { OptionDirective, SelectBoxComponent } from '@deepkit/desktop-ui';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    EventEmitter,
+    OnChanges,
+    OnInit,
+    Output,
+    forwardRef,
+    input,
+    model,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { InputComponent } from './input.component';
+
+import { OptionDirective, SelectBoxComponent } from '@deepkit/desktop-ui';
+import { ReflectionKind, Type, TypeUnion, isType, stringifyType } from '@deepkit/type';
+
+import { DataStructure } from '../../store';
 import { TypeDecoration } from '../../utils.js';
+import { InputComponent } from './input.component';
 
 interface Entry {
     type?: Type;
@@ -14,37 +26,41 @@ interface Entry {
 
 @Component({
     template: `
-      <dui-select style="width: 100%" textured
-                  [ngModel]="subProperty || model().value()"
-                  (ngModelChange)="set($event)"
-      >
-        @for (item of items; track $index) {
-          @if (!item.type) {
-            <dui-option [value]="item.value">{{ item.label }}</dui-option>
-          }
-          @if (item.type) {
-            <dui-option [value]="item.type">{{ item.label }}</dui-option>
-          }
+        <dui-select
+            style="width: 100%"
+            textured
+            [ngModel]="subProperty || model().value()"
+            (ngModelChange)="set($event)"
+        >
+            @for (item of items; track $index) {
+                @if (!item.type) {
+                    <dui-option [value]="item.value">{{ item.label }}</dui-option>
+                }
+                @if (item.type) {
+                    <dui-option [value]="item.type">{{ item.label }}</dui-option>
+                }
+            }
+        </dui-select>
+        @if (subProperty) {
+            <div class="sub">
+                <api-console-input
+                    [model]="model().getProperty(model().typeIndex)"
+                    [type]="subProperty"
+                    (keyDown)="keyDown.emit($event)"
+                ></api-console-input>
+            </div>
         }
-      </dui-select>
-      @if (subProperty) {
-        <div class="sub">
-          <api-console-input [model]="model().getProperty(model().typeIndex)" [type]="subProperty" (keyDown)="keyDown.emit($event)"></api-console-input>
-        </div>
-      }
     `,
-    styles: [`
-        .sub {
-            margin-top: 3px;
-            margin-left: 1px;
-        }
-    `],
-    imports: [
-        SelectBoxComponent,
-        FormsModule,
-        forwardRef(() => InputComponent),
-        OptionDirective,
+    styles: [
+        `
+            .sub {
+                margin-top: 3px;
+                margin-left: 1px;
+            }
+        `,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [SelectBoxComponent, FormsModule, forwardRef(() => InputComponent), OptionDirective],
 })
 export class UnionInputComponent implements OnInit, OnChanges {
     model = model.required<DataStructure>();
@@ -103,5 +119,4 @@ export class UnionInputComponent implements OnInit, OnChanges {
             }
         }
     }
-
 }

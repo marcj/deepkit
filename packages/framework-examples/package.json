@@ -24,7 +24,7 @@
     "rxjs": "*",
     "sift": "^7.0.1",
     "ts-node": "^10.7.0",
-    "typescript": "~5.8.3",
+    "typescript": "~6.0.3",
     "tmp": "^0.0.33"
   },
   "keywords": [],

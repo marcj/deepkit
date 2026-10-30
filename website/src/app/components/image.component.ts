@@ -1,25 +1,28 @@
-import { Component, Input, OnDestroy } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input, OnDestroy } from '@angular/core';
 import { AppImagesComponent } from '@app/app/components/images.component.js';
 
 @Component({
     selector: 'app-image',
     standalone: true,
     template: `
-      <a target="_blank" href="{{src}}">
-        <img alt="{{alt || altFromSrc}}" src="{{src}}" />
-      </a>
+        <a target="_blank" href="{{ src }}">
+            <img alt="{{ alt || altFromSrc }}" src="{{ src }}" />
+        </a>
     `,
-    styles: [`
-      :host {
-        display: flex;
-        max-width: 100%;
-        text-align: center;
-      }
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [
+        `
+            :host {
+                display: flex;
+                max-width: 100%;
+                text-align: center;
+            }
 
-      img {
-        object-fit: contain;
-      }
-    `],
+            img {
+                object-fit: contain;
+            }
+        `,
+    ],
 })
 export class ImageComponent implements OnDestroy {
     @Input() src!: string;

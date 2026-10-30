@@ -1,16 +1,61 @@
-import { ApplicationRef, Component, createComponent, EnvironmentInjector, Injector, Input, OnChanges, OnInit, output, reflectComponentType, Renderer2, ViewContainerRef } from '@angular/core';
-import { Content } from '@app/common/models';
-import { ScreenComponent, ScreensComponent } from '@app/app/components/screens.component';
-import { HighlightCodeComponent } from '@app/app/components/highlight-code.component';
-import { Router } from '@angular/router';
-import { AppImagesComponent } from '@app/app/components/images.component';
-import { ImageComponent } from '@app/app/components/image.component';
+import {
+    ApplicationRef,
+    ChangeDetectionStrategy,
+    Component,
+    EnvironmentInjector,
+    Injector,
+    Input,
+    OnChanges,
+    OnInit,
+    Renderer2,
+    ViewContainerRef,
+    createComponent,
+    output,
+    reflectComponentType,
+} from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
+import { Router } from '@angular/router';
 import { ContentApiDocsComponent } from '@app/app/components/content-api-docs.component';
+import { HighlightCodeComponent } from '@app/app/components/highlight-code.component';
+import { ImageComponent } from '@app/app/components/image.component';
+import { AppImagesComponent } from '@app/app/components/images.component';
+import { ScreenComponent, ScreensComponent } from '@app/app/components/screens.component';
 import { Translation } from '@app/app/components/translation';
+import { Content } from '@app/common/models';
 
-const whitelist = ['div', 'p', 'a', 'i', 'u', 's', 'button', 'iframe', 'pre', 'span', 'code', 'strong', 'hr', 'ul', 'li', 'ol', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'table', 'tbody', 'tr', 'td', 'th', 'boxes', 'box'];
-
+const whitelist = [
+    'div',
+    'p',
+    'a',
+    'i',
+    'u',
+    's',
+    'button',
+    'iframe',
+    'pre',
+    'span',
+    'code',
+    'strong',
+    'hr',
+    'ul',
+    'li',
+    'ol',
+    'em',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'img',
+    'table',
+    'tbody',
+    'tr',
+    'td',
+    'th',
+    'boxes',
+    'box',
+];
 
 @Component({
     standalone: true,
@@ -18,9 +63,10 @@ const whitelist = ['div', 'p', 'a', 'i', 'u', 's', 'button', 'iframe', 'pre', 's
     host: {
         '[class.app-box]': 'true',
     },
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
-      <div class="title">{{ title }}</div>
-      <ng-content></ng-content>
+        <div class="title">{{ title }}</div>
+        <ng-content></ng-content>
     `,
 })
 export class ContentRenderBox {
@@ -30,31 +76,30 @@ export class ContentRenderBox {
 @Component({
     standalone: true,
     selector: 'codebox',
-    styles: [`
-      iframe {
-        border: 1px solid rgba(0, 0, 0, 0.1);
-        border-radius: 2px;
-        width: 100%;
-        height: 600px;
-      }
-    `],
-    template: `
-      <iframe [src]="srcAllowed" allowfullscreen></iframe>
-    `,
+    styles: [
+        `
+            iframe {
+                border: 1px solid rgba(0, 0, 0, 0.1);
+                border-radius: 2px;
+                width: 100%;
+                height: 600px;
+            }
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    template: ` <iframe [src]="srcAllowed" allowfullscreen></iframe> `,
 })
 export class ContentCodeBox implements OnInit {
     @Input() src: string = '';
 
     srcAllowed: any;
 
-    constructor(private sanitizer: DomSanitizer) {
-    }
+    constructor(private sanitizer: DomSanitizer) {}
 
     ngOnInit() {
         this.srcAllowed = this.sanitizer.bypassSecurityTrustResourceUrl(this.src);
     }
 }
-
 
 @Component({
     standalone: true,
@@ -62,95 +107,101 @@ export class ContentCodeBox implements OnInit {
     host: {
         '[class.app-feature]': 'true',
     },
-    styles: [`
-      :host {
-        display: flex;
-        align-items: center;
-        margin: 200px 0;
-      }
+    styles: [
+        `
+            :host {
+                display: flex;
+                align-items: center;
+                margin: 200px 0;
+            }
 
-      .text {
-        flex: 1;
-        margin-right: 55px;
-        max-width: 480px;
+            .text {
+                flex: 1;
+                margin-right: 55px;
+                max-width: 480px;
 
-        ::ng-deep {
-          h2, h3 {
-            text-align: left;
-          }
-        }
-      }
+                ::ng-deep {
+                    h2,
+                    h3 {
+                        text-align: left;
+                    }
+                }
+            }
 
-      .code {
-        flex: 1;
-      }
+            .code {
+                flex: 1;
+            }
 
-      :host.right {
-        flex-direction: row-reverse;
+            :host.right {
+                flex-direction: row-reverse;
 
-        .text {
-          margin: auto;
-          margin-left: 55px;
-        }
-      }
+                .text {
+                    margin: auto;
+                    margin-left: 55px;
+                }
+            }
 
-      :host.center {
-        display: block;
-        text-align: center;
+            :host.center {
+                display: block;
+                text-align: center;
 
-        .text {
-          margin: auto;
-          max-width: 680px;
-        }
+                .text {
+                    margin: auto;
+                    max-width: 680px;
+                }
 
-        ::ng-deep {
-          h2, h3 {
-            text-align: center;
-          }
-        }
+                ::ng-deep {
+                    h2,
+                    h3 {
+                        text-align: center;
+                    }
+                }
 
-        .code {
-          display: grid;
-          grid-gap: 45px;
-          grid-auto-columns: auto;
-          grid-auto-rows: 1fr;
-          grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-        }
-      }
+                .code {
+                    display: grid;
+                    grid-gap: 45px;
+                    grid-auto-columns: auto;
+                    grid-auto-rows: 1fr;
+                    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+                }
+            }
 
-      @media (max-width: 800px) {
-        :host {
-          display: block;
+            @media (max-width: 800px) {
+                :host {
+                    display: block;
 
-          .text {
-            margin: 0 !important;
-          }
-        }
-      }
-
-    `],
+                    .text {
+                        margin: 0 !important;
+                    }
+                }
+            }
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     template: `
-      <div class="text">
-        <ng-content></ng-content>
-      </div>
-      <div class="code">
-        <ng-content select="highlight-code"></ng-content>
-      </div>
+        <div class="text">
+            <ng-content></ng-content>
+        </div>
+        <div class="code">
+            <ng-content select="highlight-code"></ng-content>
+        </div>
     `,
 })
-export class ContentRenderFeature {
-}
+export class ContentRenderFeature {}
 
-type ContentCreated = { hostView?: any, type?: any, node: Node };
+type ContentCreated = { hostView?: any; type?: any; node: Node };
 
 @Component({
     selector: 'app-render-content',
-    styles: [`
-      :host {
-        display: block;
-      }
-    `],
-    template: ` `,
+    styles: [
+        `
+            :host {
+                display: block;
+            }
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    template: ``,
 })
 export class ContentRenderComponent implements OnInit, OnChanges {
     @Input() content!: (Content | string)[] | Content | string;
@@ -167,8 +218,7 @@ export class ContentRenderComponent implements OnInit, OnChanges {
         private injector: EnvironmentInjector,
         private translation: Translation,
         private app: ApplicationRef,
-    ) {
-    }
+    ) {}
 
     ngOnChanges() {
         this.render();
@@ -203,11 +253,11 @@ export class ContentRenderComponent implements OnInit, OnChanges {
             'app-screens': ScreensComponent,
             'app-screen': ScreenComponent,
             'highlight-code': HighlightCodeComponent,
-            'box': ContentRenderBox,
+            box: ContentRenderBox,
             'app-images': AppImagesComponent,
             'app-image': ImageComponent,
-            'feature': ContentRenderFeature,
-            'codebox': ContentCodeBox,
+            feature: ContentRenderFeature,
+            codebox: ContentCodeBox,
             'api-docs': ContentApiDocsComponent,
         };
 
@@ -250,9 +300,7 @@ export class ContentRenderComponent implements OnInit, OnChanges {
                 environmentInjector: this.injector,
                 elementInjector: Injector.create({
                     parent: injector,
-                    providers: [
-                        { provide: components[content.tag], useFactory: () => component.instance },
-                    ],
+                    providers: [{ provide: components[content.tag], useFactory: () => component.instance }],
                 }),
             });
 
@@ -265,7 +313,9 @@ export class ContentRenderComponent implements OnInit, OnChanges {
             }
             this.app.attachView(component.hostView);
 
-            const children: ContentCreated[] = content.children ? this.renderContent(component.injector, content.children) : [];
+            const children: ContentCreated[] = content.children
+                ? this.renderContent(component.injector, content.children)
+                : [];
 
             for (let i = 0; i < contentPlaceholders.length; i++) {
                 const placeholder = contentPlaceholders[i];
@@ -345,7 +395,13 @@ export class ContentRenderComponent implements OnInit, OnChanges {
 
             return [{ hostView: component.hostView, type, node: component.location.nativeElement }];
         } else {
-            if (content.tag === 'pre' && content.children && content.props && typeof content.props.class === 'string' && content.props.class.startsWith('language-')) {
+            if (
+                content.tag === 'pre' &&
+                content.children &&
+                content.props &&
+                typeof content.props.class === 'string' &&
+                content.props.class.startsWith('language-')
+            ) {
                 const component = createComponent(HighlightCodeComponent, { environmentInjector: this.injector });
                 component.setInput('lang', content.props.class.substr('language-'.length));
                 component.setInput('code', content.children[0] as string);
@@ -450,21 +506,22 @@ export class ContentRenderComponent implements OnInit, OnChanges {
 
     protected hookRouter(anchor: Node) {
         if (!(anchor instanceof HTMLAnchorElement)) return;
-        this.listeners.push(this.renderer.listen(anchor, 'click', (event) => {
-            const url = anchor.href;
-            event.preventDefault();
-            if (url.startsWith(location.origin)) {
-                void this.router.navigateByUrl(new URL(url).pathname + '?try').then((success) => {
-                    // check if we landed on 404, and if so we need to route without Angular router
-                    // NotFoundGuard makes sure success=false when navigating to 404
-                    if (!success) {
-                        window.location.replace(url);
-                    }
-                });
-            } else {
-                window.open(url, '_blank');
-            }
-        }));
+        this.listeners.push(
+            this.renderer.listen(anchor, 'click', event => {
+                const url = anchor.href;
+                event.preventDefault();
+                if (url.startsWith(location.origin)) {
+                    void this.router.navigateByUrl(new URL(url).pathname + '?try').then(success => {
+                        // check if we landed on 404, and if so we need to route without Angular router
+                        // NotFoundGuard makes sure success=false when navigating to 404
+                        if (!success) {
+                            window.location.replace(url);
+                        }
+                    });
+                } else {
+                    window.open(url, '_blank');
+                }
+            }),
+        );
     }
-
 }

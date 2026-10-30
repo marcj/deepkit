@@ -1,4 +1,15 @@
-import { booleanAttribute, Component, computed, effect, inject, input, model, Renderer2 } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    Renderer2,
+    booleanAttribute,
+    computed,
+    effect,
+    inject,
+    input,
+    model,
+} from '@angular/core';
+
 import { DragDirective, DuiDragEvent, DuiDragStartEvent } from '../app/drag';
 import { clamp } from '../app/utils';
 
@@ -35,6 +46,7 @@ import { clamp } from '../app/utils';
         '(duiDragEnd)': 'onDuiDragEnd($event)',
         '(duiDragCancel)': 'onDuiDragCancel()',
     },
+    changeDetection: ChangeDetectionStrategy.Eager,
     hostDirectives: [
         {
             directive: DragDirective,
@@ -78,7 +90,13 @@ export class SplitterComponent {
      */
     property = input<'flex-basis' | 'width' | string>('flex-basis');
 
-    isHorizontal = computed(() => (this.horizontal() || this.position() === 'top' || this.position() === 'bottom') || this.orientation() === 'horizontal');
+    isHorizontal = computed(
+        () =>
+            this.horizontal() ||
+            this.position() === 'top' ||
+            this.position() === 'bottom' ||
+            this.orientation() === 'horizontal',
+    );
 
     protected startSize = 0;
     protected renderer = inject(Renderer2);
@@ -126,7 +144,7 @@ export class SplitterComponent {
     protected onDuiDrag(event: DuiDragEvent) {
         const delta = this.isHorizontal() ? event.deltaY : event.deltaX;
         const factor = this.inverted() ? -1 : 1;
-        const value = clamp(this.startSize + (delta * factor), this.min(), this.max());
+        const value = clamp(this.startSize + delta * factor, this.min(), this.max());
         this.size.set(value);
         const element = this.element();
         if (element) {

@@ -459,7 +459,8 @@ test('keep "use x" at top', () => {
         const a = (a: string) => {};
         `
     });
-    expect(res.app.startsWith('"use client";')).toBe(true);
+    // directives must stay above the injected helpers. TypeScript 6 emits "use strict" first (strict by default).
+    expect(res.app.replace(/^"use strict";\n/, '').startsWith('"use client";')).toBe(true);
 });
 
 test('Function', () => {

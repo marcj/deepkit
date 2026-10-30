@@ -1,14 +1,32 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { ControllerClient } from '../../client';
-import { decodeFrameData, decodeFrames } from '@deepkit/framework-debug-api';
-import { Application, Container, Graphics, InteractionEvent, Rectangle, Text, TextStyle } from 'pixi.js';
-import { FrameCategory, FrameEnd, FrameStart } from '@deepkit/stopwatch';
-import { ChangeFeed, Crunch, formatTime, FrameItem, FrameParser, getFrameX, ViewState } from './frame';
-import { CrunchContainer, FrameContainer } from './frame-container';
-import { Subject } from 'rxjs';
-import { ClientProgress } from '@deepkit/rpc';
 import { DatePipe, DecimalPipe, JsonPipe } from '@angular/common';
-import { ButtonComponent, ButtonGroupComponent, DragDirective, DuiDragEvent, WindowToolbarComponent } from '@deepkit/desktop-ui';
+import {
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    ElementRef,
+    HostListener,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+} from '@angular/core';
+import { Application, Container, Graphics, InteractionEvent, Rectangle, Text, TextStyle } from 'pixi.js';
+import { Subject } from 'rxjs';
+
+import {
+    ButtonComponent,
+    ButtonGroupComponent,
+    DragDirective,
+    DuiDragEvent,
+    WindowToolbarComponent,
+} from '@deepkit/desktop-ui';
+import { decodeFrameData, decodeFrames } from '@deepkit/framework-debug-api';
+import { ClientProgress } from '@deepkit/rpc';
+import { FrameCategory, FrameEnd, FrameStart } from '@deepkit/stopwatch';
+
+import { ControllerClient } from '../../client';
+import { ChangeFeed, Crunch, FrameItem, FrameParser, ViewState, formatTime, getFrameX } from './frame';
+import { CrunchContainer, FrameContainer } from './frame-container';
 
 interface FrameData {
     cid: number;
@@ -80,17 +98,17 @@ class ProfilerContainer extends Container {
         }
 
         for (const item of crunches.create || []) {
-            const container = item.container = new CrunchContainer(item, this.viewState);
+            const container = (item.container = new CrunchContainer(item, this.viewState));
             this.frameContainer.addChild(container);
         }
 
         const add: Container[] = [];
         for (const item of frames.create || []) {
-            const container = item.container = new FrameContainer(item, 0, this.viewState);
+            const container = (item.container = new FrameContainer(item, 0, this.viewState));
 
             container.rectangle.interactive = true;
 
-            container.rectangle.addListener('click', (event) => {
+            container.rectangle.addListener('click', event => {
                 if (this.ignoreNextClick) {
                     //the bg click resets it
                     return;
@@ -99,21 +117,21 @@ class ProfilerContainer extends Container {
                 this.setSelected(item);
             });
 
-            container.rectangle.addListener('mouseover', (event) => {
+            container.rectangle.addListener('mouseover', event => {
                 this.onHover(container, event);
             });
 
-            container.rectangle.addListener('mousemove', (event) => {
+            container.rectangle.addListener('mousemove', event => {
                 this.onHoverMove(container, event);
             });
 
-            container.rectangle.addListener('mouseout', (event) => {
+            container.rectangle.addListener('mouseout', event => {
                 this.onHoverOut(container, event);
             });
 
-
             if (this.selected) {
-                container.rectangle.alpha = container.item.frame.cid === this.selected.frame.cid ? 1 : this.inactiveAlpha;
+                container.rectangle.alpha =
+                    container.item.frame.cid === this.selected.frame.cid ? 1 : this.inactiveAlpha;
                 container.text.alpha = container.item.frame.cid === this.selected.frame.cid ? 1 : this.inactiveAlpha;
             }
 
@@ -144,7 +162,7 @@ class ProfilerContainer extends Container {
     }
 
     xToViewX(x: number): number {
-        return ((x - this.viewState.scrollX) / this.viewState.zoom);
+        return (x - this.viewState.scrollX) / this.viewState.zoom;
     }
 
     // protected setWindow() {
@@ -182,7 +200,8 @@ class ProfilerContainer extends Container {
             if (!(container instanceof FrameContainer)) continue;
 
             if (this.selected) {
-                container.rectangle.alpha = container.item.frame.cid === this.selected.frame.cid ? 1 : this.inactiveAlpha;
+                container.rectangle.alpha =
+                    container.item.frame.cid === this.selected.frame.cid ? 1 : this.inactiveAlpha;
                 container.text.alpha = container.item.frame.cid === this.selected.frame.cid ? 1 : this.inactiveAlpha;
             } else {
                 container.rectangle.alpha = 1;
@@ -198,7 +217,10 @@ class ProfilerContainer extends Container {
 
         this.hoverMenu = new Container();
         const prefix = container.item.frame.category ? '[' + FrameCategory[container.item.frame.category] + '] ' : '';
-        const message = new Text(prefix + container.item.frame.label + ' (' + formatTime(container.item.took, 3) + ')', this.textStyle);
+        const message = new Text(
+            prefix + container.item.frame.label + ' (' + formatTime(container.item.took, 3) + ')',
+            this.textStyle,
+        );
         this.hoverMenu.addChild(message);
 
         this.hoverMenu.x = event.data.global.x;
@@ -250,7 +272,12 @@ class ProfilerContainer extends Container {
             // this.selectedLines.lineStyle(1, 0x73AB77);
             this.selectedLines.drawRect(this.xToViewX(this.selected.x), 0, 1, this.viewState.height);
             if (this.selected.took) {
-                this.selectedLines.drawRect(this.xToViewX(this.selected.x + (this.selected.took - this.selected.crunch)), 0, 1, this.height);
+                this.selectedLines.drawRect(
+                    this.xToViewX(this.selected.x + (this.selected.took - this.selected.crunch)),
+                    0,
+                    1,
+                    this.height,
+                );
             }
         }
         this.selectedLines.endFill();
@@ -275,7 +302,7 @@ class ProfilerContainer extends Container {
         const maxLines = (this.viewState.width + jumpSize) / padding;
 
         for (let i = 0; i < maxLines; i++) {
-            const x = (i * padding);
+            const x = i * padding;
             this.headerLines.moveTo(x, 0);
             this.headerLines.lineStyle(i % 10 === 0 ? 2 : 1, 0xffffff, 0.7);
             this.headerLines.lineTo(x, i % 10 === 0 ? 12 : i % 5 === 0 ? 7 : 5);
@@ -297,147 +324,157 @@ class ProfilerContainer extends Container {
 
 @Component({
     template: `
-      <dui-window-toolbar for="main">
-        <dui-button-group>
-          <!--                <dui-button textured icon="arrow_right" (click)="forward()"></dui-button>-->
-          <dui-button textured icon="garbage" (click)="resetProfilerFrames()"></dui-button>
-        </dui-button-group>
+        <dui-window-toolbar for="main">
+            <dui-button-group>
+                <!--                <dui-button textured icon="arrow_right" (click)="forward()"></dui-button>-->
+                <dui-button textured icon="garbage" (click)="resetProfilerFrames()"></dui-button>
+            </dui-button-group>
 
-        <div>
-          {{ profiler.parser.frames }} frames, {{ profiler.parser.rootItems.length }} contexts
-        </div>
-      </dui-window-toolbar>
+            <div>{{ profiler.parser.frames }} frames, {{ profiler.parser.rootItems.length }} contexts</div>
+        </dui-window-toolbar>
 
-      <!--        <div class="top-frames">-->
+        <!--        <div class="top-frames">-->
 
-      <!--        </div>-->
+        <!--        </div>-->
 
-      <div class="canvas" (duiDrag)="onDrag($event)" (duiDragStart)="onDragStart($event)" #canvas></div>
+        <div class="canvas" (duiDrag)="onDrag($event)" (duiDragStart)="onDragStart($event)" #canvas></div>
 
-      <!--        <profile-timeline [parser]="parser" [selected]="selectedFrameChildrenStats.contextStart" (selectItem)="timelineSelect($event)"></profile-timeline>-->
+        <!--        <profile-timeline [parser]="parser" [selected]="selectedFrameChildrenStats.contextStart" (selectItem)="timelineSelect($event)"></profile-timeline>-->
 
-      @if (selectedFrame) {
-        <div class="inspector text-selection">
-          <h3>{{ selectedFrame.frame.label }}</h3>
-          <div style="margin-bottom: 10px;">
-            <label>Type</label>
-            {{ FrameCategory[selectedFrame.frame.category] }}
-          </div>
-          <div style="margin-bottom: 10px;">
-            <label>debug</label>
-            x: {{ selectedFrame.x }} ({{ getFrameX(selectedFrame, viewState) }}, end: {{ getFrameX(selectedFrame, viewState) + selectedFrame.took }})
-            y: {{ selectedFrame.y }}
-            crunches: {{ selectedFrame.context.allCrunches }}
-          </div>
-          <div style="margin-bottom: 10px;">
-            <label>took</label>
-            {{ selectedFrame.took }} ({{ selectedFrame.x + selectedFrame.took }})
-          </div>
-          @if (selectedFrameChildrenStats.contextStart) {
-            <div>
-              <label>Context</label>
-              {{ FrameCategory[selectedFrameChildrenStats.contextStart.frame.category] }} (#{{ selectedFrameChildrenStats.contextStart.frame.context }})
-              {{ selectedFrameChildrenStats.contextStart.frame.label }}
-            </div>
-            <div>
-              <label>Time from start of context</label>
-              {{ formatTime(selectedFrame.x - selectedFrameChildrenStats.contextStart.x, 3) }}
-            </div>
-          }
-          <div>
-            <label style="width: 70px;">Started</label>
-            <ng-container>
-              {{ selectedFrame.frame.timestamp / 1000|date:'HH:mm:ss.SSS' }}
-            </ng-container>
-          </div>
-          <div>
-            <label style="width: 70px;">Ended</label>
-            @if (selectedFrame.took) {
-              {{ (selectedFrame.frame.timestamp + selectedFrame.took) / 1000|date:'HH:mm:ss.SSS' }}
-            }
-            @if (!selectedFrame.took) {
-              Pending
-            }
-          </div>
-          <div>
-            <label style="width: 70px;">Total time</label>
-            @if (selectedFrame.took) {
-              {{ formatTime(selectedFrame.took, 3) }}
-            }
-            @if (!selectedFrame.took) {
-              Pending
-            }
-          </div>
-          @if (selectedFrame.frame.category === FrameCategory.http) {
-            <div>
-              <label>Method</label>
-              {{ selectedFrameData.method }}
-            </div>
-            <div>
-              <label>Client IP</label>
-              {{ selectedFrameData.clientIp }}
-            </div>
-            <div>
-              <label>Response Status</label>
-              {{ selectedFrameData.responseStatus || 'pending' }}
-            </div>
-          }
-          @if (selectedFrame.frame.category === FrameCategory.database) {
-            <div>
-              <label>Entity</label>
-              {{ selectedFrameData.className }}
-            </div>
-            <div style="padding: 10px 0;">
-              <label class="header">SQL</label>
-              @for (item of selectedFrameChildren; track item) {
-                @if (item.data && item.frame.category === FrameCategory.databaseQuery) {
-                  <div>
-                    {{ item.data.sql }}<br />
-                    {{ item.data.sqlParams|json }}
-                  </div>
+        @if (selectedFrame) {
+            <div class="inspector text-selection">
+                <h3>{{ selectedFrame.frame.label }}</h3>
+                <div style="margin-bottom: 10px;">
+                    <label>Type</label>
+                    {{ FrameCategory[selectedFrame.frame.category] }}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>debug</label>
+                    x: {{ selectedFrame.x }} ({{ getFrameX(selectedFrame, viewState) }}, end:
+                    {{ getFrameX(selectedFrame, viewState) + selectedFrame.took }}) y: {{ selectedFrame.y }} crunches:
+                    {{ selectedFrame.context.allCrunches }}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label>took</label>
+                    {{ selectedFrame.took }} ({{ selectedFrame.x + selectedFrame.took }})
+                </div>
+                @if (selectedFrameChildrenStats.contextStart) {
+                    <div>
+                        <label>Context</label>
+                        {{ FrameCategory[selectedFrameChildrenStats.contextStart.frame.category] }} (#{{
+                            selectedFrameChildrenStats.contextStart.frame.context
+                        }})
+                        {{ selectedFrameChildrenStats.contextStart.frame.label }}
+                    </div>
+                    <div>
+                        <label>Time from start of context</label>
+                        {{ formatTime(selectedFrame.x - selectedFrameChildrenStats.contextStart.x, 3) }}
+                    </div>
                 }
-              }
-            </div>
-          }
-          @if (selectedFrame.frame.category === FrameCategory.databaseQuery) {
-            <div style="padding: 10px 0;">
-              <label class="header">SQL</label>
-              {{ selectedFrameData.sql }}<br />
-              {{ selectedFrameData.sqlParams|json }}
-            </div>
-          }
-          @if (selectedFrameChildren.length) {
-            <h4 style="margin-top: 10px;">Child frames ({{ selectedFrameChildren.length }})</h4>
-            <div class="child">
-              <label>Self time</label>
-              <div class="bar">
-                <div class="bg" [style.width.%]="(selectedFrame.took-selectedFrameChildrenStats.totalTime) / selectedFrame.took * 100"></div>
-                <div class="text">
-                  {{ formatTime(selectedFrame.took - selectedFrameChildrenStats.totalTime, 3) }}
-                  ({{ (selectedFrame.took - selectedFrameChildrenStats.totalTime) / selectedFrame.took * 100|number:'2.2-2' }}%)
+                <div>
+                    <label style="width: 70px;">Started</label>
+                    <ng-container>
+                        {{ selectedFrame.frame.timestamp / 1000 | date: 'HH:mm:ss.SSS' }}
+                    </ng-container>
                 </div>
-              </div>
-            </div>
-            @for (item of selectedFrameChildren; track item) {
-              <div class="child">
-                <label>{{ item.frame.label }}</label>
-                <div class="bar">
-                  <div class="bg" [style.width.%]="item.took / selectedFrame.took * 100"></div>
-                  <div class="text">
-                    {{ formatTime(item.took, 3) }}
-                    ({{ item.took / selectedFrame.took * 100|number:'2.2-2' }}%)
-                  </div>
+                <div>
+                    <label style="width: 70px;">Ended</label>
+                    @if (selectedFrame.took) {
+                        {{ (selectedFrame.frame.timestamp + selectedFrame.took) / 1000 | date: 'HH:mm:ss.SSS' }}
+                    }
+                    @if (!selectedFrame.took) {
+                        Pending
+                    }
                 </div>
-              </div>
-            }
-          }
-          <!--            <div>-->
-          <!--                {{selectedFrameData|json}}-->
-          <!--            </div>-->
-        </div>
-      }
+                <div>
+                    <label style="width: 70px;">Total time</label>
+                    @if (selectedFrame.took) {
+                        {{ formatTime(selectedFrame.took, 3) }}
+                    }
+                    @if (!selectedFrame.took) {
+                        Pending
+                    }
+                </div>
+                @if (selectedFrame.frame.category === FrameCategory.http) {
+                    <div>
+                        <label>Method</label>
+                        {{ selectedFrameData.method }}
+                    </div>
+                    <div>
+                        <label>Client IP</label>
+                        {{ selectedFrameData.clientIp }}
+                    </div>
+                    <div>
+                        <label>Response Status</label>
+                        {{ selectedFrameData.responseStatus || 'pending' }}
+                    </div>
+                }
+                @if (selectedFrame.frame.category === FrameCategory.database) {
+                    <div>
+                        <label>Entity</label>
+                        {{ selectedFrameData.className }}
+                    </div>
+                    <div style="padding: 10px 0;">
+                        <label class="header">SQL</label>
+                        @for (item of selectedFrameChildren; track item) {
+                            @if (item.data && item.frame.category === FrameCategory.databaseQuery) {
+                                <div>
+                                    {{ item.data.sql }}<br />
+                                    {{ item.data.sqlParams | json }}
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+                @if (selectedFrame.frame.category === FrameCategory.databaseQuery) {
+                    <div style="padding: 10px 0;">
+                        <label class="header">SQL</label>
+                        {{ selectedFrameData.sql }}<br />
+                        {{ selectedFrameData.sqlParams | json }}
+                    </div>
+                }
+                @if (selectedFrameChildren.length) {
+                    <h4 style="margin-top: 10px;">Child frames ({{ selectedFrameChildren.length }})</h4>
+                    <div class="child">
+                        <label>Self time</label>
+                        <div class="bar">
+                            <div
+                                class="bg"
+                                [style.width.%]="
+                                    ((selectedFrame.took - selectedFrameChildrenStats.totalTime) / selectedFrame.took) *
+                                    100
+                                "
+                            ></div>
+                            <div class="text">
+                                {{ formatTime(selectedFrame.took - selectedFrameChildrenStats.totalTime, 3) }}
+                                ({{
+                                    ((selectedFrame.took - selectedFrameChildrenStats.totalTime) / selectedFrame.took) *
+                                        100 | number: '2.2-2'
+                                }}%)
+                            </div>
+                        </div>
+                    </div>
+                    @for (item of selectedFrameChildren; track item) {
+                        <div class="child">
+                            <label>{{ item.frame.label }}</label>
+                            <div class="bar">
+                                <div class="bg" [style.width.%]="(item.took / selectedFrame.took) * 100"></div>
+                                <div class="text">
+                                    {{ formatTime(item.took, 3) }}
+                                    ({{ (item.took / selectedFrame.took) * 100 | number: '2.2-2' }}%)
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                <!--            <div>-->
+                <!--                {{selectedFrameData|json}}-->
+                <!--            </div>-->
+            </div>
+        }
     `,
     styleUrls: ['./profile.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         DatePipe,
         JsonPipe,
@@ -459,13 +496,13 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
         antialias: true,
         autoDensity: true,
         transparent: true,
-        resolution: window.devicePixelRatio
+        resolution: window.devicePixelRatio,
     });
 
     protected frameData: FrameData[] = [];
 
     public selectedFrame?: FrameItem;
-    public selectedFrameChildrenStats: { totalTime: number, contextStart?: FrameItem } = { totalTime: 0 };
+    public selectedFrameChildrenStats: { totalTime: number; contextStart?: FrameItem } = { totalTime: 0 };
     public selectedFrameChildren: FrameItem[] = [];
     public selectedFrameData: { [name: string]: any } = {};
 
@@ -483,11 +520,10 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
     constructor(
         protected client: ControllerClient,
         protected cd: ChangeDetectorRef,
-    ) {
-    }
+    ) {}
 
     timelineSelect(item: FrameItem) {
-        this.viewState.scrollX = item.x - (this.viewState.width * this.viewState.zoom / 3);
+        this.viewState.scrollX = item.x - (this.viewState.width * this.viewState.zoom) / 3;
 
         this.profiler.viewChanged();
         this.profiler.setSelected(item);
@@ -523,8 +559,12 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.selectedFrameChildrenStats.contextStart = child;
                 }
 
-                if (child.frame.context === item.frame.context && child.x > item.x && child.x < end && child.y === targetY) {
-
+                if (
+                    child.frame.context === item.frame.context &&
+                    child.x > item.x &&
+                    child.x < end &&
+                    child.y === targetY
+                ) {
                     this.selectedFrameChildrenStats.totalTime += child.took;
                     this.selectedFrameChildren.push(child);
 
@@ -579,8 +619,7 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cd.detectChanges();
     }
 
-    async ngOnInit() {
-    }
+    async ngOnInit() {}
 
     async resetProfilerFrames() {
         this.parser.reset();
@@ -598,9 +637,9 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
 
         console.time('parse');
         const frames: (FrameStart | FrameEnd)[] = [];
-        decodeFrames(framesBuffer, (frame) => frames.push(frame));
+        decodeFrames(framesBuffer, frame => frames.push(frame));
         this.frameData = [];
-        decodeFrameData(dataBuffer, (data) => this.frameData.push(data));
+        decodeFrameData(dataBuffer, data => this.frameData.push(data));
         console.timeEnd('parse');
 
         // console.log('this.frames', frames);
@@ -616,16 +655,16 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
         //     this.timelineSelect(lastRoot);
         // }
 
-        const frameSub = this.frameSub = await this.client.debug.subscribeStopwatchFrames();
-        frameSub.subscribe((next) => {
-            decodeFrames(next, (frame) => this.profiler.addFrames([frame]));
+        const frameSub = (this.frameSub = await this.client.debug.subscribeStopwatchFrames());
+        frameSub.subscribe(next => {
+            decodeFrames(next, frame => this.profiler.addFrames([frame]));
             this.profiler.update();
         });
 
-        const frameDataSub = this.frameDataSub = await this.client.debug.subscribeStopwatchFramesData();
-        frameDataSub.subscribe((next) => {
+        const frameDataSub = (this.frameDataSub = await this.client.debug.subscribeStopwatchFramesData());
+        frameDataSub.subscribe(next => {
             const item = this.selectedFrame;
-            decodeFrameData(next, (data) => {
+            decodeFrameData(next, data => {
                 this.frameData.push(data);
                 if (item && data.cid === item.frame.cid) {
                     Object.assign(this.selectedFrameData, data.data);
@@ -637,11 +676,11 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
 
     protected offsetXStart = 0;
     protected onDragStart(event: DuiDragEvent) {
-        this.offsetXStart = this.viewState.scrollX
+        this.offsetXStart = this.viewState.scrollX;
     }
 
     protected onDrag(event: DuiDragEvent) {
-        this.viewState.scrollX = this.offsetXStart - (event.deltaX * this.viewState.zoom);
+        this.viewState.scrollX = this.offsetXStart - event.deltaX * this.viewState.zoom;
         this.profiler.viewChanged();
     }
 
@@ -662,13 +701,16 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.app.stage.addChild(this.profiler);
 
-        this.app.renderer.view.addEventListener('wheel', (event) => {
-            const newZoom = Math.min(1000000, Math.max(0.1, this.viewState.zoom - (Math.min(event.deltaY * -1 / 500, 0.3) * this.viewState.zoom)));
+        this.app.renderer.view.addEventListener('wheel', event => {
+            const newZoom = Math.min(
+                1000000,
+                Math.max(0.1, this.viewState.zoom - Math.min((event.deltaY * -1) / 500, 0.3) * this.viewState.zoom),
+            );
             const ratio = newZoom / this.viewState.zoom;
 
             let eventOffsetX = event.clientX - this.app.renderer.view.getBoundingClientRect().x;
 
-            const x = this.viewState.scrollX + (eventOffsetX) * this.viewState.zoom;
+            const x = this.viewState.scrollX + eventOffsetX * this.viewState.zoom;
             let foundCrunches = 0;
             for (const item of this.profiler.containers) {
                 if (item instanceof FrameContainer) {
@@ -680,7 +722,7 @@ export class ProfileComponent implements OnInit, OnDestroy, AfterViewInit {
             const crunchOffset = 80 * foundCrunches;
             eventOffsetX -= crunchOffset;
 
-            const move = (eventOffsetX) * this.viewState.zoom * (ratio - 1);
+            const move = eventOffsetX * this.viewState.zoom * (ratio - 1);
             this.viewState.scrollX -= move;
             this.viewState.zoom = newZoom;
 

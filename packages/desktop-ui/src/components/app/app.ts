@@ -1,9 +1,24 @@
-import { ApplicationRef, Component, Directive, HostBinding, Inject, Injectable, input, Optional, Renderer2, RendererFactory2, signal } from '@angular/core';
-import { arrayRemoveItem } from '@deepkit/core';
 import { DOCUMENT } from '@angular/common';
-import { WindowRegistry } from '../window/window-state';
+import {
+    ApplicationRef,
+    ChangeDetectionStrategy,
+    Component,
+    Directive,
+    HostBinding,
+    Inject,
+    Injectable,
+    Optional,
+    Renderer2,
+    RendererFactory2,
+    input,
+    signal,
+} from '@angular/core';
 import { Router } from '@angular/router';
+
+import { arrayRemoveItem } from '@deepkit/core';
+
 import { Electron } from '../../core/utils';
+import { WindowRegistry } from '../window/window-state';
 
 if ('undefined' !== typeof window && 'undefined' === typeof (window as any)['global']) {
     (window as any).global = window;
@@ -21,18 +36,19 @@ export class BaseComponent {
 
 @Component({
     selector: 'ui-component',
-    template: `
-      {{ name() }} disabled={{ isDisabled }}
-    `,
-    styles: [`
-      :host {
-        display: inline-block;
-      }
+    template: ` {{ name() }} disabled={{ isDisabled }} `,
+    styles: [
+        `
+            :host {
+                display: inline-block;
+            }
 
-      :host.disabled {
-        border: 1px solid red;
-      }
-    `],
+            :host.disabled {
+                border: 1px solid red;
+            }
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     host: {
         '[class.is-textarea]': 'name() === "textarea"',
     },
@@ -49,8 +65,7 @@ export class OverlayStackItem {
         public close: () => void,
         protected stack: OverlayStackItem[],
         public release: () => void,
-    ) {
-    }
+    ) {}
 
     getAllAfter(): OverlayStackItem[] {
         const result: OverlayStackItem[] = [];
@@ -223,9 +238,8 @@ export class DuiApp {
         if (this.platform() !== 'web') {
             this.render.addClass(this.document.body, 'platform-native'); //todo: deprecate
             this.render.addClass(this.document.body, 'dui-platform-native');
-
         }
-        this.render.addClass(this.document.body, 'platform-' + platform);//todo: deprecate
+        this.render.addClass(this.document.body, 'platform-' + platform); //todo: deprecate
         this.render.addClass(this.document.body, 'dui-platform-' + platform);
     }
 

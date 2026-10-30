@@ -70,7 +70,7 @@ export class ObjectURLPipe implements PipeTransform, OnDestroy {
     transform(buffer?: ArrayBuffer | ArrayBufferView, mimeType?: string): SafeUrl | undefined {
         if (buffer) {
             if (this.lastUrl) URL.revokeObjectURL(this.lastUrl);
-            this.lastUrl = URL.createObjectURL(new Blob([buffer], { type: mimeType }));
+            this.lastUrl = URL.createObjectURL(new Blob([buffer as BlobPart], { type: mimeType }));
             return this.sanitizer.bypassSecurityTrustResourceUrl(this.lastUrl);
         }
     }

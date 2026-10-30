@@ -1,4 +1,22 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Optional, Output } from '@angular/core';
+import { AsyncPipe, DecimalPipe, KeyValuePipe } from '@angular/common';
+import {
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    ElementRef,
+    EventEmitter,
+    Input,
+    OnChanges,
+    OnDestroy,
+    OnInit,
+    Optional,
+    Output,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
+
+import { arrayRemoveItem, isArray } from '@deepkit/core';
 import {
     ButtonComponent,
     ButtonGroupComponent,
@@ -18,30 +36,63 @@ import {
     TableComponent,
     TableHeaderDirective,
     TabsComponent,
-    unsubscribe,
     WindowToolbarComponent,
+    unsubscribe,
 } from '@deepkit/desktop-ui';
-import { deserialize, getPrimaryKeyHashGenerator, isBackReferenceType, isNullable, isPrimaryKeyType, ReflectionClass, TypeProperty, TypePropertySignature, validate } from '@deepkit/type';
-import { Subscription } from 'rxjs';
-import { BrowserEntityState, BrowserQuery, BrowserState, ValidationErrors } from '../browser-state';
-import { DatabaseInfo } from '@deepkit/orm-browser-api';
 import { getInstanceStateFromItem } from '@deepkit/orm';
-import { ControllerClient } from '../client';
-import { arrayRemoveItem, isArray } from '@deepkit/core';
-import { showTypeString } from '../utils';
+import { DatabaseInfo } from '@deepkit/orm-browser-api';
 import { ClientProgress } from '@deepkit/rpc';
-import { ActivatedRoute } from '@angular/router';
-import { FormsModule } from '@angular/forms';
+import {
+    ReflectionClass,
+    TypeProperty,
+    TypePropertySignature,
+    deserialize,
+    getPrimaryKeyHashGenerator,
+    isBackReferenceType,
+    isNullable,
+    isPrimaryKeyType,
+    validate,
+} from '@deepkit/type';
+
+import { BrowserEntityState, BrowserQuery, BrowserState, ValidationErrors } from '../browser-state';
+import { ControllerClient } from '../client';
+import { BrowserCellComponent } from '../components/browser-cell.component';
 import { JsonCellComponent } from '../components/cell/json-cell.component';
 import { FilterComponent } from '../components/filter.compoment';
-import { BrowserCellComponent } from '../components/browser-cell.component';
-import { AsyncPipe, DecimalPipe, KeyValuePipe } from '@angular/common';
+import { showTypeString } from '../utils';
 
 @Component({
     selector: 'orm-browser-database-browser',
     templateUrl: './database-browser.component.html',
     styleUrls: ['./database-browser.component.scss'],
-    imports: [WindowToolbarComponent, ButtonGroupComponent, ButtonComponent, TabsComponent, TabComponent, InputComponent, FormsModule, SplitterComponent, IndicatorComponent, TabButtonComponent, JsonCellComponent, TableComponent, TableColumnDirective, TableCellDirective, OpenDropdownDirective, DropdownComponent, FormRowComponent, FilterComponent, CheckboxComponent, BrowserCellComponent, AsyncPipe, DecimalPipe, KeyValuePipe, HumanFileSizePipe, TableHeaderDirective],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [
+        WindowToolbarComponent,
+        ButtonGroupComponent,
+        ButtonComponent,
+        TabsComponent,
+        TabComponent,
+        InputComponent,
+        FormsModule,
+        SplitterComponent,
+        IndicatorComponent,
+        TabButtonComponent,
+        JsonCellComponent,
+        TableComponent,
+        TableColumnDirective,
+        TableCellDirective,
+        OpenDropdownDirective,
+        DropdownComponent,
+        FormRowComponent,
+        FilterComponent,
+        CheckboxComponent,
+        BrowserCellComponent,
+        AsyncPipe,
+        DecimalPipe,
+        KeyValuePipe,
+        HumanFileSizePipe,
+        TableHeaderDirective,
+    ],
 })
 export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
     isArray = isArray;
@@ -62,7 +113,7 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
     @Input() withBack: boolean = false;
     @Output() back = new EventEmitter<void>();
 
-    @Output() select = new EventEmitter<{ items: any[], pkHashes: string[] }>();
+    @Output() select = new EventEmitter<{ items: any[]; pkHashes: string[] }>();
 
     protected paramsSub?: Subscription;
 
@@ -86,9 +137,17 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
     }
 
     async openQueryJson(query: BrowserQuery) {
-        window.open('//' + ControllerClient.getServerHost() + '/_orm-browser/query?dbName=' + encodeURIComponent(this.database.name)
-            + '&entityName=' + encodeURIComponent(this.entity.getName())
-            + '&query=' + encodeURIComponent(query.javascript), '_blank');
+        window.open(
+            '//' +
+                ControllerClient.getServerHost() +
+                '/_orm-browser/query?dbName=' +
+                encodeURIComponent(this.database.name) +
+                '&entityName=' +
+                encodeURIComponent(this.entity.getName()) +
+                '&query=' +
+                encodeURIComponent(query.javascript),
+            '_blank',
+        );
     }
 
     firstRowItem(query: BrowserQuery): ReadonlyMap<string, any> {
@@ -105,7 +164,11 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
         try {
             query.log.push('Query: ' + query.javascript);
             const start = performance.now();
-            const res = await this.controllerClient.browser.query(this.database.name, this.entity.getName(), query.javascript);
+            const res = await this.controllerClient.browser.query(
+                this.database.name,
+                this.entity.getName(),
+                query.javascript,
+            );
             console.log('query result', res);
             query.setValue(res.result);
             query.error = res.error;
@@ -127,8 +190,7 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
         protected host: ElementRef<HTMLElement>,
         public state: BrowserState,
         @Optional() protected activatedRoute?: ActivatedRoute,
-    ) {
-    }
+    ) {}
 
     ngOnDestroy(): void {
         this.paramsSub?.unsubscribe();
@@ -138,14 +200,13 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
         if (this.database || this.entity) return;
         if (!this.activatedRoute) return;
 
-        this.routeSub = this.activatedRoute.params.subscribe(async (params) => {
+        this.routeSub = this.activatedRoute.params.subscribe(async params => {
             this.state.databases = await this.controllerClient.getDatabases();
             this.database = this.state.database = this.state.getDatabase(decodeURIComponent(params.database));
             this.entity = this.database.getEntity(decodeURIComponent(params.entity));
             await this.loadEntity(true);
         });
     }
-
 
     async ngOnChanges(changes: any) {
         await this.loadEntity();
@@ -173,7 +234,8 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
             if (!this.entityState.selection.includes(row)) return;
             arrayRemoveItem(this.entityState.selection, row);
         }
-        this.selectedAll = this.entityState.selection.length === this.entityState.items.length && this.entityState.items.length > 0;
+        this.selectedAll =
+            this.entityState.selection.length === this.entityState.items.length && this.entityState.items.length > 0;
         this.entityState.selection = this.entityState.selection.slice();
         this.select.emit({
             items: this.entityState.selection,
@@ -181,7 +243,7 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
         });
     }
 
-    cellClick(event: { item: any, column: string }) {
+    cellClick(event: { item: any; column: string }) {
         if (this.ignoreNextCellClick) {
             this.ignoreNextCellClick = false;
             return;
@@ -215,7 +277,13 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
 
         this.ignoreNextCellClick = true;
         const snapshot = getInstanceStateFromItem(item).getSnapshot();
-        item[column] = deserialize(snapshot[column], undefined, undefined, undefined, this.entity.getProperty(column).property);
+        item[column] = deserialize(
+            snapshot[column],
+            undefined,
+            undefined,
+            undefined,
+            this.entity.getProperty(column).property,
+        );
 
         this.changed(item);
     };
@@ -331,7 +399,9 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
         this.entityState.validationStore = this.state.getValidationStore(this.database.name, this.entity.getName());
         this.pkHasher = getPrimaryKeyHashGenerator(this.entity);
 
-        this.entityState.properties = [...this.entity.getProperties()].map(v => v.property).filter(v => !isBackReferenceType(v.type));
+        this.entityState.properties = [...this.entity.getProperties()]
+            .map(v => v.property)
+            .filter(v => !isBackReferenceType(v.type));
         this.entityState.properties.sort((a, b) => {
             if (isPrimaryKeyType(a) && !isPrimaryKeyType(b)) return -1;
             if (!isPrimaryKeyType(a) && isPrimaryKeyType(b)) return +1;
@@ -367,7 +437,6 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
                     this.entityState.items.push(item);
                 }
             }
-
         }
     }
 
@@ -376,7 +445,11 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
         if (!this.database) return;
         if (!this.entityState) return;
 
-        this.entityState.count = await this.controllerClient.browser.getCount(this.database.name, this.entity.getName(), this.getFilter());
+        this.entityState.count = await this.controllerClient.browser.getCount(
+            this.database.name,
+            this.entity.getName(),
+            this.getFilter(),
+        );
     }
 
     protected getFilter(): { [name: string]: any } {
@@ -425,7 +498,8 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
             this.cd.detectChanges();
 
             const { items, executionTime } = await this.controllerClient.browser.getItems(
-                this.database.name, this.entity.getName(),
+                this.database.name,
+                this.entity.getName(),
                 this.getFilter(),
                 this.sort,
                 this.entityState.itemsPerPage,
@@ -481,7 +555,9 @@ export class DatabaseBrowserComponent implements OnDestroy, OnChanges, OnInit {
                 this.entityState.dbItems.push(item);
             }
 
-            this.selectedAll = this.entityState.selection.length === this.entityState.items.length && this.entityState.items.length > 0;
+            this.selectedAll =
+                this.entityState.selection.length === this.entityState.items.length &&
+                this.entityState.items.length > 0;
         } catch (error: any) {
             this.entityState.loading = false;
             this.entityState.error = String(error);

@@ -1,4 +1,21 @@
-import { AfterViewInit, Component, computed, contentChild, Directive, effect, ElementRef, forwardRef, input, OnDestroy, OnInit, output, signal, viewChild } from '@angular/core';
+import {
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    Component,
+    Directive,
+    ElementRef,
+    OnDestroy,
+    OnInit,
+    computed,
+    contentChild,
+    effect,
+    forwardRef,
+    input,
+    output,
+    signal,
+    viewChild,
+} from '@angular/core';
+
 import { injectElementRef } from '../app/utils';
 import { DropdownComponent, DropdownContainerDirective } from '../button/dropdown.component';
 
@@ -38,19 +55,20 @@ function isAdaptivePlaceholder(node: Node): node is DuiAdaptivePlaceholder {
         '[class.column-reverse]': 'direction() === "column-reverse"',
     },
     template: `
-      <ng-content></ng-content>
-      @if (!contentDropdownComponent()) {
-        <dui-dropdown class="dropdownClass()" [host]="host">
-          <div class="dui-adaptive-container-dropdown-content" *dropdownContainer duiAdaptiveHiddenContainer></div>
-        </dui-dropdown>
-      }
+        <ng-content></ng-content>
+        @if (!contentDropdownComponent()) {
+            <dui-dropdown class="dropdownClass()" [host]="host">
+                <div
+                    class="dui-adaptive-container-dropdown-content"
+                    *dropdownContainer
+                    duiAdaptiveHiddenContainer
+                ></div>
+            </dui-dropdown>
+        }
     `,
     styleUrl: './adaptive-container.component.scss',
-    imports: [
-        DropdownComponent,
-        forwardRef(() => AdaptiveHiddenContainer),
-        DropdownContainerDirective,
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [DropdownComponent, forwardRef(() => AdaptiveHiddenContainer), DropdownContainerDirective],
 })
 export class AdaptiveContainerComponent implements OnInit, AfterViewInit, OnDestroy {
     protected host = injectElementRef();
@@ -188,7 +206,7 @@ export class AdaptiveContainerComponent implements OnInit, AfterViewInit, OnDest
                 }
                 unhidden++;
             }
-            const nowHidden = hiddenNodes.slice(unhidden).map(v => v instanceof Comment ? v.duiElement : v);
+            const nowHidden = hiddenNodes.slice(unhidden).map(v => (v instanceof Comment ? v.duiElement : v));
             this.hiddenElements.set(nowHidden);
         }
     }
@@ -241,7 +259,10 @@ export class AdaptiveContainerComponent implements OnInit, AfterViewInit, OnDest
     standalone: true,
 })
 export class AdaptiveHiddenContainer implements OnDestroy {
-    constructor(private host: ElementRef, private container: AdaptiveContainerComponent) {
+    constructor(
+        private host: ElementRef,
+        private container: AdaptiveContainerComponent,
+    ) {
         container.registerHiddenContainer(host.nativeElement);
     }
 
@@ -297,10 +318,7 @@ function hideElement(
     }
 }
 
-function showElement(
-    elementOrPlaceholder: DuiAdaptiveElement | DuiAdaptivePlaceholder,
-    visibleContainer: HTMLElement,
-) {
+function showElement(elementOrPlaceholder: DuiAdaptiveElement | DuiAdaptivePlaceholder, visibleContainer: HTMLElement) {
     const element = elementOrPlaceholder instanceof Comment ? elementOrPlaceholder.duiElement : elementOrPlaceholder;
     element.style.display = '';
     if (!element.parentElement) return;
@@ -323,7 +341,6 @@ function getState(visibleContainer: HTMLElement) {
                 nodes.push(node);
             }
         } else if (isAdaptivePlaceholder(node)) {
-
             // Referenced element is already part of visibleContainer, so skip it
             // so that we don't have it twice.
             if (node.duiElement.parentElement === visibleContainer) continue;

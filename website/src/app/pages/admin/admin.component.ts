@@ -1,17 +1,39 @@
-import { Component, ElementRef, inject, Injectable, OnDestroy, signal, viewChild } from '@angular/core';
-import { ButtonComponent, ButtonGroupComponent, ButtonGroupsComponent, DuiApp, DuiStyleComponent, FilesystemComponent, FileUploaderComponent, InputComponent, LoadingSpinnerComponent, SplitterComponent, TabButtonComponent } from '@deepkit/desktop-ui';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { provideRpcWebSocketClient, RpcWebSocketClient } from '@deepkit/rpc';
-import { injectAdminRpc, injectMainRpc } from '@app/app/pages/admin/admin-client.js';
-import { HeaderLogoComponent } from '@app/app/components/header.component.js';
-import { Subscription } from 'rxjs';
-import { formatError } from '@deepkit/core';
-import { injectLocalStorageNumber } from '@app/app/utils.js';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ElementRef,
+    Injectable,
+    OnDestroy,
+    inject,
+    signal,
+    viewChild,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ContentTextService } from '@app/app/components/content-text.component.js';
+import { HeaderLogoComponent } from '@app/app/components/header.component.js';
+import { injectAdminRpc, injectMainRpc } from '@app/app/pages/admin/admin-client.js';
+import { AdminPostsComponent } from '@app/app/pages/admin/admin-posts.component.js';
+import { injectLocalStorageNumber } from '@app/app/utils.js';
 import type { AdminFilesController } from '@app/server/controller/admin-files.controller';
 import { type DocumentType } from '@tiptap/core';
-import { AdminPostsComponent } from '@app/app/pages/admin/admin-posts.component.js';
-import { ContentTextService } from '@app/app/components/content-text.component.js';
+import { Subscription } from 'rxjs';
+
+import { formatError } from '@deepkit/core';
+import {
+    ButtonComponent,
+    ButtonGroupComponent,
+    ButtonGroupsComponent,
+    DuiApp,
+    DuiStyleComponent,
+    FileUploaderComponent,
+    FilesystemComponent,
+    InputComponent,
+    LoadingSpinnerComponent,
+    SplitterComponent,
+    TabButtonComponent,
+} from '@deepkit/desktop-ui';
+import { RpcWebSocketClient, provideRpcWebSocketClient } from '@deepkit/rpc';
 
 function createDefaultBlocks(): DocumentType['content'] {
     return [
@@ -23,46 +45,48 @@ function createDefaultBlocks(): DocumentType['content'] {
 @Component({
     selector: 'dw-admin-login',
     template: `
-      <dw-header-logo />
-      @if (!clientUser.connected()) {
-        <div>Connecting ...</div>
-      } @else {
-        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-          <dui-input placeholder="Email" name="email" formControlName="email" (enter)="onSubmit()" />
-          <dui-input placeholder="Password" name="password" type="password" formControlName="password" (enter)="onSubmit()" />
-          @if (error()) {
-            <div style="color: var(--dui-color-red)">{{ error() }}</div>
-          }
-          <dui-button textured [disabled]="sending()">Login</dui-button>
-        </form>
-      }
+        <dw-header-logo />
+        @if (!clientUser.connected()) {
+            <div>Connecting ...</div>
+        } @else {
+            <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+                <dui-input placeholder="Email" name="email" formControlName="email" (enter)="onSubmit()" />
+                <dui-input
+                    placeholder="Password"
+                    name="password"
+                    type="password"
+                    formControlName="password"
+                    (enter)="onSubmit()"
+                />
+                @if (error()) {
+                    <div style="color: var(--dui-color-red)">{{ error() }}</div>
+                }
+                <dui-button textured [disabled]="sending()">Login</dui-button>
+            </form>
+        }
     `,
     styles: `
-      :host {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        gap: 24px;
-      }
+        :host {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            gap: 24px;
+        }
 
-      dw-header-logo {
-        flex: 0;
-      }
+        dw-header-logo {
+            flex: 0;
+        }
 
-      form {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
     `,
-    imports: [
-        InputComponent,
-        ReactiveFormsModule,
-        ButtonComponent,
-        HeaderLogoComponent,
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [InputComponent, ReactiveFormsModule, ButtonComponent, HeaderLogoComponent],
 })
 class AdminLoginComponent {
     mainRpc = injectMainRpc();
@@ -109,7 +133,7 @@ export class ClientUser implements OnDestroy {
 
     constructor() {
         this.client.token.set(localStorage.getItem('token'));
-        this.sub = this.client.transporter.connection.subscribe((connected) => {
+        this.sub = this.client.transporter.connection.subscribe(connected => {
             this.loading.set(false);
             if (!connected) return;
             if (!this.client.token.get()) {
@@ -117,11 +141,14 @@ export class ClientUser implements OnDestroy {
                 return;
             }
             this.loading.set(true);
-            this.adminRpc.getUser().then(user => {
-                this.user.set(user);
-            }).finally(() => {
-                this.loading.set(false);
-            });
+            this.adminRpc
+                .getUser()
+                .then(user => {
+                    this.user.set(user);
+                })
+                .finally(() => {
+                    this.loading.set(false);
+                });
         });
         setTimeout(() => {
             this.client.connect().catch(error => {
@@ -139,33 +166,38 @@ export class ClientUser implements OnDestroy {
 @Component({
     selector: 'dw-admin',
     template: `
-      <dui-style normalize-style />
-      @if (clientUser.user(); as user) {
-        <dui-button-groups>
-          <dui-button-group>
-            <dui-tab-button [active]="true">Posts</dui-tab-button>
-            <dui-tab-button [active]="files()" (click)="toggleFiles()">Files</dui-tab-button>
-          </dui-button-group>
-          <dw-header-logo />
-          <dui-button-group>
-            <dui-filesystem-uploader />
-            <dui-button small>Logout</dui-button>
-          </dui-button-group>
-        </dui-button-groups>
-        <div class="frame">
-          <dw-admin-posts [api]="filesApi" />
-          @if (files()) {
-            <dui-splitter horizontal inverted [(size)]="filesSize" [element]="fileSystemElement()?.nativeElement" />
-            <dui-filesystem [api]="filesApi" />
-          }
-        </div>
-      } @else {
-        @if (clientUser.loading()) {
-          <dui-loading-spinner />
+        <dui-style normalize-style />
+        @if (clientUser.user(); as user) {
+            <dui-button-groups>
+                <dui-button-group>
+                    <dui-tab-button [active]="true">Posts</dui-tab-button>
+                    <dui-tab-button [active]="files()" (click)="toggleFiles()">Files</dui-tab-button>
+                </dui-button-group>
+                <dw-header-logo />
+                <dui-button-group>
+                    <dui-filesystem-uploader />
+                    <dui-button small>Logout</dui-button>
+                </dui-button-group>
+            </dui-button-groups>
+            <div class="frame">
+                <dw-admin-posts [api]="filesApi" />
+                @if (files()) {
+                    <dui-splitter
+                        horizontal
+                        inverted
+                        [(size)]="filesSize"
+                        [element]="$safeNavigationMigration(fileSystemElement()?.nativeElement)"
+                    />
+                    <dui-filesystem [api]="filesApi" />
+                }
+            </div>
         } @else {
-          <dw-admin-login />
+            @if (clientUser.loading()) {
+                <dui-loading-spinner />
+            } @else {
+                <dw-admin-login />
+            }
         }
-      }
     `,
     imports: [
         DuiStyleComponent,
@@ -185,10 +217,8 @@ export class ClientUser implements OnDestroy {
         '[class.dui-normalized]': 'true',
     },
     styleUrls: ['./admin.css'],
-    providers: [
-        ClientUser,
-        provideRpcWebSocketClient(undefined, { 4200: 8080 }),
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    providers: [ClientUser, provideRpcWebSocketClient(undefined, { 4200: 8080 })],
 })
 export class AdminComponent {
     client = inject(RpcWebSocketClient);

@@ -38,9 +38,6 @@
       "path": "./packages/create-app/tsconfig.json"
     },
     {
-      "path": "./packages/devtool/tsconfig.json"
-    },
-    {
       "path": "./packages/event/tsconfig.json"
     },
     {
@@ -147,9 +144,6 @@
     },
     {
       "path": "./packages/type-spec/tsconfig.json"
-    },
-    {
-      "path": "./packages/ui-library/tsconfig.json"
     },
     {
       "path": "./packages/vite/tsconfig.json"

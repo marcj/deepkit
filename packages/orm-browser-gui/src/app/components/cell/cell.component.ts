@@ -1,16 +1,30 @@
-import { Component, ComponentFactoryResolver, ComponentRef, inject, Input, OnChanges, OnDestroy, ViewContainerRef } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ComponentRef,
+    Input,
+    OnChanges,
+    OnDestroy,
+    ViewContainerRef,
+    inject,
+} from '@angular/core';
+
 import { Type } from '@deepkit/type';
+
 import { ComponentRegistry } from '../../registry';
 import { TypeDecoration } from './utils';
 
 @Component({
     selector: 'orm-browser-property-view',
     template: ``,
-    styles: [`
-        :host {
-            display: none;
-        }
-    `],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    styles: [
+        `
+            :host {
+                display: none;
+            }
+        `,
+    ],
 })
 export class CellComponent implements OnDestroy, OnChanges {
     @Input() type!: Type;
@@ -20,11 +34,7 @@ export class CellComponent implements OnDestroy, OnChanges {
     protected componentRef?: ComponentRef<any>;
     registry = inject(ComponentRegistry);
 
-    constructor(
-        private containerRef: ViewContainerRef,
-        private resolver: ComponentFactoryResolver,
-    ) {
-    }
+    constructor(private containerRef: ViewContainerRef) {}
 
     ngOnDestroy() {
         this.unlink();
@@ -45,8 +55,7 @@ export class CellComponent implements OnDestroy, OnChanges {
         }
         this.componentRef?.destroy();
 
-        const componentFactory = this.resolver.resolveComponentFactory(component);
-        this.componentRef = this.containerRef.createComponent(componentFactory);
+        this.componentRef = this.containerRef.createComponent(component);
         this.componentRef.instance.type = this.type;
         this.componentRef.instance.decoration = this.decoration;
         this.componentRef.instance.model = this.model;

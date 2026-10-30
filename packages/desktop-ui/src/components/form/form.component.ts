@@ -7,34 +7,45 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { booleanAttribute, ChangeDetectorRef, Component, ContentChild, HostListener, input, output, signal, SkipSelf } from '@angular/core';
-import { FormGroup, FormsModule, NgControl, ReactiveFormsModule } from '@angular/forms';
 import { KeyValuePipe } from '@angular/common';
+import {
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    ContentChild,
+    HostListener,
+    SkipSelf,
+    booleanAttribute,
+    input,
+    output,
+    signal,
+} from '@angular/core';
+import { FormGroup, FormsModule, NgControl, ReactiveFormsModule } from '@angular/forms';
 
 @Component({
     selector: 'dui-form-row',
-    template: `
-      <div class="label" [style.width.px]="labelWidth()">{{ label() }}@if (description()) {
-        <div class="description">{{ description() }}</div>
-      }</div>
-      <div class="field">
-        <ng-content></ng-content>
-
-        @if (ngControl && ngControl.errors && ngControl.touched) {
-          <div class="error">
-            @for (kv of ngControl.errors|keyvalue; track kv) {
-              <div>
-                {{ isString(kv.value) ? '' : kv.key }}{{ isString(kv.value) ? kv.value : '' }}
-              </div>
+    template: ` <div class="label" [style.width.px]="labelWidth()">
+            {{ label() }}
+            @if (description()) {
+                <div class="description">{{ description() }}</div>
             }
-          </div>
-        }
-      </div>`,
+        </div>
+        <div class="field">
+            <ng-content></ng-content>
+
+            @if (ngControl && ngControl.errors && ngControl.touched) {
+                <div class="error">
+                    @for (kv of ngControl.errors | keyvalue; track kv) {
+                        <div>{{ isString(kv.value) ? '' : kv.key }}{{ isString(kv.value) ? kv.value : '' }}</div>
+                    }
+                </div>
+            }
+        </div>`,
     host: {
         '[class.left-aligned]': 'left()',
     },
     styleUrls: ['./form-row.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [KeyValuePipe],
 })
 export class FormRowComponent {
@@ -54,14 +65,15 @@ export class FormRowComponent {
 @Component({
     selector: 'dui-form',
     template: `
-      <form [formGroup]="formGroup()" (submit)="$event.preventDefault();submitForm()">
-        <ng-content></ng-content>
-        @if (errorText(); as text) {
-          <div class="error">{{ text }}</div>
-        }
-      </form>
+        <form [formGroup]="formGroup()" (submit)="$event.preventDefault(); submitForm()">
+            <ng-content></ng-content>
+            @if (errorText(); as text) {
+                <div class="error">{{ text }}</div>
+            }
+        </form>
     `,
     styleUrls: ['./form.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [FormsModule, ReactiveFormsModule],
 })
 export class FormComponent {
@@ -80,13 +92,16 @@ export class FormComponent {
     constructor(
         protected cd: ChangeDetectorRef,
         @SkipSelf() protected cdParent: ChangeDetectorRef,
-    ) {
-    }
+    ) {}
 
     @HostListener('keyup', ['$event'])
     onEnter(event: KeyboardEvent) {
-        if (this.submit() && event.key.toLowerCase() === 'enter'
-            && event.target && (event.target as HTMLElement).tagName.toLowerCase() === 'input') {
+        if (
+            this.submit() &&
+            event.key.toLowerCase() === 'enter' &&
+            event.target &&
+            (event.target as HTMLElement).tagName.toLowerCase() === 'input'
+        ) {
             this.submitForm();
         }
     }

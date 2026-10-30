@@ -7,43 +7,43 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
+import { DOCUMENT } from '@angular/common';
 import {
     AfterViewInit,
-    booleanAttribute,
+    ChangeDetectionStrategy,
     ChangeDetectorRef,
     Component,
-    computed,
     Directive,
-    effect,
     ElementRef,
-    forwardRef,
     HostBinding,
     HostListener,
-    inject,
     Injectable,
-    input,
-    model,
     OnChanges,
     OnDestroy,
     OnInit,
     Optional,
-    output,
     OutputEmitterRef,
-    signal,
     SkipSelf,
     WritableSignal,
+    booleanAttribute,
+    computed,
+    effect,
+    forwardRef,
+    inject,
+    input,
+    model,
+    output,
+    signal,
 } from '@angular/core';
-import { WindowComponent } from '../window/window.component';
-import { AlignedButtonGroup, WindowState } from '../window/window-state';
-import { FormComponent } from '../form/form.component';
-import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
-import { isMacOs } from '../../core/utils';
-
-import { IconComponent } from '../icon/icon.component';
 import { RouterLinkActive } from '@angular/router';
-import { injectElementRef, registerEventListener, RegisterEventListenerRemove } from '../app/utils';
-import { DOCUMENT } from '@angular/common';
+
+import { ValueAccessorBase, ngValueAccessor } from '../../core/form';
+import { isMacOs } from '../../core/utils';
+import { RegisterEventListenerRemove, injectElementRef, registerEventListener } from '../app/utils';
+import { FormComponent } from '../form/form.component';
+import { IconComponent } from '../icon/icon.component';
+import { AlignedButtonGroup, WindowState } from '../window/window-state';
+import { WindowComponent } from '../window/window.component';
 
 export abstract class ActiveComponent {
     abstract active: WritableSignal<boolean>;
@@ -90,7 +90,7 @@ function isHotKeyActive(hotkey: HotKey, event: KeyboardEvent) {
                 match = false;
                 break;
             }
-            if (key === 'meta' && (!event.ctrlKey && !event.metaKey)) {
+            if (key === 'meta' && !event.ctrlKey && !event.metaKey) {
                 match = false;
                 break;
             }
@@ -113,38 +113,40 @@ function isHotKeyActive(hotkey: HotKey, event: KeyboardEvent) {
     return false;
 }
 
-
 @Component({
     selector: 'dui-button-hotkey',
-    styles: [`
-      :host {
-        display: inline-flex;
-        flex-direction: row;
-        gap: 3px;
-      }
+    styles: [
+        `
+            :host {
+                display: inline-flex;
+                flex-direction: row;
+                gap: 3px;
+            }
 
-      span {
-        text-transform: uppercase;
-        color: var(--dui-text-grey);
-      }
-    `],
+            span {
+                text-transform: uppercase;
+                color: var(--dui-text-grey);
+            }
+        `,
+    ],
     template: `
-      @if (metaKey) {
-        <span>{{ isMac ? '⌘' : 'WIN' }}</span>
-      }
-      @if (ctrlKey) {
-        <span>{{ isMac ? '⌃' : 'CTRL' }}</span>
-      }
-      @if (altKey) {
-        <span>{{ isMac ? '⌥' : 'ALT' }}</span>
-      }
-      @if (shiftKey) {
-        <span>⇧</span>
-      }
-      @if (key) {
-        <span>{{ key }}</span>
-      }
+        @if (metaKey) {
+            <span>{{ isMac ? '⌘' : 'WIN' }}</span>
+        }
+        @if (ctrlKey) {
+            <span>{{ isMac ? '⌃' : 'CTRL' }}</span>
+        }
+        @if (altKey) {
+            <span>{{ isMac ? '⌥' : 'ALT' }}</span>
+        }
+        @if (shiftKey) {
+            <span>⇧</span>
+        }
+        @if (key) {
+            <span>{{ key }}</span>
+        }
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [],
 })
 export class ButtonHotkeyComponent implements OnChanges, OnInit {
@@ -194,16 +196,16 @@ export class ButtonHotkeyComponent implements OnChanges, OnInit {
 @Component({
     selector: 'dui-button',
     template: `
-      @if (!iconRight() && icon(); as icon) {
-        <dui-icon [color]="iconColor()" [name]="icon" [size]="iconSize()"></dui-icon>
-      }
-      <ng-content></ng-content>
-      @if (iconRight() && icon(); as icon) {
-        <dui-icon [color]="iconColor()" [name]="icon" [size]="iconSize()"></dui-icon>
-      }
-      @if (showHotkey() && registeredHotkey(); as hotkey) {
-        <dui-button-hotkey [hotkey]="hotkey"></dui-button-hotkey>
-      }
+        @if (!iconRight() && icon(); as icon) {
+            <dui-icon [color]="iconColor()" [name]="icon" [size]="iconSize()"></dui-icon>
+        }
+        <ng-content></ng-content>
+        @if (iconRight() && icon(); as icon) {
+            <dui-icon [color]="iconColor()" [name]="icon" [size]="iconSize()"></dui-icon>
+        }
+        @if (showHotkey() && registeredHotkey(); as hotkey) {
+            <dui-button-hotkey [hotkey]="hotkey"></dui-button-hotkey>
+        }
     `,
     host: {
         '[class.dui-normalized]': 'true',
@@ -222,16 +224,10 @@ export class ButtonHotkeyComponent implements OnChanges, OnInit {
         '[class.disabled]': 'isDisabled()',
     },
     styleUrls: ['./button.component.scss'],
-    hostDirectives: [
-        { directive: RouterLinkActive, inputs: ['routerLinkActiveOptions'] },
-    ],
-    providers: [
-        { provide: ActiveComponent, useExisting: forwardRef(() => ButtonComponent) },
-    ],
-    imports: [
-        IconComponent,
-        ButtonHotkeyComponent,
-    ],
+    hostDirectives: [{ directive: RouterLinkActive, inputs: ['routerLinkActiveOptions'] }],
+    providers: [{ provide: ActiveComponent, useExisting: forwardRef(() => ButtonComponent) }],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [IconComponent, ButtonHotkeyComponent],
 })
 export class ButtonComponent implements OnInit, ActiveComponent, OnDestroy {
     hotKeySize = hotKeySize;
@@ -354,7 +350,7 @@ export class ButtonComponent implements OnInit, ActiveComponent, OnDestroy {
 
 @Injectable({ providedIn: 'root' })
 export class HotkeyRegistry implements OnDestroy {
-    active: { key: HotKey, component: ActiveComponent }[] = [];
+    active: { key: HotKey; component: ActiveComponent }[] = [];
 
     protected document = inject(DOCUMENT);
     protected removeKeyDown?: RegisterEventListenerRemove;
@@ -364,7 +360,7 @@ export class HotkeyRegistry implements OnDestroy {
     showHotKeyOn = 'alt';
 
     constructor() {
-        this.removeKeyDown = registerEventListener(this.document, 'keydown', (event) => {
+        this.removeKeyDown = registerEventListener(this.document, 'keydown', event => {
             // If only alt is pressed (not other keys, we display the hotkey)
             if (this.showHotKeyOn && event.key.toLowerCase() === this.showHotKeyOn) {
                 for (const item of this.active) {
@@ -382,7 +378,7 @@ export class HotkeyRegistry implements OnDestroy {
             }
         });
 
-        this.removeKeyUp = registerEventListener(this.document, 'keydown', (event) => {
+        this.removeKeyUp = registerEventListener(this.document, 'keydown', event => {
             // If only alt is pressed (not other keys, we display the hotkey)
             if (this.showHotKeyOn && event.key.toLowerCase() === this.showHotKeyOn) {
                 for (const item of this.active) {
@@ -481,6 +477,7 @@ export class HotkeyDirective implements OnDestroy {
         '[class.float-right]': `float() === 'right'`,
         '(transitionend)': 'transitionEnded()',
     },
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./button-group.component.scss'],
 })
 export class ButtonGroupComponent implements AfterViewInit, OnDestroy, AlignedButtonGroup {
@@ -553,14 +550,13 @@ export class ButtonGroupComponent implements AfterViewInit, OnDestroy, AlignedBu
 
 @Component({
     selector: 'dui-button-groups',
-    template: `
-      <ng-content></ng-content>
-    `,
+    template: ` <ng-content></ng-content> `,
     host: {
         '[class.align-left]': `align() === 'left'`,
         '[class.align-center]': `align() === 'center'`,
         '[class.align-right]': `align() === 'right'`,
     },
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./button-groups.component.scss'],
 })
 export class ButtonGroupsComponent {
@@ -611,8 +607,7 @@ export class FileChooserDirective extends ValueAccessorBase<File[]> implements O
         });
     }
 
-    ngOnDestroy() {
-    }
+    ngOnDestroy() {}
 
     ngOnChanges(): void {
         (this.input as any).webkitdirectory = this.duiFileDirectory();
@@ -643,7 +638,7 @@ function readFile(file: File): Promise<Uint8Array | undefined> {
                 }
             }
         };
-        reader.onerror = (error) => {
+        reader.onerror = error => {
             console.log('Error: ', error);
             reject();
         };
@@ -707,8 +702,7 @@ export class FilePickerDirective extends ValueAccessorBase<FilePickerItem[]> imp
         });
     }
 
-    ngOnDestroy() {
-    }
+    ngOnDestroy() {}
 
     ngAfterViewInit() {
         if (this.duiFileAutoOpen()) this.onClick();
@@ -809,6 +803,5 @@ export class FileDropDirective extends ValueAccessorBase<FilePickerItem[]> imple
         this.i.set(0);
     }
 
-    ngOnDestroy() {
-    }
+    ngOnDestroy() {}
 }

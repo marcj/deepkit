@@ -1,9 +1,20 @@
-import { Component, computed, effect, ElementRef, HostListener, inject, Injectable, signal, viewChild } from '@angular/core';
-import { createNotifier } from 'ngxtension/create-notifier';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ElementRef,
+    HostListener,
+    Injectable,
+    computed,
+    effect,
+    inject,
+    signal,
+    viewChild,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ContentTextService } from '@app/app/components/content-text.component.js';
+import { createNotifier } from 'ngxtension/create-notifier';
 
-type HeaderInfo = { label: string, indent: number, top: number, height: number, link: string };
+type HeaderInfo = { label: string; indent: number; top: number; height: number; link: string };
 
 @Injectable({ providedIn: 'root' })
 export class TableOfContentService {
@@ -54,7 +65,7 @@ export class TableOfContentService {
         for (const headerElement of headerElements) {
             const label = headerElement.textContent?.trim() || '';
             const link = headerElement.id || '';
-            const indent = headerElement.tagName === 'H2' ? 0 : (headerElement.tagName === 'H3' ? 1 : 2);
+            const indent = headerElement.tagName === 'H2' ? 0 : headerElement.tagName === 'H3' ? 1 : 2;
             const top = headerElement.getBoundingClientRect().top - rect.top;
             headers.push({ label, indent, top, link, height: 0 });
         }
@@ -84,115 +95,119 @@ export class TableOfContentService {
 @Component({
     selector: 'app-table-of-content',
     template: `
-      <div class="wrapper" tabindex="0" #wrapper>
-        @for (line of lines(); track $index) {
-          <div class="line" [style.top.px]="line[2]"
-               [class.active]="isActiveLine(line[2])"></div>
-        }
+        <div class="wrapper" tabindex="0" #wrapper>
+            @for (line of lines(); track $index) {
+                <div class="line" [style.top.px]="line[2]" [class.active]="isActiveLine(line[2])"></div>
+            }
 
-        @let tops = this.headersTop();
-        @for (header of toc.headers(); track $index) {
-          @let top = tops[$index];
-          @if (top >= 0) {
-            <a [routerLink]="[]" [fragment]="header.link" class="header"
-               [class.active]="isActiveLine(top)"
-               [style.top.px]="top">{{ header.label }}</a>
-          }
-        }
-      </div>
+            @let tops = this.headersTop();
+            @for (header of toc.headers(); track $index) {
+                @let top = tops[$index];
+                @if (top >= 0) {
+                    <a
+                        [routerLink]="[]"
+                        [fragment]="header.link"
+                        class="header"
+                        [class.active]="isActiveLine(top)"
+                        [style.top.px]="top"
+                        >{{ header.label }}</a
+                    >
+                }
+            }
+        </div>
     `,
     host: {
         '[class.enabled]': 'enabled()',
     },
     styles: `
-      .line {
-        position: absolute;
-        right: 0;
-        width: 10px;
-        height: 1px;
-        background-color: rgba(192, 192, 192, 0.32);
-        transition: 0.1s ease-out;
+        .line {
+            position: absolute;
+            right: 0;
+            width: 10px;
+            height: 1px;
+            background-color: rgba(192, 192, 192, 0.32);
+            transition: 0.1s ease-out;
 
-        &.active {
-          background-color: rgba(255, 255, 255, 0.8);
-          /*height: 2px;*/
-        }
-      }
-
-      .header {
-        position: absolute;
-        left: 5px;
-        right: 15px;
-        color: #666;
-        margin-top: -14px;
-        font-size: 12px;
-        line-height: 20px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        transition: 0.1s ease-out;
-
-        &.active {
-          color: #fff;
-          font-weight: bold;
-        }
-      }
-
-      .wrapper {
-        position: absolute;
-        top: 30px;
-        right: 0;
-        bottom: 30px;
-        width: 100%;
-      }
-
-      :host {
-        --max-size: 1000px;
-        font-size: 12px;
-        position: fixed;
-        z-index: 500;
-        top: 60px;
-        right: 0;
-        bottom: 30px;
-        width: calc((100% - var(--max-size)) / 2);
-        min-width: calc((100% - var(--max-size)) / 2);
-        text-align: right;
-        background: rgba(9, 10, 11, 0.93);
-        -webkit-backdrop-filter: blur(7px);
-        backdrop-filter: blur(7px);
-        border-radius: 12px;
-        transition: 0.1s ease-out;
-        opacity: 0;
-
-        &.enabled {
-          opacity: 1;
+            &.active {
+                background-color: rgba(255, 255, 255, 0.8);
+                /*height: 2px;*/
+            }
         }
 
-        &.enabled:active,
-        &.enabled:hover {
-          min-width: 230px;
+        .header {
+            position: absolute;
+            left: 5px;
+            right: 15px;
+            color: #666;
+            margin-top: -14px;
+            font-size: 12px;
+            line-height: 20px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: 0.1s ease-out;
+
+            &.active {
+                color: #fff;
+                font-weight: bold;
+            }
         }
 
-        a, a:link {
-          display: block;
-          padding: 3px 0;
-
-          &:hover {
-            color: white;
-            text-decoration: none;
-          }
+        .wrapper {
+            position: absolute;
+            top: 30px;
+            right: 0;
+            bottom: 30px;
+            width: 100%;
         }
-      }
 
-      @media (max-width: 1024px) {
         :host {
-          right: 6px;
+            --max-size: 1000px;
+            font-size: 12px;
+            position: fixed;
+            z-index: 500;
+            top: 60px;
+            right: 0;
+            bottom: 30px;
+            width: calc((100% - var(--max-size)) / 2);
+            min-width: calc((100% - var(--max-size)) / 2);
+            text-align: right;
+            background: rgba(9, 10, 11, 0.93);
+            -webkit-backdrop-filter: blur(7px);
+            backdrop-filter: blur(7px);
+            border-radius: 12px;
+            transition: 0.1s ease-out;
+            opacity: 0;
+
+            &.enabled {
+                opacity: 1;
+            }
+
+            &.enabled:active,
+            &.enabled:hover {
+                min-width: 230px;
+            }
+
+            a,
+            a:link {
+                display: block;
+                padding: 3px 0;
+
+                &:hover {
+                    color: white;
+                    text-decoration: none;
+                }
+            }
         }
-      }
+
+        @media (max-width: 1024px) {
+            :host {
+                right: 6px;
+            }
+        }
     `,
-    imports: [
-        RouterLink,
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [RouterLink],
 })
 export class TableOfContentComponent {
     contentTextService = inject(ContentTextService);
@@ -283,5 +298,4 @@ export class TableOfContentComponent {
         const top = percentage * containerHeight;
         return Math.round(top / this.interval) * this.interval;
     }
-
 }

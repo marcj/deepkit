@@ -5,13 +5,14 @@
     "noFallthroughCasesInSwitch": true,
     "sourceMap": true,
     "experimentalDecorators": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "target": "es2020",
     "module": "CommonJS",
     "esModuleInterop": true,
     "declaration": true,
     "composite": true,
     "skipLibCheck": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "types": ["node"]
   }
 }

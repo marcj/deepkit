@@ -7,8 +7,15 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { booleanAttribute, Component, HostBinding, input, OnChanges, OnInit } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    HostBinding,
+    OnChanges,
+    OnInit,
+    booleanAttribute,
+    input,
+} from '@angular/core';
 
 @Component({
     selector: 'dui-icon',
@@ -20,6 +27,7 @@ import { booleanAttribute, Component, HostBinding, input, OnChanges, OnInit } fr
         '[style.width.px]': 'usedSize',
         '[style.color]': 'color()',
     },
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./icon.component.scss'],
 })
 export class IconComponent implements OnInit, OnChanges {
@@ -60,8 +68,7 @@ export class IconComponent implements OnInit, OnChanges {
         return this.disabled();
     }
 
-    constructor() {
-    }
+    constructor() {}
 
     ngOnChanges(): void {
         const size = this.size();
@@ -81,6 +88,5 @@ export class IconComponent implements OnInit, OnChanges {
         }
     }
 
-    ngOnInit() {
-    }
+    ngOnInit() {}
 }

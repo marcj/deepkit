@@ -68,7 +68,7 @@ export function nodeBufferToTypedArray<K>(buf: Buffer, type: TypedArrayClassType
  * This function is only used in browser context, where atob is actually faster than
  * using `Buffer.from` by the `buffer.js` library.
  */
-function base64ToUint8ArrayAtoB(base64: string): Uint8Array {
+function base64ToUint8ArrayAtoB(base64: string): Uint8Array<ArrayBuffer> {
     const raw = atob(base64);
     const rawLength = raw.length;
     const array = new Uint8Array(new ArrayBuffer(rawLength));
@@ -115,7 +115,7 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * This makes a copy.
  */
 export function nodeBufferToArrayBuffer<K>(buf: Uint8Array | ArrayBuffer): ArrayBuffer {
-    if (ArrayBuffer.isView(buf)) return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    if (ArrayBuffer.isView(buf)) return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
     return buf;
 }
 
@@ -147,6 +147,7 @@ export function arrayBufferFrom(data: string, encoding?: string): ArrayBuffer {
 /**
  * Same as Buffer.from(arrayBuffer).toString(encoding), but more in line with the current API.
  */
-export function arrayBufferTo(arrayBuffer: ArrayBuffer, encoding?: string | 'utf8' | 'base64' | 'ascii') {
-    return Buffer.from(arrayBuffer).toString(encoding as any);
+export function arrayBufferTo(arrayBuffer: ArrayBuffer | Uint8Array, encoding?: string | 'utf8' | 'base64' | 'ascii') {
+    const buffer = arrayBuffer instanceof Uint8Array ? Buffer.from(arrayBuffer.buffer, arrayBuffer.byteOffset, arrayBuffer.byteLength) : Buffer.from(arrayBuffer);
+    return buffer.toString(encoding as any);
 }

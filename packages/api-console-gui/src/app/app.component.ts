@@ -1,31 +1,41 @@
-import { Component, ElementRef } from '@angular/core';
-import { DuiApp, DuiStyleComponent, WindowComponent, WindowContentComponent, WindowHeaderComponent, WindowToolbarComponent, WindowToolbarContainerComponent } from '@deepkit/desktop-ui';
-import { ControllerClient } from './client';
-import { HeaderLogoComponent, HeaderStatusBarComponent } from '@deepkit/ui-library';
+import { ChangeDetectionStrategy, Component, ElementRef } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
+
+import {
+    DuiApp,
+    DuiStyleComponent,
+    WindowComponent,
+    WindowContentComponent,
+    WindowHeaderComponent,
+    WindowToolbarComponent,
+    WindowToolbarContainerComponent,
+} from '@deepkit/desktop-ui';
+import { HeaderLogoComponent, HeaderStatusBarComponent } from '@deepkit/ui-library';
+
+import { ControllerClient } from './client';
 
 @Component({
     selector: 'app-root',
     template: `
-      <dui-style />
-      <dui-window normalize-style>
-        <dui-window-header size="small">
-          <dui-window-toolbar>
-            <deepkit-header-logo title="API Console"></deepkit-header-logo>
+        <dui-style />
+        <dui-window normalize-style>
+            <dui-window-header size="small">
+                <dui-window-toolbar>
+                    <deepkit-header-logo title="API Console"></deepkit-header-logo>
 
-            <dui-window-toolbar-container name="main"></dui-window-toolbar-container>
-            <div class="top-right">
-              <div>
-                <a routerLink="/api">OVERVIEW</a>
-              </div>
-              <deepkit-header-status-bar [client]="client.client"></deepkit-header-status-bar>
-            </div>
-          </dui-window-toolbar>
-        </dui-window-header>
-        <dui-window-content [sidebarVisible]="sidebarVisible" class="no-padding">
-          <router-outlet></router-outlet>
-        </dui-window-content>
-      </dui-window>
+                    <dui-window-toolbar-container name="main"></dui-window-toolbar-container>
+                    <div class="top-right">
+                        <div>
+                            <a routerLink="/api">OVERVIEW</a>
+                        </div>
+                        <deepkit-header-status-bar [client]="client.client"></deepkit-header-status-bar>
+                    </div>
+                </dui-window-toolbar>
+            </dui-window-header>
+            <dui-window-content [sidebarVisible]="sidebarVisible" class="no-padding">
+                <router-outlet></router-outlet>
+            </dui-window-content>
+        </dui-window>
     `,
     imports: [
         WindowComponent,
@@ -39,6 +49,7 @@ import { RouterLink, RouterOutlet } from '@angular/router';
         RouterOutlet,
         RouterLink,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./app.component.scss'],
 })
 export class AppComponent {

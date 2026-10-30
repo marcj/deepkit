@@ -1,7 +1,8 @@
-import { Component, Input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
+
 import { Type } from '@deepkit/type';
 
-@Component({ template: `{{ model }}` })
+@Component({ changeDetection: ChangeDetectionStrategy.Eager, template: `{{ model }}` })
 export class StringCellComponent {
     @Input() model: any;
     @Input() type!: Type;

@@ -1,32 +1,40 @@
-import { Component, EventEmitter, input, Output } from '@angular/core';
-import { getSerializeFunction, ReflectionKind, serializer, Type } from '@deepkit/type';
-import { DataStructure } from '../../store';
-import { InputComponent } from '@deepkit/desktop-ui';
+import { ChangeDetectionStrategy, Component, EventEmitter, Output, input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+
+import { InputComponent } from '@deepkit/desktop-ui';
+import { ReflectionKind, Type, getSerializeFunction, serializer } from '@deepkit/type';
+
+import { DataStructure } from '../../store';
 import { TypeDecoration } from '../../utils.js';
 
 @Component({
     template: `
-      <dui-input lightFocus type="textarea" style="width: 100%" [(ngModel)]="jsonContent" (ngModelChange)="jsonDone()"></dui-input>
+        <dui-input
+            lightFocus
+            type="textarea"
+            style="width: 100%"
+            [(ngModel)]="jsonContent"
+            (ngModelChange)="jsonDone()"
+        ></dui-input>
     `,
-    styles: [`
-        .json-editor {
-            height: 100%;
-            padding: 0 12px;
-            display: flex;
-            flex-direction: column;
-        }
+    styles: [
+        `
+            .json-editor {
+                height: 100%;
+                padding: 0 12px;
+                display: flex;
+                flex-direction: column;
+            }
 
-        .json-editor dui-input {
-            margin-top: 15px;
-            width: 100%;
-            flex: 1;
-        }
-    `],
-    imports: [
-        InputComponent,
-        FormsModule,
+            .json-editor dui-input {
+                margin-top: 15px;
+                width: 100%;
+                flex: 1;
+            }
+        `,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [InputComponent, FormsModule],
 })
 export class JsonInputComponent {
     model = input.required<DataStructure>();
@@ -48,9 +56,6 @@ export class JsonInputComponent {
         try {
             const obj = JSON.parse(this.jsonContent);
             this.model().value.set(getSerializeFunction(this.type(), serializer.deserializeRegistry)(obj));
-
-        } catch (error) {
-        }
+        } catch (error) {}
     }
-
 }

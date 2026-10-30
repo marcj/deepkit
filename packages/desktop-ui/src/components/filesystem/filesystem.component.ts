@@ -1,20 +1,53 @@
-import { Component, computed, effect, ElementRef, forwardRef, HostListener, inject, input, model, OnDestroy, OnInit, output, QueryList, signal, viewChild, ViewChild, ViewChildren } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ElementRef,
+    HostListener,
+    OnDestroy,
+    OnInit,
+    QueryList,
+    ViewChild,
+    ViewChildren,
+    computed,
+    effect,
+    forwardRef,
+    inject,
+    input,
+    model,
+    output,
+    signal,
+    viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FilesystemApi, FilesystemApiFile, FilesystemState } from './api';
+
+import { MenuCheckboxDirective, MenuComponent, MenuItemComponent, MenuSeparatorComponent } from '../app/menu';
 import { HumanFileSizePipe } from '../app/pipes';
-import { ButtonComponent, ButtonGroupComponent, ButtonGroupsComponent, FileDropDirective, FilePickerDirective, FilePickerItem } from '../button/button.component';
+import {
+    ButtonComponent,
+    ButtonGroupComponent,
+    ButtonGroupsComponent,
+    FileDropDirective,
+    FilePickerDirective,
+    FilePickerItem,
+} from '../button/button.component';
+import {
+    ContextDropdownDirective,
+    DropdownComponent,
+    DropdownContainerDirective,
+    DropdownItemComponent,
+    DropdownSplitterComponent,
+} from '../button/dropdown.component';
+import { DuiDialog } from '../dialog/dialog';
 import { IconComponent } from '../icon/icon.component';
-import { ContextDropdownDirective, DropdownComponent, DropdownContainerDirective, DropdownItemComponent, DropdownSplitterComponent } from '../button/dropdown.component';
 import { InputComponent } from '../input/input.component';
 import { TableCellDirective, TableColumnDirective, TableComponent } from '../table/table.component';
-import { DuiDialog } from '../dialog/dialog';
-import { mimeTypeToLabel } from './utils';
+import { FilesystemApi, FilesystemApiFile, FilesystemState } from './api';
 import { FilesystemFileDataCache, FilesystemFileQuickLookCache, FilesystemFileThumbnailCache } from './cache';
 import { FilesystemFileDetail } from './components/file-detail.component';
-import { type ElementWithThumbnail, FilesystemFileThumbnail } from './components/file-thumbnail.component';
 import { FilesystemFileQuickLook } from './components/file-quick-look.component';
-import { MenuCheckboxDirective, MenuComponent, MenuItemComponent, MenuSeparatorComponent } from '../app/menu';
+import { type ElementWithThumbnail, FilesystemFileThumbnail } from './components/file-thumbnail.component';
+import { mimeTypeToLabel } from './utils';
 
 function sortByName(a: FilesystemApiFile, b: FilesystemApiFile) {
     return a.path.localeCompare(b.path);
@@ -48,151 +81,192 @@ function sortByType(a: FilesystemApiFile, b: FilesystemApiFile) {
 @Component({
     selector: 'dui-filesystem',
     template: `
-      @let sort = this.sort();
+        @let sort = this.sort();
 
-      <dui-menu>
-        <dui-menu-item label="File">
-          <dui-menu-item label="New folder" (click)="createFolder()" />
-          <dui-menu-item label="Upload" duiFilePicker duiFileMultiple (duiFilePickerChange)="upload($event)" />
-        </dui-menu-item>
-        <dui-menu-item label="Edit">
-          <dui-menu-item label="Rename" (click)="renameFile.set(selected()[0])" [disabled]="!selected().length" />
-          <dui-menu-item label="Delete" (click)="deleteSelected()" [disabled]="!selected().length" />
-          <dui-menu-item label="Quick Look" (click)="openQuickLook()" [disabled]="!selected().length" />
-        </dui-menu-item>
-        <dui-menu-item label="View">
-          <dui-menu-item label="Sort By">
-            <dui-menu-checkbox label="Name" [checked]="sort.by === 'name'" (click)="sortBy('name')" />
-            <dui-menu-checkbox label="Created" [checked]="sort.by === 'created'" (click)="sortBy('created')" />
-            <dui-menu-checkbox label="Modified" [checked]="sort.by === 'modified'" (click)="sortBy('modified')" />
-            <dui-menu-checkbox label="Type" [checked]="sort.by === 'type'" (click)="sortBy('type')" />
-            <dui-menu-checkbox label="Size" [checked]="sort.by === 'size'" (click)="sortBy('size')" />
-            <dui-menu-separator />
-            <dui-menu-checkbox label="Ascending" [checked]="sort.direction === 'asc'" (click)="sortDirection('asc')" />
-            <dui-menu-checkbox label="Descending" [checked]="sort.direction === 'desc'" (click)="sortDirection('desc')" />
-            <dui-menu-separator />
-            <dui-menu-checkbox label="Folder first" [checked]="sort.folderFirst" (click)="toggleFolderFirst()" />
-          </dui-menu-item>
-          <dui-menu-checkbox label="Icons" [checked]="view() === 'icons'" (click)="view.set('icons')" />
-          <dui-menu-checkbox label="List" [checked]="view() === 'list'" (click)="view.set('list')" />
-          
-        </dui-menu-item>
-      </dui-menu>
+        <dui-menu>
+            <dui-menu-item label="File">
+                <dui-menu-item label="New folder" (click)="createFolder()" />
+                <dui-menu-item label="Upload" duiFilePicker duiFileMultiple (duiFilePickerChange)="upload($event)" />
+            </dui-menu-item>
+            <dui-menu-item label="Edit">
+                <dui-menu-item label="Rename" (click)="renameFile.set(selected()[0])" [disabled]="!selected().length" />
+                <dui-menu-item label="Delete" (click)="deleteSelected()" [disabled]="!selected().length" />
+                <dui-menu-item label="Quick Look" (click)="openQuickLook()" [disabled]="!selected().length" />
+            </dui-menu-item>
+            <dui-menu-item label="View">
+                <dui-menu-item label="Sort By">
+                    <dui-menu-checkbox label="Name" [checked]="sort.by === 'name'" (click)="sortBy('name')" />
+                    <dui-menu-checkbox label="Created" [checked]="sort.by === 'created'" (click)="sortBy('created')" />
+                    <dui-menu-checkbox
+                        label="Modified"
+                        [checked]="sort.by === 'modified'"
+                        (click)="sortBy('modified')"
+                    />
+                    <dui-menu-checkbox label="Type" [checked]="sort.by === 'type'" (click)="sortBy('type')" />
+                    <dui-menu-checkbox label="Size" [checked]="sort.by === 'size'" (click)="sortBy('size')" />
+                    <dui-menu-separator />
+                    <dui-menu-checkbox
+                        label="Ascending"
+                        [checked]="sort.direction === 'asc'"
+                        (click)="sortDirection('asc')"
+                    />
+                    <dui-menu-checkbox
+                        label="Descending"
+                        [checked]="sort.direction === 'desc'"
+                        (click)="sortDirection('desc')"
+                    />
+                    <dui-menu-separator />
+                    <dui-menu-checkbox
+                        label="Folder first"
+                        [checked]="sort.folderFirst"
+                        (click)="toggleFolderFirst()"
+                    />
+                </dui-menu-item>
+                <dui-menu-checkbox label="Icons" [checked]="view() === 'icons'" (click)="view.set('icons')" />
+                <dui-menu-checkbox label="List" [checked]="view() === 'list'" (click)="view.set('list')" />
+            </dui-menu-item>
+        </dui-menu>
 
-      <dui-button-groups>
-        <dui-button-group padding="none" style="flex: 1;">
-          <!--                <dui-button textured tight icon="arrow_left"></dui-button>-->
-          <!--                <dui-button textured tight icon="arrow_right"></dui-button>-->
-          <dui-button textured tight icon="reload" (click)="load()"></dui-button>
-          <dui-button textured tight icon="arrow_up" (click)="goUp()"></dui-button>
-          <dui-input style="flex: 1;" round textured [(ngModel)]="path" (enter)="load()"></dui-input>
-        </dui-button-group>
-        <!--        <dui-button-group>-->
-        <!--          <dui-input icon="search" round placeholder="Search ..." textured></dui-input>-->
-        <!--        </dui-button-group>-->
-      </dui-button-groups>
+        <dui-button-groups>
+            <dui-button-group padding="none" style="flex: 1;">
+                <!--                <dui-button textured tight icon="arrow_left"></dui-button>-->
+                <!--                <dui-button textured tight icon="arrow_right"></dui-button>-->
+                <dui-button textured tight icon="reload" (click)="load()"></dui-button>
+                <dui-button textured tight icon="arrow_up" (click)="goUp()"></dui-button>
+                <dui-input style="flex: 1;" round textured [(ngModel)]="path" (enter)="load()"></dui-input>
+            </dui-button-group>
+            <!--        <dui-button-group>-->
+            <!--          <dui-input icon="search" round placeholder="Search ..." textured></dui-input>-->
+            <!--        </dui-button-group>-->
+        </dui-button-groups>
 
-      <dui-dropdown #contextMenu>
-        <dui-dropdown-item [disabled]="!selected().length" (click)="open(filesSelected()[0]!.path)">Open</dui-dropdown-item>
-        <dui-dropdown-item [disabled]="!selected().length" (click)="openPublic(filesSelected()[0]!.path)">Open Public URL</dui-dropdown-item>
-<!--        <dui-dropdown-item [disabled]="!selected().length" (click)="openPrivate(filesSelected()[0]!.path)">Open Private URL</dui-dropdown-item>-->
-        <dui-dropdown-splitter></dui-dropdown-splitter>
-        <dui-dropdown-item [disabled]="!selected().length" (click)="deleteSelected()">Delete</dui-dropdown-item>
-        <dui-dropdown-splitter></dui-dropdown-splitter>
-        <dui-dropdown-item [disabled]="!selected().length" (click)="renameFile.set(selected()[0])">Rename</dui-dropdown-item>
-        <!--            <dui-dropdown-item [disabled]="!selected().length">Duplicate</dui-dropdown-item>-->
-        <dui-dropdown-item [disabled]="!selected().length" (click)="openQuickLook()">Quick Look</dui-dropdown-item>
-        <!--            <dui-dropdown-splitter></dui-dropdown-splitter>-->
-        <!--            <dui-dropdown-item [disabled]="!selected().length">Copy</dui-dropdown-item>-->
-        <!--            <dui-dropdown-item [disabled]="!selected().length">Download</dui-dropdown-item>-->
-        <!--            <dui-dropdown-item [disabled]="!selected().length">Share</dui-dropdown-item>-->
-      </dui-dropdown>
+        <dui-dropdown #contextMenu>
+            <dui-dropdown-item [disabled]="!selected().length" (click)="open(filesSelected()[0]!.path)"
+                >Open</dui-dropdown-item
+            >
+            <dui-dropdown-item [disabled]="!selected().length" (click)="openPublic(filesSelected()[0]!.path)"
+                >Open Public URL</dui-dropdown-item
+            >
+            <!--        <dui-dropdown-item [disabled]="!selected().length" (click)="openPrivate(filesSelected()[0]!.path)">Open Private URL</dui-dropdown-item>-->
+            <dui-dropdown-splitter></dui-dropdown-splitter>
+            <dui-dropdown-item [disabled]="!selected().length" (click)="deleteSelected()">Delete</dui-dropdown-item>
+            <dui-dropdown-splitter></dui-dropdown-splitter>
+            <dui-dropdown-item [disabled]="!selected().length" (click)="renameFile.set(selected()[0])"
+                >Rename</dui-dropdown-item
+            >
+            <!--            <dui-dropdown-item [disabled]="!selected().length">Duplicate</dui-dropdown-item>-->
+            <dui-dropdown-item [disabled]="!selected().length" (click)="openQuickLook()">Quick Look</dui-dropdown-item>
+            <!--            <dui-dropdown-splitter></dui-dropdown-splitter>-->
+            <!--            <dui-dropdown-item [disabled]="!selected().length">Copy</dui-dropdown-item>-->
+            <!--            <dui-dropdown-item [disabled]="!selected().length">Download</dui-dropdown-item>-->
+            <!--            <dui-dropdown-item [disabled]="!selected().length">Share</dui-dropdown-item>-->
+        </dui-dropdown>
 
-      <dui-dropdown #quickLook [keepOpen]="true" normalize-style>
-        <ng-container *dropdownContainer>
-          @if (filesSelected(); as files) {
-            @if (files.length) {
-              <dui-filesystem-file-quick-look (close)="closeQuickLook()" [files]="files" [api]="api()"></dui-filesystem-file-quick-look>
+        <dui-dropdown #quickLook [keepOpen]="true" normalize-style>
+            <ng-container *dropdownContainer>
+                @if (filesSelected(); as files) {
+                    @if (files.length) {
+                        <dui-filesystem-file-quick-look
+                            (close)="closeQuickLook()"
+                            [files]="files"
+                            [api]="api()"
+                        ></dui-filesystem-file-quick-look>
+                    }
+                }
+            </ng-container>
+        </dui-dropdown>
+
+        @let media = this.media();
+
+        <div
+            class="content"
+            [class.list]="view() === 'list'"
+            [class.file]="media && media.type === 'file'"
+            [class.overlay-scrollbar-small]="media && media.type === 'directory'"
+            [class.folder]="media && media.type === 'directory'"
+            (click)="selectBackground($event)"
+            duiFileDrop
+            duiFileDropMultiple
+            (duiFileDropChange)="upload($event)"
+            #container
+            [contextDropdown]="contextMenu"
+        >
+            @if (!media && path() !== '/') {
+                <div class="error">
+                    <dui-icon name="error" />
+                    <div class="message">Path {{ path() }} not found</div>
+                </div>
+            } @else {
+                @if (media && media.type === 'file') {
+                    <dui-filesystem-detail [file]="media" [api]="api()"></dui-filesystem-detail>
+                }
+                @if (media && media.type === 'directory') {
+                    @if (view() === 'list') {
+                        <dui-table
+                            selectable
+                            (selectedChange)="tableSelect($event)"
+                            [items]="filesSorted()"
+                            (rowDblClick)="open($event.path)"
+                            no-focus-outline
+                        >
+                            <dui-table-column name="name" [width]="350">
+                                <ng-container *duiTableCell="let item">
+                                    <dui-filesystem-file-thumbnail
+                                        [file]="item"
+                                        [api]="api()"
+                                        [view]="view()"
+                                        (select)="select(item)"
+                                        (renamed)="fileRenamed($event)"
+                                        [rename]="item.path === renameFile()"
+                                        [selected]="selected().includes(item.path)"
+                                    />
+                                </ng-container>
+                            </dui-table-column>
+                            <dui-table-column name="modified">
+                                <ng-container *duiTableCell="let item">
+                                    {{ item.modified | date: 'medium' }}
+                                </ng-container>
+                            </dui-table-column>
+                            <dui-table-column name="size">
+                                <ng-container *duiTableCell="let item">
+                                    {{ item.size | fileSize }}
+                                </ng-container>
+                            </dui-table-column>
+                            <dui-table-column name="Kind">
+                                <ng-container *duiTableCell="let item">
+                                    {{ item.type === 'directory' ? 'Folder' : mimeTypeToLabel(item.mimeType) }}
+                                </ng-container>
+                            </dui-table-column>
+                            <!--                        <dui-table-column name="created">-->
+                            <!--                            <ng-container *duiTableCell="let item">-->
+                            <!--                                {{item.created | date:'medium'}}-->
+                            <!--                            </ng-container>-->
+                            <!--                        </dui-table-column>-->
+                        </dui-table>
+                    }
+                    @if (view() === 'icons') {
+                        @for (file of filesSorted(); track $index) {
+                            <dui-filesystem-file-thumbnail
+                                [file]="file"
+                                [api]="api()"
+                                (select)="select(file)"
+                                (renamed)="fileRenamed($event)"
+                                [rename]="file.path === renameFile()"
+                                (dblclick)="open(file.path)"
+                                [selected]="selected().includes(file.path)"
+                            />
+                        }
+                    }
+                }
             }
-          }
-        </ng-container>
-      </dui-dropdown>
-
-      @let media = this.media();
-
-      <div class="content"
-           [class.list]="view() === 'list'"
-           [class.file]="media && media.type === 'file'"
-           [class.overlay-scrollbar-small]="media && media.type === 'directory'"
-           [class.folder]="media && media.type === 'directory'"
-           (click)="selectBackground($event)" duiFileDrop duiFileDropMultiple (duiFileDropChange)="upload($event)"
-           #container
-           [contextDropdown]="contextMenu">
-        @if (!media && path() !== '/') {
-          <div class="error">
-            <dui-icon name="error" />
-            <div class="message">Path {{ path() }} not found</div>
-          </div>
-        } @else {
-          @if (media && media.type === 'file') {
-            <dui-filesystem-detail [file]="media" [api]="api()"></dui-filesystem-detail>
-          }
-          @if (media && media.type === 'directory') {
-            @if (view() === 'list') {
-              <dui-table selectable (selectedChange)="tableSelect($event)" [items]="filesSorted()" (rowDblClick)="open($event.path)" no-focus-outline>
-                <dui-table-column name="name" [width]="350">
-                  <ng-container *duiTableCell="let item">
-                    <dui-filesystem-file-thumbnail
-                      [file]="item" [api]="api()"
-                      [view]="view()"
-                      (select)="select(item)" (renamed)="fileRenamed($event)" [rename]="item.path === renameFile()"
-                      [selected]="selected().includes(item.path)" />
-                  </ng-container>
-                </dui-table-column>
-                <dui-table-column name="modified">
-                  <ng-container *duiTableCell="let item">
-                    {{ item.modified | date:'medium' }}
-                  </ng-container>
-                </dui-table-column>
-                <dui-table-column name="size">
-                  <ng-container *duiTableCell="let item">
-                    {{ item.size | fileSize }}
-                  </ng-container>
-                </dui-table-column>
-                <dui-table-column name="Kind">
-                  <ng-container *duiTableCell="let item">
-                    {{ item.type === 'directory' ? 'Folder' : mimeTypeToLabel(item.mimeType) }}
-                  </ng-container>
-                </dui-table-column>
-                <!--                        <dui-table-column name="created">-->
-                <!--                            <ng-container *duiTableCell="let item">-->
-                <!--                                {{item.created | date:'medium'}}-->
-                <!--                            </ng-container>-->
-                <!--                        </dui-table-column>-->
-              </dui-table>
-            }
-            @if (view() === 'icons') {
-              @for (file of filesSorted(); track $index) {
-                <dui-filesystem-file-thumbnail
-                  [file]="file" [api]="api()" (select)="select(file)"
-                  (renamed)="fileRenamed($event)" [rename]="file.path === renameFile()"
-                  (dblclick)="open(file.path)"
-                  [selected]="selected().includes(file.path)" />
-              }
-            }
-          }
-        }
-      </div>
+        </div>
     `,
     styleUrl: './filesystem.component.scss',
     host: {
         '[attr.tabindex]': '0',
     },
-    providers: [
-        FilesystemFileDataCache,
-        FilesystemFileQuickLookCache,
-        FilesystemFileThumbnailCache,
-    ],
+    providers: [FilesystemFileDataCache, FilesystemFileQuickLookCache, FilesystemFileThumbnailCache],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         DropdownComponent,
         DropdownItemComponent,
@@ -233,7 +307,7 @@ export class FilesystemComponent implements OnInit, OnDestroy {
     media = signal<FilesystemApiFile | undefined>(undefined);
     files = signal<FilesystemApiFile[]>([]);
 
-    sort = signal<{ by: string, direction: 'asc' | 'desc', folderFirst: boolean }>({
+    sort = signal<{ by: string; direction: 'asc' | 'desc'; folderFirst: boolean }>({
         by: 'name',
         direction: 'asc',
         folderFirst: true,
@@ -280,7 +354,8 @@ export class FilesystemComponent implements OnInit, OnDestroy {
 
     @ViewChild('quickLook', { read: DropdownComponent }) quickLook?: DropdownComponent;
 
-    @ViewChildren(FilesystemFileThumbnail, { read: FilesystemFileThumbnail }) thumbnails?: QueryList<FilesystemFileThumbnail>;
+    @ViewChildren(FilesystemFileThumbnail, { read: FilesystemFileThumbnail })
+    thumbnails?: QueryList<FilesystemFileThumbnail>;
 
     element = inject(ElementRef);
     dialog = inject(DuiDialog);
@@ -312,16 +387,19 @@ export class FilesystemComponent implements OnInit, OnDestroy {
             if (this.intersectionObserver) {
                 this.intersectionObserver.disconnect();
             }
-            this.intersectionObserver = new IntersectionObserver(entries => {
-                for (const entry of entries) {
-                    const thumbnail = (entry.target as ElementWithThumbnail).thumbnail as FilesystemFileThumbnail;
-                    if (!thumbnail) continue;
-                    thumbnail.intersection.set(entry.isIntersecting);
-                }
-            }, {
-                root: container,
-                threshold: 0.1,
-            });
+            this.intersectionObserver = new IntersectionObserver(
+                entries => {
+                    for (const entry of entries) {
+                        const thumbnail = (entry.target as ElementWithThumbnail).thumbnail as FilesystemFileThumbnail;
+                        if (!thumbnail) continue;
+                        thumbnail.intersection.set(entry.isIntersecting);
+                    }
+                },
+                {
+                    root: container,
+                    threshold: 0.1,
+                },
+            );
         });
     }
 
@@ -404,7 +482,9 @@ export class FilesystemComponent implements OnInit, OnDestroy {
         }
 
         if (this.thumbnails) {
-            const thumbnails: { element: ElementRef, file: FilesystemApiFile }[] = this.thumbnails.toArray().map(v => ({ element: v.elementRef, file: v.file() }));
+            const thumbnails: { element: ElementRef; file: FilesystemApiFile }[] = this.thumbnails
+                .toArray()
+                .map(v => ({ element: v.elementRef, file: v.file() }));
             const found = thumbnails.find(t => t.file.path === selected[selected.length - 1]);
             if (!found) {
                 //special handling
@@ -550,8 +630,7 @@ export class FilesystemComponent implements OnInit, OnDestroy {
         }
     }
 
-    ngOnDestroy() {
-    }
+    ngOnDestroy() {}
 
     upload(files: FilePickerItem[]) {
         const media = this.media();

@@ -7,14 +7,25 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import {
+    ChangeDetectionStrategy,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewContainerRef,
+    booleanAttribute,
+    contentChild,
+    forwardRef,
+    inject,
+    input,
+} from '@angular/core';
 
-import { booleanAttribute, ChangeDetectionStrategy, Component, contentChild, forwardRef, inject, input, OnDestroy, OnInit, ViewContainerRef } from '@angular/core';
-import { WindowContentComponent } from './window-content.component';
-import { Win, WindowRegistry, WindowState } from './window-state';
-import { WindowMenuState } from './window-menu';
-import { WindowHeaderComponent } from './window-header.component';
-import { DuiApp } from '../app/app';
 import { BrowserWindow } from '../../core/utils';
+import { DuiApp } from '../app/app';
+import { WindowContentComponent } from './window-content.component';
+import { WindowHeaderComponent } from './window-header.component';
+import { WindowMenuState } from './window-menu';
+import { Win, WindowRegistry, WindowState } from './window-state';
 
 /**
  * This is only for documentation purposes.
@@ -23,6 +34,7 @@ import { BrowserWindow } from '../../core/utils';
     selector: 'dui-window-frame',
     template: '<ng-content></ng-content>',
     styleUrls: ['./window-frame.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     host: {
         '[style.height]': `height() ? height() + 'px' : 'auto'`,
         '[class.dui-normalized]': 'true',
@@ -34,7 +46,8 @@ export class WindowFrameComponent {
 
 @Component({
     selector: 'dui-window',
-    template: '<ng-content></ng-content>@if (windowState.disableInputs()) {<div (mousedown)="$event.preventDefault();" class="disable-inputs"></div>}',
+    template:
+        '<ng-content></ng-content>@if (windowState.disableInputs()) {<div (mousedown)="$event.preventDefault();" class="disable-inputs"></div>}',
     styleUrl: './window.component.scss',
     host: {
         '[class.in-dialog]': 'dialog()',
@@ -43,10 +56,7 @@ export class WindowFrameComponent {
         '[class.dui-normalized]': 'normalizeStyle()',
     },
     changeDetection: ChangeDetectionStrategy.OnPush,
-    providers: [
-        forwardRef(() => WindowState),
-        forwardRef(() => WindowMenuState),
-    ],
+    providers: [forwardRef(() => WindowState), forwardRef(() => WindowMenuState)],
 })
 export class WindowComponent implements OnInit, OnDestroy, Win {
     public id = 0;

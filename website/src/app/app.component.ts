@@ -1,38 +1,40 @@
-import { Component } from '@angular/core';
 import { ViewportScroller } from '@angular/common';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
-import { AppTitle } from '@app/app/components/title';
-import { DuiApp, DuiStyleComponent } from '@deepkit/desktop-ui';
 import { ContentTextService } from '@app/app/components/content-text.component.js';
+import { AppTitle } from '@app/app/components/title';
 import { Translation } from '@app/app/components/translation.js';
+
+import { DuiApp, DuiStyleComponent } from '@deepkit/desktop-ui';
 
 @Component({
     selector: 'app-root',
     imports: [RouterOutlet, AppTitle, DuiStyleComponent],
     host: {
-        '[class.content-text-dark]': 'contentTextService.darkMode()'
+        '[class.content-text-dark]': 'contentTextService.darkMode()',
     },
     template: `
-      <dui-style />
-      <app-title value="Deepkit Enterprise TypeScript Framework" />
+        <dui-style />
+        <app-title value="Deepkit Enterprise TypeScript Framework" />
 
-      @if (translation.ready()) {
-        <router-outlet></router-outlet>
-      }
+        @if (translation.ready()) {
+            <router-outlet></router-outlet>
+        }
 
-      <!--      @if (withHeader) {-->
-      <!--        <dw-header-->
-      <!--          [hideLogo]="activeRoute.firstChild?.snapshot?.data?.hideLogo"-->
-      <!--          [float]="activeRoute.firstChild?.snapshot?.data?.floatHeader"-->
-      <!--          [search]="activeRoute.firstChild?.snapshot?.data?.search" />-->
-      <!--      }-->
+        <!--      @if (withHeader) {-->
+        <!--        <dw-header-->
+        <!--          [hideLogo]="activeRoute.firstChild?.snapshot?.data?.hideLogo"-->
+        <!--          [float]="activeRoute.firstChild?.snapshot?.data?.floatHeader"-->
+        <!--          [search]="activeRoute.firstChild?.snapshot?.data?.search" />-->
+        <!--      }-->
 
-      <!--      <router-outlet></router-outlet>-->
+        <!--      <router-outlet></router-outlet>-->
 
-      <!--      @if (withFooter) {-->
-      <!--        <dw-footer></dw-footer>-->
-      <!--      }-->
+        <!--      @if (withFooter) {-->
+        <!--        <dw-footer></dw-footer>-->
+        <!--      }-->
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./app.component.css'],
 })
 export class AppComponent {

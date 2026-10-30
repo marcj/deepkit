@@ -1,39 +1,64 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { ButtonComponent, CloseDialogDirective, DialogActionsComponent, DialogComponent, DuiDialog, InputComponent } from '@deepkit/desktop-ui';
-import { deserialize, ReflectionKind, Type } from '@deepkit/type';
+import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+
+import {
+    ButtonComponent,
+    CloseDialogDirective,
+    DialogActionsComponent,
+    DialogComponent,
+    DuiDialog,
+    InputComponent,
+} from '@deepkit/desktop-ui';
+import { ReflectionKind, Type, deserialize } from '@deepkit/type';
 
 @Component({
     template: `
-      @if (jsonEditor) {
-        <dui-dialog class="class-field-dialog" noPadding [visible]="true" (closed)="done.emit()" [backDropCloses]="true"
-                    [minWidth]="450" [minHeight]="350">
-          <div class="json-editor">
-            <h3>JSON</h3>
-            <dui-input type="textarea" [(ngModel)]="jsonContent"></dui-input>
-          </div>
-          <dui-dialog-actions>
-            <dui-button closeDialog>Cancel</dui-button>
-            <dui-button (click)="jsonDone()">Ok</dui-button>
-          </dui-dialog-actions>
-        </dui-dialog>
-      }
+        @if (jsonEditor) {
+            <dui-dialog
+                class="class-field-dialog"
+                noPadding
+                [visible]="true"
+                (closed)="done.emit()"
+                [backDropCloses]="true"
+                [minWidth]="450"
+                [minHeight]="350"
+            >
+                <div class="json-editor">
+                    <h3>JSON</h3>
+                    <dui-input type="textarea" [(ngModel)]="jsonContent"></dui-input>
+                </div>
+                <dui-dialog-actions>
+                    <dui-button closeDialog>Cancel</dui-button>
+                    <dui-button (click)="jsonDone()">Ok</dui-button>
+                </dui-dialog-actions>
+            </dui-dialog>
+        }
     `,
-    styles: [`
-        .json-editor {
-            height: 100%;
-            padding: 0 12px;
-            display: flex;
-            flex-direction: column;
-        }
+    styles: [
+        `
+            .json-editor {
+                height: 100%;
+                padding: 0 12px;
+                display: flex;
+                flex-direction: column;
+            }
 
-        .json-editor dui-input {
-            margin-top: 15px;
-            width: 100%;
-            flex: 1;
-        }
-    `],
-    imports: [DialogComponent, InputComponent, FormsModule, DialogActionsComponent, ButtonComponent, CloseDialogDirective],
+            .json-editor dui-input {
+                margin-top: 15px;
+                width: 100%;
+                flex: 1;
+            }
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [
+        DialogComponent,
+        InputComponent,
+        FormsModule,
+        DialogActionsComponent,
+        ButtonComponent,
+        CloseDialogDirective,
+    ],
 })
 export class JsonInputComponent {
     @Input() model: any;
@@ -47,10 +72,7 @@ export class JsonInputComponent {
     jsonEditor = false;
     jsonContent = '';
 
-    constructor(
-        protected duiDialog: DuiDialog,
-    ) {
-    }
+    constructor(protected duiDialog: DuiDialog) {}
 
     getType(): string {
         if (this.type.kind === ReflectionKind.number || this.type.kind === ReflectionKind.bigint) return 'number';
@@ -70,5 +92,4 @@ export class JsonInputComponent {
             this.duiDialog.alert('Invalid JSON: ' + error);
         }
     }
-
 }

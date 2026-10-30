@@ -7,11 +7,23 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { booleanAttribute, Component, EventEmitter, HostBinding, HostListener, inject, input, OnDestroy, Output } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    EventEmitter,
+    HostBinding,
+    HostListener,
+    OnDestroy,
+    Output,
+    booleanAttribute,
+    inject,
+    input,
+} from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
+
 import { arrayRemoveItem } from '@deepkit/core';
+
+import { ValueAccessorBase, ngValueAccessor } from '../../core/form';
 import { injectElementRef } from '../app/utils';
 
 /**
@@ -26,20 +38,17 @@ import { injectElementRef } from '../app/utils';
  */
 @Component({
     selector: 'dui-list-title',
-    template: `
-      <ng-content></ng-content>`,
+    template: ` <ng-content></ng-content>`,
+    changeDetection: ChangeDetectionStrategy.Eager,
     styleUrls: ['./list-title.component.scss'],
 })
 export class ListTitleComponent {
-    constructor() {
-    }
+    constructor() {}
 }
 
 @Component({
     selector: 'dui-list',
-    template: `
-      <ng-content></ng-content>
-    `,
+    template: ` <ng-content></ng-content> `,
     styleUrls: ['./list.component.scss'],
     host: {
         '[class.white]': 'white()',
@@ -47,6 +56,7 @@ export class ListTitleComponent {
         '[class.focusable]': 'focusable()',
         '[class.delimiter-line]': 'delimiterLine()',
     },
+    changeDetection: ChangeDetectionStrategy.Eager,
     providers: [ngValueAccessor(ListComponent)],
 })
 export class ListComponent extends ValueAccessorBase<any> {
@@ -138,18 +148,15 @@ export class ListComponent extends ValueAccessorBase<any> {
  */
 @Component({
     selector: 'dui-list-item',
-    template: `
-      <ng-content></ng-content>
-    `,
+    template: ` <ng-content></ng-content> `,
     host: {
         '[class.selected]': 'isSelected()',
         '[attr.list-id]': 'list.id',
         '[attr.list-item-id]': 'id',
     },
     styleUrls: ['./list-item.component.scss'],
-    hostDirectives: [
-        { directive: RouterLinkActive, inputs: ['routerLinkActiveOptions'] },
-    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    hostDirectives: [{ directive: RouterLinkActive, inputs: ['routerLinkActiveOptions'] }],
 })
 export class ListItemComponent implements OnDestroy {
     protected static ids: number = 0;

@@ -7,31 +7,47 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { ApplicationRef, Component, ComponentFactoryResolver, ComponentRef, Directive, ElementRef, Inject, Injectable, Injector, input, model, OnDestroy, Signal, Type, ViewContainerRef } from '@angular/core';
-import { CloseDialogDirective, DialogActionsComponent, DialogComponent } from './dialog.component';
-import { isTargetChildOf } from '../../core/utils';
-import { DOCUMENT } from '@angular/common';
-import { WindowRegistry } from '../window/window-state';
 import { Overlay } from '@angular/cdk/overlay';
 import { ComponentPortal } from '@angular/cdk/portal';
-import { ButtonComponent, HotkeyDirective } from '../button/button.component';
-import { InputComponent } from '../input/input.component';
+import { DOCUMENT } from '@angular/common';
+import {
+    ApplicationRef,
+    ChangeDetectionStrategy,
+    Component,
+    ComponentRef,
+    Directive,
+    ElementRef,
+    Inject,
+    Injectable,
+    Injector,
+    OnDestroy,
+    Signal,
+    Type,
+    ViewContainerRef,
+    input,
+    model,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { isTargetChildOf } from '../../core/utils';
+import { ButtonComponent, HotkeyDirective } from '../button/button.component';
+import { InputComponent } from '../input/input.component';
+import { WindowRegistry } from '../window/window-state';
+import { CloseDialogDirective, DialogActionsComponent, DialogComponent } from './dialog.component';
 
 @Component({
     template: `
-      <h3>{{ title() || 'No title' }}</h3>
-      @if (content()) {
-        <div>{{ content() }}</div>
-      }
+        <h3>{{ title() || 'No title' }}</h3>
+        @if (content()) {
+            <div>{{ content() }}</div>
+        }
 
-      <dui-dialog-actions>
-        <dui-button hotkey="escape" [closeDialog]="false">Cancel</dui-button>
-        <dui-button auto-focus [closeDialog]="true">OK</dui-button>
-      </dui-dialog-actions>
+        <dui-dialog-actions>
+            <dui-button hotkey="escape" [closeDialog]="false">Cancel</dui-button>
+            <dui-button auto-focus [closeDialog]="true">OK</dui-button>
+        </dui-dialog-actions>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [DialogActionsComponent, ButtonComponent, HotkeyDirective, CloseDialogDirective],
 })
 export class DuiDialogConfirm {
@@ -45,15 +61,16 @@ export class DuiDialogConfirm {
 
 @Component({
     template: `
-      <h3>{{ title() || 'No title' }}</h3>
-      @if (content()) {
-        <div class="text-selection" style="white-space: pre-line;">{{ content() }}</div>
-      }
+        <h3>{{ title() || 'No title' }}</h3>
+        @if (content()) {
+            <div class="text-selection" style="white-space: pre-line;">{{ content() }}</div>
+        }
 
-      <dui-dialog-actions>
-        <dui-button auto-focus hotkey="escape" [closeDialog]="true">OK</dui-button>
-      </dui-dialog-actions>
+        <dui-dialog-actions>
+            <dui-button auto-focus hotkey="escape" [closeDialog]="true">OK</dui-button>
+        </dui-dialog-actions>
     `,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [DialogActionsComponent, ButtonComponent, HotkeyDirective, CloseDialogDirective],
 })
 export class DuiDialogAlert {
@@ -67,20 +84,28 @@ export class DuiDialogAlert {
 
 @Component({
     template: `
-      <h3>{{ title() || 'No title' }}</h3>
-      @if (content(); as content) {
-        <div class="text-selection" style="white-space: pre-line;">{{ content }}</div>
-      }
-      <div style="padding-top: 5px;">
-        <dui-input style="width: 100%" (enter)="dialog.close(value())" auto-focus [(ngModel)]="value"></dui-input>
-      </div>
+        <h3>{{ title() || 'No title' }}</h3>
+        @if (content(); as content) {
+            <div class="text-selection" style="white-space: pre-line;">{{ content }}</div>
+        }
+        <div style="padding-top: 5px;">
+            <dui-input style="width: 100%" (enter)="dialog.close(value())" auto-focus [(ngModel)]="value"></dui-input>
+        </div>
 
-      <dui-dialog-actions>
-        <dui-button hotkey="escape" [closeDialog]="false">Cancel</dui-button>
-        <dui-button [closeDialog]="value()">OK</dui-button>
-      </dui-dialog-actions>
+        <dui-dialog-actions>
+            <dui-button hotkey="escape" [closeDialog]="false">Cancel</dui-button>
+            <dui-button [closeDialog]="value()">OK</dui-button>
+        </dui-dialog-actions>
     `,
-    imports: [InputComponent, FormsModule, DialogActionsComponent, ButtonComponent, HotkeyDirective, CloseDialogDirective],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [
+        InputComponent,
+        FormsModule,
+        DialogActionsComponent,
+        ButtonComponent,
+        HotkeyDirective,
+        CloseDialogDirective,
+    ],
 })
 export class DuiDialogPrompt {
     title = input<string>('Alert');
@@ -92,24 +117,21 @@ export class DuiDialogPrompt {
         maxWidth: '700px',
     };
 
-    constructor(public dialog: DialogComponent) {
-    }
+    constructor(public dialog: DialogComponent) {}
 }
 
 export type Inputs<T> = {
     [P in keyof T]?: T[P] extends Signal<infer V> ? V : T[P];
-}
+};
 
 @Injectable({ providedIn: 'root' })
 export class DuiDialog {
     constructor(
-        protected resolver: ComponentFactoryResolver,
         protected app: ApplicationRef,
         protected injector: Injector,
         protected registry: WindowRegistry,
         protected overlay: Overlay,
-    ) {
-    }
+    ) {}
 
     protected getComponentRef(viewContainerRef: ViewContainerRef | null = null): ComponentRef<DialogComponent> {
         if (!viewContainerRef && !this.registry.activeWindow) {
@@ -118,7 +140,7 @@ export class DuiDialog {
             const portal = new ComponentPortal(DialogComponent);
 
             const comp = overlayRef.attach(portal);
-            comp.instance.closed.subscribe((v) => {
+            comp.instance.closed.subscribe(v => {
                 comp.destroy();
                 overlayRef.detach();
                 overlayRef.dispose();
@@ -139,7 +161,7 @@ export class DuiDialog {
         inputs: { [name in keyof T]?: any } = {},
         dialogInputs: Inputs<DialogComponent> = {},
         viewContainerRef: ViewContainerRef | null = null,
-    ): { dialog: DialogComponent, close: Promise<any>, component: T } {
+    ): { dialog: DialogComponent; close: Promise<any>; component: T } {
         const comp = this.getComponentRef(viewContainerRef);
         comp.setInput('visible', true);
         comp.setInput('component', component);
@@ -155,8 +177,8 @@ export class DuiDialog {
             comp.setInput(i, v);
         }
 
-        const close = new Promise((resolve) => {
-            comp.instance.closed.subscribe((v) => {
+        const close = new Promise(resolve => {
+            comp.instance.closed.subscribe(v => {
                 comp.destroy();
                 resolve(v);
             });
@@ -181,7 +203,12 @@ export class DuiDialog {
         return dialog.toPromise();
     }
 
-    public async prompt(title: string, value: string, content?: string, inputs: { [name: string]: any } = {}): Promise<false | string> {
+    public async prompt(
+        title: string,
+        value: string,
+        content?: string,
+        inputs: { [name: string]: any } = {},
+    ): Promise<false | string> {
         const { dialog } = this.open(DuiDialogPrompt, { title, value, content }, inputs);
         return dialog.toPromise();
     }

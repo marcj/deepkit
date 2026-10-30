@@ -5,12 +5,14 @@
     "outDir": "./out-tsc/app",
     "types": []
   },
-  "files": [
-    "src/main.ts",
-    "src/main.server.ts",
-    "src/server/app.angular.ts"
-  ],
-  "include": [
-    "src/**/*.d.ts"
-  ]
+  "files": ["src/main.ts", "src/main.server.ts", "src/server/app.angular.ts"],
+  "include": ["src/**/*.d.ts"],
+  "angularCompilerOptions": {
+    "extendedDiagnostics": {
+      "checks": {
+        "nullishCoalescingNotNullable": "suppress",
+        "optionalChainNotNullable": "suppress"
+      }
+    }
+  }
 }

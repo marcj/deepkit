@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "rootDir": ".",
     "useDefineForClassFields": false,
     "target": "es2022",
     "outDir": "./dist/cjs",

@@ -7,14 +7,35 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { booleanAttribute, Component, computed, contentChild, ContentChild, contentChildren, Directive, ElementRef, HostBinding, HostListener, input, OnDestroy, TemplateRef, viewChild } from '@angular/core';
-import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
-import { DropdownComponent, DropdownItemComponent, DropdownSplitterComponent, OpenDropdownDirective } from '../button/dropdown.component';
-import { ButtonComponent, ButtonGroupComponent } from '../button/button.component';
 import { NgTemplateOutlet } from '@angular/common';
-import { IconComponent } from '../icon/icon.component';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ContentChild,
+    Directive,
+    ElementRef,
+    HostBinding,
+    HostListener,
+    OnDestroy,
+    TemplateRef,
+    booleanAttribute,
+    computed,
+    contentChild,
+    contentChildren,
+    input,
+    viewChild,
+} from '@angular/core';
+
+import { ValueAccessorBase, ngValueAccessor } from '../../core/form';
 import { injectElementRef } from '../app/utils';
+import { ButtonComponent, ButtonGroupComponent } from '../button/button.component';
+import {
+    DropdownComponent,
+    DropdownItemComponent,
+    DropdownSplitterComponent,
+    OpenDropdownDirective,
+} from '../button/dropdown.component';
+import { IconComponent } from '../icon/icon.component';
 
 /**
  * Necessary directive to get a dynamic rendered option.
@@ -29,10 +50,7 @@ import { injectElementRef } from '../app/utils';
  */
 @Directive({ selector: '[dynamicOption]' })
 export class DynamicOptionDirective {
-    constructor(
-        public template: TemplateRef<any>,
-    ) {
-    }
+    constructor(public template: TemplateRef<any>) {}
 }
 
 /**
@@ -45,8 +63,8 @@ export class DynamicOptionDirective {
  */
 @Component({
     selector: 'dui-option',
-    template: `
-      <ng-content></ng-content>`,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    template: ` <ng-content></ng-content>`,
 })
 export class OptionDirective {
     value = input<any>();
@@ -55,8 +73,7 @@ export class OptionDirective {
 
     @ContentChild(DynamicOptionDirective, { static: false }) dynamic?: DynamicOptionDirective;
 
-    constructor(public element: ElementRef) {
-    }
+    constructor(public element: ElementRef) {}
 }
 
 /**
@@ -74,59 +91,65 @@ export class OptionDirective {
     providers: [{ provide: OptionDirective, useExisting: OptionSeparatorDirective }],
 })
 export class OptionSeparatorDirective {
-    constructor() {
-    }
+    constructor() {}
 }
 
 @Component({
     selector: 'dui-select',
     template: `
-      @if (button()) {
-        <dui-button-group padding="none">
-          <ng-content select="dui-button"></ng-content>
-          <dui-button class="split-knob"
-                      style="padding: 0 2px;"
-                      [openDropdown]="dropdown" tight textured icon="arrow_down"></dui-button>
-        </dui-button-group>
-      } @else {
-        @if (!isSelected) {
-          <div class="placeholder">{{ placeholder() }}</div>
-        }
-        <div class="value">
-          @if (optionsValueMap().get(value()); as option) {
-            @if (option.dynamic) {
-              <ng-container [ngTemplateOutlet]="option.dynamic.template"></ng-container>
-            } @else {
-              <div>
-                <div [innerHTML]="option.element.nativeElement.innerHTML"></div>
-              </div>
+        @if (button()) {
+            <dui-button-group padding="none">
+                <ng-content select="dui-button"></ng-content>
+                <dui-button
+                    class="split-knob"
+                    style="padding: 0 2px;"
+                    [openDropdown]="dropdown"
+                    tight
+                    textured
+                    icon="arrow_down"
+                ></dui-button>
+            </dui-button-group>
+        } @else {
+            @if (!isSelected) {
+                <div class="placeholder">{{ placeholder() }}</div>
             }
-          }
-        </div>
-        <div class="knob">
-          <dui-icon [size]="12" name="arrows"></dui-icon>
-        </div>
-      }
-
-      <dui-dropdown #dropdown [host]="element.nativeElement">
-        @for (option of options(); track option) {
-          @if (isSeparator(option)) {
-            <dui-dropdown-separator></dui-dropdown-separator>
-          } @else {
-            <dui-dropdown-item checkbox
-              (click)="select(option.value())"
-              [selected]="value() === option.value()">
-              @if (option.dynamic) {
-                <ng-container [ngTemplateOutlet]="option.dynamic.template"></ng-container>
-              } @else {
-                <div>
-                  <div [innerHTML]="option.element.nativeElement.innerHTML"></div>
-                </div>
-              }
-            </dui-dropdown-item>
-          }
+            <div class="value">
+                @if (optionsValueMap().get(value()); as option) {
+                    @if (option.dynamic) {
+                        <ng-container [ngTemplateOutlet]="option.dynamic.template"></ng-container>
+                    } @else {
+                        <div>
+                            <div [innerHTML]="option.element.nativeElement.innerHTML"></div>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="knob">
+                <dui-icon [size]="12" name="arrows"></dui-icon>
+            </div>
         }
-      </dui-dropdown>
+
+        <dui-dropdown #dropdown [host]="element.nativeElement">
+            @for (option of options(); track option) {
+                @if (isSeparator(option)) {
+                    <dui-dropdown-separator></dui-dropdown-separator>
+                } @else {
+                    <dui-dropdown-item
+                        checkbox
+                        (click)="select(option.value())"
+                        [selected]="value() === option.value()"
+                    >
+                        @if (option.dynamic) {
+                            <ng-container [ngTemplateOutlet]="option.dynamic.template"></ng-container>
+                        } @else {
+                            <div>
+                                <div [innerHTML]="option.element.nativeElement.innerHTML"></div>
+                            </div>
+                        }
+                    </dui-dropdown-item>
+                }
+            }
+        </dui-dropdown>
     `,
     styleUrls: ['./select-box.component.scss'],
     host: {
@@ -136,6 +159,7 @@ export class OptionSeparatorDirective {
         '[class.small]': 'small()',
     },
     providers: [ngValueAccessor(SelectBoxComponent)],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         ButtonGroupComponent,
         ButtonComponent,

@@ -1,12 +1,9 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { LibrariesComponent } from '@app/app/pages/libraries/libraries.component.js';
 
 @Component({
-    template: `
-      <app-libraries />`,
-    imports: [
-        LibrariesComponent,
-    ],
+    template: ` <app-libraries />`,
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [LibrariesComponent],
 })
-export class StartpageComponent {
-}
+export class StartpageComponent {}

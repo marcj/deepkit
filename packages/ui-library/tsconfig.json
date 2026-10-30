@@ -3,9 +3,7 @@
   "compilerOptions": {
     "declaration": false,
     "composite": false,
-    "baseUrl": "./",
     "outDir": "./dist",
-    "downlevelIteration": true,
     "target": "es2022",
     "module": "es2020",
     "useDefineForClassFields": false,
@@ -17,7 +15,7 @@
     ],
     "paths": {
       "angular-ui-library": [
-        "dist/"
+        "./dist/"
       ]
     }
   },

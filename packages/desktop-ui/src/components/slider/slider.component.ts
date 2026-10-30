@@ -7,11 +7,19 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ElementRef,
+    booleanAttribute,
+    computed,
+    input,
+    viewChild,
+} from '@angular/core';
 
-import { booleanAttribute, Component, computed, ElementRef, input, viewChild } from '@angular/core';
-import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
-import { clamp, injectElementRef } from '../app/utils';
+import { ValueAccessorBase, ngValueAccessor } from '../../core/form';
 import { DragDirective, DuiDragEvent } from '../app/drag';
+import { clamp, injectElementRef } from '../app/utils';
 
 /**
  * Slider component allows users to select a value from a range by dragging a knob along a track.
@@ -23,11 +31,11 @@ import { DragDirective, DuiDragEvent } from '../app/drag';
 @Component({
     selector: 'dui-slider',
     template: `
-      <div class="bg"></div>
-      <div class="knob-container">
-        <div [style.width.%]="knobLeft()" class="active-line"></div>
-        <div #dragKnob [style.left.%]="knobLeft()" class="knob"></div>
-      </div>
+        <div class="bg"></div>
+        <div class="knob-container">
+            <div [style.width.%]="knobLeft()" class="active-line"></div>
+            <div #dragKnob [style.left.%]="knobLeft()" class="knob"></div>
+        </div>
     `,
     host: {
         '[class.mini]': 'mini()',
@@ -42,6 +50,7 @@ import { DragDirective, DuiDragEvent } from '../app/drag';
         },
     ],
     styleUrls: ['./slider.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     providers: [ngValueAccessor(SliderComponent)],
 })
 export class SliderComponent extends ValueAccessorBase<number> {
@@ -82,7 +91,7 @@ export class SliderComponent extends ValueAccessorBase<number> {
     });
 
     protected knobLeft = computed(() => {
-        return (this.normalizedValue() - this.min()) / (this.max() - this.min()) * 100;
+        return ((this.normalizedValue() - this.min()) / (this.max() - this.min())) * 100;
     });
 
     protected valueFromMouse(event: { clientX: number }) {
@@ -109,7 +118,7 @@ export class SliderComponent extends ValueAccessorBase<number> {
         if (x > width) x = width;
         const percent = x / width;
         let value = this.min() + percent * (this.max() - this.min());
-        const shift = (value % this.steps());
+        const shift = value % this.steps();
         if (shift > this.steps() / 2) {
             value += this.steps() - shift; // round up
         } else {

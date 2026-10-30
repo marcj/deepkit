@@ -1,51 +1,82 @@
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
-import { arrayRemoveItem } from '@deepkit/core';
-import { FilterItem } from '../browser-state';
-import { isBackReferenceType, ReflectionClass, ReflectionKind, Type, TypeProperty, TypePropertySignature } from '@deepkit/type';
-import { ButtonComponent, ButtonGroupComponent, OptionDirective, OptionSeparatorDirective, SelectBoxComponent } from '@deepkit/desktop-ui';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    EventEmitter,
+    Input,
+    OnChanges,
+    OnInit,
+    Output,
+    SimpleChanges,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+
+import { arrayRemoveItem } from '@deepkit/core';
+import {
+    ButtonComponent,
+    ButtonGroupComponent,
+    OptionDirective,
+    OptionSeparatorDirective,
+    SelectBoxComponent,
+} from '@deepkit/desktop-ui';
+import {
+    ReflectionClass,
+    ReflectionKind,
+    Type,
+    TypeProperty,
+    TypePropertySignature,
+    isBackReferenceType,
+} from '@deepkit/type';
+
+import { FilterItem } from '../browser-state';
 import { PropertyComponent } from './property.component';
 
 @Component({
     selector: 'orm-browser-filter-item',
     template: `
-      <dui-select textured [(ngModel)]="property" (ngModelChange)="changed()">
-        @for (property of properties; track $index) {
-          <dui-option [value]="property">{{ String(property.name) }}</dui-option>
+        <dui-select textured [(ngModel)]="property" (ngModelChange)="changed()">
+            @for (property of properties; track $index) {
+                <dui-option [value]="property">{{ String(property.name) }}</dui-option>
+            }
+        </dui-select>
+        <dui-select textured [(ngModel)]="comparator" style="width: 72px;" (ngModelChange)="changed()">
+            <dui-option value="$eq">=</dui-option>
+            <dui-option value="$neq">!=</dui-option>
+            <dui-option value="$gt">&gt;</dui-option>
+            <dui-option value="$lt">&lt;</dui-option>
+            <dui-option value="$gte">&gt;=</dui-option>
+            <dui-option value="$lte">&lt;=</dui-option>
+            <dui-option value="$regex">REGEX</dui-option>
+            <dui-option-separator></dui-option-separator>
+            <dui-option value="$in">IN</dui-option>
+            <dui-option value="$nin">NOT IN</dui-option>
+        </dui-select>
+        @if (property && typeToShow) {
+            <div class="value">
+                <orm-browser-property
+                    [model]="value"
+                    (modelChange)="value = $event; changed()"
+                    [type]="typeToShow"
+                ></orm-browser-property>
+            </div>
         }
-      </dui-select>
-      <dui-select textured [(ngModel)]="comparator" style="width: 72px;" (ngModelChange)="changed()">
-        <dui-option value="$eq">=</dui-option>
-        <dui-option value="$neq">!=</dui-option>
-        <dui-option value="$gt">&gt;</dui-option>
-        <dui-option value="$lt">&lt;</dui-option>
-        <dui-option value="$gte">&gt;=</dui-option>
-        <dui-option value="$lte">&lt;=</dui-option>
-        <dui-option value="$regex">REGEX</dui-option>
-        <dui-option-separator></dui-option-separator>
-        <dui-option value="$in">IN</dui-option>
-        <dui-option value="$nin">NOT IN</dui-option>
-      </dui-select>
-      @if (property && typeToShow) {
-        <div class="value">
-          <orm-browser-property [model]="value" (modelChange)="value = $event; changed()" [type]="typeToShow"></orm-browser-property>
-        </div>
-      }
     `,
-    styles: [`
-        :host {
-            display: flex;
-            width: 100%;
-        }
+    styles: [
+        `
+            :host {
+                display: flex;
+                width: 100%;
+            }
 
-        :host > * {
-            margin-right: 4px;
-        }
+            :host > * {
+                margin-right: 4px;
+            }
 
-        .value {
-            flex: 1;
-        }
-    `],
+            .value {
+                flex: 1;
+            }
+        `,
+    ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [SelectBoxComponent, FormsModule, OptionDirective, OptionSeparatorDirective, PropertyComponent],
 })
 export class FilterItemComponent implements OnChanges, OnInit {
@@ -129,25 +160,33 @@ export class FilterItemComponent implements OnChanges, OnInit {
 @Component({
     selector: 'orm-browser-filter',
     template: `
-      @for (item of items; track $index; let i = $index) {
-        <div class="item">
-          <orm-browser-filter-item [entity]="entity" [(model)]="items[i]" (modelChange)="itemsChange.emit(items)"
-                                   [properties]="properties"></orm-browser-filter-item>
-          <dui-button-group padding="none">
-            <dui-button textured tight icon="garbage" (click)="remove(item); itemsChange.emit(items)"></dui-button>
-          </dui-button-group>
+        @for (item of items; track $index; let i = $index) {
+            <div class="item">
+                <orm-browser-filter-item
+                    [entity]="entity"
+                    [(model)]="items[i]"
+                    (modelChange)="itemsChange.emit(items)"
+                    [properties]="properties"
+                ></orm-browser-filter-item>
+                <dui-button-group padding="none">
+                    <dui-button
+                        textured
+                        tight
+                        icon="garbage"
+                        (click)="remove(item); itemsChange.emit(items)"
+                    ></dui-button>
+                </dui-button-group>
+            </div>
+        }
+        @if (!items.length) {
+            <div style="color: var(--dui-text-light)">No filter added yet.</div>
+        }
+        <div style="padding-top: 8px;">
+            <dui-button textured icon="add" (click)="add()">Filter</dui-button>
         </div>
-      }
-      @if (!items.length) {
-        <div style="color: var(--dui-text-light)">
-          No filter added yet.
-        </div>
-      }
-      <div style="padding-top: 8px;">
-        <dui-button textured icon="add" (click)="add()">Filter</dui-button>
-      </div>
     `,
     styleUrls: ['./filter.component.scss'],
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [FilterItemComponent, ButtonGroupComponent, ButtonComponent],
 })
 export class FilterComponent implements OnChanges {

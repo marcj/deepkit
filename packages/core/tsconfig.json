@@ -1,7 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": ".",
     "outDir": "./dist/cjs",
     "lib": [
       "es2020",

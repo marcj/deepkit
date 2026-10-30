@@ -24,7 +24,7 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "peerDependencies": {
-    "@angular/ssr": "^20.0.3",
+    "@angular/ssr": "^22.2.5",
     "@deepkit/app": "^1.0.1",
     "@deepkit/event": "^1.0.1",
     "@deepkit/framework": "^1.0.1",
@@ -32,7 +32,7 @@
     "@deepkit/logger": "^1.0.1"
   },
   "devDependencies": {
-    "@angular/ssr": "^20.0.3",
+    "@angular/ssr": "^22.2.5",
     "@deepkit/app": "^1.0.19",
     "@deepkit/event": "^1.0.19",
     "@deepkit/framework": "^1.0.19",

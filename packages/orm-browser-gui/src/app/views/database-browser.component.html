@@ -1,37 +1,33 @@
 @if (database && entity && entityState) {
-    @if (!dialog) {
-      <dui-window-toolbar for="orm-browser">
-        <dui-button-group padding="none">
-          <dui-button textured [disabled]="!state.hasChanges()" (click)="resetAll()" title="Reset all changes"
-                      icon="clear"></dui-button>
-          <dui-button textured [disabled]="!state.hasChanges()" (click)="commit()">Commit</dui-button>
-        </dui-button-group>
-        <dui-button textured (click)="entityState.addQuery()">Query</dui-button>
-      </dui-window-toolbar>
-    }
-    @if (!dialog && entityState.queries.length) {
-      <dui-tabs>
-        <dui-tab [removable]="false"
-                 (click)="entityState.activeQuery = -1"
-                 [active]="entityState.activeQuery === -1">Browser
-        </dui-tab>
-        @for (query of entityState.queries; track $index; let i = $index) {
-          <dui-tab
-            (click)="entityState.activeQuery = i"
-            (close)="entityState.removeQuery(query); cd.detectChanges()"
-            [active]="entityState.activeQuery === i">Query {{ query.id }}
-          </dui-tab>
-        }
-      </dui-tabs>
-    }
+  @if (!dialog) {
+    <dui-window-toolbar for="orm-browser">
+      <dui-button-group padding="none">
+        <dui-button textured [disabled]="!state.hasChanges()" (click)="resetAll()" title="Reset all changes" icon="clear"></dui-button>
+        <dui-button textured [disabled]="!state.hasChanges()" (click)="commit()">Commit</dui-button>
+      </dui-button-group>
+      <dui-button textured (click)="entityState.addQuery()">Query</dui-button>
+    </dui-window-toolbar>
+  }
+  @if (!dialog && entityState.queries.length) {
+    <dui-tabs>
+      <dui-tab [removable]="false" (click)="entityState.activeQuery = -1" [active]="entityState.activeQuery === -1">Browser </dui-tab>
+      @for (query of entityState.queries; track $index; let i = $index) {
+        <dui-tab (click)="entityState.activeQuery = i" (close)="entityState.removeQuery(query); cd.detectChanges()" [active]="entityState.activeQuery === i">Query {{ query.id }} </dui-tab>
+      }
+    </dui-tabs>
+  }
   @if (entityState.queries[entityState.activeQuery]; as query) {
     <div class="query">
       <div class="input" [style.flex-basis.px]="query.inputHeight">
-        <dui-input semiTransparent lightFocus
-                   [(ngModel)]="query.javascript" [placeholder]="query.placeholder"
-                   (ngModelChange)="query.eval()"
-                   (keydown)="($event.metaKey || $event.ctrlKey) && $event.key.toLowerCase() === 'enter' && [executeQuery(query), $event.preventDefault()]"
-                   type="textarea"></dui-input>
+        <dui-input
+          semiTransparent
+          lightFocus
+          [(ngModel)]="query.javascript"
+          [placeholder]="query.placeholder"
+          (ngModelChange)="query.eval()"
+          (keydown)="($event.metaKey || $event.ctrlKey) && $event.key.toLowerCase() === 'enter' && [executeQuery(query), $event.preventDefault()]"
+          type="textarea"
+        ></dui-input>
         <dui-splitter [size]="query.inputHeight" (sizeChange)="query.inputHeight = $event; cd.detectChanges()" position="bottom"></dui-splitter>
       </div>
       <div class="result">
@@ -39,20 +35,14 @@
           @if (query.executed && !query.javascriptError) {
             @if (query.progress) {
               <span class="executing-progress" [class.visible]="query.loading">
-                <dui-indicator [step]="(query.progress?.download|async)?.progress || 0"></dui-indicator>
+                <dui-indicator [step]="($safeNavigationMigration(query.progress?.download) | async)?.progress || 0"></dui-indicator>
               </span>
             }
             @if (!query.loading) {
-              <span>
-                Query time {{ query.executionTime|number:'0.3-6' }} ms,
-                receiving {{ query.downloadBytes|fileSize }}
-                took {{ query.downloadTime|number:'0.3-6' }} ms.
-              </span>
+              <span> Query time {{ query.executionTime | number: '0.3-6' }} ms, receiving {{ query.downloadBytes | fileSize }} took {{ query.downloadTime | number: '0.3-6' }} ms. </span>
             }
             @if (isArray(query.result)) {
-              <span>
-                {{ query.result.length }} records.
-              </span>
+              <span> {{ query.result.length }} records. </span>
             }
           }
           @if (!query.executed) {
@@ -64,35 +54,28 @@
         </div>
         <div class="results-header-actions">
           <dui-button-group padding="none">
-            <dui-button textured icon="play" [disabled]="query.loading"
-                        (click)="executeQuery(query)"></dui-button>
+            <dui-button textured icon="play" [disabled]="query.loading" (click)="executeQuery(query)"></dui-button>
             <dui-button textured (click)="openQueryJson(query)">JSON</dui-button>
           </dui-button-group>
         </div>
         @if (query.executed) {
           <div class="result-tabs">
             <dui-button-group>
-              <dui-tab-button (click)="query.tab = 'result'" [active]="query.tab === 'result'">
-                Result
-              </dui-tab-button>
-              <dui-tab-button (click)="query.tab = 'log'" [active]="query.tab === 'log'">Log
-              </dui-tab-button>
+              <dui-tab-button (click)="query.tab = 'result'" [active]="query.tab === 'result'"> Result </dui-tab-button>
+              <dui-tab-button (click)="query.tab = 'log'" [active]="query.tab === 'log'">Log </dui-tab-button>
             </dui-button-group>
           </div>
           @if (query.tab === 'log') {
             <div class="log overlay-scrollbar-small">
               @for (log of query.log; track $index) {
-                <div class="log-entry text-selection"
-                >{{ log }}
-                </div>
+                <div class="log-entry text-selection">{{ log }}</div>
               }
             </div>
           }
           @if (query.tab === 'result') {
             @if (!query.error && !isArray(query.result)) {
               <div class="plain-result text-selection">
-                <orm-browser-json-cell
-                  [model]="query.result"></orm-browser-json-cell>
+                <orm-browser-json-cell [model]="query.result"></orm-browser-json-cell>
               </div>
             }
             @if (query.error) {
@@ -101,24 +84,15 @@
               </div>
             }
             @if (!query.error && isArray(query.result) && query.result.length === 0) {
-              <div class="plain-result"
-              >
-                []
-              </div>
+              <div class="plain-result">[]</div>
             }
             @if (!query.error && isArray(query.result) && query.result.length > 0) {
-              <dui-table class="raw-table" no-focus-outline borderless [items]="query.result"
-                         [sort]="query.sort"
-                         style="height: 100%"
-                         [preferenceKey]="'query/' + entity.getName()"
-              >
-                @for (kv of firstRowItem(query)|keyvalue; track kv) {
-                  <dui-table-column
-                    [name]="kv.key">
+              <dui-table class="raw-table" no-focus-outline borderless [items]="query.result" [sort]="query.sort" style="height: 100%" [preferenceKey]="'query/' + entity.getName()">
+                @for (kv of firstRowItem(query) | keyvalue; track kv) {
+                  <dui-table-column [name]="kv.key">
                     <ng-container *duiTableCell="let row">
                       <div class="cell-body text-selection">
-                        <orm-browser-json-cell
-                          [model]="row[kv.key]"></orm-browser-json-cell>
+                        <orm-browser-json-cell [model]="row[kv.key]"></orm-browser-json-cell>
                       </div>
                     </ng-container>
                   </dui-table-column>
@@ -138,8 +112,7 @@
       </dui-button-group>
     }
     <dui-button-group padding="none">
-      <dui-button textured [disabled]="!entityState.selection.length" icon="garbage"
-                  (click)="remove()"></dui-button>
+      <dui-button textured [disabled]="!entityState.selection.length" icon="garbage" (click)="remove()"></dui-button>
       <dui-button textured icon="add" (click)="add()"></dui-button>
     </dui-button-group>
     <dui-button-group padding="none">
@@ -153,59 +126,39 @@
       </dui-button>
     </dui-button-group>
     <dui-button-group padding="none">
-      <dui-button textured tight [disabled]="entityState.loading" icon="reload"
-                  (click)="loadEntity(true)"></dui-button>
-      <dui-button textured tight [disabled]="entityState.loading"
-                  (click)="goPage(entityState.page - 1)"
-                  icon="arrow_left"></dui-button>
-      <dui-input textured noControls [disabled]="entityState.loading" lightFocus type="number"
-                 (ngModelChange)="goPage($event)" [(ngModel)]="entityState.page"
-                 style="width: 50px;"></dui-input>
-      <dui-button textured tight [disabled]="entityState.loading"
-                  (click)="goPage(entityState.page + 1)"
-                  icon="arrow_right"></dui-button>
-      <dui-button textured tight [openDropdown]="paginationDropdown" [disabled]="entityState.loading"
-                  icon="arrow_down"></dui-button>
+      <dui-button textured tight [disabled]="entityState.loading" icon="reload" (click)="loadEntity(true)"></dui-button>
+      <dui-button textured tight [disabled]="entityState.loading" (click)="goPage(entityState.page - 1)" icon="arrow_left"></dui-button>
+      <dui-input textured noControls [disabled]="entityState.loading" lightFocus type="number" (ngModelChange)="goPage($event)" [(ngModel)]="entityState.page" style="width: 50px"></dui-input>
+      <dui-button textured tight [disabled]="entityState.loading" (click)="goPage(entityState.page + 1)" icon="arrow_right"></dui-button>
+      <dui-button textured tight [openDropdown]="paginationDropdown" [disabled]="entityState.loading" icon="arrow_down"></dui-button>
     </dui-button-group>
     <dui-dropdown #paginationDropdown [width]="230">
-      <div style="padding: 12px;">
+      <div style="padding: 12px">
         <dui-form-row left label="Records per page" [labelWidth]="120">
-          <dui-input textured type="number" (ngModelChange)="loadEntity(true)"
-                     [(ngModel)]="entityState.itemsPerPage"></dui-input>
+          <dui-input textured type="number" (ngModelChange)="loadEntity(true)" [(ngModel)]="entityState.itemsPerPage"></dui-input>
         </dui-form-row>
       </div>
     </dui-dropdown>
     <dui-dropdown #filterDropdown [width]="450">
       <div class="search">
-        <orm-browser-filter [entity]="entity" [(items)]="entityState.filter"
-                            (itemsChange)="loadEntity(true)"></orm-browser-filter>
+        <orm-browser-filter [entity]="entity" [(items)]="entityState.filter" (itemsChange)="loadEntity(true)"></orm-browser-filter>
       </div>
     </dui-dropdown>
-    <span style="color: var(--dui-text-light); line-height: 19px; font-size: 12px;">
-        <span>
-          of {{ entityState.totalPages }} page{{ entityState.totalPages === 1 ? '' : 's' }}
-          ({{ entityState.count }} records).
-        </span>
+    <span style="color: var(--dui-text-light); line-height: 19px; font-size: 12px">
+      <span> of {{ entityState.totalPages }} page{{ entityState.totalPages === 1 ? '' : 's' }} ({{ entityState.count }} records). </span>
       @if (entityState.progress) {
-        <span class="executing-progress"
-              [class.visible]="entityState.loading">
-            <dui-indicator [step]="(entityState.progress.download|async)?.progress || 0"></dui-indicator>
-          </span>
+        <span class="executing-progress" [class.visible]="entityState.loading">
+          <dui-indicator [step]="(entityState.progress.download | async)?.progress || 0"></dui-indicator>
+        </span>
       }
       @if (!entityState.loading) {
-        <span>
-            Query time {{ entityState.executionTime|number:'0.3-6' }} ms,
-            receiving {{ entityState.downloadBytes|fileSize }}
-          took {{ entityState.downloadTime|number:'0.3-6' }} ms
-          </span>
+        <span> Query time {{ entityState.executionTime | number: '0.3-6' }} ms, receiving {{ entityState.downloadBytes | fileSize }} took {{ entityState.downloadTime | number: '0.3-6' }} ms </span>
       }
-      </span>
+    </span>
   </div>
   <div class="table" [class.hidden]="entityState.activeQuery !== -1">
     @if (entity) {
-      <dui-table no-focus-outline borderless [items]="entityState.items" [rowClass]="rowClass"
-                 [preferenceKey]="'browser/' + entity.getName()"
-                 (sortChange)="onSort($event)" (cellClick)="cellClick($event)">
+      <dui-table no-focus-outline borderless [items]="entityState.items" [rowClass]="rowClass" [preferenceKey]="'browser/' + entity.getName()" (sortChange)="onSort($event)" (cellClick)="cellClick($event)">
         <dui-table-column name="__select" header="✓" [width]="40" [hideable]="false" [sortable]="false">
           <ng-container *duiTableHeader>
             <dui-checkbox [ngModel]="selectedAll" (ngModelChange)="toggleAll($event)"></dui-checkbox>
@@ -217,20 +170,12 @@
           </ng-container>
         </dui-table-column>
         @for (property of entityState.properties; track trackByProperty($index, property)) {
-          <dui-table-column
-            [name]="String(property.name)"
-            [width]="150">
+          <dui-table-column [name]="String(property.name)" [width]="150">
             <ng-container *duiTableHeader>
-              {{ property.name }} <span
-              style="color: var(--dui-text-light)">{{ showTypeString(property.type) }}</span>
+              {{ property.name }} <span style="color: var(--dui-text-light)">{{ showTypeString(property.type) }}</span>
             </ng-container>
             <ng-container *duiTableCell="let row">
-              <orm-browser-cell
-                [state]="state" [entityState]="entityState"
-                [reset]="reset" [unset]="unset" [changed]="changed"
-                [row]="row"
-                [actions]="true"
-                [property]="property"></orm-browser-cell>
+              <orm-browser-cell [state]="state" [entityState]="entityState" [reset]="reset" [unset]="unset" [changed]="changed" [row]="row" [actions]="true" [property]="property"></orm-browser-cell>
             </ng-container>
           </dui-table-column>
         }

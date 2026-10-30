@@ -7,8 +7,9 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, OnDestroy } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 
-import { ChangeDetectorRef, Component, ElementRef, OnDestroy } from '@angular/core';
 import {
     ButtonComponent,
     ButtonGroupComponent,
@@ -23,54 +24,73 @@ import {
     WindowToolbarComponent,
     WindowToolbarContainerComponent,
 } from '@deepkit/desktop-ui';
+import { HeaderStatusBarComponent } from '@deepkit/ui-library';
+
 import { BrowserState } from './browser-state';
 import { ControllerClient } from './client';
-import { RouterOutlet } from '@angular/router';
 import { DatabaseBrowserListComponent } from './components/list.component';
-import { HeaderStatusBarComponent } from '@deepkit/ui-library';
 
 @Component({
     selector: 'app-root',
     template: `
-      <dui-style />
-      <dui-window normalize-style>
-        <dui-window-header size="small">
-          <dui-window-toolbar>
-            <dui-button-group>
-              <div style="position: relative; top: 0px;">
-                <img class="logo visible-for-dark-mode" src="assets/deepkit_white.svg" />
-                <img class="logo visible-for-white-mode" theme-white src="assets/deepkit_black.svg" />
+        <dui-style />
+        <dui-window normalize-style>
+            <dui-window-header size="small">
+                <dui-window-toolbar>
+                    <dui-button-group>
+                        <div style="position: relative; top: 0px;">
+                            <img class="logo visible-for-dark-mode" src="assets/deepkit_white.svg" />
+                            <img class="logo visible-for-white-mode" theme-white src="assets/deepkit_black.svg" />
 
-                <span class="app-label">ORM Browser</span>
-              </div>
-            </dui-button-group>
+                            <span class="app-label">ORM Browser</span>
+                        </div>
+                    </dui-button-group>
 
-            <dui-button-group float="sidebar">
-              <dui-button textured (click)="sidebarVisible = !sidebarVisible;"
-                          icon="toggle_sidebar"></dui-button>
-            </dui-button-group>
+                    <dui-button-group float="sidebar">
+                        <dui-button
+                            textured
+                            (click)="sidebarVisible = !sidebarVisible"
+                            icon="toggle_sidebar"
+                        ></dui-button>
+                    </dui-button-group>
 
-            <dui-window-toolbar-container name="orm-browser"></dui-window-toolbar-container>
+                    <dui-window-toolbar-container name="orm-browser"></dui-window-toolbar-container>
 
-            <div class="top-right">
-              <deepkit-header-status-bar [client]="client.client" />
-            </div>
-          </dui-window-toolbar>
-        </dui-window-header>
-        <dui-window-content [sidebarVisible]="sidebarVisible">
-          <dui-window-sidebar>
-            <dui-list>
-              <dui-list-title>Database</dui-list-title>
-              <orm-browser-list></orm-browser-list>
-
-            </dui-list>
-          </dui-window-sidebar>
-          <router-outlet></router-outlet>
-        </dui-window-content>
-      </dui-window>
+                    <div class="top-right">
+                        <deepkit-header-status-bar [client]="client.client" />
+                    </div>
+                </dui-window-toolbar>
+            </dui-window-header>
+            <dui-window-content [sidebarVisible]="sidebarVisible">
+                <dui-window-sidebar>
+                    <dui-list>
+                        <dui-list-title>Database</dui-list-title>
+                        <orm-browser-list></orm-browser-list>
+                    </dui-list>
+                </dui-window-sidebar>
+                <router-outlet></router-outlet>
+            </dui-window-content>
+        </dui-window>
     `,
     styleUrls: ['./app.component.scss'],
-    imports: [DuiStyleComponent, WindowComponent, WindowHeaderComponent, WindowToolbarComponent, ButtonGroupComponent, ButtonComponent, WindowToolbarContainerComponent, HeaderStatusBarComponent, WindowContentComponent, WindowSidebarComponent, ListComponent, ListTitleComponent, DatabaseBrowserListComponent, RouterOutlet, HeaderStatusBarComponent],
+    changeDetection: ChangeDetectionStrategy.Eager,
+    imports: [
+        DuiStyleComponent,
+        WindowComponent,
+        WindowHeaderComponent,
+        WindowToolbarComponent,
+        ButtonGroupComponent,
+        ButtonComponent,
+        WindowToolbarContainerComponent,
+        HeaderStatusBarComponent,
+        WindowContentComponent,
+        WindowSidebarComponent,
+        ListComponent,
+        ListTitleComponent,
+        DatabaseBrowserListComponent,
+        RouterOutlet,
+        HeaderStatusBarComponent,
+    ],
 })
 export class AppComponent implements OnDestroy {
     sidebarVisible: boolean = true;
@@ -88,6 +108,5 @@ export class AppComponent implements OnDestroy {
         }
     }
 
-    ngOnDestroy(): void {
-    }
+    ngOnDestroy(): void {}
 }

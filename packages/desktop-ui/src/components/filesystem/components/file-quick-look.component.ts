@@ -1,101 +1,126 @@
-import { Component, computed, effect, HostListener, inject, input, OnDestroy, output, signal } from '@angular/core';
+import { AsyncPipe, DatePipe } from '@angular/common';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    HostListener,
+    OnDestroy,
+    computed,
+    effect,
+    inject,
+    input,
+    output,
+    signal,
+} from '@angular/core';
+
+import { HumanFileSizePipe, ObjectURLPipe } from '../../app/pipes';
 import { ButtonGroupComponent, ButtonGroupsComponent } from '../../button/button.component';
 import { IconComponent } from '../../icon/icon.component';
-import { HumanFileSizePipe, ObjectURLPipe } from '../../app/pipes';
-import { AsyncPipe, DatePipe } from '@angular/common';
+import { IndicatorComponent } from '../../indicator/indicator.component';
 import { LoadingSpinnerComponent } from '../../indicator/loading-spinner.component';
-import { fileName, FilesystemApi, FilesystemApiFile } from '../api';
+import { FilesystemApi, FilesystemApiFile, fileName } from '../api';
 import { CacheData, FilesystemFileQuickLookCache } from '../cache';
 import { imageSize, mimeTypeToLabel } from '../utils';
-import { IndicatorComponent } from '../../indicator/indicator.component';
 
 @Component({
     selector: 'dui-filesystem-file-quick-look',
     template: `
-      @let files = this.files();
-      <dui-button-groups>
-        <dui-button-group>
-          <dui-icon name="clear" (click)="close.emit()" clickable></dui-icon>
-          @if (files.length > 1) {
-            <dui-icon name="arrow_left" (click)="prev()" clickable></dui-icon>
-          }
-          @if (files.length > 1) {
-            <dui-icon name="arrow_right" (click)="next()" clickable></dui-icon>
-          }
-          @if (file(); as file) {
-            <div>
-              {{ fileName(file) }}
-            </div>
-          }
-        </dui-button-group>
-        <!--        <dui-button-group float="right">-->
-        <!--          <dui-icon name="share" clickable></dui-icon>-->
-        <!--        </dui-button-group>-->
-      </dui-button-groups>
-      <div class="overlay-scrollbar-small quick-look-content">
-        @if (file(); as file) {
-          @if (file.type === 'directory') {
-            <div class="icon folder-icon"></div>
-          } @else {
-            @if (cacheData(); as cacheData) {
-              @if (cacheData.result(); as result) {
-                @if (result.mimeType.startsWith('image/')) {
-                  <img class="image" [src]="result.data|objectURL:result.mimeType" alt="File preview" />
-                } @else if (result.mimeType.startsWith('video/')) {
-                  <video controls autoplay>
-                    <source [src]="result.data|objectURL:result.mimeType" type="{{ result.mimeType }}">
-                    Your browser does not support the video tag.
-                  </video>
-                } @else {
-                  <iframe [src]="result.data|objectURL:result.mimeType" frameborder="0" height="100%" width="100%">
-                  </iframe>
+        @let files = this.files();
+        <dui-button-groups>
+            <dui-button-group>
+                <dui-icon name="clear" (click)="close.emit()" clickable></dui-icon>
+                @if (files.length > 1) {
+                    <dui-icon name="arrow_left" (click)="prev()" clickable></dui-icon>
                 }
-              } @else if (cacheData.invalid()) {
-                <div class="icon unknown-icon"></div>
-              } @else {
-                <dui-loading-spinner></dui-loading-spinner>
-                <dui-indicator [step]="cacheData.progress()" />
-              }
-            } @else {
-              <div class="icon unknown-icon"></div>
+                @if (files.length > 1) {
+                    <dui-icon name="arrow_right" (click)="next()" clickable></dui-icon>
+                }
+                @if (file(); as file) {
+                    <div>
+                        {{ fileName(file) }}
+                    </div>
+                }
+            </dui-button-group>
+            <!--        <dui-button-group float="right">-->
+            <!--          <dui-icon name="share" clickable></dui-icon>-->
+            <!--        </dui-button-group>-->
+        </dui-button-groups>
+        <div class="overlay-scrollbar-small quick-look-content">
+            @if (file(); as file) {
+                @if (file.type === 'directory') {
+                    <div class="icon folder-icon"></div>
+                } @else {
+                    @if (cacheData(); as cacheData) {
+                        @if (cacheData.result(); as result) {
+                            @if (result.mimeType.startsWith('image/')) {
+                                <img
+                                    class="image"
+                                    [src]="result.data | objectURL: result.mimeType"
+                                    alt="File preview"
+                                />
+                            } @else if (result.mimeType.startsWith('video/')) {
+                                <video controls autoplay>
+                                    <source
+                                        [src]="result.data | objectURL: result.mimeType"
+                                        type="{{ result.mimeType }}"
+                                    />
+                                    Your browser does not support the video tag.
+                                </video>
+                            } @else {
+                                <iframe
+                                    [src]="result.data | objectURL: result.mimeType"
+                                    frameborder="0"
+                                    height="100%"
+                                    width="100%"
+                                >
+                                </iframe>
+                            }
+                        } @else if (cacheData.invalid()) {
+                            <div class="icon unknown-icon"></div>
+                        } @else {
+                            <dui-loading-spinner></dui-loading-spinner>
+                            <dui-indicator [step]="cacheData.progress()" />
+                        }
+                    } @else {
+                        <div class="icon unknown-icon"></div>
+                    }
+                }
             }
-          }
-        }
-      </div>
-      @if (file(); as file) {
-        <div class="stats text-selection">
-          <div class="stat">
-            <div class="label">Size</div>
-            <div class="value">
-              <div>{{ file.size | fileSize }}</div>
-              @if (dim()|async; as dim) {
-                <div>{{ dim.width }}x{{ dim.height }}</div>
-              }
-            </div>
-          </div>
-          <div class="stat">
-            <div class="label">Type</div>
-            @if (cacheData()?.result(); as result) {
-              <div class="value">{{ mimeTypeToLabel(result.mimeType) }}</div>
-            } @else {
-              <div class="value">{{ mimeTypeToLabel(file.mimeType) }}</div>
-            }
-          </div>
-          <!--            <div class="stat">-->
-          <!--                <div class="label">Created</div>-->
-          <!--                <div class="value">{{file.created | date:'medium'}}</div>-->
-          <!--            </div>-->
-          <div class="stat">
-            <div class="label">Modified</div>
-            <div class="value">{{ file.lastModified | date:'medium' }}</div>
-          </div>
         </div>
-      }
+        @if (file(); as file) {
+            <div class="stats text-selection">
+                <div class="stat">
+                    <div class="label">Size</div>
+                    <div class="value">
+                        <div>{{ file.size | fileSize }}</div>
+                        @if (dim() | async; as dim) {
+                            <div>{{ dim.width }}x{{ dim.height }}</div>
+                        }
+                    </div>
+                </div>
+                <div class="stat">
+                    <div class="label">Type</div>
+                    @if (cacheData()?.result(); as result) {
+                        <div class="value">{{ mimeTypeToLabel(result.mimeType) }}</div>
+                    } @else {
+                        <div class="value">{{ mimeTypeToLabel(file.mimeType) }}</div>
+                    }
+                </div>
+                <!--            <div class="stat">-->
+                <!--                <div class="label">Created</div>-->
+                <!--                <div class="value">{{file.created | date:'medium'}}</div>-->
+                <!--            </div>-->
+                <div class="stat">
+                    <div class="label">Modified</div>
+                    <div class="value">{{ file.lastModified | date: 'medium' }}</div>
+                </div>
+            </div>
+        }
     `,
     styleUrl: './file-quick-look.component.scss',
     host: {
         '[attr.tabindex]': '0',
     },
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         ButtonGroupsComponent,
         ButtonGroupComponent,
