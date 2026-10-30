@@ -1,10 +1,10 @@
 import { expect, jest, test } from '@jest/globals';
 import { Email, MaxLength, MinLength, Positive, Validate, validate, validates, ValidatorError } from '../src/validator.js';
 import { assert, is } from '../src/typeguard.js';
-import { AutoIncrement, Excluded, Group, integer, PrimaryKey, Type, Unique } from '../src/reflection/type.js';
+import { AutoIncrement, Excluded, Group, integer, PrimaryKey, Type, Unique, UUID } from '../src/reflection/type.js';
 import { t } from '../src/decorator.js';
 import { ReflectionClass, typeOf } from '../src/reflection/reflection.js';
-import { cast, castFunction, validatedDeserialize } from '../src/serializer-facade.js';
+import { cast, castFunction, deserialize, validatedDeserialize } from '../src/serializer-facade.js';
 
 test('primitives', () => {
     expect(validate<string>('Hello')).toEqual([]);
@@ -12,6 +12,37 @@ test('primitives', () => {
 
     expect(validate<number>('Hello')).toEqual([{ code: 'type', message: 'Not a number', path: '', value: 'Hello' }]);
     expect(validate<number>(123)).toEqual([]);
+});
+
+test('UUID', () => {
+    const valid = [
+        'c232ab00-9414-11ec-b3c8-9f6bdeced846', // v1
+        '919108f7-52d1-4320-9bac-f847db4148a8', // v4
+        '017f22e2-79b0-7cc3-98c4-dc0c0c07398f', // v7
+        '2489e9ad-2ee2-8e00-8ec9-32d5f69181c0', // v8
+        '919108F7-52D1-4320-9BAC-F847DB4148A8', // uppercase
+        '00000000-0000-0000-0000-000000000000', // Nil
+        'ffffffff-ffff-ffff-ffff-ffffffffffff', // Max
+    ];
+    for (const value of valid) {
+        expect(is<UUID>(value)).toBe(true);
+        expect(validate<UUID>(value)).toEqual([]);
+        expect(deserialize<UUID>(value)).toBe(value);
+    }
+
+    const invalid = [
+        'zzzzzzzz-zzzz-4zzz-8zzz-zzzzzzzzzzzz', // not hex
+        '919108f7-52d1-0320-9bac-f847db4148a8', // version 0
+        '919108f7-52d1-f320-9bac-f847db4148a8', // version f
+        '919108f7-52d1-4320-0bac-f847db4148a8', // variant 0
+        '919108f7-52d1-4320-cbac-f847db4148a8', // variant c
+        '00000000-0000-0000-0000-000000000001', // almost Nil
+    ];
+    for (const value of invalid) {
+        expect(is<UUID>(value)).toBe(false);
+        expect(validate<UUID>(value)).toEqual([{ code: 'type', message: 'Not a UUID', path: '', value }]);
+        expect(() => deserialize<UUID>(value)).toThrow('Not a UUID');
+    }
 });
 
 test('email', () => {

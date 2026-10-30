@@ -1942,6 +1942,12 @@ export class TypeGuardRegistry {
 }
 
 /**
+ * A UUID per RFC 9562: version 1 to 8 with the RFC variant (8, 9, a, or b),
+ * or the Nil and Max UUIDs (sections 5.9 and 5.10).
+ */
+const uuidPattern = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|0{8}-0{4}-0{4}-0{4}-0{12}|f{8}-f{4}-f{4}-f{4}-f{12})$/i;
+
+/**
  * Default serializer that can convert JS data structures to the target type.
  * It coerces types, converts object literals to class instances, and has type guards for JS types.
  *
@@ -2025,8 +2031,8 @@ export class Serializer {
         });
 
         this.deserializeRegistry.addDecorator(isUUIDType, (type, state) => {
-            const v = state.accessor;
-            const check = `${v}.length === 36 && ${v}[23] === '-' && ${v}[18] === '-' && ${v}[13] === '-' && ${v}[8] === '-'`;
+            state.setContext({ uuidPattern });
+            const check = `uuidPattern.test(${state.accessor})`;
             state.addCode(`
                 if (!(${check})) ${state.throwCode(type, JSON.stringify('Not a UUID'))}
             `);
@@ -2219,8 +2225,8 @@ export class Serializer {
             state.addSetterAndReportErrorIfInvalid('type', 'Not a string', `'string' === typeof ${state.accessor}`);
         });
         this.typeGuards.getRegistry(1).addDecorator(isUUIDType, (type, state) => {
-            const v = state.originalAccessor;
-            const check = `${state.setter} && ${v}.length === 36 && ${v}[23] === '-' && ${v}[18] === '-' && ${v}[13] === '-' && ${v}[8] === '-'`;
+            state.setContext({ uuidPattern });
+            const check = `${state.setter} && uuidPattern.test(${state.originalAccessor})`;
             state.addSetterAndReportErrorIfInvalid('type', 'Not a UUID', check);
         });
         this.typeGuards.getRegistry(1).addDecorator(isMongoIdType, (type, state) => {
