@@ -81,6 +81,16 @@ To check the packages the way users get them, `npm run test:consumer` packs all 
 them into a fresh CommonJS and a fresh ESM project, compiles them with plain `tsc` and runs a small app.
 Run it after `npm run build`, for example before a release.
 
+### Test certificate and releases
+
+A complete, green `npm run test` (no test paths or `-t` filters) writes `.test-certificate.json` with a
+fingerprint of the tested sources. The pre-commit hook declines commits whose staged changes in `packages/`, the
+root build config or the jest setup were not tested like this. Changes to docs or the website don't need a new run.
+
+`npm run build` always starts with `npm run clean`. A release is: `npm run build`, `npm run test`, then
+`npm run publish`, which doesn't build again but checks that the build is unchanged and that the test certificate
+belongs to it.
+
 If everything went fine you can try out the example app:
 
 ```shell
