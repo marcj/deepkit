@@ -8,13 +8,12 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import sift from 'sift';
+import { findQuerySatisfied as ormFindQuerySatisfied } from '@deepkit/orm';
 import { FilterQuery } from '@deepkit/rpc';
 
 //todo: move to live-database
 export function findQuerySatisfied<T extends { [index: string]: any }>(target: T, query: FilterQuery<T>): boolean {
-    //get rid of "Excessive stack depth comparing types 'any' and 'SiftQuery<T[]>'."
-    return (sift as any)(query as any, [target] as any[]).length > 0;
+    return ormFindQuerySatisfied(target, query as any);
 }
 
 export function normalizeDirectory(path: string): string {

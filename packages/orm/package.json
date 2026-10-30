@@ -32,8 +32,7 @@
     "@deepkit/type": "^1.0.19"
   },
   "dependencies": {
-    "@deepkit/topsort": "^1.0.19",
-    "sift": "^7.0.1"
+    "@deepkit/topsort": "^1.0.19"
   },
   "devDependencies": {
     "@deepkit/core": "^1.0.19",

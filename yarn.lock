@@ -3547,7 +3547,6 @@ __metadata:
     buffer: "npm:^5.2.1"
     fs-extra: "npm:^9.0.1"
     rxjs: "npm:*"
-    sift: "npm:^7.0.1"
     tmp: "npm:^0.0.33"
     ws: "npm:^7.4.1"
   languageName: unknown
@@ -3593,7 +3592,6 @@ __metadata:
     probe-image-size: "npm:^7.2.3"
     rxjs: "npm:~7.8.0"
     selfsigned: "npm:^2.1.1"
-    sift: "npm:^7.0.1"
     ws: "npm:^7.4.2"
   peerDependencies:
     "@deepkit/app": ^1.0.19
@@ -3848,7 +3846,6 @@ __metadata:
     "@deepkit/type": "npm:^1.0.19"
     "@types/sqlstring": "npm:^2.2.1"
     conditional-type-checks: "npm:^1.0.5"
-    sift: "npm:^7.0.1"
   peerDependencies:
     "@deepkit/core": ^1.0.19
     "@deepkit/event": ^1.0.19
@@ -25546,13 +25543,6 @@ __metadata:
     side-channel-map: "npm:^1.0.1"
     side-channel-weakmap: "npm:^1.0.2"
   checksum: 10c0/dc0ab81d67f61bda9247d053ce93f41c3fd8ad2bdcb9cf9d8d2f8540d488f26d87a5e99ebfc07eea49ec025867b2452b705442d974b1478f0395e69f6bfb3270
-  languageName: node
-  linkType: hard
-
-"sift@npm:^7.0.1":
-  version: 7.0.1
-  resolution: "sift@npm:7.0.1"
-  checksum: 10c0/5680224835c101b822929661dca6eceeb4e16832677d1dbe6c2913dba4dd535c6e7796efd3f6ae6e1e0c10a655eb83c9ace90557f9ef2227573fd878447f6da3
   languageName: node
   linkType: hard
 

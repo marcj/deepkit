@@ -10,9 +10,9 @@
 
 import { Changes, getSerializeFunction, PrimaryKeyFields, ReflectionClass, TemplateRegistry } from '@deepkit/type';
 import { OrmEntity } from './type.js';
-import sift from 'sift';
 import { FilterQuery } from './query.js';
 import { getInstanceStateFromItem } from './identity-map.js';
+import { createQueryMatcher } from './query-match.js';
 
 export type FlattenIfArray<T> = T extends Array<any> ? T[0] : T;
 export type FieldName<T> = keyof T & string;
@@ -34,13 +34,11 @@ export function getClassSchemaInstancePairs<T extends OrmEntity>(items: Iterable
 
 
 export function findQuerySatisfied<T extends { [index: string]: any }>(target: T, query: FilterQuery<T>): boolean {
-    //get rid of "Excessive stack depth comparing types 'any' and 'SiftQuery<T[]>'."
-    return (sift as any)(query as any, [target] as any[]).length > 0;
+    return createQueryMatcher(query)(target);
 }
 
 export function findQueryList<T extends { [index: string]: any }>(items: T[], query: FilterQuery<T>): T[] {
-    //get rid of "Excessive stack depth comparing types 'any' and 'SiftQuery<T[]>'."
-    return (sift as any)(query as any, items as any[]);
+    return items.filter(createQueryMatcher(query));
 }
 
 export type Placeholder<T> = () => T;
