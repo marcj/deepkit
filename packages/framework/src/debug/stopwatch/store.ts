@@ -28,6 +28,7 @@ export class FileStopwatchStore extends StopwatchStore {
 
     protected ended = false;
     protected folderCreated = false;
+    protected publishFailed = false;
 
     constructor(
         protected config: Pick<FrameworkConfig, 'varPath' | 'debugStorePath'>,
@@ -108,7 +109,9 @@ export class FileStopwatchStore extends StopwatchStore {
 
     protected sync() {
         if (this.lastSync) return;
-        this.lastSync = setTimeout(() => this.syncNow(), 250);
+        this.lastSync = setTimeout(() => {
+            this.syncNow().catch(error => this.logger.error('Could not sync debug store', formatError(error)));
+        }, 250);
     }
 
     protected ensureVarDebugFolder() {
@@ -155,17 +158,24 @@ export class FileStopwatchStore extends StopwatchStore {
 
             if (!this.ended) {
                 //when we ended, broker connection already closed. So we just write to disk.
-                if (frameBytes.byteLength && this.frameChannel) await this.frameChannel.publish(frameBytes);
-                if (dataBytes.byteLength && this.frameDataChannel) await this.frameDataChannel.publish(dataBytes);
-            }
-
-            this.lastSync = undefined;
-            const more = this.dataQueue.length || this.frameQueue.length || this.analytics.length;
-            if (more) {
-                this.sync();
+                try {
+                    if (frameBytes.byteLength && this.frameChannel) await this.frameChannel.publish(frameBytes);
+                    if (dataBytes.byteLength && this.frameDataChannel) await this.frameDataChannel.publish(dataBytes);
+                    this.publishFailed = false;
+                } catch (error) {
+                    // Frames are on disk already; the broker only streams them live to the debugger.
+                    if (!this.publishFailed) {
+                        this.logger.warn('Could not send debug frames to the broker, the debugger shows no live updates', formatError(error));
+                        this.publishFailed = true;
+                    }
+                }
             }
         } finally {
+            this.lastSync = undefined;
             this.syncMutex.unlock();
         }
+
+        const more = this.dataQueue.length || this.frameQueue.length || this.analytics.length;
+        if (more) this.sync();
     }
 }
