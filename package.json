@@ -93,7 +93,12 @@
       "packages/framework",
       "packages/rpc",
       "packages/broker",
-      "packages/topsort"
+      "packages/topsort",
+      "packages/broker-redis",
+      "packages/create-app",
+      "packages/filesystem-database",
+      "packages/logger",
+      "packages/skeleton"
     ]
   },
   "packageManager": "yarn@4.9.2"

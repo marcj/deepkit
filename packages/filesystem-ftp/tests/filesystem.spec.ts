@@ -1,24 +1,16 @@
 import { test } from '@jest/globals';
 import { setAdapterFactory } from '@deepkit/filesystem/test';
 import { FilesystemFtpAdapter } from '../src/ftp-adapter.js';
-import { platform } from 'os';
 
 setAdapterFactory(async () => {
-    let adapter = new FilesystemFtpAdapter({
-        host: 'localhost',
-        user: 'user',
-        password: '123',
+    // defaults match docker-compose.yml
+    const adapter = new FilesystemFtpAdapter({
+        host: process.env.FTP_HOST || 'localhost',
+        port: Number(process.env.FTP_PORT || 10021),
+        user: process.env.FTP_USER || 'user',
+        password: process.env.FTP_PASSWORD || '123',
     });
 
-    if (platform() === 'darwin') {
-        // docker run -d --name filesystem-ftp -p 20-21:20-21 -p 40000-40009:40000-40009 --env FTP_USER=user --env FTP_PASS=123 garethflowers/ftp-server
-        adapter = new FilesystemFtpAdapter({
-            host: 'filesystem-ftp.orb.local',
-            port: 21,
-            user: 'user',
-            password: '123',
-        });
-    }
     //reset all files
     await adapter.clearWorkingDir();
 

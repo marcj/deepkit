@@ -7,8 +7,22 @@ import { writeFileSync } from 'fs';
 
 Error.stackTraceLimit = 50;
 
+// Defaults to fake-gcs-server from docker-compose.yml. Set GCS_ENDPOINT='' to run against real Google Cloud Storage.
+const GCS_ENDPOINT = process.env.GCS_ENDPOINT ?? 'http://localhost:10443';
+
 setAdapterFactory(async () => {
     const folder = 'test-folder-dont-delete';
+
+    if (GCS_ENDPOINT) {
+        const adapter = new FilesystemGoogleAdapter({
+            bucket: process.env.GCS_BUCKET || 'deepkit-test',
+            path: folder,
+            projectId: 'test-project',
+            apiEndpoint: GCS_ENDPOINT,
+        });
+        await new Filesystem(adapter).deleteDirectory('/');
+        return adapter;
+    }
 
     const keyFilename = homedir() + '/.google/deepkit-filesystem-integration-tests.json';
     if (process.env.GOOGLE_STORAGE_KEY) {

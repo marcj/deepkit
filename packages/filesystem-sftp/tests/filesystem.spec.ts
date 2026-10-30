@@ -1,26 +1,16 @@
 import { test } from '@jest/globals';
 import { setAdapterFactory } from '@deepkit/filesystem/test';
 import { FilesystemSftpAdapter } from '../src/sftp-adapter.js';
-import { platform } from 'os';
 
 setAdapterFactory(async () => {
-    let adapter = new FilesystemSftpAdapter({
-        host: 'localhost',
-        port: 2222,
-        user: 'user',
-        password: '123',
+    // defaults match docker-compose.yml
+    const adapter = new FilesystemSftpAdapter({
+        host: process.env.SFTP_HOST || 'localhost',
+        port: Number(process.env.SFTP_PORT || 10022),
+        user: process.env.SFTP_USER || 'user',
+        password: process.env.SFTP_PASSWORD || '123',
         root: 'upload'
     });
-
-    if (platform() === 'darwin') {
-        // docker run -d --name storage-sftp -p 22:22 -e SFTP_USERS=user:123:::upload -d atmoz/sftp:alpine
-        adapter = new FilesystemSftpAdapter({
-            host: 'storage-sftp.orb.local',
-            user: 'user',
-            password: '123',
-            root: 'upload'
-        });
-    }
 
     //reset all files
     await adapter.delete((await adapter.files('/')).map(v => v.path));

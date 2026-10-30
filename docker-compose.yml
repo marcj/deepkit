@@ -1,0 +1,100 @@
+# Test services for `npm run test`.
+# Start:  docker compose up -d --wait
+# Stop:   docker compose down -v
+#
+# Databases use their default ports (tests connect to localhost defaults).
+# Filesystem services use alternative ports, overridable via env in their tests
+# (FTP_PORT, SFTP_PORT, S3_ENDPOINT, GCS_ENDPOINT).
+
+services:
+  # packages/postgres
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports: ['5432:5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      retries: 30
+
+  # packages/mysql
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+      MYSQL_DATABASE: default
+    ports: ['3306:3306']
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '--silent']
+      interval: 2s
+      retries: 60
+
+  # packages/mongo: single-node replica set (required for transactions)
+  mongo:
+    image: mongo:5
+    command: ['--replSet', 'rs0', '--bind_ip_all']
+    ports: ['27017:27017']
+    healthcheck:
+      test: mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}).ok }"
+      interval: 3s
+      retries: 30
+      start_period: 5s
+
+  # packages/mongo/tests/docker/simple-auth
+  mongo-auth:
+    image: mongo:5.0.10
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: root-db
+    ports: ['27018:27017']
+    volumes:
+      - ./packages/mongo/tests/docker/simple-auth/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
+  # packages/broker-redis
+  redis:
+    image: redis:7.0.11
+    ports: ['6379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      retries: 30
+
+  # packages/filesystem-ftp
+  ftp:
+    image: garethflowers/ftp-server:0.7.0
+    environment:
+      FTP_USER: user
+      FTP_PASS: '123'
+      PUBLIC_IP: 127.0.0.1
+    ports:
+      - '10021:21'
+      - '40000-40009:40000-40009'
+
+  # packages/filesystem-sftp
+  sftp:
+    image: atmoz/sftp:alpine
+    command: user:123:::upload
+    ports: ['10022:22']
+
+  # packages/filesystem-aws-s3: LocalStack S3 (AWS-faithful: canned ACLs, verbatim keys, directory markers).
+  # Pinned: localstack:latest requires an auth token.
+  s3:
+    image: localstack/localstack:4.4
+    environment:
+      SERVICES: s3
+    ports: ['10900:4566']
+    healthcheck:
+      # creates the test bucket once S3 is up
+      test: ['CMD-SHELL', 'awslocal s3api head-bucket --bucket deepkit-test || (awslocal s3 mb s3://deepkit-test; exit 1)']
+      interval: 2s
+      retries: 60
+      start_period: 3s
+
+  # packages/filesystem-google (bucket preloaded from /data/deepkit-test)
+  fake-gcs:
+    image: fsouza/fake-gcs-server:1.52
+    entrypoint: ['/bin/sh', '-c', 'mkdir -p /data/deepkit-test && exec /bin/fake-gcs-server -data /data -backend memory -scheme http -port 4443 -public-host localhost:10443 -external-url http://localhost:10443']
+    ports: ['10443:4443']

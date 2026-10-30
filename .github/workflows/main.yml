@@ -4,223 +4,34 @@ on:
   pull_request:
   push:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  unit-tests:
-    runs-on: self-hosted
-    services:
-      storage-ftp:
-        image: garethflowers/ftp-server:0.7.0
-        env:
-          FTP_USER: user
-          FTP_PASS: '123'
-        ports:
-          - '20-21:20-21'
-          - '40000-40009:40000-40009'
-      storage-sftp:
-        image: atmoz/sftp:alpine
-        env:
-          SFTP_USERS: user:123:::upload
-        ports:
-          - '2222:22'
-      redis:
-        image: redis:7.0.11
-        ports:
-          - '6379:6379'
-        options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
+      # same services as local development, see docker-compose.yml
+      - name: Start test services
+        run: docker compose up -d
 
       - name: Setup
         uses: ./.github/actions/setup
         timeout-minutes: 10
 
       - name: Build
-        run: |
-          ./node_modules/.bin/tsc --build \
-            packages/api-console-module/tsconfig.json \
-            packages/angular-ssr/tsconfig.json \
-            packages/broker/tsconfig.json \
-            packages/broker-redis/tsconfig.json \
-            packages/bson/tsconfig.json \
-            packages/core/tsconfig.json \
-            packages/core-rxjs/tsconfig.json \
-            packages/filesystem/tsconfig.json \
-            packages/filesystem-database/tsconfig.json \
-            packages/framework/tsconfig.json \
-            packages/framework-debug-api/tsconfig.json \
-            packages/framework-integration/tsconfig.json \
-            packages/orm-browser-api/tsconfig.json \
-            packages/rpc/tsconfig.json \
-            packages/event/tsconfig.json \
-            packages/workflow/tsconfig.json \
-            packages/stopwatch/tsconfig.json \
-            packages/injector/tsconfig.json \
-            packages/app/tsconfig.json \
-            packages/http/tsconfig.json \
-            packages/orm/tsconfig.json \
-            packages/sql/tsconfig.json \
-            packages/sqlite/tsconfig.json \
-            packages/topsort/tsconfig.json \
-            packages/type/tsconfig.json \
-            packages/type-spec/tsconfig.json
-      - name: Test
-        run: |
-          npm run test:coverage \
-            packages/broker/ \
-            packages/broker-redis/ \
-            packages/bson/ \
-            packages/core/ \
-            packages/core-rxjs/ \
-            packages/filesystem/ \
-            packages/filesystem-database/ \
-            packages/framework/ \
-            packages/framework-debug-api/ \
-            packages/framework-integration/ \
-            packages/rpc/ \
-            packages/topsort/ \
-            packages/event/ \
-            packages/http/ \
-            packages/injector/ \
-            packages/logger/ \
-            packages/template/ \
-            packages/sql/ \
-            packages/stopwatch/ \
-            packages/workflow/ \
-            packages/type/
-# this is broken at the moment
-#      - name: Send coverage
-#        run: ./node_modules/.bin/codecov -f coverage/*.json
+        run: npm run tsc
 
-  orm-postgres:
-    needs:
-      - unit-tests
-    runs-on: self-hosted
-    strategy:
-      matrix:
-        postgres-version: [14]
-    services:
-      postgres:
-        image: postgres:${{ matrix.postgres-version }}
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ''
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - '5432:5432'
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        timeout-minutes: 10
-
-      - name: Build
-        run: |
-          ./node_modules/.bin/tsc --build packages/postgres/tsconfig.json;
+      - name: Wait for test services
+        run: docker compose up -d --wait
 
       - name: Test
-        run: npm run test:coverage packages/postgres/
+        run: npm run test
 
-# this is broken at the moment
-#      - name: Send coverage
-#        run: ./node_modules/.bin/codecov -f coverage/*.json
-
-  orm-mysql:
-    needs:
-      - unit-tests
-    runs-on: self-hosted
-    strategy:
-      matrix:
-        mysql-version: [8.0]
-    services:
-      mysql:
-        image: 'mysql:${{ matrix.mysql-version }}'
-        options: >-
-          --health-cmd "mysqladmin ping --silent"
-          -e MYSQL_ALLOW_EMPTY_PASSWORD=yes
-          -e MYSQL_DATABASE=default
-        ports:
-          - '3306:3306'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        timeout-minutes: 10
-
-      - name: Build
-        run: |
-          ./node_modules/.bin/tsc --build packages/mysql/tsconfig.json
-
-      - name: Test
-        run: npm run test:coverage packages/mysql/
-
-# this is broken at the moment
-#      - name: Send coverage
-#        run: ./node_modules/.bin/codecov -f coverage/*.json
-
-  orm-sqlite:
-    needs:
-      - unit-tests
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        timeout-minutes: 10
-
-      - name: Build
-        run: |
-          ./node_modules/.bin/tsc --build packages/sqlite/tsconfig.json
-
-      - name: Test
-        run: npm run test:coverage packages/sqlite/
-
-# this is broken at the moment
-#      - name: Send coverage
-#        run: ./node_modules/.bin/codecov -f coverage/*.json
-
-  orm-mongo:
-    needs:
-      - unit-tests
-    runs-on: self-hosted
-    strategy:
-      matrix:
-        mongo-version: [4.0]
-    services:
-      # this is used for the simple-auth test
-      mongo:
-        image: mongo:5.0.10
-        ports:
-          - 27018:27017
-        env:
-          MONGO_INITDB_ROOT_USERNAME: root
-          MONGO_INITDB_ROOT_PASSWORD: root
-          MONGO_INITDB_DATABASE: root-db
-        volumes:
-          - /packages/mongo/tests/docker/simple-auth/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
-    steps:
-      - name: Start MongoDB
-        uses: supercharge/mongodb-github-action@1.7.0
-        with:
-          mongodb-version: ${{ matrix.mongo-version }}
-          mongodb-replica-set: test-rs
-
-      - uses: actions/checkout@v4
-
-      - name: Setup
-        uses: ./.github/actions/setup
-        timeout-minutes: 10
-
-      - name: Build
-        run: |
-          ./node_modules/.bin/tsc --build packages/mongo/tsconfig.json
-
-      - name: Test
-        run: npm run test:coverage packages/mongo/
-
-# this is broken at the moment
-#      - name: Send coverage
-#        run: ./node_modules/.bin/codecov -f coverage/*.json
+      - name: Test service logs
+        if: failure()
+        run: docker compose ps -a && docker compose logs --tail=100
