@@ -23,6 +23,9 @@ jobs:
         uses: ./.github/actions/setup
         timeout-minutes: 10
 
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Build
         run: npm run tsc
 

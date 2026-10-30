@@ -98,6 +98,7 @@
       "packages/create-app",
       "packages/filesystem-database",
       "packages/logger",
+      "packages/bun",
       "packages/skeleton",
       "packages/api-console-module"
     ]
