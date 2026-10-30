@@ -1,4 +1,4 @@
-import { expect, test } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
 import { transpile, transpileAndRun } from './utils.js';
 import * as ts from 'typescript';
 
@@ -661,4 +661,25 @@ test('declare statements', () => {
     expect(res.app).not.toContain('__ΩDeclared');
     // would throw a ReferenceError
     expect(res.app).not.toContain('external.__type');
+});
+
+test('pass type parameter to another function', () => {
+    // with TypeScript's debug assertions enabled, replacing only the identifier inside the type reference `T`
+    // failed with "Node InferType did not pass test 'isEntityName'" (#509).
+    // The assertion level can not be changed reliably once TypeScript was used, so use fresh module instances.
+    let res: Record<string, string> = {};
+    jest.isolateModules(() => {
+        require('typescript').Debug.setAssertionLevel(1);
+        res = require('./utils.js').transpile({
+            'app': `
+                function a<T>(t: T): T {
+                    return b<T>(t);
+                }
+                function b<T>(t: T): T {
+                    return t;
+                }
+            `
+        });
+    });
+    expect(res.app).toContain('b.Ω = [[() => t, ');
 });
