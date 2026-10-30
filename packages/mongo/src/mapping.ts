@@ -10,7 +10,7 @@
 
 import { deserialize, ReflectionClass, resolvePath, serialize, serializer } from '@deepkit/type';
 import { ClassType } from '@deepkit/core';
-import './mongo-serializer';
+import './mongo-serializer.js';
 import { mongoSerializer } from './mongo-serializer.js';
 import { convertQueryFilter, QueryCustomFields, QueryFieldNames } from '@deepkit/orm';
 import { FilterQuery } from './query.model.js';

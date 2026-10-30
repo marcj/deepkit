@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 import { ClassType, getClassName, isArray, isClass } from '@deepkit/core';
-import './optimize-tsx';
+import './optimize-tsx.js';
 import { injectedFunction, Injector, Resolver } from '@deepkit/injector';
 import { FrameCategory, Stopwatch } from '@deepkit/stopwatch';
 import { escapeAttribute, escapeHtml, safeString } from './utils.js';

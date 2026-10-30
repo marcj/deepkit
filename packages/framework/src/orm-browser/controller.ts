@@ -106,7 +106,7 @@ export class OrmBrowserController implements BrowserControllerInterface {
     async getFakerTypes(): Promise<FakerTypes> {
         const res: FakerTypes = {};
 
-        const faker = require('faker');
+        const faker = (await import('faker')).default;
         for (const fn of fakerFunctions) {
             const [p1, p2] = fn.split('.');
             try {
@@ -145,7 +145,7 @@ export class OrmBrowserController implements BrowserControllerInterface {
                 callback: (v: any) => any
             }[] = [];
 
-            const faker = require('faker');
+            const faker = (await import('faker')).default;
 
             function fakerValue(path: string, fakerName: string): any {
                 const [p1, p2] = fakerName.split('.');

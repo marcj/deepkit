@@ -36,7 +36,7 @@ export * from './src/client/command/createIndexes.js';
 export * from './src/client/command/delete.js';
 export * from './src/client/command/dropDatabase.js';
 export * from './src/client/command/dropIndexes.js';
-export * from './src/client/command/find';
+export * from './src/client/command/find.js';
 export * from './src/client/command/findAndModify.js';
 export * from './src/client/command/getMore.js';
 export * from './src/client/command/handshake.js';

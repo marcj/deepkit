@@ -27,9 +27,10 @@ export function isElementStruct(v: any): v is ElementStruct {
 
 let templateRender: typeof render;
 
-function getTemplateRender(): typeof render {
+// @deepkit/template is optional, so it's only loaded when a controller returns a JSX element.
+async function getTemplateRender(): Promise<typeof render> {
     if (!templateRender) {
-        const template = require('@deepkit/template');
+        const template = await import('@deepkit/template');
         templateRender = template.render;
     }
 
@@ -702,7 +703,7 @@ export class HttpListener {
             }
 
             if (isElementStruct(result)) {
-                const html = await getTemplateRender()(event.injectorContext.getRootInjector(), result, this.stopwatch ? this.stopwatch : undefined);
+                const html = await (await getTemplateRender())(event.injectorContext.getRootInjector(), result, this.stopwatch ? this.stopwatch : undefined);
                 result = new HtmlResponse(html, 200).header('Content-Type', 'text/html; charset=utf-8');
             }
             if (result instanceof stream.Readable) {
