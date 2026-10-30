@@ -77,7 +77,7 @@ export class AggregateCommand<T, R = BaseResponse> extends Command<R[]> {
             if (this.partial) {
                 interface SpecialisedResponse extends BaseResponse {
                     cursor: {
-                        id: number;
+                        id: bigint;
                         firstBatch?: Array<Partial<resultSchema>>;
                         nextBatch?: Array<Partial<resultSchema>>;
                     },
@@ -87,7 +87,7 @@ export class AggregateCommand<T, R = BaseResponse> extends Command<R[]> {
             } else {
                 interface SpecialisedResponse extends BaseResponse {
                     cursor: {
-                        id: number;
+                        id: bigint;
                         firstBatch?: Array<resultSchema>;
                         nextBatch?: Array<resultSchema>;
                     },

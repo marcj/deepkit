@@ -76,3 +76,16 @@ test('raw AggregateCommand', async () => {
     }]);
 
 });
+
+test('aggregate result spanning several batches', async () => {
+    //a cursor id is an int64: read as a number it lost precision, so the getMore
+    //for the second batch asked for a cursor that does not exist
+    const db = await createDatabase('testing');
+    db.adapter.client.config.options.batchSize = 2;
+    await db.query(Model).deleteMany();
+    for (let i = 0; i < 5; i++) await db.persist(new Model('item' + i));
+
+    const command = new AggregateCommand<Model, Model>(ReflectionClass.from(Model), [{ $sort: { name: 1 } }]);
+    const res = await db.adapter.client.execute(command);
+    expect(res.map(v => v.name)).toEqual(['item0', 'item1', 'item2', 'item3', 'item4']);
+});
