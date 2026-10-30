@@ -558,9 +558,10 @@ export class RpcBaseClient implements WritableClient {
                     });
                 }
                 this.transporter.send(message, progress?.upload);
-            }, () => {
-                // we ignore errors here since created `RpcMessageSubject` receive them
-                // onClose(error)
+            }, (error) => {
+                // The message was never sent. onClose() only fails pending messages of an established connection,
+                // so without this, waiting for a reply to a message sent while the server is unreachable never ends.
+                subject.disconnect(error instanceof Error ? error : new RpcError(String(error)));
             });
         }
 
