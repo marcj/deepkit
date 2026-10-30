@@ -105,7 +105,7 @@ export class MigrationCreateController extends BaseCommand implements Command {
             let migrationName = '';
             const date = new Date;
 
-            const { format } = require('date-fns');
+            const { format } = await import('date-fns');
             for (let i = 1; i < 100; i++) {
                 migrationName = format(date, 'yyyyMMdd-HHmm');
                 if (i > 1) migrationName += '_' + i;
