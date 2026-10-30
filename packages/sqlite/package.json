@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@types/better-sqlite3": "^7.6.12",
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^12.11.1",
     "sqlstring-sqlite": "^0.1.1"
   },
   "devDependencies": {
