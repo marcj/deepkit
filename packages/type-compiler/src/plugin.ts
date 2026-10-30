@@ -1,7 +1,7 @@
 import ts from 'typescript';
 import { cwd } from 'process';
-import { createFilter, type FilterPattern } from '@rollup/pluginutils';
 import { declarationTransformer, transformer } from './compiler.js';
+import { createFilter, type FilterPattern } from './filter.js';
 
 export interface Options {
     /** Files to transform, glob patterns or regular expressions. Default all .ts and .tsx files. */

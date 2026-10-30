@@ -1,4 +1,3 @@
-import micromatch from 'micromatch';
 import {
     CompilerHost,
     CompilerOptions,
@@ -12,6 +11,8 @@ import {
 import ts from 'typescript';
 import { dirname, join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
+
+import { isGlobMatch } from './filter.js';
 
 const { createSourceFile, resolveModuleName, isStringLiteral, JSDocParsingMode, ScriptTarget } = ts;
 
@@ -49,9 +50,7 @@ export function patternMatch(path: string, patterns: string[], base?: string): b
 
     const exclude = patterns.filter(pattern => pattern[0] === '!').map(pattern => pattern.substring(1));
 
-    return micromatch.isMatch(path, include, {
-        ignore: exclude,
-    });
+    return isGlobMatch(path, include, exclude);
 }
 
 /**

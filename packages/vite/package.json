@@ -26,9 +26,6 @@
   "peerDependencies": {
     "@deepkit/type-compiler": "^1.0.19"
   },
-  "dependencies": {
-    "@rollup/pluginutils": "^5.0.2"
-  },
   "devDependencies": {
     "@deepkit/type-compiler": "^1.0.19",
     "vite": "^6.1.0"

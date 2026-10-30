@@ -1,6 +1,5 @@
-import { createFilter, type FilterPattern } from '@rollup/pluginutils';
 import * as ts from 'typescript';
-import { declarationTransformer, transformer } from '@deepkit/type-compiler';
+import { createFilter, declarationTransformer, type FilterPattern, transformer } from '@deepkit/type-compiler';
 import type { Plugin } from 'vite' with { 'resolution-mode': 'import' };
 
 export interface Options {

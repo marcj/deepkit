@@ -13,6 +13,7 @@ import type { Program } from 'typescript';
 
 export * from './src/compiler.js';
 export * from './src/loader.js';
+export * from './src/filter.js';
 
 export default function myTransformerPlugin(program: Program, opts: {}) {
     return {
