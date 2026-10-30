@@ -1985,14 +1985,27 @@ test('default function expression', () => {
         uuid: string = uuid();
         id: integer & AutoIncrement & PrimaryKey = 0;
         created: Date = new Date;
+        created2: Date = new Date();
         type: string = 'asd';
+        renewal: string = 'new value';
+        tags: string[] = [];
     }
 
     const reflection = ReflectionClass.from(post);
     expect(reflection.getProperty('uuid').hasDefaultFunctionExpression()).toBe(true);
     expect(reflection.getProperty('id').hasDefaultFunctionExpression()).toBe(false);
-    expect(reflection.getProperty('created').hasDefaultFunctionExpression()).toBe(false);
+    expect(reflection.getProperty('created').hasDefaultFunctionExpression()).toBe(true);
+    expect(reflection.getProperty('created2').hasDefaultFunctionExpression()).toBe(true);
     expect(reflection.getProperty('type').hasDefaultFunctionExpression()).toBe(false);
+    expect(reflection.getProperty('renewal').hasDefaultFunctionExpression()).toBe(false);
+    expect(reflection.getProperty('tags').hasDefaultFunctionExpression()).toBe(false);
+
+    function fn(a: Date = new Date, b: string = 'x') {
+    }
+
+    const fnReflection = ReflectionFunction.from(fn);
+    expect(fnReflection.getParameter('a')!.hasDefaultFunctionExpression()).toBe(true);
+    expect(fnReflection.getParameter('b')!.hasDefaultFunctionExpression()).toBe(false);
 
 });
 

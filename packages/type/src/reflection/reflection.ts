@@ -310,6 +310,8 @@ function hasFunctionExpression(fn: Function): boolean {
     if (code[0] === '\'' && code[code.length - 1] === '\'') return false;
     if (code[0] === '"' && code[code.length - 1] === '"') return false;
     if (code[0] === '`' && code[code.length - 1] === '`') return false;
+    // `new Date` (no parentheses) is a constructor call as well and produces a new value on each evaluation.
+    if (/(^|[^\w$.])new\s/.test(code)) return true;
     return code.includes('(');
 }
 

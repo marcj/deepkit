@@ -180,3 +180,28 @@ test('skip property', () => {
         'id', 'firstName'
     ]);
 });
+
+test('dynamic default values are not frozen into the schema', () => {
+    let i = 0;
+    const next = () => ++i;
+
+    @entity.name('dynamic_default')
+    class Model {
+        id: number & PrimaryKey & AutoIncrement = 0;
+        createdNoParens: Date = new Date;
+        createdParens: Date = new Date();
+        counter: number = next();
+        title: string = 'abc';
+        count: number = 5;
+    }
+
+    const [table] = new MyPlatform().createTables(DatabaseEntityRegistry.from([Model]));
+    expect(table.getColumn('createdNoParens').defaultValue).toBe(undefined);
+    expect(table.getColumn('createdParens').defaultValue).toBe(undefined);
+    expect(table.getColumn('counter').defaultValue).toBe(undefined);
+    expect(table.getColumn('title').defaultValue).toBe('abc');
+    expect(table.getColumn('count').defaultValue).toBe(5);
+
+    const [table2] = new MyPlatform().createTables(DatabaseEntityRegistry.from([Model]));
+    expect(TableComparator.computeDiff(table, table2)).toBe(undefined);
+});
