@@ -101,6 +101,36 @@ test('authentication errors', async () => {
     expect(memoryLogger.messages.length).toBe(1);
 });
 
+test('authentication errors and calls transformError', async () => {
+    let transformedError: Error | null = null;
+
+    class MyKernelSecurity extends RpcKernelSecurity {
+        async authenticate(token: any): Promise<Session> {
+           throw new Error('Malformed token');
+        }
+
+        override transformError(err: Error) {
+            transformedError = new Error("Transformed");
+            transformedError.stack = "";
+            return transformedError;
+        }
+    }
+
+    const kernel = new RpcKernel([{ provide: RpcKernelSecurity, useClass: MyKernelSecurity, scope: 'rpc' }]);
+    const client = new DirectClient(kernel);
+
+    client.token.set('generic');
+
+    try {
+        await client.connect()
+    } catch(e: any) {
+        expect(e.stack).toBe('');
+    }
+
+    expect(transformedError).toBeInstanceOf(Error);
+    expect(transformedError!.message).toBe('Transformed');
+});
+
 
 test('onAuthenticate controllers', async () => {
     class AuthenticatedSession extends Session {
