@@ -248,7 +248,8 @@ export class FilesystemSftpAdapter implements FilesystemAdapter {
 
     protected createFilesystemFile(path: string, fileInfo: FileInfo): FilesystemFile {
         const file = new FilesystemFile(path, fileInfo.type !== 'd' ? 'file' : 'directory');
-        file.size = fileInfo.size;
+        // directory sizes are filesystem-specific (e.g. 4096 on ext4), report 0 like the local adapter
+        file.size = file.type === 'file' ? fileInfo.size : 0;
         file.lastModified = new Date(fileInfo.modifyTime);
         file.visibility = this.mapModeToVisibility(file.type, fileInfo.rights);
 
