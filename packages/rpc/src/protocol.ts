@@ -12,7 +12,7 @@ import { BsonStreamReader, deserializeBSONWithoutOptimiser, getBSONDeserializer,
 import { bufferConcat, ClassType, createBuffer } from '@deepkit/core';
 import { rpcChunk, RpcError, rpcError, RpcTypes } from './model.js';
 import type { SingleProgress } from './progress.js';
-import { deserialize, ReceiveType, ReflectionClass, resolveReceiveType, serialize, Type, typeOf, typeSettings } from '@deepkit/type';
+import { deserialize, ReceiveType, ReflectionClass, ReflectionKind, resolveReceiveType, serialize, Type, TypeObjectLiteral, typeOf, typeSettings } from '@deepkit/type';
 
 export enum RpcMessageRouteType {
     client = 0,
@@ -400,7 +400,123 @@ export function serializeBinaryRpcMessage(message: RpcMessageDefinition): Uint8A
     return serializeBinaryRpcMessageSingleBody(message);
 }
 
+/**
+ * A value serialized once, to be sent in many messages.
+ *
+ * A message body whose `v` property is a PreSerialized value is written by splicing
+ * the pre-encoded BSON element into the document instead of serializing the value
+ * again. A producer that sends one value to many connections, e.g. the same
+ * observable value to every subscriber, calls preSerialize() once and passes the
+ * result where the value would go. The bytes are identical to serializing the value
+ * in place, so clients need no change.
+ */
+export class PreSerialized {
+    constructor(
+        /** BSON element for key "v": type byte, key, value. No document size, no terminator. */
+        public readonly element: Uint8Array,
+        /** element followed by the document terminator: the bytes every such message ends with. */
+        public readonly tail: Uint8Array,
+    ) {
+    }
+}
+
+/**
+ * Where the shared tail starts in each message built from a PreSerialized value, so a
+ * transport can send the per-connection prefix and the shared tail separately, e.g. to
+ * copy or compress the tail once for every connection.
+ */
+const preSerializedParts = new WeakMap<Uint8Array, { value: PreSerialized, offset: number }>();
+
+/**
+ * For a message built from a PreSerialized value: the value and the offset at which its
+ * `tail` starts in the message.
+ */
+export function getPreSerializedPart(message: Uint8Array): { value: PreSerialized, offset: number } | undefined {
+    return preSerializedParts.get(message);
+}
+
+const preSerializeWrapperTypes = new WeakMap<Type, TypeObjectLiteral>();
+
+/** `{ v: type }`, so `v` is encoded exactly as it is inside a message body. */
+function preSerializeWrapperType(type: Type): TypeObjectLiteral {
+    let wrapper = preSerializeWrapperTypes.get(type);
+    if (!wrapper) {
+        wrapper = { kind: ReflectionKind.objectLiteral, types: [] };
+        wrapper.types.push({ kind: ReflectionKind.propertySignature, name: 'v', parent: wrapper, type });
+        preSerializeWrapperTypes.set(type, wrapper);
+    }
+    return wrapper;
+}
+
+/**
+ * Serializes `value` once, to be sent through many messages whose body is
+ * `{ ..., v: T }` without serializing it again: an action result, or an observable's
+ * next value. Only single-body messages (not composite, not peer or source/dest
+ * routed) support it.
+ */
+export function preSerialize<T>(value: T, type?: ReceiveType<T>): PreSerialized {
+    const wrapper = preSerializeWrapperType(resolveReceiveType(type));
+    const bytes = getBSONSerializer(undefined, wrapper)({ v: value });
+    //document layout: <uint32 size> <element "v"> <0x00>
+    return new PreSerialized(bytes.subarray(4, bytes.length - 1), bytes.subarray(4));
+}
+
+const preSerializedRestTypes = new WeakMap<Type, Type>();
+
+/** The body type without its `v` property, so the other properties serialize as before. */
+function preSerializedRestType(type: Type): Type {
+    if (type.kind !== ReflectionKind.objectLiteral) return type;
+    let rest = preSerializedRestTypes.get(type);
+    if (!rest) {
+        const literal: TypeObjectLiteral = { kind: ReflectionKind.objectLiteral, types: [] };
+        for (const member of type.types) {
+            if ('name' in member && member.name === 'v') continue;
+            literal.types.push({ ...member, parent: literal } as any);
+        }
+        rest = literal;
+        preSerializedRestTypes.set(type, rest);
+    }
+    return rest;
+}
+
+function getPreSerialized(body: any): PreSerialized | undefined {
+    return body !== undefined && body !== null && body.v instanceof PreSerialized ? body.v : undefined;
+}
+
+function serializeBinaryRpcMessageSingleBodyPreSerialized(message: RpcMessageDefinition & { body: {} }, pre: PreSerialized): Uint8Array {
+    const rest = { ...message.body.body };
+    delete rest.v;
+    const restBytes = getBSONSerializer(undefined, preSerializedRestType(message.body.type))(rest);
+    //the rest document without its terminator, then the shared tail
+    const bodySize = restBytes.length - 1 + pre.tail.length;
+    //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
+    const messageSize = 4 + 1 + 4 + 1 + 1 + 1 + bodySize;
+
+    const writer = new Writer(createBuffer(messageSize));
+    writer.writeUint32(messageSize);
+    writer.writeByte(1); //version
+    writer.writeUint32(message.id);
+
+    writer.writeByte(message.routeType);
+    writer.writeByte(0); //composite=false
+    writer.writeByte(message.type);
+
+    writer.writeUint32(bodySize);
+    writer.buffer.set(restBytes.subarray(4, restBytes.length - 1), writer.offset);
+    writer.offset += restBytes.length - 5;
+
+    const tailOffset = writer.offset;
+    writer.buffer.set(pre.tail, writer.offset);
+    writer.offset += pre.tail.length;
+
+    preSerializedParts.set(writer.buffer, { value: pre, offset: tailOffset });
+    return writer.buffer;
+}
+
 export function serializeBinaryRpcMessageSingleBody(message: RpcMessageDefinition): Uint8Array {
+    const preSerialized = message.body ? getPreSerialized(message.body.body) : undefined;
+    if (preSerialized) return serializeBinaryRpcMessageSingleBodyPreSerialized(message as RpcMessageDefinition & { body: {} }, preSerialized);
+
     const bodySize = message.body ? getBSONSizer(undefined, message.body.type)(message.body.body) : 0;
     //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
     const messageSize = 4 + 1 + 4 + 1 + 1 + 1 + bodySize;
