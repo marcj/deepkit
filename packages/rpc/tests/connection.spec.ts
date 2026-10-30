@@ -60,9 +60,20 @@ test('connect', async () => {
     }
 
     {
-        connections[0].onError(new Error('test'));
+        //an error on the live connection is reported and disconnects
+        await client.connect();
+        expect(connections).toHaveLength(2);
+        connections[1].onError(new Error('test'));
         expect(errors[0].message).toEqual('test');
         expect(client.transporter.isConnected()).toBe(false);
+    }
+
+    {
+        //an error on a connection that was already replaced leaves the current one alone
+        await client.connect();
+        connections[0].onError(new Error('stale'));
+        expect(errors).toHaveLength(1);
+        expect(client.transporter.isConnected()).toBe(true);
     }
 });
 
