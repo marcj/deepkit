@@ -1,7 +1,7 @@
 import { rpc } from '@deepkit/rpc';
 import type { FilesystemApi, FilesystemApiFile } from '@deepkit/desktop-ui';
 import { Filesystem, FilesystemFile } from '@deepkit/filesystem';
-import mime from 'mime-types';
+import { getMimeType } from '@deepkit/http';
 import { pathDirectory, pathJoin } from '@deepkit/core';
 import { Jimp } from 'jimp';
 
@@ -12,7 +12,7 @@ function mapFile(file: FilesystemFile): FilesystemApiFile {
         lastModified: file.lastModified,
         size: file.size,
         visibility: file.visibility,
-        mimeType: mime.lookup(file.path) || '',
+        mimeType: getMimeType(file.path) || '',
         // created: file.created,
     };
 }
@@ -71,7 +71,7 @@ export class AdminFilesController implements FilesystemApi {
     async getData(path: string): Promise<{ data: Uint8Array, mimeType: string } | undefined> {
         const filesystem = this.getFilesystem(path);
         try {
-            const mimeType = mime.lookup(path) || '';
+            const mimeType = getMimeType(path) || '';
             const data = await filesystem.read(path);
             return { data, mimeType };
         } catch (error) {
@@ -84,7 +84,7 @@ export class AdminFilesController implements FilesystemApi {
         if (path === '/') return;
 
         const filesystem = this.getFilesystem(path);
-        let mimeType = mime.lookup(path) || '';
+        let mimeType = getMimeType(path) || '';
 
         if (isImageMimeType(mimeType)) {
             let data = await filesystem.read(path);
