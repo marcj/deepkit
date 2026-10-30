@@ -121,11 +121,9 @@ test('authentication errors and calls transformError', async () => {
 
     client.token.set('generic');
 
-    try {
-        await client.connect()
-    } catch(e: any) {
-        expect(e.stack).toBe('');
-    }
+    const error: any = await client.connect().then(() => undefined, e => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.stack).toBe('');
 
     expect(transformedError).toBeInstanceOf(Error);
     expect(transformedError!.message).toBe('Transformed');
