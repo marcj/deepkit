@@ -26,8 +26,7 @@ import { LoggerInterface } from '@deepkit/logger';
 import { sleep } from '@deepkit/core';
 import { createSelfSignedCertificate } from './self-signed.js';
 
-// @ts-ignore
-import compression from 'compression';
+import { compressResponse } from './compression.js';
 import { constants } from 'zlib';
 
 export interface WebServerOptions {
@@ -225,7 +224,7 @@ export class WebWorker {
 
         if (this.compressionOptions.level > 0) {
             // this modifies response object, so it must be called before any data is written
-            compression(this.compressionOptions)(request, response, () => undefined);
+            compressResponse(request, response, this.compressionOptions);
         }
 
         this.activeRequests++;

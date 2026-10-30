@@ -51,7 +51,6 @@
     "@deepkit/orm-browser-api": "^1.0.19",
     "@deepkit/orm-browser-gui": "^1.0.19",
     "@types/ws": "^7.4.0",
-    "compression": "^1.7.4",
     "ws": "^7.4.2"
   },
   "devDependencies": {

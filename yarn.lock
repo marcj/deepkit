@@ -3581,7 +3581,6 @@ __metadata:
     "@types/clone": "npm:^0.1.30"
     "@types/node": "npm:^22.13.1"
     "@types/ws": "npm:^7.4.0"
-    compression: "npm:^1.7.4"
     rxjs: "npm:~7.8.0"
     ws: "npm:^7.4.2"
   peerDependencies:
