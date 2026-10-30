@@ -8,10 +8,11 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { ClassType } from '@deepkit/core';
-import { Database, DatabaseRegistry } from '@deepkit/orm';
+import { ClassType, getClassName } from '@deepkit/core';
+import { Database, DatabaseError, DatabaseRegistry } from '@deepkit/orm';
 import glob from 'fast-glob';
-import { basename, join } from 'path';
+import { createRequire } from 'module';
+import { basename, isAbsolute, join } from 'path';
 import { Migration } from './migration.js';
 
 export class MigrationProvider {
@@ -29,6 +30,44 @@ export class MigrationProvider {
 
     setMigrationDir(dir: string) {
         this.migrationDir = dir;
+    }
+
+    /**
+     * Registers the Database instances exported by the given files (e.g. `export const database = new Database(...)`),
+     * for using the migration commands without the FrameworkModule (deepkit-sql --path database.ts).
+     *
+     * TypeScript files are loaded with ts-node (registered if it is not already), so that entities get runtime types.
+     */
+    addDatabasesFromFiles(paths: string[]): void {
+        // createRequire works in the CommonJS and the ESM build
+        const load = createRequire(join(process.cwd(), 'noop.js'));
+
+        // Node's own TypeScript support only strips types, entities need the type compiler (via ts-node)
+        const tsNodeRegistered = !!(process as any)[Symbol.for('ts-node.register.instance')];
+        if (paths.some(v => /\.[cm]?tsx?$/.test(v)) && !tsNodeRegistered) {
+            let tsNode: any;
+            try {
+                tsNode = load('ts-node');
+            } catch {
+                throw new DatabaseError(`Loading TypeScript files (${paths.join(', ')}) requires ts-node. Install it or run deepkit-sql with a TypeScript loader.`);
+            }
+            // the files are loaded synchronously as CommonJS
+            tsNode.register({ compilerOptions: { module: 'commonjs', moduleResolution: 'node', experimentalDecorators: true } });
+        }
+
+        for (const path of paths) {
+            const file = isAbsolute(path) ? path : join(process.cwd(), path);
+            const exports = load(file);
+            const values: any[] = exports && typeof exports === 'object' ? Object.values(exports) : [];
+            const databases = values.filter((v): v is Database => v instanceof Database);
+            if (!databases.length) {
+                const classes = values.filter(v => typeof v === 'function' && v.prototype instanceof Database);
+                throw new DatabaseError(classes.length
+                    ? `${path} exports the Database class ${getClassName(classes[0])}, but not an instance of it. Export one, e.g. export const database = new ${getClassName(classes[0])}();`
+                    : `${path} exports no Database instance. Export one, e.g. export const database = new Database(adapter, [entities]);`);
+            }
+            for (const database of databases) this.databases.addDatabaseInstance(database);
+        }
     }
 
     async getMigrationsPerDatabase(limitDatabase?: string) {

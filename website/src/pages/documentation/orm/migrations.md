@@ -29,11 +29,15 @@ export class SQLiteDatabase extends Database {
         super(new SQLiteDatabaseAdapter('/tmp/myapp.sqlite'), [User]);
     }
 }
+
+export const database = new SQLiteDatabase();
 ```
 
 ```sh
 ./node_modules/.bin/deepkit-sql migration:create --path database.ts --migrationDir src/migrations
 ```
+
+`--path` takes files that export `Database` instances (it can be given multiple times). TypeScript files are loaded with `ts-node`, which has to be installed, so that the entities get their runtime types.
 
 A new migration file is created in `src/migrations`. 
 
