@@ -8,8 +8,7 @@
     ],
     "outDir": "./dist/cjs",
     "types": [
-      "pg",
-      "sqlstring"
+      "pg"
     ]
   },
   "reflection": [

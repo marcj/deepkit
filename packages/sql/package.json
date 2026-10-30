@@ -41,10 +41,6 @@
     "@deepkit/stopwatch": "^1.0.19",
     "@deepkit/type": "^1.0.19"
   },
-  "dependencies": {
-    "@types/sqlstring": "^2.2.1",
-    "sqlstring": "^2.3.2"
-  },
   "devDependencies": {
     "@deepkit/app": "^1.0.19",
     "@deepkit/core": "^1.0.19",

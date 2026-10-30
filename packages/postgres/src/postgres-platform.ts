@@ -15,6 +15,7 @@ import {
     IndexModel,
     isSet,
     PreparedAdapter,
+    sqlDateToString,
     SqlPlaceholderStrategy,
     Table,
     typeResolvesToBigInt,
@@ -38,11 +39,10 @@ import {
 import { PostgresSchemaParser } from './postgres-schema-parser.js';
 import { PostgreSQLFilterBuilder } from './sql-filter-builder.js';
 import { isArray, isObject } from '@deepkit/core';
-import sqlstring from 'sqlstring';
 
 function escapeLiteral(value: any): string {
     if (value === null || value === undefined) return 'null';
-    if (value instanceof Date) return sqlstring.escape(value);
+    if (value instanceof Date) return sqlDateToString(value);
     if ('number' === typeof value || 'bigint' === typeof value) return String(value);
     if ('string' !== typeof value) return escapeLiteral(String(value));
 
@@ -140,7 +140,7 @@ export class PostgresPlatform extends DefaultPlatform {
 
     override quoteValue(value: any): string {
         if (!(value instanceof Date) && (isObject(value) || isArray(value))) return escapeLiteral(JSON.stringify(value));
-        if (value instanceof Date) return 'TIMESTAMP ' + sqlstring.escape(value);
+        if (value instanceof Date) return 'TIMESTAMP ' + sqlDateToString(value);
         return escapeLiteral(value);
     }
 

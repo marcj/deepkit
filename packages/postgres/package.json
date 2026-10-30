@@ -33,8 +33,7 @@
   },
   "dependencies": {
     "@types/pg": "^7.14.7",
-    "pg": "^8.5.1",
-    "sqlstring": "^2.3.2"
+    "pg": "^8.5.1"
   },
   "devDependencies": {
     "@deepkit/core": "^1.0.19",
@@ -43,8 +42,7 @@
     "@deepkit/orm-integration": "^1.0.1",
     "@deepkit/sql": "^1.0.19",
     "@deepkit/stopwatch": "^1.0.19",
-    "@deepkit/type": "^1.0.19",
-    "@types/sqlstring": "^2.2.1"
+    "@deepkit/type": "^1.0.19"
   },
   "jest": {
     "runner": "../../jest-serial-runner.js",

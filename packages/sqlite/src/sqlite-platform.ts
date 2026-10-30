@@ -14,7 +14,9 @@ import {
     ForeignKey,
     isSet,
     PreparedAdapter,
+    quoteSqlString,
     Sql,
+    sqlEscape,
     Table,
     TableDiff,
     typeResolvesToBoolean,
@@ -38,7 +40,6 @@ import { SQLiteSchemaParser } from './sqlite-schema-parser.js';
 import { sqliteSerializer } from './sqlite-serializer.js';
 import { SQLiteFilterBuilder } from './sql-filter-builder.sqlite.js';
 import { isArray, isObject } from '@deepkit/core';
-import sqlstring from 'sqlstring-sqlite';
 import { MigrateOptions } from '@deepkit/orm';
 
 export function isJsonLike(type: Type): boolean {
@@ -74,8 +75,8 @@ export class SQLitePlatform extends DefaultPlatform {
     }
 
     quoteValue(value: any): string {
-        if (isObject(value) || isArray(value)) return sqlstring.escape(JSON.stringify(value));
-        return sqlstring.escape(value);
+        if (isObject(value) || isArray(value)) return sqlEscape(JSON.stringify(value), quoteSqlString);
+        return sqlEscape(value, quoteSqlString);
     }
 
     applyLimitAndOffset(sql: Sql, limit?: number, offset?: number) {

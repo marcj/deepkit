@@ -9,6 +9,7 @@
  */
 
 export * from './src/sql-builder.js';
+export * from './src/sql-escape.js';
 export * from './src/sql-adapter.js';
 export * from './src/sql-filter-builder.js';
 

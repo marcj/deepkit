@@ -41,7 +41,6 @@
     "@deepkit/logger": "^1.0.19",
     "@deepkit/stopwatch": "^1.0.19",
     "@deepkit/type": "^1.0.19",
-    "@types/sqlstring": "^2.2.1",
     "conditional-type-checks": "^1.0.5"
   },
   "jest": {

@@ -18,11 +18,11 @@ import {
     Table,
     TableDiff,
 } from '../schema/table.js';
-import sqlstring from 'sqlstring';
 import { ClassType, isArray, isObject } from '@deepkit/core';
 import { sqlSerializer } from '../serializer/sql-serializer.js';
 import { parseType, SchemaParser } from '../reverse/schema-parser.js';
 import { SQLFilterBuilder } from '../sql-filter-builder.js';
+import { sqlEscape } from '../sql-escape.js';
 import { Sql } from '../sql-builder.js';
 import { binaryTypes, databaseAnnotation, isCustomTypeClass, isDateType, isIntegerType, ReflectionClass, ReflectionKind, ReflectionProperty, Serializer, Type } from '@deepkit/type';
 import { DatabaseEntityRegistry, MigrateOptions } from '@deepkit/orm';
@@ -170,8 +170,8 @@ export abstract class DefaultPlatform {
     }
 
     quoteValue(value: any): string {
-        if (!(value instanceof Date) && (isObject(value) || isArray(value))) return sqlstring.escape(JSON.stringify(value));
-        return sqlstring.escape(value);
+        if (!(value instanceof Date) && (isObject(value) || isArray(value))) return sqlEscape(JSON.stringify(value));
+        return sqlEscape(value);
     }
 
     getAggregateSelect(tableName: string, property: ReflectionProperty, func: string) {
