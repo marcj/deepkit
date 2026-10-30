@@ -26,6 +26,7 @@ import {
 } from '../src/model.js';
 import { getClassName, isObject, sleep, TypeAnnotation } from '@deepkit/core';
 import { createHttpKernel } from './utils.js';
+import { SeparateFileBodyController } from './fixtures/body-controller.js';
 import {
     Excluded,
     Group,
@@ -1802,6 +1803,15 @@ test('query validator withing HttpQuery', async () => {
         valid: true
     });
     expect((await httpKernel.request(HttpRequest.GET('/do').query('a=aaaa&b=bbbb'))).statusCode).toBe(400);
+});
+
+test('http body in controller from separate file', async () => {
+    // see https://github.com/deepkit/deepkit-framework/issues/458
+    const httpKernel = createHttpKernel([SeparateFileBodyController]);
+    const response = await httpKernel.request(HttpRequest.POST('/separate-file-body').json({ username: 'john', email: 'john@example.com' }));
+    expect(response.statusCode).toBe(200);
+    expect(response.json).toEqual({ username: 'john', email: 'john@example.com' });
+    expect((await httpKernel.request(HttpRequest.POST('/separate-file-body').json({ username: 'john' }))).statusCode).toBe(400);
 });
 
 test('http body deep optional union', async () => {
