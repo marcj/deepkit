@@ -20,6 +20,30 @@ import { randomBytes } from 'crypto';
 Error.stackTraceLimit = 20;
 
 export const variousTests = {
+    async testFilterUndefinedIsNotEmptyFilter(databaseFactory: DatabaseFactory) {
+        // { name: undefined } means "name is not set", it must never become {} which matches everything (#692)
+        @entity.name('test_filter_undefined')
+        class Item {
+            id: number & PrimaryKey & AutoIncrement = 0;
+            name: string = '';
+            opt?: string;
+        }
+
+        const database = await databaseFactory([Item]);
+        await database.persist(cast<Item>({ name: 'a' }), cast<Item>({ name: 'b', opt: 'x' }));
+        const names = async (filter: any) => (await database.query(Item).filter(filter).orderBy('name').find()).map(v => v.name);
+
+        expect(await names({})).toEqual(['a', 'b']);
+        expect(await names({ name: undefined })).toEqual([]);
+        expect(await names({ id: undefined })).toEqual([]);
+        expect(await names({ opt: undefined })).toEqual(['a']);
+        expect(await names({ name: 'b', opt: undefined })).toEqual([]);
+        expect(await database.query(Item).filter({ name: undefined } as any).count()).toBe(0);
+
+        await database.query(Item).filter({ name: undefined } as any).deleteMany();
+        await database.query(Item).filter({ id: undefined } as any).patchMany({ name: 'changed' });
+        expect(await names({})).toEqual(['a', 'b']);
+    },
     async testOneToOneCircularReferenceRelation(databaseFactory: DatabaseFactory) {
         @entity.name('totocrr_inventory')
         class Inventory {

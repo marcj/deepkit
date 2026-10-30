@@ -23,6 +23,8 @@ export function convertClassQueryToMongo<T, K extends keyof T, Q extends FilterQ
 ): Q {
     const schema = ReflectionClass.from(classType);
     return convertQueryFilter(schema, query, (convertClassType: ReflectionClass<any>, path: string, value: any) => {
+        // MongoDB can not compare to undefined, null matches fields that are null or not set
+        if (value === undefined) return null;
         const type = resolvePath(path, schema.type);
         return serialize(value, undefined, mongoSerializer, undefined, type);
     }, fieldNamesMap, customMapping);
@@ -35,6 +37,7 @@ export function convertPlainQueryToMongo<T, K extends keyof T>(
     customMapping: QueryCustomFields = {},
 ): { [path: string]: any } {
     return convertQueryFilter(classType, target, (convertClassType: ReflectionClass<any>, path: string, value: any) => {
+        if (value === undefined) return null;
         const type = resolvePath(path, convertClassType.type);
         const classValue = deserialize(value, undefined, serializer, undefined, type);
         return serialize(classValue, undefined, mongoSerializer, undefined, type);

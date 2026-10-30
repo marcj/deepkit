@@ -149,6 +149,9 @@ export function convertQueryFilter<T, K extends keyof T, Q extends FilterQuery<T
 
         if (fieldValue !== undefined) {
             result[targetI] = fieldValue;
+        } else if (property && filter[key] === undefined) {
+            // { name: undefined } is not {}: dropping the field would match all documents
+            result[targetI] = undefined;
         }
     }
 
