@@ -8,7 +8,6 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import dotProp from 'dot-prop';
 import { isArray, isClass, isClassInstance, isObject, isPlainObject, isSet } from './type-guards.js';
 import { pathDirectory } from './path.js';
 
@@ -400,23 +399,80 @@ export function collectForMicrotask<T>(callback: (args: T[]) => void): (arg: T) 
     };
 }
 
+// keys that would allow prototype pollution via paths like `__proto__.polluted`
+const disallowedPathKeys = new Set(['__proto__', 'prototype', 'constructor']);
+
+/**
+ * Splits `a.b.c` into its segments, `\\.` escapes a dot. Returns an empty array if a segment is not allowed.
+ */
+function getPathSegments(path: string): string[] {
+    const segments: string[] = [];
+    let current = '';
+    for (let i = 0; i < path.length; i++) {
+        const char = path[i];
+        if (char === '\\' && path[i + 1] === '.') {
+            current += '.';
+            i++;
+        } else if (char === '.') {
+            segments.push(current);
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    segments.push(current);
+    return segments.some(v => disallowedPathKeys.has(v)) ? [] : segments;
+}
+
+function isPathObject(value: any): boolean {
+    return value !== null && (typeof value === 'object' || typeof value === 'function');
+}
+
 export function getPathValue(bag: { [field: string]: any }, parameterPath: string, defaultValue?: any): any {
     if (parameterPath === '' || parameterPath === undefined) return bag;
-    if (isSet(bag[parameterPath])) {
+    if (!disallowedPathKeys.has(parameterPath) && isSet(bag[parameterPath])) {
         return bag[parameterPath];
     }
 
-    const result = dotProp.get(bag, parameterPath);
+    const segments = getPathSegments(parameterPath);
+    if (!isPathObject(bag) || segments.length === 0) return defaultValue;
+    let result: any = bag;
+    for (let i = 0; i < segments.length; i++) {
+        if (!Object.prototype.propertyIsEnumerable.call(result, segments[i])) return defaultValue;
+        result = result[segments[i]];
+        if (result === undefined || result === null) {
+            if (i !== segments.length - 1) return defaultValue;
+            break;
+        }
+    }
 
     return isSet(result) ? result : defaultValue;
 }
 
 export function setPathValue(bag: object, parameterPath: string, value: any) {
-    dotProp.set(bag, parameterPath, value);
+    const segments = getPathSegments(parameterPath);
+    if (!isPathObject(bag) || segments.length === 0) return;
+    let current: any = bag;
+    for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        if (i === segments.length - 1) {
+            current[segment] = value;
+        } else {
+            if (!isPathObject(current[segment])) current[segment] = {};
+            current = current[segment];
+        }
+    }
 }
 
 export function deletePathValue(bag: object, parameterPath: string) {
-    dotProp.delete(bag, parameterPath);
+    const segments = getPathSegments(parameterPath);
+    if (!isPathObject(bag) || segments.length === 0) return;
+    let current: any = bag;
+    for (let i = 0; i < segments.length - 1; i++) {
+        current = current[segments[i]];
+        if (!isPathObject(current)) return;
+    }
+    delete current[segments[segments.length - 1]];
 }
 
 /**

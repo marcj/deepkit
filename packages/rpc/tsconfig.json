@@ -5,8 +5,6 @@
     "target": "es2022",
     "outDir": "./dist/cjs",
     "types": [
-      "dot-prop",
-      "fs-extra",
       "node"
     ]
   },

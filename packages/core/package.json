@@ -20,10 +20,6 @@
   "repository": "https://github.com/deepkit/deepkit-framework",
   "author": "Marc J. Schmidt <marc@marcjschmidt.de>",
   "license": "MIT",
-  "dependencies": {
-    "dot-prop": "^5.1.1",
-    "to-fast-properties": "^3.0.1"
-  },
   "devDependencies": {
     "@deepkit/bench": "^1.0.19",
     "@types/dot-prop": "~4.2.0"
