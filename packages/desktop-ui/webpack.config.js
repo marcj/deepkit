@@ -1,4 +1,5 @@
 const path = require('path');
+const { BannerPlugin } = require('webpack');
 
 module.exports = {
     entry: {
@@ -13,6 +14,8 @@ module.exports = {
         symlinks: false,
     },
     target: 'node',
+    // bin scripts need a shebang to be executable via npx / package.json bin
+    plugins: [new BannerPlugin({ banner: '#!/usr/bin/env node', raw: true, entryOnly: true })],
     // mode: 'production',
     devtool: 'cheap-module-source-map',
     node: {
