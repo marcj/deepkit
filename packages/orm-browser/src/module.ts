@@ -1,4 +1,4 @@
-import { createModuleClass, findParentPath } from '@deepkit/app';
+import { createModuleClass, findPackagePath } from '@deepkit/app';
 import { OrmBrowserController } from '@deepkit/framework';
 import { Database, DatabaseRegistry } from '@deepkit/orm';
 import { Config } from './config.js';
@@ -36,8 +36,8 @@ export class OrmBrowserModule extends createModuleClass({
             }
         });
 
-        const localPath = findParentPath('node_modules/@deepkit/orm-browser-gui/dist/orm-browser-gui', dirname(getCurrentFileName()));
-        if (!localPath) throw new Error('node_modules/@deepkit/orm-browser-gui not installed in ' + dirname(getCurrentFileName()));
+        const localPath = findPackagePath('@deepkit/orm-browser-gui', 'dist/orm-browser-gui', getCurrentFileName());
+        if (!localPath) throw new Error('@deepkit/orm-browser-gui is not installed or has no build, resolved from ' + dirname(getCurrentFileName()));
 
         registerStaticHttpController(this, {
             path: this.config.path,
