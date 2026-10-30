@@ -96,7 +96,7 @@ import {
 } from './reflection-ast.js';
 import { SourceFile } from './ts-types.js';
 import { MappedModifier, ReflectionOp, TypeIntrinsic, TypeNumberBrand } from '@deepkit/type-spec';
-import { Resolver } from './resolver.js';
+import { readNearestPackageJson, Resolver } from './resolver.js';
 import { knownLibFilesForCompilerOptions } from '@typescript/vfs';
 import { debug, debug2 } from './debug.js';
 import { ConfigResolver, getConfigResolver, MatchResult, ReflectionConfig, ReflectionConfigCache, reflectionModeMatcher, ResolvedConfig } from './config.js';
@@ -1118,10 +1118,10 @@ export class ReflectionTransformer implements CustomTransformer {
 
     protected getModuleType(): 'cjs' | 'esm' {
         if (this.compilerOptions.module === ts.ModuleKind.Node16 || this.compilerOptions.module === ts.ModuleKind.NodeNext) {
-            if (this.sourceFile.impliedNodeFormat === ts.ModuleKind.ESNext) {
-                return 'esm';
-            }
-            return 'cjs';
+            if (this.sourceFile.fileName.endsWith('.mjs')) return 'esm';
+            if (this.sourceFile.fileName.endsWith('.cjs')) return 'cjs';
+            const pkg = readNearestPackageJson(this.sourceFile.fileName);
+            return pkg?.type === 'module' ? 'esm' : 'cjs';
         }
         return this.compilerOptions.module === ts.ModuleKind.CommonJS ? 'cjs' : 'esm';
     }

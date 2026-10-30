@@ -15,6 +15,8 @@ export interface SourceFile extends TSSourceFile {
      */
     redirectInfo?: any;
 
+    fileName: string;
+
     scriptKind?: ScriptKind;
 
     externalModuleIndicator?: Node;

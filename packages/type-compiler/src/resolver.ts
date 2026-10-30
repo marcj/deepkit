@@ -10,8 +10,31 @@ import {
     StringLiteral,
 } from 'typescript';
 import ts from 'typescript';
+import { parse, join, dirname } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
 
 const { createSourceFile, resolveModuleName, isStringLiteral, JSDocParsingMode, ScriptTarget } = ts;
+
+const packageJsonCache: { dir: string, content: any | null }[] = [];
+
+export function readNearestPackageJson(filePath: string): any {
+    const cachedEntry = packageJsonCache
+        .filter(entry => filePath.startsWith(entry.dir))
+        .sort((a, b) => b.dir.length - a.dir.length)[0];
+
+    if (cachedEntry) return cachedEntry.content;
+
+    let dir = dirname(filePath);
+    while (dir !== parse(dir).root) {
+        const packageJsonPath = join(dir, 'package.json');
+        if (existsSync(packageJsonPath)) {
+            const content = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+            packageJsonCache.push({ dir, content });
+            return content;
+        }
+        dir = dirname(dir);
+    }
+}
 
 export function patternMatch(path: string, patterns: string[], base?: string): boolean {
     const include = patterns.filter(pattern => pattern[0] !== '!');
