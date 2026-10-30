@@ -203,7 +203,7 @@ export class SQLiteConnection extends SQLConnection {
 }
 
 export class SQLiteConnectionPool extends SQLConnectionPool {
-    public maxConnections: number = 10;
+    protected _maxConnections: number = 10;
 
     protected queue: ((connection: SQLiteConnection) => void)[] = [];
 
@@ -217,7 +217,22 @@ export class SQLiteConnectionPool extends SQLConnectionPool {
     ) {
         super(logger);
         //memory databases can not have more than one connection
-        if (dbPath === ':memory:') this.maxConnections = 1;
+        if (dbPath === ':memory:') this._maxConnections = 1;
+    }
+
+    get maxConnections(): number {
+        return this._maxConnections;
+    }
+
+    set maxConnections(value: number) {
+        if (!(value >= 1)) {
+            throw new DatabaseError(`SQLite maxConnections must be at least 1, got ${value}`);
+        }
+        if (this.dbPath === ':memory:' && value !== 1) {
+            // each connection to ':memory:' opens its own, separate empty database
+            throw new DatabaseError(`SQLite :memory: databases can only have one connection, got maxConnections=${value}`);
+        }
+        this._maxConnections = value;
     }
 
     close() {

@@ -340,6 +340,29 @@ test(':memory: connection pool', async () => {
     }
 });
 
+test(':memory: maxConnections can not be raised', async () => {
+    // every connection to ':memory:' opens its own empty database, so more than one
+    // connection would silently split data across separate databases.
+    const sqlite = new SQLiteDatabaseAdapter(':memory:');
+    expect(sqlite.connectionPool.maxConnections).toBe(1);
+    expect(() => (sqlite.connectionPool.maxConnections = 2)).toThrow('only have one connection');
+    expect(sqlite.connectionPool.maxConnections).toBe(1);
+    sqlite.connectionPool.maxConnections = 1;
+    expect(sqlite.connectionPool.maxConnections).toBe(1);
+});
+
+test('maxConnections must be at least 1', async () => {
+    const pool = new SQLiteDatabaseAdapter('/tmp/deepkit-sqlite-max-connections.sqlite').connectionPool;
+    expect(pool.maxConnections).toBe(10);
+    // 0 would make getConnection() wait forever
+    expect(() => (pool.maxConnections = 0)).toThrow('at least 1');
+    expect(() => (pool.maxConnections = -1)).toThrow('at least 1');
+    expect(() => (pool.maxConnections = NaN)).toThrow('at least 1');
+    expect(pool.maxConnections).toBe(10);
+    pool.maxConnections = 3;
+    expect(pool.maxConnections).toBe(3);
+});
+
 test('optional', async () => {
     @entity.name('entity')
     class MyEntity {
