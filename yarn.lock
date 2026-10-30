@@ -3681,7 +3681,6 @@ __metadata:
     "@types/mongodb": "npm:3.5.25"
     "@types/node": "npm:^22.13.1"
     mongodb: "npm:^6.14.2"
-    saslprep-patch: "npm:^1.0.4"
   peerDependencies:
     "@deepkit/bson": ^1.0.19
     "@deepkit/core": ^1.0.19
@@ -15029,13 +15028,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fflate@npm:^0.7.3":
-  version: 0.7.4
-  resolution: "fflate@npm:0.7.4"
-  checksum: 10c0/5e749eb3a6ed61a0f6c55756abf9f4258f06f60505db689e22d18503dd252ca5af656d32668e4b7b20714adf8b313febf695d23863a8352f23e325baee0f672d
-  languageName: node
-  linkType: hard
-
 "figures@npm:3.2.0, figures@npm:^3.0.0":
   version: 3.2.0
   resolution: "figures@npm:3.2.0"
@@ -15391,13 +15383,6 @@ __metadata:
   version: 1.0.0
   resolution: "fs.realpath@npm:1.0.0"
   checksum: 10c0/444cf1291d997165dfd4c0d58b69f0e4782bfd9149fd72faa4fe299e68e0e93d6db941660b37dd29153bf7186672ececa3b50b7e7249477b03fdf850f287c948
-  languageName: node
-  linkType: hard
-
-"fs@npm:^0.0.1-security":
-  version: 0.0.1-security
-  resolution: "fs@npm:0.0.1-security"
-  checksum: 10c0/e0c0b585ec6f7483d63d067215d9d6bb2e0dba5912060d32554c8e566a0e22ee65e4c2a2b0567476efbbfb47682554b4711d69cab49950d01f227a3dfa7d671a
   languageName: node
   linkType: hard
 
@@ -24561,17 +24546,6 @@ __metadata:
   version: 2.1.2
   resolution: "safer-buffer@npm:2.1.2"
   checksum: 10c0/7e3c8b2e88a1841c9671094bbaeebd94448111dd90a81a1f606f3f67708a6ec57763b3b47f06da09fc6054193e0e6709e77325415dc8422b04497a8070fa02d4
-  languageName: node
-  linkType: hard
-
-"saslprep-patch@npm:^1.0.4":
-  version: 1.0.6
-  resolution: "saslprep-patch@npm:1.0.6"
-  dependencies:
-    fflate: "npm:^0.7.3"
-    fs: "npm:^0.0.1-security"
-    sparse-bitfield: "npm:^3.0.3"
-  checksum: 10c0/a95ee7d5c58692f1f1d3eb998d88a6f1bf04df5d968ff95b736ea68a05137d2c83c78984e0e8fbf25daa8b84b4dc123a80b9a391cc846580250e80a72acc3f87
   languageName: node
   linkType: hard
 

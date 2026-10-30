@@ -31,9 +31,6 @@
     "@deepkit/orm": "^1.0.19",
     "@deepkit/type": "^1.0.19"
   },
-  "dependencies": {
-    "saslprep-patch": "^1.0.4"
-  },
   "devDependencies": {
     "@deepkit/bson": "^1.0.19",
     "@deepkit/core": "^1.0.19",

@@ -13,8 +13,7 @@ import { MongoAuth } from './auth.js';
 import { MongoClientConfig } from '../../config.js';
 import { BaseResponse, Command } from '../command.js';
 import { MongoError } from '../../error.js';
-// @ts-ignore
-import saslprep from 'saslprep-patch';
+import { saslprep } from './saslprep.js';
 import { base64ToUint8Array } from '@deepkit/core';
 
 interface SaslStartCommand {
