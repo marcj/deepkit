@@ -7,9 +7,10 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import { runtimeTypeHelp } from './runtime-type-help.js';
 
 export class NoTypeReceived extends Error {
-    constructor(message: string = 'No type information received. Circular import or no runtime type available.') {
+    constructor(message: string = 'No type information received. Circular import or no runtime type available.' + runtimeTypeHelp) {
         super(message);
     }
 }

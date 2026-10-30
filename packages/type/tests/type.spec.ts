@@ -41,6 +41,7 @@ import { expectEqualType } from './utils.js';
 import { ClassType, TypeAnnotation } from '@deepkit/core';
 import { Partial } from '../src/changes.js';
 import { MaxLength, MinLength } from '../src/validator.js';
+import { NoTypeReceived } from '../src/utils.js';
 
 //note: this needs to run in a strict TS mode to infer correctly in the IDE
 type Extends<A, B> = [A] extends [B] ? true : false;
@@ -1507,7 +1508,18 @@ test('no runtime types', () => {
     }
 
     expect(() => reflect(MyModel)).toThrow('No valid runtime type for MyModel given');
+    expect(() => reflect(MyModel)).toThrow('"reflection": true is set in your tsconfig.json');
     expect(reflectOrUndefined(MyModel)).toBe(undefined);
+});
+
+test('missing runtime type errors explain how to fix it (#562, #508)', () => {
+    const message = new NoTypeReceived().message;
+    expect(message).toContain('No type information received. Circular import or no runtime type available.');
+    expect(message).toContain('"reflection": true is set in your tsconfig.json');
+    expect(message).toContain('deepkit-type-install');
+
+    expect(() => typeOf([], undefined)).toThrow('"reflection": true is set in your tsconfig.json');
+    expect(() => ReflectionClass.from(undefined)).toThrow('"reflection": true is set in your tsconfig.json');
 });
 
 test('arrow function returns self reference', () => {

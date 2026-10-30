@@ -53,6 +53,7 @@ import {
 import { AbstractClassType, arrayRemoveItem, ClassType, getClassName, isArray, isClass, isFunction, isGlobalClass, isPrototypeOfBase, stringifyValueWithType } from '@deepkit/core';
 import { Packed, resolvePacked, resolveRuntimeType } from './processor.js';
 import { NoTypeReceived } from '../utils.js';
+import { runtimeTypeHelp } from '../runtime-type-help.js';
 import { findCommonLiteral } from '../inheritance.js';
 import type { ValidateFunction } from '../validator.js';
 import { isWithDeferredDecorators } from '../decorator.js';
@@ -86,7 +87,7 @@ export function resolveReceiveType(type?: Packed | Type | Function | ClassType |
             typeFn = (type as any)[0] as Function | any;
             type = (isFunction(typeFn) ? typeFn() : typeFn) as Packed | Type | ClassType | AbstractClassType | ReflectionClass<any> | undefined;
             if (!type) {
-                throw new Error(`No type resolved for ${String(typeFn)}. Circular import or no runtime type available.`);
+                throw new Error(`No type resolved for ${String(typeFn)}. Circular import or no runtime type available.${runtimeTypeHelp}`);
             }
         }
     }
@@ -167,7 +168,7 @@ export function typeOf<T>(args: any[] = [], p?: ReceiveType<T>): Type {
         return args.length > 0 ? resolveRuntimeType(p, args) : resolveReceiveType(p) as Type;
     }
 
-    throw new Error('No type given');
+    throw new Error('No type given' + runtimeTypeHelp);
 }
 
 export function removeTypeName<T extends Type>(type: T): T {
@@ -1294,7 +1295,7 @@ export class ReflectionClass<T> {
     }
 
     static from<T>(classTypeIn?: ReceiveType<T> | AbstractClassType<T> | TypeClass | TypeObjectLiteral | ReflectionClass<any>, args: any[] = []): ReflectionClass<T> {
-        if (!classTypeIn) throw new Error(`No type given in ReflectionClass.from<T>`);
+        if (!classTypeIn) throw new Error(`No type given in ReflectionClass.from<T>${runtimeTypeHelp}`);
         if (isArray(classTypeIn)) classTypeIn = resolveReceiveType(classTypeIn);
 
         if (classTypeIn instanceof ReflectionClass) return classTypeIn;

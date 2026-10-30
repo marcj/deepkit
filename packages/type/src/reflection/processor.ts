@@ -60,6 +60,7 @@ import { isWithDeferredDecorators } from '../decorator.js';
 import { ReflectionClass, TData } from './reflection.js';
 import { state } from './state.js';
 import { debug } from '../debug.js';
+import { runtimeTypeHelp } from '../runtime-type-help.js';
 
 export type RuntimeStackEntry = Type | Object | (() => ClassType | Object) | string | number | boolean | bigint;
 
@@ -367,7 +368,7 @@ export class Processor {
                     parameters: [], return: { kind: ReflectionKind.any },
                 };
             }
-            throw new Error(`No valid runtime type for ${stringifyValueWithType(object)} given. Is @deepkit/type-compiler correctly installed? Execute deepkit-type-install to check`);
+            throw new Error(`No valid runtime type for ${stringifyValueWithType(object)} given.${runtimeTypeHelp}`);
         }
 
         for (let i = 0; i < inputs.length; i++) {
