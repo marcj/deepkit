@@ -3,6 +3,9 @@ import { spawnSync } from 'child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { ScriptTarget } from 'typescript';
+
+import { deepkitType } from '../src/plugin.js';
 
 const fixture = join(__dirname, 'fixture');
 const root = join(__dirname, '../../..');
@@ -64,3 +67,31 @@ bunTest(
     },
     60_000,
 );
+
+async function transformWithPlugin(options: Parameters<typeof deepkitType>[0], path: string): Promise<string> {
+    // calls the plugin's onLoad like Bun does, so this runs without Bun installed
+    let onLoad: ((args: { path: string; namespace: string }) => Promise<{ contents: string }>) | undefined;
+    (globalThis as any).Bun = { file: (file: string) => ({ text: async () => readFileSync(file, 'utf8') }) };
+    try {
+        deepkitType(options).setup({ onLoad: (_: any, callback: any) => (onLoad = callback) } as any);
+        return (await onLoad!({ path, namespace: 'file' })).contents;
+    } finally {
+        delete (globalThis as any).Bun;
+    }
+}
+
+test('plugin applies compilerOptions', async () => {
+    const model = join(fixture, 'model.ts');
+    expect(await transformWithPlugin({ tsConfig: join(fixture, 'tsconfig.json') }, model)).toContain('class Dog');
+    // compilerOptions were ignored before, the whole options object was passed to TypeScript instead
+    const es5 = await transformWithPlugin({ tsConfig: join(fixture, 'tsconfig.json'), compilerOptions: { target: ScriptTarget.ES5 } }, model);
+    expect(es5).not.toContain('class Dog');
+});
+
+test('plugin skips excluded files', async () => {
+    const model = join(fixture, 'model.ts');
+    const included = await transformWithPlugin({ tsConfig: join(fixture, 'tsconfig.json') }, model);
+    expect(included).toContain('__type');
+    const excluded = await transformWithPlugin({ tsConfig: join(fixture, 'tsconfig.json'), exclude: '**/model.ts' }, model);
+    expect(excluded).toBe(readFileSync(model, 'utf8'));
+});
