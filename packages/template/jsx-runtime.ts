@@ -1,8 +1,8 @@
-/// <reference path="./src/elements.d.ts" />
-
 import { Attributes, createElement, Element, html } from './src/template.js';
 import { escape, escapeAttribute, safe, safeString } from './src/utils.js';
 import './src/optimize-tsx';
+// global JSX types, a reference path to a .d.ts would be dropped from the emitted jsx-runtime.d.ts
+import './src/elements.js';
 
 export { createElement, html } from './src/template.js';
 export { escape, escapeAttribute, safeString, safe } from './src/utils.js';
