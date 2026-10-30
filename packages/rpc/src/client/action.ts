@@ -77,6 +77,10 @@ interface ActionState {
     entityState?: EntityState,
     observableRef?: WeakRef<Observable<any>>;
     observableSubjectRef?: WeakRef<Subject<any>>;
+    /**
+     * Strong reference to the observable/subject while it has subscribers, see keepAliveWhileSubscribed().
+     */
+    observableKeepAlive?: Observable<any>;
 
     //necessary for BehaviorSubject, since we get ObservableNext before the Observable type call
     firstObservableNextCalled?: true;
@@ -181,6 +185,28 @@ function handleCollection(entityStore: EntitySubjectStore<any>, types: Controlle
     collection.loaded();
 }
 
+
+/**
+ * Observables/Subjects are only weakly referenced, so that dropping them frees the server-side
+ * resources via the finalizer. While they have subscribers (e.g. `await subject.toPromise()`),
+ * user code might not reference them anymore either, so V8 could collect them mid-stream and the
+ * subscription would never complete. Keep a strong reference via the action state (reachable
+ * through the client's active replies) as long as there are subscribers.
+ */
+function keepAliveWhileSubscribed(state: ActionState, observable: Observable<any>) {
+    let subscriptions = 0;
+    const subscribe = observable.subscribe;
+    observable.subscribe = function (this: Observable<any>, ...args: any[]) {
+        const subscription = subscribe.apply(this, args as any);
+        if (subscription.closed) return subscription;
+        subscriptions++;
+        state.observableKeepAlive = this;
+        subscription.add(() => {
+            if (--subscriptions === 0) state.observableKeepAlive = undefined;
+        });
+        return subscription;
+    } as any;
+}
 
 function rejectAction(state: ActionState, error: any) {
     if (!state.reject) return;
@@ -335,6 +361,7 @@ function actionProtocolFull(reply: RpcMessage, subject: RpcMessageSubject, state
                     };
                 });
                 state.observableRef = new WeakRef(observable);
+                keepAliveWhileSubscribed(state, observable);
                 state.finalizer.register(observable, () => {
                     subject.send(RpcTypes.ActionObservableDisconnect);
                     subject.release();
@@ -344,11 +371,13 @@ function actionProtocolFull(reply: RpcMessage, subject: RpcMessageSubject, state
                 const observableSubject = new Subject();
                 let freed = false;
                 state.observableSubjectRef = new WeakRef(observableSubject);
+                keepAliveWhileSubscribed(state, observableSubject);
 
                 // we have to monkey patch unsubscribe, because there is no other way to hook into that
                 // note: subject.subscribe().add(T), T is not called when subject.unsubscribe() is called.
                 observableSubject.unsubscribe = function() {
                     Subject.prototype.unsubscribe.call(this);
+                    state.observableKeepAlive = undefined;
                     if (!freed) {
                         freed = true;
                         subject.send(RpcTypes.ActionObservableSubjectUnsubscribe);
@@ -382,6 +411,7 @@ function actionProtocolFull(reply: RpcMessage, subject: RpcMessageSubject, state
                 const classType = body.type === ActionObservableTypes.progressTracker ? ProgressTracker : BehaviorSubject;
                 const observableSubject = new classType(state.firstObservableNext);
                 state.observableSubjectRef = new WeakRef(observableSubject);
+                keepAliveWhileSubscribed(state, observableSubject);
                 state.firstObservableNext = undefined;
                 let freed = false;
 
@@ -389,6 +419,7 @@ function actionProtocolFull(reply: RpcMessage, subject: RpcMessageSubject, state
                 // note: subject.subscribe().add(T), T is not called when subject.unsubscribe() is called.
                 observableSubject.unsubscribe = function() {
                     Subject.prototype.unsubscribe.call(this);
+                    state.observableKeepAlive = undefined;
                     if (!freed) {
                         freed = true;
                         subject.send(RpcTypes.ActionObservableSubjectUnsubscribe);

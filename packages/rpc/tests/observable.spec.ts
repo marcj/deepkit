@@ -599,3 +599,44 @@ test('instantObservable', async () => {
         expect(teardowns).toBe(2);
     }
 });
+
+test('Subject is not garbage collected while subscribed', async () => {
+    class Controller {
+        @rpc.action()
+        strings(): Subject<string> {
+            const subject = new Subject<string>();
+            (async () => {
+                await sleep(0.2);
+                subject.next('first');
+                subject.complete();
+            })();
+            return subject;
+        }
+
+        @rpc.action()
+        observable(): Observable<string> {
+            return new Observable(observer => {
+                setTimeout(() => {
+                    observer.next('first');
+                    observer.complete();
+                }, 200);
+            });
+        }
+    }
+
+    const kernel = new RpcKernel();
+    kernel.registerController(Controller, 'myController');
+    const client = new DirectClient(kernel);
+    const controller = client.controller<Controller>('myController');
+
+    // no reference to the Subject/Observable is kept, only to the promise
+    const subjectPromise = (await controller.strings()).toPromise();
+    const observablePromise = (await controller.observable()).toPromise();
+    for (let i = 0; i < 5; i++) {
+        (global as any).gc();
+        await sleep(0.01);
+    }
+
+    expect(await subjectPromise).toBe('first');
+    expect(await observablePromise).toBe('first');
+});
