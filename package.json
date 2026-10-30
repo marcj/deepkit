@@ -53,7 +53,7 @@
     "typescript": "~5.8.3"
   },
   "engines": {
-    "node": ">= 20.0.0"
+    "node": ">= 22.0.0"
   },
   "jest": {
     "resolver": "./jest-resolver.js",
