@@ -3,6 +3,7 @@ import { Subject } from 'rxjs';
 import { ActionObservableTypes, readBinaryRpcMessage, RpcMessage, RpcTypes } from '@deepkit/rpc';
 import { deserializeType, stringifyType } from '@deepkit/type';
 import { bufferConcat } from '@deepkit/core';
+import { safeJsonStringify } from './utils.js';
 
 declare const chrome: any;
 
@@ -412,7 +413,7 @@ export function startCollecting(port: any) {
                                 action.sizeReceived += message.bodySize;
                                 action.size += message.bodySize;
                                 action.response = (message.debug().body as any).v;
-                                action.emits.push({ timestamp, data: JSON.stringify(action.response, null, 4) });
+                                action.emits.push({ timestamp, data: safeJsonStringify(action.response, 4) });
                             }
                             break;
                         }
@@ -437,7 +438,7 @@ export function startCollecting(port: any) {
                                 action.size += message.bodySize;
                                 action.sizeReceived += message.bodySize;
                                 action.errors += 1;
-                                action.emits.push({ timestamp, data: `Error ${JSON.stringify(message.debug().body, null, 4)}` });
+                                action.emits.push({ timestamp, data: `Error ${safeJsonStringify(message.debug().body, 4)}` });
                                 completeObservable('errored', action, summary.active);
                             }
                             break;
@@ -508,7 +509,7 @@ export function startCollecting(port: any) {
                             debug: rpcMessage.debug(),
                         };
 
-                        data.data = JSON.stringify(data.deepkit.debug.body, null, 4);
+                        data.data = safeJsonStringify(data.deepkit.debug.body, 4);
                         data.id = rpcMessage.id;
                         data.type = rpcMessage.type;
                         client().timestampMap[rpcMessage.id] = message.timestamp;

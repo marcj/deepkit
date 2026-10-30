@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Deepkit Devtool",
+  "version": "1.2",
+  "description": "Deepkit Chrome Devtools",
+  "devtools_page": "devtools.html",
+  "optional_permissions": [
+    "scripting"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "inject.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ]
+}

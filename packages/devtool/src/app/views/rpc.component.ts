@@ -22,6 +22,7 @@ import {
     TableColumnDirective,
     TableComponent,
 } from '@deepkit/desktop-ui';
+import { SafeJsonPipe } from '../utils.js';
 
 @Component({
     styles: `
@@ -332,12 +333,12 @@ import {
                 <dui-table-column name="subscriptions" header="subs" [width]="55"></dui-table-column>
                 <dui-table-column name="args">
                   <ng-container *duiTableCell="let message">
-                    {{ message.args | json }}
+                    {{ message.args | safeJson }}
                   </ng-container>
                 </dui-table-column>
                 <dui-table-column name="response" header="return/emitted" [width]="500">
                   <ng-container *duiTableCell="let message">
-                    {{ message.response | json | slice:0:500 }}
+                    {{ message.response | safeJson | slice:0:500 }}
                   </ng-container>
                 </dui-table-column>
               </dui-table>
@@ -369,6 +370,7 @@ import {
         TableColumnDirective,
         TableCellDirective,
         OpenDropdownDirective,
+        SafeJsonPipe,
     ],
 })
 export class RpcViewComponent implements OnInit {
@@ -407,7 +409,6 @@ export class RpcViewComponent implements OnInit {
         if (filterErrors) {
             actions = actions.filter(action => action.errors > 0);
         }
-
 
         return actions;
     });

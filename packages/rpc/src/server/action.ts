@@ -8,32 +8,9 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import {
-    ClassType,
-    collectForMicrotask,
-    ensureError,
-    getClassName,
-    isArray,
-    isPlainObject,
-    isPrototypeOfBase,
-    toFastProperties,
-} from '@deepkit/core';
+import { ClassType, collectForMicrotask, ensureError, getClassName, isArray, isPlainObject, isPrototypeOfBase, toFastProperties } from '@deepkit/core';
 import { isBehaviorSubject, isSubject, ProgressTracker, ProgressTrackerState } from '@deepkit/core-rxjs';
-import {
-    assertType,
-    getValidatorFunction,
-    Guard,
-    parametersToTuple,
-    ReflectionClass,
-    ReflectionKind,
-    serializeType,
-    Type,
-    TypeObjectLiteral,
-    typeOf,
-    TypeTuple,
-    ValidationError,
-    ValidationErrorItem,
-} from '@deepkit/type';
+import { assertType, getValidatorFunction, Guard, parametersToTuple, ReflectionClass, ReflectionKind, serializeType, Type, TypeObjectLiteral, typeOf, TypeTuple, ValidationError, ValidationErrorItem } from '@deepkit/type';
 import { isObservable, Observable, Subject, Subscription } from 'rxjs';
 import { Collection, CollectionEvent, CollectionQueryModel, CollectionQueryModelInterface, CollectionState } from '../collection.js';
 import { getActions } from '../decorators.js';
@@ -128,9 +105,6 @@ const anyParametersType: Type = {
     }],
 };
 
-const rpcActionTypeDecoder = createBodyDecoder<rpcActionType>();
-const rpcActionDecoder = createBodyDecoder<rpcAction>();
-
 export interface RpcServerActionObservableSubject {
     subject: Subject<any>,
     trackingType: NumericKeys<ActionStats>,
@@ -140,6 +114,8 @@ export interface RpcServerActionObservableSubject {
 }
 
 export class RpcServerAction {
+    rpcActionTypeDecoder = createBodyDecoder<rpcActionType>();
+    rpcActionDecoder = createBodyDecoder<rpcAction>();
     protected observableSubjects: {
         [id: number]: RpcServerActionObservableSubject
     } = {};
@@ -177,7 +153,7 @@ export class RpcServerAction {
     }
 
     public async handleActionTypes(message: RpcMessage, response: RpcMessageBuilder) {
-        const body = message.decodeBody(rpcActionTypeDecoder);
+        const body = message.decodeBody(this.rpcActionTypeDecoder);
         const types = this.loadTypes(body.controller, body.method);
 
         response.reply<rpcResponseActionType>(RpcTypes.ResponseActionType, {
@@ -477,7 +453,7 @@ export class RpcServerAction {
     }
 
     public async handleAction(message: RpcMessage, response: RpcMessageBuilder) {
-        const body = message.decodeBody(rpcActionDecoder);
+        const body = message.decodeBody(this.rpcActionDecoder);
         const cacheKey = body.controller + '!' + body.method;
 
         let cache = this.cache.actions[cacheKey];

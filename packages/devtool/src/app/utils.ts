@@ -1,14 +1,8 @@
 //@ts-ignore
 import objectInspect from 'object-inspect';
 import { getClassName } from '@deepkit/core';
-import {
-    getTypeJitContainer,
-    isBackReferenceType,
-    isReferenceType,
-    ReflectionKind,
-    stringifyType,
-    Type,
-} from '@deepkit/type';
+import { getTypeJitContainer, isBackReferenceType, isReferenceType, ReflectionKind, stringifyType, Type } from '@deepkit/type';
+import { Pipe, PipeTransform } from '@angular/core';
 
 export function trackByIndex(index: number) {
     return index;
@@ -68,7 +62,7 @@ export function inspect(obj: any) {
 }
 
 export const methods: string[] = [
-    'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'
+    'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD',
 ];
 
 export const headerStatusCodes: { [name: string]: string } = {
@@ -127,5 +121,24 @@ export const headerStatusCodes: { [name: string]: string } = {
     '507': 'Insufficient Storage',
     '509': 'Bandwidth Limit Exceeded',
     '510': 'Not Extended',
-    '511': 'Network Authentication Required'
+    '511': 'Network Authentication Required',
 };
+
+@Pipe({
+    name: 'safeJson',
+    pure: true,
+})
+export class SafeJsonPipe implements PipeTransform {
+    transform(value: any): string {
+        return safeJsonStringify(value, 4);
+    }
+}
+
+// supporting also stuff like bigint
+export function safeJsonStringify(obj: any, space?: string | number): string {
+    return JSON.stringify(
+        obj, (_key, value) =>
+            typeof value === 'bigint' ? value.toString() + 'n' : value,
+        space,
+    );
+}

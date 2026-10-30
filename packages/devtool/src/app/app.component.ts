@@ -1,5 +1,5 @@
 import { Component, ElementRef, OnInit, signal } from '@angular/core';
-import { ButtonComponent, WindowComponent, WindowContentComponent } from '@deepkit/desktop-ui';
+import { ButtonComponent, DuiStyleComponent, WindowComponent, WindowContentComponent } from '@deepkit/desktop-ui';
 import { RouterOutlet } from '@angular/router';
 import { RpcCollector } from './collector';
 
@@ -8,14 +8,22 @@ declare var chrome: any;
 @Component({
     selector: 'app-root',
     styles: `
-        .center {
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+      ::ng-deep html,
+      ::ng-deep body {
+        height: 100%;
+        padding: 0;
+        margin: 0;
+      }
+
+      .center {
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
     `,
     template: `
+      <dui-style normalize-style />
       <dui-window>
         <dui-window-content class="no-padding text-selection">
           @switch (status()) {
@@ -46,6 +54,7 @@ declare var chrome: any;
         WindowComponent,
         WindowContentComponent,
         ButtonComponent,
+        DuiStyleComponent,
     ],
     styleUrls: ['./app.component.scss'],
 })
