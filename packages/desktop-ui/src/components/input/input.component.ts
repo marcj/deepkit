@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { AfterViewInit, booleanAttribute, Component, computed, ElementRef, inject, input, output, viewChild } from '@angular/core';
+import { AfterViewInit, booleanAttribute, Component, computed, ElementRef, inject, input, LOCALE_ID, output, viewChild } from '@angular/core';
 import { ngValueAccessor, ValueAccessorBase } from '../../core/form';
 import { formatDate } from '@angular/common';
 import { IconComponent } from '../icon/icon.component';
@@ -125,6 +125,7 @@ export class InputComponent extends ValueAccessorBase<any> implements AfterViewI
     readonly = input(false, { transform: booleanAttribute });
 
     protected duiDocument = inject(DuiDocument);
+    protected locale = inject(LOCALE_ID);
 
     isFocused = computed(() => this.duiDocument.activeElement() === this.input()?.nativeElement);
 
@@ -135,10 +136,10 @@ export class InputComponent extends ValueAccessorBase<any> implements AfterViewI
     protected normalizeValue = computed(() => {
         if (dateTimeTypes.includes(this.type())) {
             if (this.value() instanceof Date) {
-                if (this.type() === 'date') return formatDate(this.value(), `yyyy-MM-dd`, navigator.language);
-                return formatDate(this.value(), 'yyyy-MM-ddThh:mm:ss.SSS', navigator.language);
+                if (this.type() === 'date') return formatDate(this.value(), `yyyy-MM-dd`, this.locale);
+                return formatDate(this.value(), 'yyyy-MM-ddTHH:mm:ss.SSS', this.locale);
             } else if ('string' === typeof this.value()) {
-                return formatDate(new Date(this.value()), 'yyyy-MM-ddThh:mm:ss.SSS', navigator.language);
+                return formatDate(new Date(this.value()), 'yyyy-MM-ddTHH:mm:ss.SSS', this.locale);
             }
         }
         return this.value();

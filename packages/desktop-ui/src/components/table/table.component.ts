@@ -24,6 +24,7 @@ import {
     HostListener,
     inject,
     input,
+    LOCALE_ID,
     model,
     numberAttribute,
     OnDestroy,
@@ -367,6 +368,7 @@ interface THBox {
 })
 export class TableComponent<T> implements AfterViewInit, OnInit, OnDestroy {
     protected app = inject(ApplicationRef);
+    protected locale = inject(LOCALE_ID);
 
     /**
      * @hidden
@@ -464,7 +466,7 @@ export class TableComponent<T> implements AfterViewInit, OnInit, OnDestroy {
         if (!path) return '';
         const value = getPathValue(object, path);
         if (value instanceof Date) {
-            return formatDate(value, 'yyyy-MM-dd hh:mm:ss', navigator.language);
+            return formatDate(value, 'yyyy-MM-dd HH:mm:ss', this.locale);
         }
         return value;
     });
