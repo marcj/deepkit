@@ -1450,6 +1450,8 @@ export class Processor {
                 return { kind: ReflectionKind.never };
             }
 
+            if (b.kind === ReflectionKind.unknown) return a;
+
             if (a.kind === ReflectionKind.objectLiteral || a.kind === ReflectionKind.class || a.kind === ReflectionKind.never || a.kind === ReflectionKind.unknown) return b;
 
             if (b.annotations) {

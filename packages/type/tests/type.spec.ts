@@ -133,6 +133,31 @@ test('intersection with never', () => {
     expect(groupAnnotation.getAnnotations(typeOf<C>())).toEqual(['c']);
 });
 
+test('intersection with unknown', () => {
+    // T & unknown = T (unknown is absorbed in intersections, per TypeScript semantics)
+    expect(stringifyType(typeOf<string & unknown>())).toBe('string');
+    expect(stringifyType(typeOf<unknown & string>())).toBe('string');
+    expect(stringifyType(typeOf<number & unknown>())).toBe('number');
+    expect(stringifyType(typeOf<unknown & number>())).toBe('number');
+    expect(stringifyType(typeOf<boolean & unknown>())).toBe('boolean');
+    expect(stringifyType(typeOf<bigint & unknown>())).toBe('bigint');
+    expect(stringifyType(typeOf<null & unknown>())).toBe('null');
+    expect(stringifyType(typeOf<undefined & unknown>())).toBe('undefined');
+
+    // object literal & unknown = object literal
+    type MyObj = { a: string };
+    expect(stringifyType(typeOf<MyObj & unknown>())).toBe('MyObj');
+    expect(stringifyType(typeOf<unknown & MyObj>())).toBe('MyObj');
+
+    // class & unknown = class
+    class MyClass { name!: string; }
+    expect(stringifyType(typeOf<MyClass & unknown>())).toBe('MyClass');
+    expect(stringifyType(typeOf<unknown & MyClass>())).toBe('MyClass');
+
+    // unknown & unknown = unknown
+    expect(stringifyType(typeOf<unknown & unknown>())).toBe('unknown');
+});
+
 test('intersection same type keep annotation', () => {
     type MyAnnotation = { __meta?: never & ['myAnnotation'] };
     type Username = string & MyAnnotation;
