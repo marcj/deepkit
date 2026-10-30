@@ -5,6 +5,7 @@ import { HttpMiddleware, httpMiddleware } from '../src/middleware.js';
 import { HttpRequest, HttpResponse } from '../src/model.js';
 import { AppModule } from '@deepkit/app';
 import { sleep } from '@deepkit/core';
+import { HttpUnauthorizedError } from '../src/http.js';
 
 class Controller {
     @http.GET('user/:name')
@@ -84,6 +85,17 @@ test('middleware direct response', async () => {
     const response = await httpKernel.request(HttpRequest.GET('/user/name1'));
     expect(response.statusCode).toEqual(200);
     expect(response.bodyString).toEqual('nope');
+});
+
+test('middleware async throwing HttpError returns its status code', async () => {
+    const httpKernel = createHttpKernel([Controller], [], [], [httpMiddleware.for(async (req, res, next) => {
+        await sleep(0.1);
+        throw new HttpUnauthorizedError('Invalid token');
+    })]);
+
+    const response = await httpKernel.request(HttpRequest.GET('/user/name1'));
+    expect(response.statusCode).toEqual(401);
+    expect(response.json).toEqual({ message: 'Invalid token' });
 });
 
 test('middleware for controller', async () => {

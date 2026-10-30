@@ -319,7 +319,7 @@ export const httpWorkflow = createWorkflow('http', {
 }, {
     start: 'request',
     request: 'route',
-    route: ['auth', 'routeNotFound'],
+    route: ['auth', 'routeNotFound', 'response'],
     auth: ['resolveParameters', 'accessDenied'],
     resolveParameters: ['controller', 'parametersFailed'],
     accessDenied: 'response',
@@ -611,6 +611,7 @@ export class HttpListener {
                                         }
                                     });
                                 } catch (error) {
+                                    event.response.off('finish', finish);
                                     reject(error);
                                 }
                             }
@@ -624,6 +625,15 @@ export class HttpListener {
                 event.routeFound(resolved.routeConfig, resolved.parameters);
             }
         } catch (error) {
+            if (error instanceof HttpError) {
+                if (event.request.throwErrorOnNotFound && error.httpCode === 404) {
+                    throw error;
+                }
+                event.send(new JSONResponse({
+                    message: error.message
+                }, error.httpCode).disableAutoSerializing());
+                return;
+            }
             this.logger.error('Could not resolve request', error);
             event.notFound();
         }
