@@ -3251,7 +3251,6 @@ __metadata:
     "@deepkit/type": "npm:^1.0.19"
     "@types/node": "npm:^22.13.1"
     ng-packagr: "npm:^22.2.5"
-    on-change: "npm:^4.0.2"
     rxjs: "npm:~7.8.0"
     svg2ttf: "npm:^4.2.0"
     svgicons2svgfont: "npm:^9.0.4"
@@ -21699,13 +21698,6 @@ __metadata:
   version: 1.0.10
   resolution: "omggif@npm:1.0.10"
   checksum: 10c0/5ddb6959555bf16ac93ee8724a6f600b0e97e77855515af9df0f657c69ebe0eb7d769763fdc4765f888827e4e64ca71ebeaf7255c7f51058e4bba5cc7950fe8e
-  languageName: node
-  linkType: hard
-
-"on-change@npm:^4.0.2":
-  version: 4.0.2
-  resolution: "on-change@npm:4.0.2"
-  checksum: 10c0/f803698daa72b988db1d92f900aa54bda42d7bcee07512f538d413489d377d4d6e78d09057b5f9f013a69551c285112299b0b9d93e00c8f8f77f8f3e9c07b0e4
   languageName: node
   linkType: hard
 

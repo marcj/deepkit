@@ -44,9 +44,6 @@
   "browserslist": [
     "last 2 Chrome versions"
   ],
-  "dependencies": {
-    "on-change": "^4.0.2"
-  },
   "publishConfig": {
     "access": "public"
   },

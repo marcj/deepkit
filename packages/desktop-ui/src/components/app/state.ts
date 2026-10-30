@@ -21,7 +21,6 @@ import {
 import { EventToken } from '@deepkit/event';
 import { ApplicationRef, Injector } from '@angular/core';
 import { NavigationEnd, ResolveEnd, Router } from '@angular/router';
-import onChange from 'on-change';
 
 /**
  * If this type decorator is used then the property is not persisted in localStorage,
@@ -91,6 +90,88 @@ export class EfficientState {
             };
         }
     }
+}
+
+function isBuiltinWithMutableMethods(value: object): boolean {
+    return value instanceof Date || value instanceof Set || value instanceof Map
+        || value instanceof WeakSet || value instanceof WeakMap || ArrayBuffer.isView(value);
+}
+
+function isMutatingMethod(target: object, name: string): boolean {
+    if (target instanceof Date) return name.startsWith('set');
+    if (target instanceof Map || target instanceof WeakMap) return name === 'set' || name === 'delete' || name === 'clear';
+    if (target instanceof Set || target instanceof WeakSet) return name === 'add' || name === 'delete' || name === 'clear';
+    return name === 'set' || name === 'fill' || name === 'copyWithin' || name === 'reverse' || name === 'sort';
+}
+
+/**
+ * Returns a deep proxy of the given object that calls onChange whenever something in it is changed
+ * (property set/delete/define on objects and arrays, and mutating methods of Date, Map, Set, and typed arrays).
+ *
+ * Properties named in ignoreKeys are neither observed nor reported, at any depth.
+ */
+export function observeChanges<T extends object>(object: T, onChange: () => void, ignoreKeys: (string | symbol)[] = []): T {
+    const proxies = new WeakMap<object, any>();
+    const targets = new WeakMap<object, object>();
+
+    function isGetInvariant(target: object, property: string | symbol): boolean {
+        const descriptor = Reflect.getOwnPropertyDescriptor(target, property);
+        return descriptor !== undefined && descriptor.configurable !== true && descriptor.writable !== true;
+    }
+
+    function observe(value: any): any {
+        if (value === null || typeof value !== 'object' || value instanceof RegExp) return value;
+        let proxy = proxies.get(value);
+        if (proxy) return proxy;
+
+        proxy = new Proxy(value, isBuiltinWithMutableMethods(value) ? builtinHandler : handler);
+        proxies.set(value, proxy);
+        targets.set(proxy, value);
+        return proxy;
+    }
+
+    const handler: ProxyHandler<any> = {
+        get(target, property, receiver) {
+            const value = Reflect.get(target, property, receiver);
+            if (typeof property === 'symbol' || property === 'constructor' || ignoreKeys.includes(property)) return value;
+            if (isGetInvariant(target, property)) return value;
+            return observe(value);
+        },
+        set(target, property, value) {
+            value = targets.get(value) || value;
+            if (Object.is(target[property], value) && property in target) return true;
+            const result = Reflect.set(target, property, value);
+            if (result && !ignoreKeys.includes(property)) onChange();
+            return result;
+        },
+        defineProperty(target, property, descriptor) {
+            const result = Reflect.defineProperty(target, property, descriptor);
+            if (result && !ignoreKeys.includes(property)) onChange();
+            return result;
+        },
+        deleteProperty(target, property) {
+            if (!Reflect.has(target, property)) return true;
+            const result = Reflect.deleteProperty(target, property);
+            if (result && !ignoreKeys.includes(property)) onChange();
+            return result;
+        },
+    };
+
+    // methods of built-ins only work with the original object as `this`
+    const builtinHandler: ProxyHandler<any> = {
+        ...handler,
+        get(target, property) {
+            const value = Reflect.get(target, property);
+            if (typeof value !== 'function') return value;
+            return (...args: any[]) => {
+                const result = value.apply(target, args);
+                if (typeof property === 'string' && isMutatingMethod(target, property)) onChange();
+                return target instanceof Map && property === 'get' ? observe(result) : result;
+            };
+        },
+    };
+
+    return observe(object);
 }
 
 export function findPartsOfUrl(stateClass: ClassType) {
@@ -219,13 +300,7 @@ export function provideState(stateClass: ClassType, localStorageKey: string = 'a
                 }
             });
 
-            return onChange(state, (path: any, value: any, previousValue: any) => {
-                // console.log('State changed', path, value, previousValue);
-                if (value === previousValue) return;
-                updateStorage();
-            }, {
-                ignoreKeys: ['call', 'volatile']
-            });
+            return observeChanges(state, updateStorage, ['call', 'volatile']);
         }
     };
 }
