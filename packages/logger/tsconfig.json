@@ -2,9 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist/cjs",
-    "types": [
-      "format-util"
-    ]
+    "types": []
   },
   "reflection": true,
   "include": [

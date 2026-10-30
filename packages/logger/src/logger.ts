@@ -8,11 +8,10 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import style from 'ansi-styles';
-import format from 'format-util';
 import { arrayRemoveItem, ClassType, Inject } from '@deepkit/core';
 import { tokenLabel, TransientInjectionTarget } from '@deepkit/injector';
 import { MemoryLoggerTransport } from './memory-logger.js';
+import { format, style } from './utils.js';
 
 export enum LoggerLevel {
     none,
@@ -350,7 +349,7 @@ export class Logger implements LoggerInterface {
             this.logData = undefined;
         }
 
-        const rawMessage: string = (format as any)(...messages);
+        const rawMessage: string = format(...messages);
         const message: LogMessage = { message: rawMessage, rawMessage, level, date: new Date, scope: this.scope, data };
         this.format(message);
 

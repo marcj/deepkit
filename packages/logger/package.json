@@ -27,11 +27,6 @@
     "@deepkit/core": "^1.0.1",
     "@deepkit/injector": "^1.0.1"
   },
-  "dependencies": {
-    "@types/format-util": "^1.0.1",
-    "ansi-styles": "^4.3.0",
-    "format-util": "^1.0.5"
-  },
   "devDependencies": {
     "@deepkit/core": "^1.0.19",
     "@deepkit/injector": "^1.0.19"
