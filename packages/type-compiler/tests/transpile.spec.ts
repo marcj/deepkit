@@ -602,3 +602,21 @@ test('intrinsic type', () => {
     console.log(res.app);
     expect(res.app).toContain(`const __ΩCapitalize = `);
 });
+
+test('forwardRef argument is not wrapped', () => {
+    // Angular's partial compilation linker only accepts forwardRef(() => Type). With __assignType around the
+    // arrow function, apps failed to link libraries built with reflection: "Unsupported `forwardRef(fn)` call".
+    const res = transpile({
+        'app': `
+            declare function forwardRef<T>(fn: () => T): T;
+            declare const i0: { forwardRef: typeof forwardRef };
+            class A {}
+            const ref = forwardRef((): typeof A => A);
+            const ref2 = i0.forwardRef((): typeof A => A);
+            const other = (): typeof A => A;
+        `,
+    });
+    expect(res.app).toContain('ref = forwardRef(() => A)');
+    expect(res.app).toContain('ref2 = i0.forwardRef(() => A)');
+    expect(res.app).toContain('other = __assignType(() => A');
+});
