@@ -10,9 +10,11 @@ runs:
   using: 'composite'
   steps:
     - name: Setup node
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ inputs.node-version }}
+        # automatic caching would call yarn before corepack is enabled
+        package-manager-cache: false
 
     # Node >= 25 no longer bundles corepack. Yarn version comes from package.json#packageManager.
     - name: Enable corepack
