@@ -409,3 +409,28 @@ test('ValidationErrorItem.toString() handles circular references (#505)', () => 
 
     expect(() => assert<string[]>(circular)).toThrow(ValidationError);
 });
+
+test('union member constraint errors are reported (#577)', () => {
+    class MyClass {
+        code!: (string & MinLength<1> & MaxLength<2>) | null;
+    }
+
+    expect(validate<MyClass>({ code: 'a' })).toEqual([]);
+    expect(validate<MyClass>({ code: '' })).toEqual([{ code: 'minLength', message: 'Min length is 1', path: 'code', value: '' }]);
+    expect(() => cast<MyClass>({ code: 'abc' })).toThrow('code(maxLength): Max length is 2');
+    //no member matches the type
+    expect(validate<MyClass>({ code: 1 } as any)).toEqual([{ code: 'type', message: 'No valid union member found. Valid: string | null', path: 'code', value: 1 }]);
+});
+
+test('union of objects reports errors of the closest member (#577, #676)', () => {
+    type MessageEvent = { type: 'message', message: { id: string } };
+    type InputEvent = { type: 'input', value: string & MinLength<1> };
+    type BusMessage = { v: MessageEvent | InputEvent };
+
+    expect(validate<BusMessage>({ v: { type: 'input', value: '' } })).toEqual([{ code: 'minLength', message: 'Min length is 1', path: 'v.value', value: '' }]);
+    expect(validate<BusMessage>({ v: { type: 'message', message: undefined } } as any)).toEqual([
+        { code: 'type', message: 'Not an object', path: 'v.message', value: undefined },
+    ]);
+    //equally close members are ambiguous
+    expect(validate<{ a: string } | { b: string }>({})).toMatchObject([{ path: '', message: 'No valid union member found. Valid: {a: string} | {b: string}' }]);
+});

@@ -1755,6 +1755,35 @@ function getGroupableLiteralGuard(type: Type, typeGuard: TemplateRegistry, state
     return guards[0];
 }
 
+/**
+ * Called when no union member matched. Reports the errors of the closest member instead of a generic union error:
+ * the member with the fewest type errors, if unique. That is a member that failed only because of validation
+ * constraints (e.g. `MinLength`), or for object values an object member. Returns false if there is no such member.
+ */
+function reportUnionMemberErrors(members: [type: Type, guard: Function][], value: any, state: { errors?: ValidationErrorItem[] }, path: string): boolean {
+    if (!state.errors) return false;
+    let closest: ValidationErrorItem[] | undefined;
+    let closestTypeErrors = Infinity;
+    let ambiguous = false;
+
+    for (const [type, guard] of members) {
+        const errors: ValidationErrorItem[] = [];
+        guard(value, { errors }, path);
+        const typeErrors = errors.filter(v => v.code === 'type').length;
+        if (!errors.length || (typeErrors && !(isObject(value) && (isCustomTypeClass(type) || type.kind === ReflectionKind.objectLiteral)))) continue;
+        if (typeErrors === closestTypeErrors) ambiguous = true;
+        if (typeErrors < closestTypeErrors) {
+            closest = errors;
+            closestTypeErrors = typeErrors;
+            ambiguous = false;
+        }
+    }
+
+    if (!closest || ambiguous) return false;
+    state.errors.push(...closest);
+    return true;
+}
+
 export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: TypeGuardRegistry) {
     //detecting which serializer to use in union is a complex topic and allows a key feature: deserializing an encoding that is entirely based on strings (e.g. URL query string)
     //to support for example numeric string, we need to have multiple guards being able to detect their 'loosely type' equivalence, for example
@@ -1885,6 +1914,13 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
         }
     }
 
+    //strict guards of non-literal members, built on first use (error path only)
+    const serializerToUse = state.registry.serializer;
+    let members: [Type, Function][] | undefined;
+    const reportMemberErrors = state.setVariable('reportUnionMemberErrors', (value: any, runtimeState: any, path: string) => reportUnionMemberErrors(
+        members ||= type.types.filter(v => v.kind !== ReflectionKind.literal).map(v => [v, createTypeGuardFunction(v, { validation: 'strict' }, serializerToUse) || (() => false)]),
+        value, runtimeState, path,
+    ));
     const handleErrors = state.setter ? `
         if (state.errors) {
             ${state.setter} = false;
@@ -1912,7 +1948,9 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
                         ${linesPrimitivesAlternatives.join(' ')}
                         else {
                             ${handleErrors}
-                            ${state.assignValidationError('type', 'No valid union member found. Valid: ' + stringifyResolvedType(type))}
+                            if (!${reportMemberErrors}(${state.originalAccessor}, state, ${collapsePath(state.path)})) {
+                                ${state.assignValidationError('type', 'No valid union member found. Valid: ' + stringifyResolvedType(type))}
+                            }
                         }
                     }
                 }
