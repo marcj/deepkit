@@ -836,7 +836,12 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
             const eventFrame = this.session.stopwatch?.start('Events');
             query = this.onQueryResolve(await this.callOnFetchEvent(this));
             eventFrame?.end();
-            return await query.resolver.count(query.model);
+            //count returns the total of all matching items, so pagination and sort don't apply
+            const model = query.model.clone();
+            model.skip = undefined;
+            model.limit = undefined;
+            model.sort = undefined;
+            return await query.resolver.count(model);
         } catch (error: any) {
             await this.session.eventDispatcher.dispatch(onDatabaseError, new DatabaseErrorEvent(error, this.session, query?.classSchema, query));
             throw error;

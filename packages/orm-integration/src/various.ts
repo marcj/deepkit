@@ -44,6 +44,27 @@ export const variousTests = {
         await database.query(Item).filter({ id: undefined } as any).patchMany({ name: 'changed' });
         expect(await names({})).toEqual(['a', 'b']);
     },
+    async testCountIgnoresPagination(databaseFactory: DatabaseFactory) {
+        // count() returns the total of all matching items, regardless of page/limit/skip and sort (#668)
+        @entity.name('test_count_pagination')
+        class Item {
+            id: number & PrimaryKey & AutoIncrement = 0;
+            name: string = '';
+        }
+
+        const database = await databaseFactory([Item]);
+        await database.persist(...['a', 'b', 'c', 'd', 'e'].map(name => cast<Item>({ name })));
+
+        const query = database.query(Item).orderBy('name', 'desc').itemsPerPage(2);
+        expect((await query.page(1).find()).map(v => v.name)).toEqual(['e', 'd']);
+        expect((await query.page(3).find()).map(v => v.name)).toEqual(['a']);
+        expect(await query.page(1).count()).toBe(5);
+        expect(await query.page(3).count()).toBe(5);
+        expect(await query.page(4).count()).toBe(5);
+        expect(await database.query(Item).skip(1).limit(2).count()).toBe(5);
+        expect(await database.query(Item).filter({ name: { $gt: 'b' } }).orderBy('name').limit(1).count()).toBe(3);
+    },
+
     async testOneToOneCircularReferenceRelation(databaseFactory: DatabaseFactory) {
         @entity.name('totocrr_inventory')
         class Inventory {
