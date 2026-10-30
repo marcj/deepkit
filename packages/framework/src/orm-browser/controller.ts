@@ -6,7 +6,6 @@ import {
     DatabaseInfo,
     EntityPropertySeed,
     EntityPropertySeedReference,
-    fakerFunctions,
     FakerTypes,
     getType,
     QueryResult,
@@ -16,6 +15,7 @@ import { rpc } from '@deepkit/rpc';
 import { SQLDatabaseAdapter } from '@deepkit/sql';
 import { Logger, LoggerLevel, MemoryLoggerTransport } from '@deepkit/logger';
 import { performance } from 'perf_hooks';
+import { fakers } from './faker.js';
 import { http, HttpQuery } from '@deepkit/http';
 import {
     cast,
@@ -106,15 +106,9 @@ export class OrmBrowserController implements BrowserControllerInterface {
     async getFakerTypes(): Promise<FakerTypes> {
         const res: FakerTypes = {};
 
-        const faker = (await import('faker')).default;
-        for (const fn of fakerFunctions) {
-            const [p1, p2] = fn.split('.');
-            try {
-                const example = p2 ? (faker as any)[p1][p2]() : (faker as any)[p1]();
-                res[fn] = { example: example, type: getType(example) };
-            } catch (error) {
-                console.log(`warning: faker function not available ${fn}: ${error}`);
-            }
+        for (const [fn, fake] of Object.entries(fakers)) {
+            const example = fake();
+            res[fn] = { example: example, type: getType(example) };
         }
         return res;
     }
@@ -145,15 +139,13 @@ export class OrmBrowserController implements BrowserControllerInterface {
                 callback: (v: any) => any
             }[] = [];
 
-            const faker = (await import('faker')).default;
-
             function fakerValue(path: string, fakerName: string): any {
-                const [p1, p2] = fakerName.split('.');
-                try {
-                    return p2 ? (faker as any)[p1][p2]() : (faker as any)[p1]();
-                } catch (error) {
-                    console.warn(`Could not fake ${path} via faker's ${fakerName}: ${error}`);
+                const fake = fakers[fakerName];
+                if (!fake) {
+                    console.warn(`Could not fake ${path}: unknown faker ${fakerName}`);
+                    return;
                 }
+                return fake();
             }
 
             function fake(path: string, property: Type, propSeed: EntityPropertySeed, callback: (v: any) => any): any {
