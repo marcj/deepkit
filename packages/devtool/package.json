@@ -21,7 +21,6 @@
   ],
   "devDependencies": {
     "@angular-devkit/build-angular": "^22.2.5",
-    "@angular/animations": "^22.2.4",
     "@angular/cdk": "^22.2.5",
     "@angular/cli": "^22.2.5",
     "@angular/common": "^22.2.4",
@@ -30,7 +29,6 @@
     "@angular/core": "^22.2.4",
     "@angular/forms": "^22.2.4",
     "@angular/platform-browser": "^22.2.4",
-    "@angular/platform-browser-dynamic": "^22.2.4",
     "@angular/router": "^22.2.4",
     "@deepkit/bson": "^1.0.2",
     "@deepkit/core": "^1.0.1",

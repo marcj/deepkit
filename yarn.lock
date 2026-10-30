@@ -171,17 +171,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@angular/animations@npm:^22.2.4":
-  version: 22.2.4
-  resolution: "@angular/animations@npm:22.2.4"
-  dependencies:
-    tslib: "npm:^2.3.0"
-  peerDependencies:
-    "@angular/core": 22.2.4
-  checksum: 10c0/93afee2f07410c672c54090d05398beb67c6918090aaf84b2a1bad300a0ff51d558c2f755ac2cde67fcf6752c9fb8aac27785fd52458eba980fdd33028c8d015
-  languageName: node
-  linkType: hard
-
 "@angular/build@npm:22.2.5, @angular/build@npm:^22.2.5":
   version: 22.2.5
   resolution: "@angular/build@npm:22.2.5"
@@ -389,20 +378,6 @@ __metadata:
     "@angular/platform-browser": 22.2.4
     rxjs: ^6.5.3 || ^7.4.0
   checksum: 10c0/850e4ea44beefbd80e5ed1456d666968eb99d7bc7de0475635c3ea5f4fbf2edfc0820fa7e4ca55df2f8985133c44d11ecf1f6e9cb0738390a73ef02bca233f86
-  languageName: node
-  linkType: hard
-
-"@angular/platform-browser-dynamic@npm:^22.2.4":
-  version: 22.2.4
-  resolution: "@angular/platform-browser-dynamic@npm:22.2.4"
-  dependencies:
-    tslib: "npm:^2.3.0"
-  peerDependencies:
-    "@angular/common": 22.2.4
-    "@angular/compiler": 22.2.4
-    "@angular/core": 22.2.4
-    "@angular/platform-browser": 22.2.4
-  checksum: 10c0/cb61f1bcf9edabb6f6b8b59ca0f5656b84da7ec470ddc1c2e88bc1150cd7f8b343861647b39812c072aeffa00bdeda3eac69aba363ce5334306af2857b009195
   languageName: node
   linkType: hard
 
@@ -3064,7 +3039,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@deepkit/api-console-gui@workspace:packages/api-console-gui"
   dependencies:
-    "@angular/animations": "npm:^22.2.4"
     "@angular/build": "npm:^22.2.5"
     "@angular/cdk": "npm:^22.2.5"
     "@angular/cli": "npm:^22.2.5"
@@ -3074,7 +3048,6 @@ __metadata:
     "@angular/core": "npm:^22.2.4"
     "@angular/forms": "npm:^22.2.4"
     "@angular/platform-browser": "npm:^22.2.4"
-    "@angular/platform-browser-dynamic": "npm:^22.2.4"
     "@angular/router": "npm:^22.2.4"
     "@deepkit/api-console-api": "npm:^1.0.19"
     "@deepkit/bson": "npm:^1.0.19"
@@ -3276,6 +3249,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@deepkit/desktop-ui@workspace:packages/desktop-ui"
   dependencies:
+    "@angular/build": "npm:^22.2.5"
     "@deepkit/core": "npm:^1.0.19"
     "@deepkit/core-rxjs": "npm:^1.0.19"
     "@deepkit/event": "npm:^1.0.19"
@@ -3295,7 +3269,6 @@ __metadata:
     webpack-cli: "npm:^5.0.0"
   peerDependencies:
     "@angular-devkit/build-angular": ^22.2.5
-    "@angular/animations": ^22.2.4
     "@angular/cdk": ^22.2.5
     "@angular/cli": ^22.2.5
     "@angular/common": ^22.2.4
@@ -3304,7 +3277,6 @@ __metadata:
     "@angular/core": ^22.2.4
     "@angular/forms": ^22.2.4
     "@angular/platform-browser": ^22.2.4
-    "@angular/platform-browser-dynamic": ^22.2.4
     "@angular/router": ^22.2.4
     "@deepkit/core": ^1.0.1
     "@deepkit/core-rxjs": ^1.0.1
@@ -3321,7 +3293,6 @@ __metadata:
   resolution: "@deepkit/devtool@workspace:packages/devtool"
   dependencies:
     "@angular-devkit/build-angular": "npm:^22.2.5"
-    "@angular/animations": "npm:^22.2.4"
     "@angular/cdk": "npm:^22.2.5"
     "@angular/cli": "npm:^22.2.5"
     "@angular/common": "npm:^22.2.4"
@@ -3330,7 +3301,6 @@ __metadata:
     "@angular/core": "npm:^22.2.4"
     "@angular/forms": "npm:^22.2.4"
     "@angular/platform-browser": "npm:^22.2.4"
-    "@angular/platform-browser-dynamic": "npm:^22.2.4"
     "@angular/router": "npm:^22.2.4"
     "@deepkit/bson": "npm:^1.0.2"
     "@deepkit/core": "npm:^1.0.1"
@@ -3503,7 +3473,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@deepkit/framework-debug-gui@workspace:packages/framework-debug-gui"
   dependencies:
-    "@angular/animations": "npm:^22.2.4"
     "@angular/build": "npm:^22.2.5"
     "@angular/cdk": "npm:^22.2.5"
     "@angular/cli": "npm:^22.2.5"
@@ -3513,7 +3482,6 @@ __metadata:
     "@angular/core": "npm:^22.2.4"
     "@angular/forms": "npm:^22.2.4"
     "@angular/platform-browser": "npm:^22.2.4"
-    "@angular/platform-browser-dynamic": "npm:^22.2.4"
     "@angular/router": "npm:^22.2.4"
     "@deepkit/api-console-api": "npm:^1.0.19"
     "@deepkit/api-console-gui": "npm:^1.0.19"
@@ -3790,7 +3758,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@deepkit/orm-browser-gui@workspace:packages/orm-browser-gui"
   dependencies:
-    "@angular/animations": "npm:^22.2.4"
     "@angular/build": "npm:^22.2.5"
     "@angular/cdk": "npm:^22.2.5"
     "@angular/cli": "npm:^22.2.5"
@@ -3800,7 +3767,6 @@ __metadata:
     "@angular/core": "npm:^22.2.4"
     "@angular/forms": "npm:^22.2.4"
     "@angular/platform-browser": "npm:^22.2.4"
-    "@angular/platform-browser-dynamic": "npm:^22.2.4"
     "@angular/router": "npm:^22.2.4"
     "@deepkit/bson": "npm:^1.0.19"
     "@deepkit/core": "npm:^1.0.19"
@@ -28738,7 +28704,6 @@ __metadata:
   resolution: "website@workspace:website"
   dependencies:
     "@angular-devkit/build-angular": "npm:^22.2.5"
-    "@angular/animations": "npm:^22.2.4"
     "@angular/cdk": "npm:^22.2.5"
     "@angular/cli": "npm:^22.2.5"
     "@angular/common": "npm:^22.2.4"
@@ -28747,7 +28712,6 @@ __metadata:
     "@angular/core": "npm:^22.2.4"
     "@angular/forms": "npm:^22.2.4"
     "@angular/platform-browser": "npm:^22.2.4"
-    "@angular/platform-browser-dynamic": "npm:^22.2.4"
     "@angular/platform-server": "npm:^22.2.4"
     "@angular/router": "npm:^22.2.4"
     "@angular/ssr": "npm:^22.2.5"

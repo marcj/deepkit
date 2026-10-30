@@ -54,7 +54,7 @@
     "typescript": "~6.0.3"
   },
   "engines": {
-    "node": ">= 22.0.0"
+    "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
   },
   "jest": {
     "resolver": "./jest-resolver.js",

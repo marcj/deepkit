@@ -1,26 +1,27 @@
 import { Component, provideZonelessChangeDetection } from '@angular/core';
-import { test } from '@jest/globals';
+import { expect, test } from '@jest/globals';
 import { TestBed } from '@angular/core/testing';
-import { BrowserDynamicTestingModule, platformBrowserDynamicTesting } from '@angular/platform-browser-dynamic/testing';
+import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 
 TestBed.initTestEnvironment(
-    BrowserDynamicTestingModule,
-    // ts error: Type 'EnvironmentProviders' is not assignable to type 'StaticProvider'.
-    platformBrowserDynamicTesting([provideZonelessChangeDetection()]),
+    BrowserTestingModule,
+    platformBrowserTesting(),
     {
         errorOnUnknownElements: true,
         errorOnUnknownProperties: true,
     },
 );
+
 @Component({
     template: `Hi there`,
 })
 class ComponentA {
 }
 
-test('asd', () => {
-    const test = TestBed.configureTestingModule({
+test('renders a component', () => {
+    TestBed.configureTestingModule({
+        providers: [provideZonelessChangeDetection()],
     });
-    const ref = test.createComponent(ComponentA);
-    console.log('ref', ref);
+    const fixture = TestBed.createComponent(ComponentA);
+    expect(fixture.nativeElement.textContent).toBe('Hi there');
 });
