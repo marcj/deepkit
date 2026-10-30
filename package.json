@@ -76,6 +76,7 @@
       "packages/workflow",
       "packages/stopwatch",
       "packages/orm",
+      "packages/orm-browser",
       "packages/bson",
       "packages/http",
       "packages/template",

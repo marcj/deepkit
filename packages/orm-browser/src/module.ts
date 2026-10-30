@@ -4,7 +4,6 @@ import { Database, DatabaseRegistry } from '@deepkit/orm';
 import { Config } from './config.js';
 import { rpc } from '@deepkit/rpc';
 import { getCurrentFileName } from '@deepkit/core';
-import { InjectorContext } from '@deepkit/injector';
 import { dirname } from 'path';
 import { registerStaticHttpController } from '@deepkit/http';
 
@@ -31,8 +30,9 @@ export class OrmBrowserModule extends createModuleClass({
 
         this.addProvider({
             provide: ScopedOrmBrowserController,
-            useFactory: (registry: DatabaseRegistry, injectorContext: InjectorContext) => {
-                return new ScopedOrmBrowserController(this.databases);
+            useFactory: (registry: DatabaseRegistry) => {
+                // without forDatabases() all databases of the app are shown
+                return new ScopedOrmBrowserController(this.databases.length ? this.databases : registry.getDatabases());
             }
         });
 
