@@ -8,7 +8,10 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { addHook } from 'pirates';
+import { generate } from 'astring';
+import { parseModule } from 'meriyah';
+import Module from 'node:module';
+import { extname, resolve } from 'node:path';
 import type {
     ArrayExpression,
     ArrayPattern,
@@ -27,13 +30,9 @@ import type {
     SpreadElement,
     UnaryExpression
 } from 'estree';
-// @ts-ignore
-import abstractSyntaxTree from 'abstract-syntax-tree';
 import { inDebugMode } from '@deepkit/core';
 import { escape, escapeHtml } from './utils.js';
 import { voidElements } from './template.js';
-
-const { parse, generate, replace } = abstractSyntaxTree;
 
 export function transform(code: string, filename: string) {
     if (inDebugMode()) return code;
@@ -43,9 +42,60 @@ export function transform(code: string, filename: string) {
     return optimizeJSX(code);
 }
 
-addHook(transform, { exts: ['.js', '.tsx'] });
+const nodeModulesRegex = /^(?:.*[\\/])?node_modules(?:[\\/].*)?$/;
+
+/**
+ * Registers a CommonJS require hook that transforms the code of all files with the given extensions
+ * (except in node_modules) before they are compiled.
+ */
+function addRequireHook(hook: (code: string, filename: string) => string, exts: string[]) {
+    const extensions = (Module as any)._extensions;
+    const originalJSLoader = extensions['.js'];
+    for (const ext of exts) {
+        const oldLoader = extensions[ext] || originalJSLoader;
+        extensions[ext] = function (mod: any, filename: string) {
+            if (exts.includes(extname(filename)) && !nodeModulesRegex.test(resolve(filename))) {
+                const compile = mod._compile;
+                mod._compile = function (code: string) {
+                    mod._compile = compile;
+                    return mod._compile(hook(code, filename), filename);
+                };
+            }
+            oldLoader(mod, filename);
+        };
+    }
+}
+
+addRequireHook(transform, ['.js', '.tsx']);
 
 class NotSerializable {
+}
+
+function parse(code: string): Node {
+    return parseModule(code) as any;
+}
+
+function isNode(value: any): value is Node {
+    return value !== null && typeof value === 'object' && typeof value.type === 'string';
+}
+
+/**
+ * Calls enter for each node of the tree (depth-first, parents before children) and replaces the node
+ * with the returned one. Children of the returned node are visited afterwards.
+ */
+function replace(node: Node, enter: (node: Node) => Node): Node {
+    node = enter(node) || node;
+    for (const key of Object.keys(node)) {
+        const child = (node as any)[key];
+        if (Array.isArray(child)) {
+            for (let i = 0; i < child.length; i++) {
+                if (isNode(child[i])) child[i] = replace(child[i], enter);
+            }
+        } else if (isNode(child)) {
+            (node as any)[key] = replace(child, enter);
+        }
+    }
+    return node;
 }
 
 export function parseCode(code: string) {

@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import '../src/optimize-tsx';
-import { isOptimisedHtmlString, parseCode } from '../src/optimize-tsx.js';
+import { isOptimisedHtmlString, optimizeJSX, parseCode } from '../src/optimize-tsx.js';
 
 Error.stackTraceLimit = 200;
 
@@ -39,4 +39,12 @@ test('template test', async () => {
     // console.dir(parseCode(`variable + '23' + 23;`), { depth: null });
     // console.log(test1.toString());
     // console.log(JSON.stringify(tree.parse('_jsx.createElement("div", {}, void 0)')));
+});
+
+test('optimizeJSX visits all node types', () => {
+    // class static blocks are not known to every AST walker
+    const code = `class View { static { this.x = 1; } render() { return jsx_runtime_1.jsx("div", { id: "a", children: "Hello" }); } }`;
+    expect(optimizeJSX(code)).toBe(
+        'class View {\n  static {\n    this.x = 1;\n  }\n  render() {\n    return {\n      render: undefined,\n      attributes: undefined,\n      childrenEscaped: "<div id=\\"a\\">Hello</div>"\n    };\n  }\n}\n',
+    );
 });

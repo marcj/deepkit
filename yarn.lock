@@ -4004,8 +4004,8 @@ __metadata:
     "@deepkit/stopwatch": "npm:^1.0.19"
     "@deepkit/type": "npm:^1.0.19"
     "@types/estree": "npm:^0.0.45"
-    abstract-syntax-tree: "npm:^2.9.4"
-    pirates: "npm:^4.0.1"
+    astring: "npm:^1.9.0"
+    meriyah: "npm:^4.5.0"
   peerDependencies:
     "@deepkit/core": ^1.0.19
     "@deepkit/injector": ^1.0.19
@@ -10910,20 +10910,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"abstract-syntax-tree@npm:^2.9.4":
-  version: 2.22.0
-  resolution: "abstract-syntax-tree@npm:2.22.0"
-  dependencies:
-    ast-types: "npm:0.14.2"
-    astring: "npm:^1.8.6"
-    esquery: "npm:^1.5.0"
-    meriyah: "npm:^4.4.0"
-    pure-conditions: "npm:^1.2.1"
-    source-map: "npm:^0.7.4"
-  checksum: 10c0/a586ec452d0b13ed865978ed798c96f3459bf827290cd8e63a752bf62bd3c04084ea81f5669957e3f34109531ae74e8cd420d32dd7c3158d2ad1cf9d3798912e
-  languageName: node
-  linkType: hard
-
 "accepts@npm:^2.0.0":
   version: 2.0.0
   resolution: "accepts@npm:2.0.0"
@@ -11405,16 +11391,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ast-types@npm:0.14.2":
-  version: 0.14.2
-  resolution: "ast-types@npm:0.14.2"
-  dependencies:
-    tslib: "npm:^2.0.1"
-  checksum: 10c0/5d66d89b6c07fe092087454b6042dbaf81f2882b176db93861e2b986aafe0bce49e1f1ff59aac775d451c1426ad1e967d250e9e3548f5166ea8a3475e66c169d
-  languageName: node
-  linkType: hard
-
-"astring@npm:^1.8.6":
+"astring@npm:^1.9.0":
   version: 1.9.0
   resolution: "astring@npm:1.9.0"
   bin:
@@ -14668,15 +14645,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esquery@npm:^1.5.0":
-  version: 1.6.0
-  resolution: "esquery@npm:1.6.0"
-  dependencies:
-    estraverse: "npm:^5.1.0"
-  checksum: 10c0/cb9065ec605f9da7a76ca6dadb0619dfb611e37a81e318732977d90fab50a256b95fee2d925fba7c2f3f0523aa16f91587246693bc09bc34d5a59575fe6e93d2
-  languageName: node
-  linkType: hard
-
 "esrecurse@npm:^4.3.0":
   version: 4.3.0
   resolution: "esrecurse@npm:4.3.0"
@@ -14693,7 +14661,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"estraverse@npm:^5.1.0, estraverse@npm:^5.2.0":
+"estraverse@npm:^5.2.0":
   version: 5.3.0
   resolution: "estraverse@npm:5.3.0"
   checksum: 10c0/1ff9447b96263dec95d6d67431c5e0771eb9776427421260a3e2f0fdd5d6bd4f8e37a7338f5ad2880c9f143450c9b1e4fc2069060724570a49cf9cf0312bd107
@@ -20116,7 +20084,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"meriyah@npm:^4.4.0":
+"meriyah@npm:^4.5.0":
   version: 4.5.0
   resolution: "meriyah@npm:4.5.0"
   checksum: 10c0/184c9618a692d9a093c44d1fd8da66ec45035a5dd82574525560209356b200d7106155ad9773deaeaece564d250369fc6d2a4f9e4913221b2c145b3db1aac308
@@ -22599,7 +22567,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pirates@npm:^4.0.1, pirates@npm:^4.0.4, pirates@npm:^4.0.7":
+"pirates@npm:^4.0.4, pirates@npm:^4.0.7":
   version: 4.0.7
   resolution: "pirates@npm:4.0.7"
   checksum: 10c0/a51f108dd811beb779d58a76864bbd49e239fa40c7984cd11596c75a121a8cc789f1c8971d8bb15f0dbf9d48b76c05bb62fcbce840f89b688c0fa64b37e8478a
@@ -23435,13 +23403,6 @@ __metadata:
   version: 2.3.1
   resolution: "punycode@npm:2.3.1"
   checksum: 10c0/14f76a8206bc3464f794fb2e3d3cc665ae416c01893ad7a02b23766eb07159144ee612ad67af5e84fa4479ccfe67678c4feb126b0485651b302babf66f04f9e9
-  languageName: node
-  linkType: hard
-
-"pure-conditions@npm:^1.2.1":
-  version: 1.2.1
-  resolution: "pure-conditions@npm:1.2.1"
-  checksum: 10c0/781b779d78c78f2b82f04423a19dcac84d83ce902b07a6bcdd58d81ae257388fe31b11cc0609fcea02f2713083cfcf28888575a5147e6b74b129b77d9e959214
   languageName: node
   linkType: hard
 
@@ -26917,7 +26878,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tslib@npm:2.8.1, tslib@npm:^2.0.0, tslib@npm:^2.0.1, tslib@npm:^2.1.0, tslib@npm:^2.3.0, tslib@npm:^2.4.0, tslib@npm:^2.6.2, tslib@npm:^2.8.1":
+"tslib@npm:2.8.1, tslib@npm:^2.0.0, tslib@npm:^2.1.0, tslib@npm:^2.3.0, tslib@npm:^2.4.0, tslib@npm:^2.6.2, tslib@npm:^2.8.1":
   version: 2.8.1
   resolution: "tslib@npm:2.8.1"
   checksum: 10c0/9c4759110a19c53f992d9aae23aac5ced636e99887b51b9e61def52611732872ff7668757d4e4c61f19691e36f4da981cd9485e869b4a7408d689f6bf1f14e62
