@@ -683,3 +683,20 @@ test('pass type parameter to another function', () => {
     });
     expect(res.app).toContain('b.Ω = [[() => t, ');
 });
+
+test('type alias of external type and value with the same name', () => {
+    // like `Result` of oxide.ts, this produced the invalid output `const __ΩMyResult;` (#352)
+    const res = transpile({
+        'app': `
+            import { Result } from './result';
+            export type MyResult = Result<number, Error>;
+        `,
+        'result.d.ts': `
+            declare class ResultType<T, E> { unwrap(): T; }
+            export type Result<T, E> = ResultType<T, E>;
+            export declare function Result<T, E>(fn: () => T): Result<T, E>;
+            export declare namespace Result {}
+        `,
+    });
+    expect(res.app).toContain('const __ΩMyResult = [');
+});
