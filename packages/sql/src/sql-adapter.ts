@@ -670,22 +670,35 @@ export abstract class SQLDatabaseAdapter extends DatabaseAdapter {
         }
     }
 
+    /**
+     * Returns the schema the entities need and the current schema of the database.
+     */
+    protected async getMigrationModels(connection: SQLConnection, entityRegistry: DatabaseEntityRegistry): Promise<{ databaseModel: DatabaseModel, parsedDatabaseModel: DatabaseModel }> {
+        const databaseModel = new DatabaseModel([], this.getName());
+        databaseModel.schemaName = this.getSchemaName();
+        this.platform.createTables(entityRegistry, databaseModel);
+        const schemaParser = new this.platform.schemaParserType(connection, this.platform);
+
+        const parsedDatabaseModel = new DatabaseModel([], this.getName());
+        parsedDatabaseModel.schemaName = this.getSchemaName();
+        await schemaParser.parse(parsedDatabaseModel);
+        parsedDatabaseModel.removeUnknownTables(databaseModel);
+        parsedDatabaseModel.removeTable(ReflectionClass.from(MigrationStateEntity).getCollectionName());
+
+        return { databaseModel, parsedDatabaseModel };
+    }
+
+    /**
+     * Returns the migration SQL per entity, e.g. to display them. To apply them, use migrate(),
+     * since single entity migrations can reference tables that are only created in a later one.
+     */
     public async getMigrations(options: MigrateOptions, entityRegistry: DatabaseEntityRegistry): Promise<{ [name: string]: { sql: string[], diff: string } }> {
         const migrations: { [name: string]: { sql: string[], diff: string } } = {};
 
         const connection = await this.connectionPool.getConnection();
 
         try {
-            const databaseModel = new DatabaseModel([], this.getName());
-            databaseModel.schemaName = this.getSchemaName();
-            this.platform.createTables(entityRegistry, databaseModel);
-            const schemaParser = new this.platform.schemaParserType(connection, this.platform);
-
-            const parsedDatabaseModel = new DatabaseModel([], this.getName());
-            parsedDatabaseModel.schemaName = this.getSchemaName();
-            await schemaParser.parse(parsedDatabaseModel);
-            parsedDatabaseModel.removeUnknownTables(databaseModel);
-            parsedDatabaseModel.removeTable(ReflectionClass.from(MigrationStateEntity).getCollectionName());
+            const { databaseModel, parsedDatabaseModel } = await this.getMigrationModels(connection, entityRegistry);
 
             for (const entity of entityRegistry.forMigration()) {
                 const databaseDiff = DatabaseComparator.computeDiff(parsedDatabaseModel, databaseModel);
@@ -708,18 +721,19 @@ export abstract class SQLDatabaseAdapter extends DatabaseAdapter {
     }
 
     public async migrate(options: MigrateOptions, entityRegistry: DatabaseEntityRegistry): Promise<void> {
-        const migrations = await this.getMigrations(options, entityRegistry);
         const connection = await this.connectionPool.getConnection();
 
         try {
-            for (const [databaseName, migration] of Object.entries(migrations)) {
-                for (const sql of migration.sql) {
-                    try {
-                        await connection.run(sql);
-                    } catch (error) {
-                        console.error('Could not execute migration SQL', sql, error);
-                        throw error;
-                    }
+            // One DDL for all entities, so tables are created before foreign keys reference them.
+            const { databaseModel, parsedDatabaseModel } = await this.getMigrationModels(connection, entityRegistry);
+            const databaseDiff = DatabaseComparator.computeDiff(parsedDatabaseModel, databaseModel);
+            if (!databaseDiff) return;
+            for (const sql of this.platform.getModifyDatabaseDDL(databaseDiff, options)) {
+                try {
+                    await connection.run(sql);
+                } catch (error) {
+                    console.error('Could not execute migration SQL', sql, error);
+                    throw error;
                 }
             }
         } finally {

@@ -1,9 +1,11 @@
 import { expect, test } from '@jest/globals';
 import pg from 'pg';
 import { assertInstanceOf } from '@deepkit/core';
-import { DatabaseError, DatabaseInsertError, UniqueConstraintFailure } from '@deepkit/orm';
-import { AutoIncrement, cast, DatabaseField, entity, PrimaryKey, Unique, UUID, uuid } from '@deepkit/type';
+import { Database, DatabaseError, DatabaseInsertError, UniqueConstraintFailure } from '@deepkit/orm';
+import { sql } from '@deepkit/sql';
+import { AutoIncrement, cast, DatabaseField, entity, PrimaryKey, Reference, Unique, UUID, uuid } from '@deepkit/type';
 
+import { PostgresDatabaseAdapter } from '../src/postgres-adapter.js';
 import { databaseFactory } from './factory.js';
 import { ConsoleLogger } from '@deepkit/logger';
 
@@ -293,5 +295,38 @@ test('json array', async () => {
         const model = await database.query(Model).findOne();
         expect(model.title).toBe('14');
         expect(model.blocks.length).toEqual(2);
+    }
+});
+
+test('migrate creates tables before foreign keys pointing to later entities', async () => {
+    // database.migrate() ran the DDL entity by entity, so the FK of an entity registered before
+    // its referenced entity was added before that table existed: relation "migrate_fk_address" does not exist.
+    @entity.name('migrate_fk_user')
+    class User {
+        id: number & PrimaryKey & AutoIncrement = 0;
+        address?: Address & Reference;
+    }
+
+    @entity.name('migrate_fk_address')
+    class Address {
+        id: number & PrimaryKey & AutoIncrement = 0;
+        street: string = '';
+    }
+
+    const adapter = new PostgresDatabaseAdapter({ host: 'localhost', database: 'postgres', user: 'postgres' });
+    const database = new Database(adapter, [User, Address]);
+    try {
+        await database.raw(sql`DROP TABLE IF EXISTS migrate_fk_user, migrate_fk_address CASCADE`).execute();
+        await database.migrate();
+
+        const address = new Address();
+        address.street = 'Main';
+        const user = new User();
+        user.address = address;
+        await database.persist(address, user);
+        const loaded = await database.query(User).joinWith('address').findOne();
+        expect(loaded.address!.street).toBe('Main');
+    } finally {
+        database.disconnect();
     }
 });
