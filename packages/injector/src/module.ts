@@ -106,13 +106,23 @@ function getSpecificity(a: Type, b: Type): number {
     return nominalCompatibility(a, b);
 }
 
+// A token's type, computed once: the provider lookups ask for every provider's token type on every lookup
+const objectTokenTypes = new WeakMap<object, Type>();
+const valueTokenTypes = new Map<unknown, Type>();
+
 function getTypeFromToken(token: Token): Type {
-    return isClass(token) && hasTypeInformation(token) ? reflect(token) : isType(token) ? token : typeInfer(token);
+    const cache: { get(key: any): Type | undefined, set(key: any, value: Type): unknown } =
+        (typeof token === 'object' && token !== null) || typeof token === 'function' ? objectTokenTypes : valueTokenTypes;
+    let type = cache.get(token);
+    if (type === undefined) {
+        type = isClass(token) && hasTypeInformation(token) ? reflect(token) : isType(token) ? token : typeInfer(token);
+        cache.set(token, type);
+    }
+    return type;
 }
 
 function getTypeFromProvider(preparedProvider: PreparedProvider): Type {
-    return isClass(preparedProvider.token) && hasTypeInformation(preparedProvider.token)
-        ? reflect(preparedProvider.token) : isType(preparedProvider.token) ? preparedProvider.token : typeInfer(preparedProvider.token);
+    return getTypeFromToken(preparedProvider.token);
 }
 
 type LookupMatcher = (token: Type, provider: Type, candidate?: Type) => boolean;
@@ -201,8 +211,21 @@ function registerPreparedProvider(preparedProviders: PreparedProvider[], modules
     }
 }
 
+// Where a config type is in another one, found once per pair: config types don't change, and the injector looks
+// them up for every provider that reads config
+const childOfConfigCache = new WeakMap<ClassType, Map<TypeClass | TypeObjectLiteral, string | undefined>>();
+
 function isInChildOfConfig(findType: TypeClass | TypeObjectLiteral, inType?: ClassType): string | undefined {
     if (!inType) return;
+    let byFindType = childOfConfigCache.get(inType);
+    if (!byFindType) childOfConfigCache.set(inType, byFindType = new Map());
+    if (byFindType.has(findType)) return byFindType.get(findType);
+    const found = findInChildOfConfig(findType, inType);
+    byFindType.set(findType, found);
+    return found;
+}
+
+function findInChildOfConfig(findType: TypeClass | TypeObjectLiteral, inType: ClassType): string | undefined {
     const inTypeType = reflect(inType);
     if (inTypeType.kind !== ReflectionKind.class && inTypeType.kind !== ReflectionKind.objectLiteral) return;
 
