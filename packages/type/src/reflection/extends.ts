@@ -34,6 +34,7 @@ import {
     TypeObjectLiteral,
     TypeParameter,
     TypePromise,
+    TypeRest,
     TypeString,
     TypeTemplateLiteral,
     TypeTuple,
@@ -319,6 +320,11 @@ export function _isExtendable(left: Type, right: Type, extendStack: StackEntry[]
         }
 
         if (left.kind === ReflectionKind.tuple && right.kind === ReflectionKind.tuple) {
+            const rightRest = right.types.findIndex(v => v.type.kind === ReflectionKind.rest);
+            if (rightRest !== -1 && rightRest < right.types.length - 1 && !left.types.some(v => v.type.kind === ReflectionKind.rest)) {
+                return isTupleWithLeadingRestExtendable(left, right, rightRest, extendStack);
+            }
+
             for (let i = 0; i < right.types.length; i++) {
                 const rightType = indexAccess(right, { kind: ReflectionKind.literal, literal: i });
                 const leftType = indexAccess(left, { kind: ReflectionKind.literal, literal: i });
@@ -578,6 +584,46 @@ export function extendTemplateLiteral(left: TypeLiteral | TypeTemplateLiteral, r
     }
     if (!handleQueue()) return false;
 
+    return true;
+}
+
+/**
+ * Handles a fixed-length left tuple against a right tuple with a rest element followed by more elements,
+ * e.g. `[string, string, number] extends [...infer P, infer L]`. Elements after the rest are matched from the end.
+ */
+function isTupleWithLeadingRestExtendable(left: TypeTuple, right: TypeTuple, rightRest: number, extendStack: StackEntry[]): boolean {
+    const after = right.types.length - rightRest - 1;
+    const restEnd = left.types.length - after;
+    if (restEnd < rightRest) return false;
+
+    const inferred: [TypeInfer, Type][] = [];
+    const matches = (leftType: Type, rightType: Type): boolean => {
+        if (rightType.kind === ReflectionKind.infer) {
+            inferred.push([rightType, leftType]);
+            return true;
+        }
+        return _isExtendable(leftType, rightType, extendStack);
+    };
+
+    for (let i = 0; i < rightRest; i++) {
+        if (!matches(left.types[i].type, right.types[i].type)) return false;
+    }
+    for (let i = 0; i < after; i++) {
+        if (!matches(left.types[restEnd + i].type, right.types[rightRest + 1 + i].type)) return false;
+    }
+
+    const rest = right.types[rightRest].type as TypeRest;
+    if (rest.type.kind === ReflectionKind.infer) {
+        const restTuple: TypeTuple = { kind: ReflectionKind.tuple, types: [] };
+        for (let j = rightRest; j < restEnd; j++) addType(restTuple, left.types[j]);
+        inferred.push([rest.type, restTuple]);
+    } else {
+        for (let j = rightRest; j < restEnd; j++) {
+            if (!_isExtendable(left.types[j].type, rest.type, extendStack)) return false;
+        }
+    }
+
+    for (const [infer, type] of inferred) infer.set(type);
     return true;
 }
 

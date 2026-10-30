@@ -12,6 +12,7 @@ import { expect, test } from '@jest/globals';
 import { ReceiveType, reflect, typeOf } from '../src/reflection/reflection.js';
 import { assertType, InlineRuntimeType, ReflectionKind, stringifyResolvedType, Type } from '../src/reflection/type.js';
 import { serialize } from '../src/serializer-facade.js';
+import { is } from '../src/typeguard.js';
 import { expectEqualType } from './utils.js';
 
 test('array stack', () => {
@@ -19,6 +20,19 @@ test('array stack', () => {
     type Push<T extends unknown[], U> = [...T, U]
     type Shift<T extends unknown[]> = T extends [unknown, ...infer U] ? U : never
     type Unshift<T extends unknown[], U> = [U, ...T]
+});
+
+test('infer last tuple element after rest element (#524)', () => {
+    type Foo<T> = T extends [...infer P extends string[], infer L] ? L : never;
+    type Bar = Foo<[string, string, number]>;
+    expect(stringifyResolvedType(typeOf<Bar>())).toBe('number');
+    expect(is<Bar>('hello')).toBe(false);
+    expect(is<Bar>(1)).toBe(true);
+
+    //elements after the rest are matched from the end
+    type EndsWithNumber<T> = T extends [...string[], number] ? true : false;
+    expect(stringifyResolvedType(typeOf<EndsWithNumber<[string, string, number]>>())).toBe('true');
+    expect(stringifyResolvedType(typeOf<EndsWithNumber<[string, number, string]>>())).toBe('false');
 });
 
 test('union to intersection', () => {
