@@ -3587,7 +3587,6 @@ __metadata:
     compression: "npm:^1.7.4"
     faker: "npm:5.4.0"
     mime-types: "npm:^2.1.27"
-    nice-table: "npm:^1.1.0"
     rxjs: "npm:~7.8.0"
     selfsigned: "npm:^2.1.1"
     ws: "npm:^7.4.2"
@@ -21315,16 +21314,6 @@ __metadata:
     "@use-gesture/vanilla":
       optional: true
   checksum: 10c0/5ad96c9d43090c0db6ca35bb10cfcdd80b950fff9a1215c243c636676ca82a3ad5c61ecddf03ff337a077ce9929ce81599958c698d831b1a06bcb857f75e1db2
-  languageName: node
-  linkType: hard
-
-"nice-table@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "nice-table@npm:1.1.0"
-  dependencies:
-    string-width: "npm:^4.2.3"
-    wrap-ansi: "npm:^7.0.0"
-  checksum: 10c0/9e0d3b2db8f5d09ff9e98f25e2dd2dcd7e681c2e1be3beb8a960d29cbaf8a0844003a4cba5c9f2e6850a1d25132a5458379057bf9a0204ef0e7c33a1dc3ee829
   languageName: node
   linkType: hard
 

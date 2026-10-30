@@ -12,8 +12,8 @@ import { cli, Command } from '@deepkit/app';
 import { DebugController } from '../debug/debug.controller.js';
 import { ConfigOption } from "@deepkit/framework-debug-api";
 import { ReflectionClass } from "@deepkit/type";
-import { createTable } from 'nice-table';
 import { inspect } from 'util';
+import { createTable } from './table.js';
 
 /**
  * @description Prints the current configuration, they type and default value.
@@ -35,14 +35,8 @@ export class DebugConfigController implements Command {
 
     private logConfigTable(config: ConfigOption[]) {
         console.log(
-            createTable(config, ReflectionClass.from(ConfigOption).getPropertyNames() as (keyof ConfigOption)[], {
-                horizontalAlignment: 'middle',
-                verticalAlignment: 'middle',
-                columnSizing: 'stretch',
+            createTable(config, ReflectionClass.from(ConfigOption).getPropertyNames() as (keyof ConfigOption & string)[], {
                 maxWidth: process.stdout.columns,
-                fullWidth: true,
-                throwIfTooSmall: false,
-                indexColumn: false,
                 stringify: (value) => inspect(value, { colors: true })
             })
         );
