@@ -1797,10 +1797,11 @@ test('query validator withing HttpQuery', async () => {
 
     const httpKernel = createHttpKernel([Controller]);
 
-    //todo: fix this, see https://github.com/deepkit/deepkit-framework/issues/614
-    // expect((await httpKernel.request(HttpRequest.GET('/do').query('a=aaaaaaaa&b=bbbb'))).json).toMatchObject({
-    //     valid: true
-    // });
+    // see https://github.com/deepkit/deepkit-framework/issues/614
+    expect((await httpKernel.request(HttpRequest.GET('/do').query('a=aaaaaaaa&b=bbbb'))).json).toMatchObject({
+        valid: true
+    });
+    expect((await httpKernel.request(HttpRequest.GET('/do').query('a=aaaa&b=bbbb'))).statusCode).toBe(400);
 });
 
 test('http body deep optional union', async () => {
