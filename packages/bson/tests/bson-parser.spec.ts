@@ -929,3 +929,19 @@ test('union same member, optional', () => {
     const back3 = deserialize(bson3);
     expect(back3).toEqual(data3);
 });
+
+test('union mismatch reports errors of the closest member (#676)', () => {
+    interface ChatMessage {
+        id: string;
+    }
+
+    type MessageEvent = { channel: string, type: 'message', message: ChatMessage };
+    type MessageUpdateEvent = { channel: string, type: 'message-update', message: ChatMessage };
+    type BusMessage = { v: MessageEvent | MessageUpdateEvent };
+    const deserialize = getBSONDeserializer<BusMessage>();
+
+    expect(() => deserialize(serialize({ v: { channel: '1', type: 'message', message: undefined } }))).toThrow('v.message(type): Not an object');
+    //no closest member
+    expect(() => deserialize(serialize({ v: { channel: '1', type: 'unknown', message: { id: '1' } } })))
+        .toThrow('v(type): Cannot convert bson type OBJECT to MessageEvent | MessageUpdateEvent. invalid BSON type');
+});

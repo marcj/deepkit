@@ -37,6 +37,9 @@ import {
     TypeTuple,
     TypeUnion,
     uuidAnnotation,
+    validate,
+    ValidationError,
+    ValidationErrorItem,
 } from '@deepkit/type';
 import { seekElementSize } from './continuation.js';
 import { BSONType, digitByteSize, isSerializable } from './utils.js';
@@ -56,6 +59,35 @@ function getNameComparator(name: string): string {
 function throwInvalidBsonType(type: Type, state: TemplateState) {
     state.setContext({ BSONType });
     return state.throwCode(type, JSON.stringify('invalid BSON type'), `'bson type ' + BSONType[state.elementType]`);
+}
+
+/**
+ * When no union member matched, the value is validated against the union to report the errors of the
+ * closest union member (e.g. a missing property) instead of only the BSON type. Returns undefined if
+ * that gives no more specific error.
+ */
+function getUnionMemberErrors(parser: BaseParser, elementType: BSONType | undefined, type: TypeUnion, path: string): ValidationErrorItem[] | undefined {
+    if (!elementType) return;
+    const offset = parser.offset;
+    try {
+        const errors = validate(parser.parse(elementType), type);
+        if (!errors.length || errors.every(v => !v.path)) return;
+        return errors.map(v => new ValidationErrorItem(path ? path + '.' + v.path : v.path, v.code, v.message, v.value));
+    } catch {
+        return;
+    } finally {
+        parser.offset = offset;
+    }
+}
+
+function throwInvalidUnion(type: TypeUnion, state: TemplateState) {
+    state.setContext({ ValidationError });
+    const getErrors = state.setVariable('getUnionMemberErrors', getUnionMemberErrors);
+    return `
+        const unionErrors = ${getErrors}(state.parser, unionElementType, ${state.setVariable('type', type)}, ${collapsePath(state.path)});
+        if (unionErrors) throw new ValidationError(unionErrors);
+        ${throwInvalidBsonType(type, state)}
+    `;
 }
 
 export function deserializeBinary(type: Type, state: TemplateState) {
@@ -318,11 +350,12 @@ export function deserializeUnion(typeGuards: TypeGuardRegistry, type: TypeUnion,
     }
 
     const init = state.isValidation() ? `${state.setter} = false;` : '';
-    const invalidValue = state.isValidation() ? '' : `${throwInvalidBsonType(type, state)}`;
+    const invalidValue = state.isValidation() ? '' : throwInvalidUnion(type, state);
 
     state.addCodeForSetter(`
     {
         // deserializeUnion
+        const unionElementType = state.elementType;
         if (!state.elementType) state.elementType = ${BSONType.OBJECT};
         const oldElementType = state.elementType;
         ${init}
