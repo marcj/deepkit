@@ -58,6 +58,9 @@
               "argon2"
             ],
             "browser": "src/main.ts",
+            "security": {
+              "allowedHosts": ["deepkit.io", "*.deepkit.io", "localhost"]
+            },
             "preserveSymlinks": true,
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "css",
