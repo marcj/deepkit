@@ -1,25 +1,30 @@
 import { expect, test } from '@jest/globals';
+import { spawnSync } from 'child_process';
 import { existsSync, mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { http, HttpKernel, HttpRequest } from '@deepkit/http';
-import { sleep } from '@deepkit/core';
+
 import { App } from '@deepkit/app';
-import { ApplicationServer } from '../src/application-server.js';
-import { FrameworkModule } from '../src/module.js';
-import { FrameCategory, Stopwatch, StopwatchStore } from '@deepkit/stopwatch';
 import { BrokerBus, BrokerDeepkitAdapter } from '@deepkit/broker';
-import { RpcTcpClientAdapter } from '@deepkit/rpc-tcp';
+import { sleep } from '@deepkit/core';
+import { HttpKernel, HttpRequest, http } from '@deepkit/http';
 import { MemoryLogger } from '@deepkit/logger';
+import { RpcTcpClientAdapter } from '@deepkit/rpc-tcp';
+import { FrameCategory, Stopwatch, StopwatchStore } from '@deepkit/stopwatch';
+
+import { ApplicationServer } from '../src/application-server.js';
 import { DebugBrokerBus } from '../src/debug/broker.js';
 import { FileStopwatchStore } from '../src/debug/stopwatch/store.js';
+import { FrameworkModule } from '../src/module.js';
 
 test('debug store does not hang when the broker is unreachable', async () => {
     // with workers, debug frames go through the configured broker, which might not be running
     const varPath = mkdtempSync(join(tmpdir(), 'dk-debug-'));
-    const unreachable = new BrokerBus(new BrokerDeepkitAdapter({
-        servers: [{ url: '', transport: new RpcTcpClientAdapter(join(varPath, 'no-broker.sock')) }],
-    }));
+    const unreachable = new BrokerBus(
+        new BrokerDeepkitAdapter({
+            servers: [{ url: '', transport: new RpcTcpClientAdapter(join(varPath, 'no-broker.sock')) }],
+        }),
+    );
     const logger = new MemoryLogger();
     const store = new FileStopwatchStore({ varPath, debugStorePath: 'debug' }, unreachable as DebugBrokerBus, logger);
     const stopwatch = new Stopwatch(store);
@@ -65,3 +70,15 @@ test('debug mode shows live frames without a broker server (single process)', as
         await server.close();
     }
 });
+
+test('failing CLI command shows its error with debug enabled (#687)', () => {
+    // the debug store is closed on app shutdown, that used to swallow the error output of commands
+    const varPath = mkdtempSync(join(tmpdir(), 'dk-debug-'));
+    const res = spawnSync(process.execPath, ['--import', '@deepkit/run', join(__dirname, 'fixtures/cli-debug-error.ts'), 'fail', varPath], {
+        cwd: __dirname,
+        encoding: 'utf8',
+        timeout: 60_000,
+    });
+    expect(res.status).toBe(1);
+    expect(res.stdout + res.stderr).toContain('visible error from the command');
+}, 70_000);
