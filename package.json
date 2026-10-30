@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "test": "node --expose-gc --max_old_space_size=3048 node_modules/jest/bin/jest.js --forceExit --no-cache",
+    "test:consumer": "scripts/consumer-smoke/run.sh",
     "test:coverage": "node --expose-gc --max_old_space_size=3048 node_modules/jest/bin/jest.js --coverage --forceExit --no-cache",
     "build": "tsc --build tsconfig.json && tsc --build tsconfig.esm.json && lerna run build",
     "build:esm": "tsc --build tsconfig.esm.json",
