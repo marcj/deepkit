@@ -621,6 +621,12 @@ export class HttpListener {
                     }
                 }
 
+                if (event.sent) {
+                    //a middleware ended the request, so we skip the controller but still trigger onResponse (e.g. for logging)
+                    event.next('response', new HttpResponseEvent(event.injectorContext, event.request, event.response, undefined, resolved.routeConfig));
+                    return;
+                }
+
                 this.setRouteConfig(resolved.routeConfig, event.injectorContext.scope);
                 event.routeFound(resolved.routeConfig, resolved.parameters);
             }

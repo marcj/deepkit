@@ -5,7 +5,7 @@ import { HttpMiddleware, httpMiddleware } from '../src/middleware.js';
 import { HttpRequest, HttpResponse } from '../src/model.js';
 import { AppModule } from '@deepkit/app';
 import { sleep } from '@deepkit/core';
-import { HttpUnauthorizedError } from '../src/http.js';
+import { HttpUnauthorizedError, httpWorkflow } from '../src/http.js';
 
 class Controller {
     @http.GET('user/:name')
@@ -96,6 +96,22 @@ test('middleware async throwing HttpError returns its status code', async () => 
     const response = await httpKernel.request(HttpRequest.GET('/user/name1'));
     expect(response.statusCode).toEqual(401);
     expect(response.json).toEqual({ message: 'Invalid token' });
+});
+
+test('middleware direct response triggers onResponse', async () => {
+    let responseStatus: number | undefined;
+
+    const httpKernel = createHttpKernel([Controller], [], [httpWorkflow.onResponse.listen(event => {
+        responseStatus = event.response.statusCode;
+    })], [httpMiddleware.for((req, res, next) => {
+        res.statusCode = 403;
+        res.end('Forbidden');
+    })]);
+
+    const response = await httpKernel.request(HttpRequest.GET('/user/name1'));
+    expect(response.statusCode).toEqual(403);
+    expect(response.bodyString).toEqual('Forbidden');
+    expect(responseStatus).toBe(403);
 });
 
 test('middleware for controller', async () => {
