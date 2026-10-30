@@ -725,3 +725,35 @@ test('config injection into listener configured', async () => {
     const res = await app.execute(['test']);
     expect(res).toBe(1);
 });
+
+test('flag property keeps its default when not given', async () => {
+    // Flag properties were set to undefined when the flag was not passed, so e.g. `path: string[] & Flag = []`
+    // was undefined in execute() and migration:pending crashed with "Cannot read properties of undefined".
+    let paths: string[] | undefined;
+    let name: string | undefined;
+
+    @cli.controller('test')
+    class TestCommand {
+        protected paths: string[] & Flag = [];
+        protected name: string & Flag = 'default';
+
+        execute() {
+            paths = this.paths;
+            name = this.name;
+        }
+    }
+
+    const app = new App({ controllers: [TestCommand] });
+    expect(await app.execute(['test'])).toBe(0);
+    expect(paths).toEqual([]);
+    expect(name).toBe('default');
+
+    expect(await app.execute(['test', '--paths', 'a.ts', '--name', 'given'])).toBe(0);
+    expect(paths).toEqual(['a.ts']);
+    expect(name).toBe('given');
+
+    // each execution gets a new command instance, so given flags don't leak into the next one
+    expect(await app.execute(['test'])).toBe(0);
+    expect(paths).toEqual([]);
+    expect(name).toBe('default');
+});

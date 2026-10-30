@@ -691,6 +691,8 @@ async function runCommand(
             const instance = injector.get(config.controller, config.module);
             for (const parameter of commandParameters) {
                 if (parameter.kind !== 'flag-property') continue;
+                // a flag not given keeps the property's default value
+                if (parameterValues[parameter.name] === undefined) continue;
                 instance[parameter.name] = parameterValues[parameter.name];
             }
             if (frame) {
