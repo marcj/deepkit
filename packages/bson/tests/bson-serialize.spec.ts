@@ -1538,6 +1538,15 @@ test('NaN roundtrip to 0', () => {
     }
 });
 
+test('typed serialization rejects NaN (#573)', () => {
+    // NaN is invalid data for a number, it is neither stored as 0 nor silently left out
+    expect(() => getBSONSerializer<{ v: number }>()({ v: NaN })).toThrow('v(type): Cannot convert NaN to number');
+    expect(() => getBSONSerializer<{ v?: number }>()({ v: NaN })).toThrow('v(type): Cannot convert NaN to number');
+    expect(() => getBSONSerializer<{ v: number | string }>()({ v: NaN })).toThrow('v(type): Cannot convert NaN to number');
+    expect(() => getBSONSerializer<{ v: number | null }>()({ v: NaN })).toThrow('v(type): Cannot convert NaN to number');
+    expect(() => getBSONSerializer<{ v: number[] }>()({ v: [1, NaN] })).toThrow('v.1(type): Cannot convert NaN to number');
+});
+
 test('utf8', () => {
     const messages = {
         '— feel free to": "— それまでご自由に': '— feel free to": "— それまでご自由に',
