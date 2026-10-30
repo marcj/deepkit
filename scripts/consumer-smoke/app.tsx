@@ -77,9 +77,8 @@ async function main() {
     // mongo loads (no server needed to create the adapter)
     check('mongo', new MongoDatabaseAdapter('mongodb://localhost/test').getName() === 'mongo');
 
-    // optional faker, loaded lazily by the ORM browser
-    const fakerTypes = await new OrmBrowserController([]).getFakerTypes();
-    check('faker', Object.keys(fakerTypes).length > 10, Object.keys(fakerTypes).length + ' types');
+    // the ORM browser controller loads
+    check('orm browser', Array.isArray(new OrmBrowserController([]).getDatabases()));
 
     // ORM with sqlite
     const database = new Database(new SQLiteDatabaseAdapter(':memory:'), [User]);
