@@ -92,7 +92,8 @@ describe('mongo-env', () => {
         }
 
         mongo.closeConnections();
-        await sleep(0);
+        // the client notices the close only after the socket event arrives
+        for (let i = 0; i < 100 && client.pool.isConnected(); i++) await sleep(0.01);
         expect(client.pool.isConnected()).toBe(false);
 
         {
