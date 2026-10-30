@@ -181,6 +181,34 @@ test('scoped InjectorContext', () => {
     expect(service.injector.constructor).toBe(InjectorContext);
 });
 
+test('unscoped provider is used in a scope without its own provider', () => {
+    // FrameworkModule provides InjectorContext for 'rpc', the root module for no scope. Unscoped services
+    // first created in another scope (CLI commands run in 'cli') got undefined: every migration:* command failed.
+    class DatabaseRegistry {
+        constructor(public injector: InjectorContext) {
+        }
+    }
+
+    const frameworkModule = new InjectorModule([
+        DatabaseRegistry,
+        { provide: InjectorContext, scope: 'rpc', useValue: undefined },
+    ]).addExport(DatabaseRegistry, InjectorContext);
+
+    const rootModule = new InjectorModule([
+        { provide: InjectorContext, useFactory: () => injector },
+    ]).addImport(frameworkModule);
+
+    const injector = new InjectorContext(rootModule);
+
+    const cli = injector.createChildScope('cli');
+    expect(cli.get(DatabaseRegistry).injector).toBe(injector);
+    expect(cli.get(InjectorContext)).toBe(injector);
+
+    const rpc = injector.createChildScope('rpc');
+    rpc.set(InjectorContext, rpc);
+    expect(rpc.get(InjectorContext)).toBe(rpc);
+});
+
 test('setter of unspecified scope', () => {
     class HttpRequest {
     }

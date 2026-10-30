@@ -575,14 +575,17 @@ export class Injector {
                     // and add a router to correctly route scopes to the function
                     const routerName = `router${name}`;
                     // prepared.factory = `factory_${routerName}`;
+                    // an unscoped provider is visible in every scope, also in those without their own provider
+                    const unscopedFactory = factoryNames.find(v => !v.scope);
+                    const unscopedInstantiations = instantiationsNames.find(v => !v.scope);
 
                     functions.push(`
                 function ${routerName}_factory(scope, optional) {
                     const name = scope?.name || '';
                     switch (name) {
                         ${factoryNames.map(v => `case ${JSON.stringify(v.scope)}: return ${v.function}(scope, optional);`).join('\n')}
-                        // default: knownServiceNotFoundInScope(${JSON.stringify(label)}, ${scopeNames}, scope);
                         default: {
+                            ${unscopedFactory ? `return ${unscopedFactory.function}(scope, optional);` : ''}
                             if (optional) return undefined;
                             knownServiceNotFoundInScope(${JSON.stringify(label)}, ${scopeNames}, scope);
                         }
@@ -621,7 +624,7 @@ export class Injector {
                     const name = scope?.name || '';
                     switch (name) {
                         ${instantiationsNames.map(v => `case ${JSON.stringify(v.scope)}: return ${v.function};`).join('\n')}
-                        default: knownServiceNotFoundInScope(${JSON.stringify(label)}, ${scopeNames}, scope);
+                        default: ${unscopedInstantiations ? `return ${unscopedInstantiations.function};` : `knownServiceNotFoundInScope(${JSON.stringify(label)}, ${scopeNames}, scope);`}
                     }
                 }
                 `);

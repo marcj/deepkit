@@ -188,3 +188,12 @@ test('database injection useClass with defaults', () => {
     const registry = app.get(DatabaseRegistry);
     expect(registry.getDatabases()).toHaveLength(1);
 });
+
+test('DatabaseRegistry in cli scope', async () => {
+    // InjectorContext is provided for 'rpc' by FrameworkModule and unscoped by the app. CLI commands run in the
+    // 'cli' scope and got no InjectorContext for DatabaseRegistry, so every migration:* command failed.
+    const app = new App({ imports: [new FrameworkModule()] });
+    const cli = app.getInjectorContext().createChildScope('cli');
+    expect(cli.get(DatabaseRegistry)).toBeInstanceOf(DatabaseRegistry);
+    expect(await app.execute(['migration:pending'])).toBe(0);
+});
