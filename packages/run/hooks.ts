@@ -2,7 +2,8 @@ import { ModuleKind, readConfigFile, ScriptTarget, transpile } from 'typescript'
 import { existsSync, readFileSync } from 'fs';
 import { dirname, extname } from 'path';
 import { readFile, stat } from 'node:fs/promises';
-import { createMatchPath } from 'tsconfig-paths';
+
+import { createMatchPath } from './paths.js';
 
 let tsConfigPath = 'tsconfig.json';
 let currentPath = process.cwd();
@@ -33,7 +34,7 @@ const matchPath = createMatchPath(
 );
 
 async function tryResolveTs(specifier, context, nextResolve) {
-    const matched = matchPath(specifier.replace(/\.js$/, '.ts'), undefined, (path) => existsSync(path), ['.ts', '.js', '.mjs']);
+    const matched = matchPath(specifier.replace(/\.js$/, '.ts'), (path) => existsSync(path), ['.ts', '.js', '.mjs']);
     if (matched) {
         specifier = matched;
     }

@@ -23,7 +23,23 @@
   "author": "Marc J. Schmidt <marc@marcjschmidt.de>",
   "license": "MIT",
   "dependencies": {
-    "tsconfig-paths": "^4.2.0",
     "typescript": "~6.0.3"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.(ts|tsx)$": [
+        "ts-jest",
+        {
+          "tsconfig": "<rootDir>/tsconfig.spec.json"
+        }
+      ]
+    },
+    "moduleNameMapper": {
+      "(.+)\\.js": "$1"
+    },
+    "testMatch": [
+      "**/tests/**/*.spec.ts"
+    ]
   }
 }

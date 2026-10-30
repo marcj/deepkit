@@ -3919,7 +3919,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@deepkit/run@workspace:packages/run"
   dependencies:
-    tsconfig-paths: "npm:^4.2.0"
     typescript: "npm:~6.0.3"
   languageName: unknown
   linkType: soft

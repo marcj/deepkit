@@ -10,7 +10,8 @@
   "reflection": true,
   "include": [
     "index.ts",
-    "hooks.ts"
+    "hooks.ts",
+    "paths.ts"
   ],
   "exclude": [
     "tests"
