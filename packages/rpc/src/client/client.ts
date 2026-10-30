@@ -211,7 +211,9 @@ export class RpcClientTransporter {
     public async disconnect() {
         // we have to wait for ongoing connection attempts
         while (this.connectionPromise) {
-            await this.connectionPromise;
+            // a failed attempt leaves nothing to disconnect; rethrowing its error
+            // made disconnect() reject because some other connect() failed
+            await this.connectionPromise.catch(() => undefined);
         }
 
         if (this.transportConnection) {
@@ -228,15 +230,27 @@ export class RpcClientTransporter {
             this.transportConnection = undefined;
         }
 
+        // This attempt's events act on the transporter only while its socket is
+        // the current one. The late close event of a socket that was already
+        // replaced used to run onDisconnect(), which cleared the next attempt's
+        // connectionPromise or disconnected the next socket. Before the socket
+        // opens, both are undefined.
+        let transportConnection: TransportConnection | undefined;
+        const isCurrent = () => this.transportConnection === transportConnection;
+
         return asyncOperation<void>(async (resolve, reject) => {
             await this.transport.connect({
                 token,
 
-                onClose: () => {
-                    this.onDisconnect();
+                onClose: (reason: string) => {
+                    if (isCurrent()) this.onDisconnect();
+                    // a socket that closes before it is connected fails its attempt
+                    // instead of leaving it pending forever; a no-op once connected
+                    reject(new OfflineError(`Could not connect: ${reason || 'connection closed'}`));
                 },
 
                 onConnected: async (transport: TransportConnection) => {
+                    transportConnection = transport;
                     this.transportConnection = transport;
                     this.stats.increase('connections', 1);
                     this.stats.increase('totalConnections', 1);
@@ -249,9 +263,14 @@ export class RpcClientTransporter {
                         this.id = await this.onHandshake();
                         await this.onAuthenticate(token);
                     } catch (error) {
-                        this.connected = false;
-                        this.connectionTries = 0;
-                        this.onError(error instanceof Error ? error : new Error(String(error)));
+                        // when the socket closed mid-handshake, onClose already
+                        // disconnected it, and the transporter may by now belong
+                        // to the next attempt
+                        if (isCurrent()) {
+                            this.connected = false;
+                            this.connectionTries = 0;
+                            this.onError(error instanceof Error ? error : new Error(String(error)));
+                        }
                         reject(error);
                         return;
                     }
@@ -262,7 +281,7 @@ export class RpcClientTransporter {
                 },
 
                 onError: (error: Error) => {
-                    this.onError(error);
+                    if (isCurrent()) this.onError(error);
                     reject(new OfflineError(`Could not connect: ${formatError(error)}`, { cause: error }));
                 },
 
@@ -291,12 +310,15 @@ export class RpcClientTransporter {
             return;
         }
 
-        this.connectionPromise = this.doConnect(token);
+        // when this attempt's socket closes, onDisconnect() clears
+        // connectionPromise and a new attempt can start before this one settles,
+        // so clear only our own
+        const connectionPromise = (this.connectionPromise = this.doConnect(token));
 
         try {
-            await this.connectionPromise;
+            await connectionPromise;
         } finally {
-            this.connectionPromise = undefined;
+            if (this.connectionPromise === connectionPromise) this.connectionPromise = undefined;
         }
     }
 
