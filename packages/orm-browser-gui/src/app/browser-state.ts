@@ -1,7 +1,7 @@
 import { EventEmitter, Injectable } from '@angular/core';
 import { arrayRemoveItem, empty, isObject } from '@deepkit/core';
-import { DatabaseCommit, DatabaseInfo, EntityPropertySeed, EntitySeed, FakerTypes, findFaker } from '@deepkit/orm-browser-api';
-import { Changes, changeSetSymbol, getChangeDetector, getConverterForSnapshot, isBackReferenceType, ReflectionClass, TypeProperty, TypePropertySignature, ValidatorError } from '@deepkit/type';
+import { DatabaseCommit, DatabaseInfo } from '@deepkit/orm-browser-api';
+import { Changes, changeSetSymbol, getChangeDetector, getConverterForSnapshot, ReflectionClass, TypeProperty, TypePropertySignature, ValidatorError } from '@deepkit/type';
 import { ControllerClient } from './client';
 import { Progress } from '@deepkit/rpc';
 import { getInstanceStateFromItem } from '@deepkit/orm';
@@ -118,7 +118,6 @@ export class BrowserEntityState {
 @Injectable({ providedIn: 'root' })
 export class BrowserState {
     databases: DatabaseInfo[] = [];
-    seedSettings: { [storeKey: string]: EntitySeed } = {};
 
     database?: DatabaseInfo;
 
@@ -141,40 +140,6 @@ export class BrowserState {
 
     constructor(protected controllerClient: ControllerClient) {
         (window as any).state = this;
-    }
-
-    getSeedSettings(fakerTypes: FakerTypes, db: string, entity: string): EntitySeed {
-        const key = this.getStoreKey(db, entity);
-        let settings = this.seedSettings[key];
-        if (!settings) {
-            const storage = localStorage.getItem('orm-browser/seed-properties/' + db + '/' + entity);
-            const predefined: { [name: string]: { fake: boolean, faker: string } } = storage ? JSON.parse(storage) : { properties: {} };
-
-            const properties: EntitySeed['properties'] = {};
-            for (const property of this.getEntity(db, entity).getProperties()) {
-                if (isBackReferenceType(property.type)) continue;
-
-                const propertyPredefined = predefined[property.name];
-                const seed = properties[property.name] = new EntityPropertySeed(property.name);
-                seed.fake = propertyPredefined?.fake || false;
-                seed.faker = propertyPredefined?.faker || findFaker(fakerTypes, property.name, property.type);
-            }
-            settings = this.seedSettings[key] = new EntitySeed();
-            settings.properties = properties;
-        }
-        return settings;
-    }
-
-    storeSeedSettings(db: string, entity: string) {
-        const key = this.getStoreKey(db, entity);
-        const seedSettings = this.seedSettings[key];
-        if (!seedSettings) return;
-
-        const properties: { [name: string]: { fake: boolean, faker: string } } = {};
-        for (const [name, seed] of Object.entries(seedSettings.properties)) {
-            properties[name] = { fake: seed.fake, faker: seed.faker };
-        }
-        localStorage.setItem('orm-browser/seed-properties/' + db + '/' + entity, JSON.stringify(properties));
     }
 
     resetAll() {

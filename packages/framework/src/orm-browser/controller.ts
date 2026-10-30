@@ -4,28 +4,18 @@ import {
     BrowserControllerInterface,
     DatabaseCommit,
     DatabaseInfo,
-    EntityPropertySeed,
-    EntityPropertySeedReference,
-    FakerTypes,
-    getType,
     QueryResult,
-    SeedDatabase,
 } from '@deepkit/orm-browser-api';
 import { rpc } from '@deepkit/rpc';
 import { SQLDatabaseAdapter } from '@deepkit/sql';
-import { Logger, LoggerLevel, MemoryLoggerTransport } from '@deepkit/logger';
+import { Logger, MemoryLoggerTransport } from '@deepkit/logger';
 import { performance } from 'perf_hooks';
-import { fakers } from './faker.js';
 import { http, HttpQuery } from '@deepkit/http';
 import {
     cast,
     getPartialSerializeFunction,
-    isReferenceType,
     ReflectionClass,
-    ReflectionKind,
-    resolveClassType,
     serializer,
-    Type,
 } from '@deepkit/type';
 
 @rpc.controller(BrowserControllerInterface)
@@ -103,166 +93,12 @@ export class OrmBrowserController implements BrowserControllerInterface {
     }
 
     @rpc.action()
-    async getFakerTypes(): Promise<FakerTypes> {
-        const res: FakerTypes = {};
-
-        for (const [fn, fake] of Object.entries(fakers)) {
-            const example = fake();
-            res[fn] = { example: example, type: getType(example) };
-        }
-        return res;
-    }
-
-    @rpc.action()
     async getMigrations(name: string): Promise<{ [name: string]: { sql: string[], diff: string } }> {
         const db = this.findDatabase(name);
         if (db.adapter instanceof SQLDatabaseAdapter) {
             return db.adapter.getMigrations(new MigrateOptions(), db.entityRegistry);
         }
         return {};
-    }
-
-    @rpc.action()
-    async seed(dbName: string, seed: SeedDatabase): Promise<void> {
-        const db = this.getDb(dbName);
-        const oldLevel = db.logger.level;
-        db.logger.level = LoggerLevel.debug;
-
-        try {
-            const session = db.createSession();
-            const added: { [entityName: string]: any[] } = {};
-            const assignReference: {
-                path: string,
-                entity: string,
-                properties: { [name: string]: EntityPropertySeed },
-                reference: EntityPropertySeedReference,
-                callback: (v: any) => any
-            }[] = [];
-
-            function fakerValue(path: string, fakerName: string): any {
-                const fake = fakers[fakerName];
-                if (!fake) {
-                    console.warn(`Could not fake ${path}: unknown faker ${fakerName}`);
-                    return;
-                }
-                return fake();
-            }
-
-            function fake(path: string, property: Type, propSeed: EntityPropertySeed, callback: (v: any) => any): any {
-                if (!propSeed.fake) {
-                    if (propSeed.value !== undefined) callback(propSeed.value);
-                    return;
-                }
-
-                if (isReferenceType(property)) {
-                    // if (property.type !== 'class') throw new Error(`${path}: only class properties can be references`);
-                    assignReference.push({
-                        path,
-                        entity: resolveClassType(property).getName(),
-                        reference: propSeed.reference,
-                        properties: propSeed.properties,
-                        callback
-                    });
-                    return;
-                } else if (property.kind === ReflectionKind.array) {
-                    const res: any[] = [];
-                    if (!propSeed.array) return res;
-                    const range = propSeed.array.max - propSeed.array.min;
-                    for (let i = 0; i < Math.ceil(Math.random() * range); i++) {
-                        fake(path + '.' + i, property.type, propSeed.array.seed, (v) => {
-                            res.push(v);
-                        });
-                    }
-
-                    return callback(res);
-                } else if (property.kind === ReflectionKind.class || property.kind === ReflectionKind.objectLiteral) {
-                    const schema = ReflectionClass.from(property);
-                    const item: any = schema.createDefaultObject();
-                    for (const prop of schema.getProperties()) {
-                        if (!propSeed.properties[prop.name]) continue;
-
-                        fake(path + '.' + prop.name, prop.type, propSeed.properties[prop.name], (v) => {
-                            item[prop.name] = v;
-                        });
-                    }
-                    return callback(item);
-                } else if (property.kind === ReflectionKind.boolean) {
-                    callback(Math.random() > 0.5);
-                } else if (property.kind === ReflectionKind.enum) {
-                    const values = property.values;
-                    callback(values[values.length * Math.random() | 0]);
-                } else {
-                    return callback(fakerValue(path, propSeed.faker));
-                }
-            }
-
-            function create(entity: ReflectionClass<any>, properties: { [name: string]: EntityPropertySeed }) {
-                if (!added[entity.getName()]) added[entity.getName()] = [];
-
-                const item: any = entity.createDefaultObject();
-
-                for (const [propName, propSeed] of Object.entries(properties)) {
-                    const property = entity.getProperty(propName);
-                    fake(entity.getClassName() + '.' + propName, property.type, propSeed, (v) => {
-                        item[property.name] = v;
-                    });
-                }
-
-                for (const reference of entity.getReferences()) {
-                    if (reference.isArray()) continue;
-                    if (reference.isBackReference()) continue;
-                    item[reference.name] = db.getReference(reference.getResolvedReflectionClass(), item[reference.name]);
-                }
-
-                session.add(item);
-                added[entity.getName()].push(item);
-                return item;
-            }
-
-            for (const [entityName, entitySeed] of Object.entries(seed.entities)) {
-                if (!entitySeed || !entitySeed.active) continue;
-                const entity = db.getEntity(entityName);
-
-                if (entitySeed.truncate) {
-                    await db.query(entity).deleteMany();
-                }
-
-                for (let i = 0; i < entitySeed.amount; i++) {
-                    create(entity, entitySeed.properties);
-                }
-            }
-
-            //assign references
-            const dbCandidates: { [entityName: string]: any[] } = {};
-            for (const ref of assignReference) {
-                const entity = db.getEntity(ref.entity);
-
-                let candidates = added[ref.entity] ||= [];
-                if (ref.reference === 'random') {
-                    //note: I know there are faster ways, but this gets the job done for now
-                    candidates = dbCandidates[ref.entity] ||= await db.query(entity).limit(1000).find();
-                }
-
-                if (!candidates.length) {
-                    if (ref.reference === 'random') {
-                        throw new Error(`Entity ${ref.entity} has no items in the database. Used in ${ref.path}.`);
-                    }
-                    if (ref.reference === 'random-seed') {
-                        throw new Error(`Entity ${ref.entity} has no seeded items. Used in ${ref.path}.`);
-                    }
-                }
-
-                if (ref.reference === 'create') {
-                    ref.callback(create(entity, ref.properties));
-                } else {
-                    ref.callback(candidates[candidates.length * Math.random() | 0]);
-                }
-            }
-
-            await session.commit();
-        } finally {
-            db.logger.level = oldLevel;
-        }
     }
 
     @http.GET('_orm-browser/query')

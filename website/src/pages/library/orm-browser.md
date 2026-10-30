@@ -5,7 +5,7 @@ doc: orm/orm-browser
 ---
 
 <p class="introduction">
-    Data browser for Deepkit ORM.  With interfaces for database seed, schema migrate, and your ER model of your database.
+    Data browser for Deepkit ORM. With interfaces for schema migrate and your ER model of your database.
     An interactive query prompt allows you to execute javascript queries directly in the browser
     against your real database.
 </p>
@@ -52,16 +52,6 @@ See all your models with relations, fields, and primary keys in one big diagram.
 
 </feature>
 
-
-<feature class="center">
-
-## Seed
-
-Seed your database with a powerful faker library directly from within your browser.
-
-<app-image alt="content editing" src="/assets/screenshots-orm-browser/seed.png"></app-image>
-
-</feature>
 
 
 <feature>

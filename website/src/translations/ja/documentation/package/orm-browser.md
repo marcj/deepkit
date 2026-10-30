@@ -12,7 +12,6 @@ Deepkit ORM Browser は、Database ORM schema を閲覧し、コンテンツを�
     <app-image src="/assets/screenshots-orm-browser/content-editing.png"></app-image>
     <app-image src="/assets/screenshots-orm-browser/model-diagram.png"></app-image>
     <app-image src="/assets/screenshots-orm-browser/query.png"></app-image>
-    <app-image src="/assets/screenshots-orm-browser/seed.png"></app-image>
 </app-images>
 
 <api-docs package="@deepkit/orm-browser"></api-docs>

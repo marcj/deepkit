@@ -10,7 +10,6 @@ import { DatabaseInfo } from '@deepkit/orm-browser-api';
 import { BrowserState } from '../browser-state';
 import { ControllerClient } from '../client';
 import { DatabaseGraphComponent } from '../components/database-graph.component';
-import { DatabaseSeedComponent } from '../components/database-seed.component';
 
 @Component({
     selector: 'orm-browser-database',
@@ -19,12 +18,7 @@ import { DatabaseSeedComponent } from '../components/database-seed.component';
             <dui-button-group>
                 <dui-tab-button [active]="tab === 'model'" (click)="setTab('model')">Model</dui-tab-button>
                 <dui-tab-button [active]="tab === 'migration'" (click)="setTab('migration')">Migration </dui-tab-button>
-                <dui-tab-button [active]="tab === 'seed'" (click)="setTab('seed')">Seed</dui-tab-button>
             </dui-button-group>
-        </div>
-
-        <div class="layout" [hidden]="tab !== 'seed'">
-            <orm-browser-seed [database]="database"></orm-browser-seed>
         </div>
 
         <div class="layout" [hidden]="tab !== 'model'">
@@ -72,7 +66,6 @@ import { DatabaseSeedComponent } from '../components/database-seed.component';
     imports: [
         ButtonGroupComponent,
         TabButtonComponent,
-        DatabaseSeedComponent,
         DatabaseGraphComponent,
         ButtonComponent,
         KeyValuePipe,
@@ -141,8 +134,6 @@ export class DatabaseComponent implements OnDestroy {
         await this.loadMigration();
         this.state.onDataChange.emit();
     }
-
-    async loadSeed() {}
 
     async loadMigration() {
         this.loadingMigrations = true;

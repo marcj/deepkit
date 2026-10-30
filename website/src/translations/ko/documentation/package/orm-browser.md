@@ -12,7 +12,6 @@ Deepkit ORM Browser는 데이터베이스 ORM 스키마를 탐색하고, 콘텐�
     <app-image src="/assets/screenshots-orm-browser/content-editing.png"></app-image>
     <app-image src="/assets/screenshots-orm-browser/model-diagram.png"></app-image>
     <app-image src="/assets/screenshots-orm-browser/query.png"></app-image>
-    <app-image src="/assets/screenshots-orm-browser/seed.png"></app-image>
 </app-images>
 
 <api-docs package="@deepkit/orm-browser"></api-docs>
