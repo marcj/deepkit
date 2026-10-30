@@ -23,6 +23,12 @@ export interface FilesystemAwsS3Options extends S3ClientConfigType {
     endpoint?: string;
 
     /**
+     * Use path-style URLs (http://endpoint/bucket/key) instead of virtual-hosted style.
+     * Required for most S3-compatible services (MinIO, S3Mock, ...).
+     */
+    forcePathStyle?: boolean;
+
+    /**
      * If enabled, the adapter will create directories when writing files.
      *
      * Default: true
@@ -41,6 +47,7 @@ export class FilesystemAwsS3Adapter implements FilesystemAdapter {
                 secretAccessKey: options.secretAccessKey,
             },
             endpoint: options.endpoint,
+            forcePathStyle: options.forcePathStyle,
         });
     }
 
@@ -52,9 +59,16 @@ export class FilesystemAwsS3Adapter implements FilesystemAdapter {
         return this.options.directoryEmulation === true;
     }
 
+    /**
+     * Key prefix for `options.path`, without leading slash (S3 keys must not start with `/`).
+     */
+    protected getBasePath(): string {
+        return this.options.path ? pathNormalize(this.options.path).slice(1) + '/' : '';
+    }
+
     protected getRemotePath(path: string) {
         path = pathNormalize(path);
-        const base = this.options.path ? (pathNormalize(this.options.path).slice(0) + '/') : '';
+        const base = this.getBasePath();
         if (path === '/') return base;
         let remotePath = this.options.path ? base : '';
         remotePath += path === '/' ? '' : path.slice(1);
@@ -68,8 +82,7 @@ export class FilesystemAwsS3Adapter implements FilesystemAdapter {
 
     protected pathMapToVirtual(path: string): string {
         //remove this.options.path from path
-        const base = this.options.path ? (pathNormalize(this.options.path).slice(0) + '/') : '';
-        return path.slice(base.length);
+        return path.slice(this.getBasePath().length);
     }
 
     publicUrl(path: string): string {
