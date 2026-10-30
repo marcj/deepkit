@@ -2,3 +2,4 @@ files/package-lock.json
 files/dist
 files/node_modules
 files/var
+*.tsbuildinfo

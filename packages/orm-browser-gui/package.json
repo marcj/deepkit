@@ -18,7 +18,8 @@
     "access": "public"
   },
   "files": [
-    "dist"
+    "dist",
+    "!**/*.tsbuildinfo"
   ],
   "preferUnplugged": true,
   "devDependencies": {

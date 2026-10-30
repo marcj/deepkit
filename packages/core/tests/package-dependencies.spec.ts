@@ -60,3 +60,20 @@ test('@deepkit peer dependencies require the current version', () => {
     }
     expect(outdated).toEqual([]);
 });
+
+test('published packages exclude .tsbuildinfo files', () => {
+    // tsc writes them into dist, they added 4.4 MB to every release
+    const missing: string[] = [];
+    for (const dir of readdirSync(packagesDir)) {
+        const pkgPath = join(packagesDir, dir, 'package.json');
+        if (!existsSync(pkgPath)) continue;
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+        if (pkg.private) continue;
+        const npmignore = join(packagesDir, dir, '.npmignore');
+        const excluded = pkg.files
+            ? pkg.files.includes('!**/*.tsbuildinfo')
+            : existsSync(npmignore) && readFileSync(npmignore, 'utf8').split('\n').includes('*.tsbuildinfo');
+        if (!excluded) missing.push(pkg.name);
+    }
+    expect(missing).toEqual([]);
+});
