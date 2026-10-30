@@ -1,11 +1,13 @@
 import ts from 'typescript';
 import { cwd } from 'process';
-import { createFilter } from '@rollup/pluginutils';
+import { createFilter, type FilterPattern } from '@rollup/pluginutils';
 import { declarationTransformer, transformer } from './compiler.js';
 
 export interface Options {
-    include?: string;
-    exclude?: string;
+    /** Files to transform, glob patterns or regular expressions. Default all .ts and .tsx files. */
+    include?: FilterPattern;
+    /** Files to skip, glob patterns or regular expressions. Default node_modules. */
+    exclude?: FilterPattern;
     tsConfig?: string;
     transformers?: ts.CustomTransformers;
     compilerOptions?: ts.CompilerOptions;

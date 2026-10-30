@@ -1,11 +1,13 @@
-import { createFilter } from '@rollup/pluginutils';
+import { createFilter, type FilterPattern } from '@rollup/pluginutils';
 import * as ts from 'typescript';
 import { declarationTransformer, transformer } from '@deepkit/type-compiler';
 import type { Plugin } from 'vite' with { 'resolution-mode': 'import' };
 
 export interface Options {
-    include?: string;
-    exclude?: string;
+    /** Files to transform, glob patterns or regular expressions. Default all .ts and .tsx files. */
+    include?: FilterPattern;
+    /** Files to skip, glob patterns or regular expressions. Default node_modules. */
+    exclude?: FilterPattern;
     tsConfig?: string;
     transformers?: ts.CustomTransformers;
     compilerOptions?: ts.CompilerOptions;
