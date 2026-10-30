@@ -37,12 +37,12 @@
     "typescript": "*"
   },
   "devDependencies": {
-    "@types/lz-string": "^1.3.34"
+    "@types/lz-string": "^1.3.34",
+    "@typescript/vfs": "1.5.0"
   },
   "dependencies": {
     "@deepkit/type-spec": "^1.0.19",
-    "@marcj/ts-clone-node": "^2.0.0",
-    "@typescript/vfs": "1.5.0"
+    "@marcj/ts-clone-node": "^2.0.0"
   },
   "jest": {
     "testEnvironment": "node",

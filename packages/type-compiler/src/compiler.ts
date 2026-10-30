@@ -96,7 +96,7 @@ import {
 import { SourceFile } from './ts-types.js';
 import { MappedModifier, ReflectionOp, TypeIntrinsic, TypeNumberBrand } from '@deepkit/type-spec';
 import { readNearestPackageJson, Resolver } from './resolver.js';
-import { knownLibFilesForCompilerOptions } from '@typescript/vfs';
+import { knownLibFilesForCompilerOptions } from './lib-files.js';
 import { debug, debug2 } from './debug.js';
 import { ConfigResolver, getConfigResolver, MatchResult, ReflectionConfig, ReflectionConfigCache, reflectionModeMatcher, ResolvedConfig } from './config.js';
 
@@ -2238,13 +2238,13 @@ export class ReflectionTransformer implements CustomTransformer {
 
         //todo also read compiler options "types" + typeRoot
 
-        //currently knownLibFilesForCompilerOptions from @typescript/vfs doesn't return correct lib files for esnext,
+        //currently knownLibFilesForCompilerOptions doesn't return correct lib files for esnext,
         //so we switch here to es2022 if bigger than es2022.
         const options = { ...this.compilerOptions };
         if (options.target && (options.target === ScriptTarget.ESNext)) {
             options.target = ScriptTarget.ES2022;
         }
-        const libs = knownLibFilesForCompilerOptions(options, ts);
+        const libs = knownLibFilesForCompilerOptions(options);
 
         for (const lib of libs) {
             if (this.isExcluded(lib)) continue;
