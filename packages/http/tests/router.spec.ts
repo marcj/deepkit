@@ -1201,6 +1201,28 @@ test('parameter from header', async () => {
     expect((await httpKernel.request(HttpRequest.GET('/second/2').header('group_id', 1))).json).toEqual([2, 1]);
 });
 
+test('header parameters are case-insensitive (#653)', async () => {
+    class Controller {
+        @http.GET('auth')
+        auth(authorization: HttpHeader<string>) {
+            return authorization;
+        }
+
+        @http.GET('key')
+        key(apiKey: HttpHeader<string, { name: 'X-Api-Key' }>) {
+            return apiKey;
+        }
+    }
+
+    const httpKernel = createHttpKernel([Controller]);
+    expect((await httpKernel.request(HttpRequest.GET('/auth').header('Authorization', 'a'))).json).toBe('a');
+    expect((await httpKernel.request(HttpRequest.GET('/auth').header('authorization', 'b'))).json).toBe('b');
+    expect((await httpKernel.request(HttpRequest.GET('/auth').headers({ AUTHORIZATION: 'c' }))).json).toBe('c');
+    expect((await httpKernel.request(HttpRequest.GET('/key').header('X-Api-Key', 'd'))).json).toBe('d');
+    // Node lowercases incoming header names
+    expect((await httpKernel.request(HttpRequest.GET('/key').header('x-api-key', 'e'))).json).toBe('e');
+});
+
 test('parameter in for listener', async () => {
     class HttpSession {
         groupId2?: number;

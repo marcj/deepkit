@@ -312,13 +312,21 @@ export class RequestBuilder {
         }, this.contentBuffer);
     }
 
+    /**
+     * Replaces all headers. Names are lowercased like Node does for incoming requests.
+     */
     headers(headers: { [name: string]: string }): this {
-        this._headers = headers;
+        this._headers = {};
+        for (const [name, value] of Object.entries(headers)) this.header(name, value);
         return this;
     }
 
+    /**
+     * Sets a header. The name is lowercased like Node does for incoming requests,
+     * so `header('Authorization', ...)` is found by `authorization: HttpHeader<string>`.
+     */
     header(name: string, value: string | number): this {
-        this._headers[name] = String(value);
+        this._headers[name.toLowerCase()] = String(value);
         return this;
     }
 

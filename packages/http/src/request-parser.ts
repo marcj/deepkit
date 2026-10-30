@@ -329,7 +329,9 @@ export function getRequestParserCodeForParameters(
 
             const queryPath = parameter.typePath === undefined && !parameter.queries ? parameter.parameter.name : parameter.typePath;
             const accessor = queryPath ? `['` + (queryPath.replace(/\./g, `']['`)) + `']` : '';
-            const queryAccessor = parameter.header ? `_headers${accessor}` : queryPath ? `_query${accessor}` : '_query';
+            // header names are case-insensitive, Node lowercases them in request.headers
+            const headerAccessor = queryPath ? `_headers[${JSON.stringify(queryPath.toLowerCase())}]` : '_headers';
+            const queryAccessor = parameter.header ? headerAccessor : queryPath ? `_query${accessor}` : '_query';
 
             if (isOptional(parameter.parameter.parameter) || hasDefaultValue(parameter.parameter.parameter)) {
                 setParameters.push(`parameters.${parameter.parameter.name} = ${queryAccessor} === undefined ? undefined : ${converterVar}(${queryAccessor}, {loosely: true});`);
