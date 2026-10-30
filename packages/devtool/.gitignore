@@ -8,3 +8,7 @@ dist/app
 !dist/devtools.js
 !dist/devtools.html
 
+
+# Build artifacts of npm run build
+.angular/
+dist.zip
