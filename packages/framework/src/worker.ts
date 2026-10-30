@@ -13,7 +13,6 @@ import http, { Server } from 'http';
 import https from 'https';
 import type { Server as WebSocketServer, ServerOptions as WebSocketServerOptions } from 'ws';
 import ws from 'ws';
-import selfsigned from 'selfsigned';
 
 import { HttpConfig, HttpKernel, HttpRequest, HttpResponse } from '@deepkit/http';
 import { InjectorContext } from '@deepkit/injector';
@@ -25,6 +24,7 @@ import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { LoggerInterface } from '@deepkit/logger';
 import { sleep } from '@deepkit/core';
+import { createSelfSignedCertificate } from './self-signed.js';
 
 // @ts-ignore
 import compression from 'compression';
@@ -261,8 +261,7 @@ export class WebWorker {
                         options.key = readFileSync(keyPath, 'utf8');
                         options.cert = readFileSync(certificatePath, 'utf8');
                     } else {
-                        const attrs = [{ name: 'commonName', value: this.options.host }];
-                        const pems = selfsigned.generate(attrs, { days: 365 });
+                        const pems = createSelfSignedCertificate(this.options.host, 365);
                         options.cert = pems.cert;
                         options.key = pems.private;
                         writeFileSync(keyPath, pems.private, 'utf8');

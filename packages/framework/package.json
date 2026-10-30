@@ -54,7 +54,6 @@
     "compression": "^1.7.4",
     "faker": "5.4.0",
     "mime-types": "^2.1.27",
-    "selfsigned": "^2.1.1",
     "ws": "^7.4.2"
   },
   "devDependencies": {
