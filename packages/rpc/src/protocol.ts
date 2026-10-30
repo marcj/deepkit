@@ -381,7 +381,22 @@ export function createRpcMessage<T>(
 
 }
 
+/**
+ * PreSerialized values are spliced in only by the single-body serializer. Any other
+ * serializer would encode the PreSerialized object itself, sending wrong data.
+ */
+function assertNoPreSerialized(message: RpcMessageDefinition): void {
+    const bodies = message.composite ? message.composite.map(v => v.body) : [message.body?.body];
+    for (const body of bodies) {
+        if (getPreSerialized(body)) {
+            throw new RpcError('PreSerialized values are only supported in single-body messages that are not routed via peer or source/destination');
+        }
+    }
+}
+
 export function serializeBinaryRpcMessage(message: RpcMessageDefinition): Uint8Array {
+    if (message.composite || message.routeType !== RpcMessageRouteType.client) assertNoPreSerialized(message);
+
     if (message.composite) {
         if (message.routeType === RpcMessageRouteType.sourceDest) {
             return serializeBinaryRpcCompositeMessageSourceDest(message);

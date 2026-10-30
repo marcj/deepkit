@@ -1,12 +1,12 @@
 import { describe, expect, test } from '@jest/globals';
 import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
 
-import { ReceiveType } from '@deepkit/type';
+import { ReceiveType, typeOf } from '@deepkit/type';
 
 import { DirectClient } from '../src/client/client-direct.js';
 import { rpc } from '../src/decorators.js';
 import { RpcTypes } from '../src/model.js';
-import { createRpcMessage, getPreSerializedPart, preSerialize, readBinaryRpcMessage, serializeBinaryRpcMessage } from '../src/protocol.js';
+import { createRpcMessage, getPreSerializedPart, preSerialize, readBinaryRpcMessage, RpcMessageRouteType, serializeBinaryRpcMessage } from '../src/protocol.js';
 import { RpcKernel } from '../src/server/kernel.js';
 
 enum Visibility {
@@ -147,4 +147,20 @@ describe('PreSerialized rpc bodies', () => {
         expect(await controller.result()).toEqual(items);
         await client.disconnect();
     });
+});
+
+test('rejects messages that cannot splice a PreSerialized value', () => {
+    const v = preSerialize<Item[]>([]);
+    const body = { type: typeOf<ObservableNext>(), body: { id: 1, v } };
+    const error = 'PreSerialized values are only supported in single-body messages';
+
+    expect(() => serializeBinaryRpcMessage({ id: 1, type: RpcTypes.ResponseActionSimple, routeType: RpcMessageRouteType.peer, peerId: 'peer', body })).toThrow(error);
+    expect(() => serializeBinaryRpcMessage({
+        id: 1, type: RpcTypes.ResponseActionSimple, routeType: RpcMessageRouteType.sourceDest,
+        source: new Uint8Array(16), destination: new Uint8Array(16), body,
+    })).toThrow(error);
+    expect(() => serializeBinaryRpcMessage({
+        id: 1, type: RpcTypes.ResponseActionSimple, routeType: RpcMessageRouteType.client,
+        composite: [{ type: RpcTypes.ResponseActionSimple, schema: typeOf<ObservableNext>(), body: { id: 1, v } }],
+    })).toThrow(error);
 });
