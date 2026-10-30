@@ -1,5 +1,5 @@
 import { expect, jest, test } from '@jest/globals';
-import { Email, MaxLength, MinLength, Positive, Validate, validate, validates, ValidatorError } from '../src/validator.js';
+import { Email, MaxLength, MinLength, Positive, Validate, validate, validates, ValidationError, ValidationErrorItem, ValidatorError } from '../src/validator.js';
 import { assert, is } from '../src/typeguard.js';
 import { AutoIncrement, Excluded, Group, integer, PrimaryKey, Type, Unique, UUID } from '../src/reflection/type.js';
 import { t } from '../src/decorator.js';
@@ -398,4 +398,14 @@ test('array with multiple errors', () => {
         {code: 'positive', message: 'Number needs to be positive', path: '0.level', value: -1},
         {code: 'positive', message: 'Number needs to be positive', path: '1.level', value: -1}
     ]);
+});
+
+test('ValidationErrorItem.toString() handles circular references (#505)', () => {
+    const circular: any = { name: 'test' };
+    circular.self = circular;
+
+    const item = new ValidationErrorItem('path', 'type', 'Not valid', circular);
+    expect(item.toString()).toContain('path(type): Not valid caused by value');
+
+    expect(() => assert<string[]>(circular)).toThrow(ValidationError);
 });

@@ -1,6 +1,6 @@
 import { ReceiveType } from './reflection/reflection.js';
 import { getValidatorFunction, is } from './typeguard.js';
-import { CustomError, TypeAnnotation } from '@deepkit/core';
+import { CustomError, stringifyValueWithType, TypeAnnotation } from '@deepkit/core';
 import { stringifyType, Type } from './reflection/type.js';
 import { entity } from './decorator.js';
 import { serializer, Serializer } from './serializer.js';
@@ -94,7 +94,13 @@ export class ValidationErrorItem {
         let messagedCausedBy = '';
         if (this.value !== undefined) {
             //serialise the value and trim to 100 chars max
-            let serialisedValue = JSON.stringify(this.value);
+            let serialisedValue: string;
+            try {
+                serialisedValue = JSON.stringify(this.value);
+            } catch {
+                //circular references or other values JSON.stringify can not handle
+                serialisedValue = stringifyValueWithType(this.value);
+            }
             if (serialisedValue.length > 100) serialisedValue = serialisedValue.slice(0, 100) + '...';
             messagedCausedBy = ` caused by value ${serialisedValue}`;
         }
