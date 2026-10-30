@@ -15,7 +15,6 @@
     "esModuleInterop": true,
     "preserveSymlinks": true,
     "types": [
-      "fs-extra",
       "node"
     ],
     "paths": {

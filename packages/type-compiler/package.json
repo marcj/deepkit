@@ -45,10 +45,7 @@
     "@marcj/ts-clone-node": "^2.0.0",
     "@rollup/pluginutils": "^5.1.0",
     "@typescript/vfs": "1.5.0",
-    "get-tsconfig": "^4.5.0",
-    "lz-string": "^1.4.4",
-    "micromatch": "^4.0.5",
-    "strip-json-comments": "^3.1.1"
+    "micromatch": "^4.0.5"
   },
   "jest": {
     "testEnvironment": "node",

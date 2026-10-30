@@ -4,7 +4,8 @@
     "noImplicitAny": true,
     "outDir": "./dist/cjs",
     "types": [
-      "sqlstring"
+      "sqlstring",
+      "node"
     ]
   },
   "reflection": true,

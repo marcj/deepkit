@@ -5,7 +5,9 @@
     "useDefineForClassFields": false,
     "target": "es2022",
     "outDir": "./dist/cjs",
-    "types": []
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "src",

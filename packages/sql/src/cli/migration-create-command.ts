@@ -106,9 +106,10 @@ export class MigrationCreateController extends BaseCommand implements Command {
             let migrationName = '';
             const date = new Date;
 
-            const { format } = await import('date-fns');
+            const pad = (v: number) => String(v).padStart(2, '0');
+            const dateName = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
             for (let i = 1; i < 100; i++) {
-                migrationName = format(date, 'yyyyMMdd-HHmm');
+                migrationName = dateName;
                 if (i > 1) migrationName += '_' + i;
 
                 if (!existsSync(join(this.provider.getMigrationDir(), migrationName + '.ts'))) {

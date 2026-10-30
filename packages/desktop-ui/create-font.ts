@@ -1,6 +1,5 @@
-import {createReadStream, createWriteStream, lstatSync, readdirSync, readFileSync, writeFileSync} from 'fs';
+import {createReadStream, createWriteStream, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync} from 'fs';
 import {join} from 'path';
-import {ensureDirSync} from 'fs-extra';
 
 const svg2ttf = require('svg2ttf');
 const ttf2woff = require('ttf2woff');
@@ -26,7 +25,7 @@ const projectOutput = process.argv[2] ? process.argv[2] : undefined;
 const out = './src/assets/fonts';
 const fontFileName = 'ui-icons';
 
-ensureDirSync(out);
+mkdirSync(out, { recursive: true });
 
 (async () => {
     const files: { [path: string]: string } = {};

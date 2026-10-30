@@ -10,9 +10,10 @@
 
 import { ClassType, getClassName } from '@deepkit/core';
 import { Database, DatabaseError, DatabaseRegistry } from '@deepkit/orm';
-import glob from 'fast-glob';
 import { createRequire } from 'module';
-import { basename, isAbsolute, join } from 'path';
+import { existsSync } from 'fs';
+import { readdir } from 'fs/promises';
+import { basename, isAbsolute, join, sep } from 'path';
 import { Migration } from './migration.js';
 
 export class MigrationProvider {
@@ -93,7 +94,12 @@ export class MigrationProvider {
     async getMigrations(migrationDir: string): Promise<Migration[]> {
         let migrations: Migration[] = [];
 
-        const files = await glob('**/*.ts', { cwd: migrationDir });
+        // all .ts files in migrationDir and its subfolders, without hidden files and folders
+        const files = existsSync(migrationDir)
+            ? (await readdir(migrationDir, { recursive: true }))
+                  .filter(file => file.endsWith('.ts') && !file.split(sep).some(v => v.startsWith('.')))
+                  .sort()
+            : [];
 
         for (const file of files) {
             const path = join(process.cwd(), migrationDir, file);

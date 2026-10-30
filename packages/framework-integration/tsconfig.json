@@ -7,7 +7,6 @@
     "outDir": "./dist",
     "types": [
       "clone",
-      "fs-extra",
       "tmp",
       "ws"
     ]

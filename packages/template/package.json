@@ -35,7 +35,8 @@
   },
   "dependencies": {
     "@types/estree": "^0.0.45",
-    "abstract-syntax-tree": "^2.9.4"
+    "abstract-syntax-tree": "^2.9.4",
+    "pirates": "^4.0.1"
   },
   "devDependencies": {
     "@deepkit/core": "^1.0.19",

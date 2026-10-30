@@ -12,7 +12,6 @@
       "ws",
       "clone",
       "faker",
-      "fs-extra",
       "node"
     ]
   },

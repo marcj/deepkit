@@ -1,8 +1,7 @@
 import { cli, findParentPath } from '@deepkit/app';
 import { Logger } from '@deepkit/logger';
-import { copySync, existsSync } from 'fs-extra';
 import { basename, join } from 'path';
-import { readFileSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { spawn } from 'child_process';
 import { getCurrentDirName } from '@deepkit/core';
 
@@ -38,8 +37,8 @@ export class CreateController {
         const dist = join(filesPath, 'dist');
         const varDir = join(filesPath, 'var');
 
-        copySync(filesPath, localPath, {
-            recursive: true, filter: (src, dest) => {
+        cpSync(filesPath, localPath, {
+            recursive: true, filter: (src: string) => {
                 if (src.startsWith(node_modules) || src.startsWith(package_json) || src.startsWith(dist) || src.startsWith(varDir)) return false;
                 return true;
             }

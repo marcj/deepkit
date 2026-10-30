@@ -43,10 +43,7 @@
   },
   "dependencies": {
     "@types/sqlstring": "^2.2.1",
-    "date-fns": "^2.17.0",
-    "fast-glob": "^3.2.5",
-    "sqlstring": "^2.3.2",
-    "sqlstring-sqlite": "^0.1.1"
+    "sqlstring": "^2.3.2"
   },
   "devDependencies": {
     "@deepkit/app": "^1.0.19",

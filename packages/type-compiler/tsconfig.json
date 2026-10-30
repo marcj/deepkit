@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "./dist/cjs",
     "types": [
-      "lz-string",
       "micromatch",
       "node"
     ]

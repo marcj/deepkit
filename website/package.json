@@ -103,6 +103,7 @@
     "zone.js": "~0.16.3"
   },
   "dependencies": {
-    "argon2": "^0.43.0"
+    "argon2": "^0.43.0",
+    "buffer": "^5.2.1"
   }
 }
