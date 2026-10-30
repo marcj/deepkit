@@ -26,6 +26,15 @@ jobs:
       - name: Build
         run: npm run tsc
 
+      # Angular GUIs, in dependency order. Also needed by the api-console-module tests.
+      # The GUIs import the ESM builds of the packages.
+      - name: Build GUIs
+        run: |
+          npm run build:esm
+          for p in desktop-ui ui-library api-console-gui framework-debug-gui orm-browser-gui; do
+            (cd packages/$p && npm run build)
+          done
+
       - name: Wait for test services
         run: docker compose up -d --wait
 

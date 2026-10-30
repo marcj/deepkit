@@ -98,7 +98,8 @@
       "packages/create-app",
       "packages/filesystem-database",
       "packages/logger",
-      "packages/skeleton"
+      "packages/skeleton",
+      "packages/api-console-module"
     ]
   },
   "packageManager": "yarn@4.9.2"

@@ -1,4 +1,5 @@
 bin/create-font.js.LICENSE.txt
 src/assets/docs.json
+docs.json
 src/assets/fonts/ui-icons.ttf
 src/assets/fonts/ui-icons.woff
