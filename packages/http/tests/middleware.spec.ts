@@ -42,9 +42,10 @@ test('middleware async failed', async () => {
         throw new Error('nope');
     })]);
 
+    // a crashing middleware is a server error, like a crashing controller (#439)
     const response = await httpKernel.request(HttpRequest.GET('/user/name1'));
-    expect(response.statusCode).toEqual(404);
-    expect(response.bodyString).toEqual('Not found');
+    expect(response.statusCode).toEqual(500);
+    expect(response.bodyString).toEqual('Internal error');
 });
 
 test('middleware class async success', async () => {
@@ -73,8 +74,8 @@ test('middleware class async failed', async () => {
     const httpKernel = createHttpKernel([Controller], [MyMiddleware], [], [httpMiddleware.for(MyMiddleware)]);
 
     const response = await httpKernel.request(HttpRequest.GET('/user/name1'));
-    expect(response.statusCode).toEqual(404);
-    expect(response.bodyString).toEqual('Not found');
+    expect(response.statusCode).toEqual(500);
+    expect(response.bodyString).toEqual('Internal error');
 });
 
 test('middleware direct response', async () => {
@@ -275,13 +276,19 @@ test('middleware for routes', async () => {
 });
 
 test('middleware timeout', async () => {
+    let lateNext: (() => void) | undefined;
     const httpKernel = createHttpKernel([Controller], [], [], [httpMiddleware.for((req, res, next) => {
         //do nothing
-    }).timeout(1000)]);
+        lateNext = next;
+    }).timeout(100)]);
 
+    // the request fails instead of continuing to the controller (#439)
     const response = await httpKernel.request(HttpRequest.GET('/user/name1'));
-    expect(response.statusCode).toEqual(200);
-    expect(response.bodyString).toEqual('"name1"');
+    expect(response.statusCode).toEqual(504);
+    expect(response.json).toEqual({ message: 'Middleware timed out' });
+    // calling next() after the timeout does nothing
+    lateNext!();
+    expect(response.statusCode).toEqual(504);
 });
 
 test('middleware keep content type', async () => {

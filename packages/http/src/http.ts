@@ -111,6 +111,9 @@ export class HttpInternalServerError extends createHttpError(500, 'Internal serv
 export class HttpNotImplementedError extends createHttpError(501, 'Not implemented') {
 }
 
+export class HttpGatewayTimeoutError extends createHttpError(504, 'Gateway timeout') {
+}
+
 export class HttpWorkflowEvent extends BaseEvent {
     public nextState?: any;
     public nextStateEvent?: any;
@@ -560,6 +563,7 @@ export class HttpListener {
         if (event.sent) return;
         if (event.hasNext()) return;
         const logger = this.logger;
+        let inMiddleware = false;
 
         try {
             const resolved = this.router.resolveRequest(event.request);
@@ -571,6 +575,7 @@ export class HttpListener {
                 if (resolved.middlewares) {
                     const middlewares = resolved.middlewares(event.injectorContext);
                     if (middlewares.length) {
+                        inMiddleware = true;
                         await asyncOperation(async (resolve, reject) => {
                             let lastTimer: any = undefined;
 
@@ -582,6 +587,7 @@ export class HttpListener {
 
                             event.response.once('finish', finish);
                             let i = -1;
+                            let timedOut = false;
 
                             async function next() {
                                 i++;
@@ -595,14 +601,18 @@ export class HttpListener {
                                 const timeout = middlewares[i].timeout;
                                 if (timeout !== undefined && timeout > 0) {
                                     lastTimer = setTimeout(() => {
+                                        //a middleware that neither calls next() nor ends the response in time fails the request
+                                        timedOut = true;
                                         logger.warn(`Middleware timed out. Increase the timeout or fix the middleware. (${middlewares[i].fn})`);
-                                        next();
+                                        event.response.off('finish', finish);
+                                        reject(new HttpGatewayTimeoutError('Middleware timed out'));
                                     }, timeout);
                                 }
 
                                 try {
                                     await middlewares[i].fn(event.request, event.response, (error?: any) => {
                                         if (lastTimer) clearTimeout(lastTimer);
+                                        if (timedOut) return;
                                         if (error) {
                                             event.response.off('finish', finish);
                                             reject(error);
@@ -618,6 +628,7 @@ export class HttpListener {
 
                             await next();
                         });
+                        inMiddleware = false;
                     }
                 }
 
@@ -638,6 +649,12 @@ export class HttpListener {
                 event.send(new JSONResponse({
                     message: error.message
                 }, error.httpCode).disableAutoSerializing());
+                return;
+            }
+            if (inMiddleware) {
+                //like a failing controller, an error of a middleware is a server error (#439)
+                this.logger.error('Middleware error', error);
+                event.send(new HtmlResponse('Internal error', 500));
                 return;
             }
             this.logger.error('Could not resolve request', error);
