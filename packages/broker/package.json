@@ -26,10 +26,6 @@
   "scripts": {
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
-  "dependencies": {
-    "@lukeed/ms": "^2.0.1",
-    "js-xxhash": "3.0.1"
-  },
   "peerDependencies": {
     "@deepkit/bson": "^1.0.1",
     "@deepkit/core": "^1.0.1",
