@@ -1,4 +1,7 @@
-import { expect, test } from '@jest/globals';
+import { afterAll, expect, test } from '@jest/globals';
+import { rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { sleep } from '@deepkit/core';
 import { DatabaseEntityRegistry, UniqueConstraintFailure } from '@deepkit/orm';
 import { User, UserCredentials } from '@deepkit/orm-integration';
@@ -207,8 +210,12 @@ test('sqlite relation', async () => {
 });
 
 
+// the connection pool behaves differently for :memory:, so these tests need a file, which must not end up in the repo
+const fileDatabase = join(tmpdir(), `deepkit-sqlite-test-${process.pid}.sqlite`);
+afterAll(() => rmSync(fileDatabase, { force: true }));
+
 test('transaction', async () => {
-    const sqlite = new SQLiteDatabaseAdapter('app.sqlite');
+    const sqlite = new SQLiteDatabaseAdapter(fileDatabase);
 
     {
         const t1 = new SQLiteDatabaseTransaction();
@@ -238,7 +245,7 @@ test('transaction', async () => {
 });
 
 test('connection pool', async () => {
-    const sqlite = new SQLiteDatabaseAdapter('app.sqlite');
+    const sqlite = new SQLiteDatabaseAdapter(fileDatabase);
 
     {
         const c1 = await sqlite.connectionPool.getConnection();
