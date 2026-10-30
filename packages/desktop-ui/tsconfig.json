@@ -25,7 +25,9 @@
     },
     "skipLibCheck": true
   },
-  "reflection": true,
+  "reflection": [
+    "src/components/app/state.ts"
+  ],
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": true,
