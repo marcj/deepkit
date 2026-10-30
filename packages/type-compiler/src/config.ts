@@ -29,7 +29,7 @@ const defaultMergeStrategy = 'merge';
  * These are the values that can be in the tsconfig.json file.
  */
 export interface TsConfigJson {
-    extends?: string;
+    extends?: string | string[];
     compilerOptions?: any;
 
     reflection?: RawMode;
@@ -109,7 +109,7 @@ export interface ReflectionConfig {
 export interface CurrentConfig extends ReflectionConfig {
     compilerOptions: ts.CompilerOptions;
     mergeStrategy?: 'merge' | 'replace';
-    extends?: string;
+    extends?: string | string[];
 }
 
 export interface ResolvedConfig extends ReflectionConfig {
@@ -133,6 +133,14 @@ function ensureStringArray(value: any): string[] {
     if (Array.isArray(value)) return value.map(v => '' + v);
     if ('string' === typeof value) return [value];
     return [];
+}
+
+/**
+ * TypeScript 5.0+ supports extends as an array.
+ */
+function normalizeExtends(extendsValue: string | string[] | undefined): string[] {
+    if (!extendsValue) return [];
+    return Array.isArray(extendsValue) ? extendsValue : [extendsValue];
 }
 
 export function parseRawMode(mode: RawMode): string[] | Mode {
@@ -280,19 +288,26 @@ export function getConfigResolver(
     }
 
     if (tsConfigPath) {
-        let basePath = dirname(tsConfigPath);
-        let currentConfig = config;
+        const basePath = dirname(tsConfigPath);
         const seen = new Set<string>();
         seen.add(tsConfigPath);
         //iterate through all configs (this.config.extends) until we have all reflection options found.
-        while (currentConfig.extends) {
-            const path = join(basePath, currentConfig.extends);
-            if (seen.has(path)) break;
+        //for `extends: [A, B]` the last entry (B) has the highest priority. Since applyConfigValues
+        //keeps the first assigned value, configs are visited in decreasing priority order:
+        //the last entry and its ancestors before earlier entries.
+        const extendsQueue = normalizeExtends(config.extends).map(v => isAbsolute(v) ? v : join(basePath, v)).reverse();
+        while (extendsQueue.length > 0) {
+            const path = extendsQueue.shift()!;
+            if (seen.has(path)) continue;
             seen.add(path);
             const nextConfig = ts.readConfigFile(path, (path: string) => host.readFile(path));
-            if (!nextConfig) break;
-            basePath = dirname(path);
-            applyConfigValues(currentConfig, nextConfig.config, basePath);
+            if (!nextConfig || !nextConfig.config) continue;
+            const nextBasePath = dirname(path);
+            applyConfigValues(config, nextConfig.config, nextBasePath);
+            //depth-first: ancestors of this config come before its lower priority siblings
+            for (const next of normalizeExtends(nextConfig.config.extends)) {
+                extendsQueue.unshift(isAbsolute(next) ? next : join(nextBasePath, next));
+            }
         }
     } else {
         throw new Error(`No tsconfig found for ${sourceFile?.fileName}, that is weird. Either provide a tsconfig or compilerOptions.configFilePath`);

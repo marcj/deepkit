@@ -410,3 +410,24 @@ test('negative match 4', () => {
     expect(resolver.match('/path/portal/src/lib/types.ts').mode).toBe('default');
     expect(resolver.match('/path/portal/src/lib/graphql/generated.ts').mode).toBe('never');
 });
+
+test('extends array, last entry wins', () => {
+    // TypeScript 5.0+ allows an array, the last entry has the highest priority (#600)
+    const host = buildHost({
+        'tsconfig.a.json': { reflection: false },
+        'tsconfig.b.json': { extends: './tsconfig.c.json' },
+        'tsconfig.c.json': { reflection: true },
+        'tsconfig.json': { extends: ['./tsconfig.a.json', './tsconfig.b.json'] },
+    });
+    const resolver = getConfigResolver({}, host, {}, { fileName: 'test.ts' });
+    expect(resolver.match('test.ts').mode).toBe('default');
+});
+
+test('extends absolute path', () => {
+    const host = buildHost({
+        '/base/tsconfig.json': { reflection: true },
+        '/project/tsconfig.json': { extends: '/base/tsconfig.json' },
+    });
+    const resolver = getConfigResolver({}, host, {}, { fileName: '/project/test.ts' });
+    expect(resolver.match('/project/test.ts').mode).toBe('default');
+});
