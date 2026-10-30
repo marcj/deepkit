@@ -3579,11 +3579,9 @@ __metadata:
     "@deepkit/type": "npm:^1.0.19"
     "@deepkit/workflow": "npm:^1.0.19"
     "@types/clone": "npm:^0.1.30"
-    "@types/mime-types": "npm:^2.1.3"
     "@types/node": "npm:^22.13.1"
     "@types/ws": "npm:^7.4.0"
     compression: "npm:^1.7.4"
-    mime-types: "npm:^2.1.27"
     rxjs: "npm:~7.8.0"
     ws: "npm:^7.4.2"
   peerDependencies:
@@ -9921,13 +9919,6 @@ __metadata:
   version: 2.0.0
   resolution: "@types/mdurl@npm:2.0.0"
   checksum: 10c0/cde7bb571630ed1ceb3b92a28f7b59890bb38b8f34cd35326e2df43eebfc74985e6aa6fd4184e307393bad8a9e0783a519a3f9d13c8e03788c0f98e5ec869c5e
-  languageName: node
-  linkType: hard
-
-"@types/mime-types@npm:^2.1.3":
-  version: 2.1.4
-  resolution: "@types/mime-types@npm:2.1.4"
-  checksum: 10c0/a10d57881d14a053556b3d09292de467968d965b0a06d06732c748da39b3aa569270b5b9f32529fd0e9ac1e5f3b91abb894f5b1996373254a65cb87903c86622
   languageName: node
   linkType: hard
 

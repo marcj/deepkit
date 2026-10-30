@@ -1,7 +1,6 @@
-import { http, HttpQuery, HttpResponse } from '@deepkit/http';
+import { getMimeType, http, HttpQuery, HttpResponse } from '@deepkit/http';
 import { FilesystemRegistry } from '../filesystem.js';
 import { Filesystem } from '@deepkit/filesystem';
-import mime from 'mime-types';
 import { Logger } from '@deepkit/logger';
 
 function send(response: HttpResponse, data: Uint8Array, name: string, mimeType?: string, lastModified?: Date) {
@@ -36,7 +35,7 @@ export class DebugHttpController {
     async media(fs: number, path: HttpQuery<string>, response: HttpResponse) {
         const filesystem = this.getFilesystem(fs);
         const file = await filesystem.get(path);
-        const mimeType = mime.lookup(path) || '';
+        const mimeType = getMimeType(path) || '';
         //todo stream
         const data = await filesystem.read(path);
         send(response, data, file.name, mimeType, file.lastModified);
@@ -47,7 +46,7 @@ export class DebugHttpController {
     async mediaPreview(fs: number, path: HttpQuery<string>, response: HttpResponse) {
         const filesystem = this.getFilesystem(fs);
         const file = await filesystem.get(path);
-        const mimeType = mime.lookup(path) || '';
+        const mimeType = getMimeType(path) || '';
 
         //the original is sent as is, the browser scales it down
         if (mimeType.startsWith('image/')) {

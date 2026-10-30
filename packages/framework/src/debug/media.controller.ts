@@ -12,7 +12,7 @@ import { rpc } from '@deepkit/rpc';
 import { FilesystemRegistry } from '../filesystem.js';
 import { Filesystem, FilesystemFile } from '@deepkit/filesystem';
 import { pathDirectory, pathJoin } from '@deepkit/core';
-import mime from 'mime-types';
+import { getMimeType } from '@deepkit/http';
 
 function mapFile(filesystem: number, file: FilesystemFile): MediaFile {
     const mediaFile = new MediaFile(file.path, file.type);
@@ -20,7 +20,7 @@ function mapFile(filesystem: number, file: FilesystemFile): MediaFile {
     mediaFile.filesystem = filesystem;
     mediaFile.lastModified = file.lastModified;
     mediaFile.visibility = file.visibility;
-    mediaFile.mimeType = mime.lookup(file.path) || '';
+    mediaFile.mimeType = getMimeType(file.path) || '';
     return mediaFile;
 }
 
@@ -81,7 +81,7 @@ export class MediaController implements DebugMediaInterface {
 
         const filesystem = this.getFilesystem(fs);
         const file = await filesystem.get(path);
-        const mimeType = mime.lookup(path) || '';
+        const mimeType = getMimeType(path) || '';
 
         if (mimeType.startsWith('image/')) {
             const data = await filesystem.read(path);
