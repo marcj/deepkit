@@ -44,7 +44,6 @@ import ts, {
     InferTypeNode,
     InterfaceDeclaration,
     IntersectionTypeNode,
-    isJSDocImportTag,
     JSDocImportTag,
     LiteralTypeNode,
     MappedTypeNode,
@@ -1105,7 +1104,8 @@ export class ReflectionTransformer implements CustomTransformer {
     attachAdditionalStatements(statements: NodeArray<Statement> | Statement[]): Statement[] {
         const result: Statement[] = [];
         for (const statement of statements) {
-            if (isImportDeclaration(statement) || isJSDocImportTag(statement)) {
+            // ts.isJSDocImportTag exists since TypeScript 5.5
+            if (isImportDeclaration(statement) || (ts.isJSDocImportTag && ts.isJSDocImportTag(statement))) {
                 const additional = this.additionalImports.get(statement);
                 if (additional) {
                     result.push(additional);
