@@ -301,11 +301,12 @@ export function _isExtendable(left: Type, right: Type, extendStack: StackEntry[]
         if (left.kind === ReflectionKind.tuple && right.kind === ReflectionKind.array) {
             const tupleUnion: TypeUnion = { kind: ReflectionKind.union, types: [] };
             for (const member of left.types) {
-                if (member.optional && isTypeIncluded(tupleUnion.types, { kind: ReflectionKind.undefined })) tupleUnion.types.push({ kind: ReflectionKind.undefined });
+                if (member.optional && !isTypeIncluded(tupleUnion.types, { kind: ReflectionKind.undefined })) tupleUnion.types.push({ kind: ReflectionKind.undefined });
                 const type = member.type.kind === ReflectionKind.rest ? member.type.type : member.type;
-                if (isTypeIncluded(tupleUnion.types, type)) tupleUnion.types.push(type);
+                if (!isTypeIncluded(tupleUnion.types, type)) tupleUnion.types.push(type);
             }
-            return _isExtendable(tupleUnion, right, extendStack);
+            //every element has to extend the array's element type
+            return _isExtendable(tupleUnion, right.type, extendStack);
         }
 
         if (left.kind === ReflectionKind.array && right.kind === ReflectionKind.tuple) {

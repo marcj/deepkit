@@ -1,5 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { removeTypeName, typeOf } from '../src/reflection/reflection.js';
+import { isExtendable } from '../src/reflection/extends.js';
 import { ReflectionKind } from '../src/reflection/type.js';
 import { expectEqualType } from './utils.js';
 
@@ -64,4 +65,20 @@ test('disable distribution array', () => {
     type r3 = DisabledDistribution<'a' | 'b' | number>; // never
     expectEqualType(removeTypeName(typeOf<r2>()), typeOf<('a' | 'b')[]>());
     expectEqualType(removeTypeName(typeOf<r3>()), typeOf<never>());
+});
+
+test('tuple extends array', () => {
+    // TypeScript: every element has to extend the array's element type
+    expect(isExtendable(typeOf<[boolean]>(), typeOf<string[]>())).toBe(false);
+    expect(isExtendable(typeOf<[string, number]>(), typeOf<string[]>())).toBe(false);
+    expect(isExtendable(typeOf<[string]>(), typeOf<string[]>())).toBe(true);
+    expect(isExtendable(typeOf<[string, 'a']>(), typeOf<string[]>())).toBe(true);
+    expect(isExtendable(typeOf<[string, ...number[]]>(), typeOf<(string | number)[]>())).toBe(true);
+    expect(isExtendable(typeOf<[string, number?]>(), typeOf<string[]>())).toBe(false);
+    expect(isExtendable(typeOf<[string, number?]>(), typeOf<(string | number | undefined)[]>())).toBe(true);
+    expect(isExtendable(typeOf<[]>(), typeOf<string[]>())).toBe(true);
+
+    type IsStrings<T> = T extends string[] ? true : false;
+    expect(typeOf<IsStrings<[boolean]>>()).toMatchObject({ kind: ReflectionKind.literal, literal: false });
+    expect(typeOf<IsStrings<['a', 'b']>>()).toMatchObject({ kind: ReflectionKind.literal, literal: true });
 });
