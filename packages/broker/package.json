@@ -35,6 +35,7 @@
     "@deepkit/core": "^1.0.1",
     "@deepkit/event": "^1.0.1",
     "@deepkit/injector": "^1.0.1",
+    "@deepkit/logger": "^1.0.1",
     "@deepkit/rpc": "^1.0.1",
     "@deepkit/type": "^1.0.1",
     "rxjs": "*"
@@ -45,6 +46,7 @@
     "@deepkit/core-rxjs": "^1.0.19",
     "@deepkit/event": "^1.0.19",
     "@deepkit/injector": "^1.0.19",
+    "@deepkit/logger": "^1.0.19",
     "@deepkit/rpc": "^1.0.19",
     "@deepkit/type": "^1.0.19",
     "rxjs": "*"

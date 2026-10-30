@@ -70,12 +70,14 @@
     "@deepkit/core": "^1.0.1",
     "@deepkit/core-rxjs": "^1.0.1",
     "@deepkit/event": "^1.0.1",
+    "@deepkit/rpc": "^1.0.1",
     "@deepkit/type": "^1.0.1"
   },
   "devDependencies": {
     "@deepkit/core": "^1.0.19",
     "@deepkit/core-rxjs": "^1.0.19",
     "@deepkit/event": "^1.0.19",
+    "@deepkit/rpc": "^1.0.19",
     "@deepkit/type": "^1.0.19",
     "@types/fs-extra": "^8.0.1",
     "@types/node": "^22.13.1",

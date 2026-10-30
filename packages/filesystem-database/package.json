@@ -25,7 +25,8 @@
   "dependencies": {
     "@deepkit/core": "^1.0.19",
     "@deepkit/filesystem": "^1.0.19",
-    "@deepkit/orm": "^1.0.19"
+    "@deepkit/orm": "^1.0.19",
+    "@deepkit/type": "^1.0.19"
   },
   "jest": {
     "runner": "../../jest-serial-runner.js",

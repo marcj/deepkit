@@ -36,6 +36,9 @@
     },
     {
       "path": "../type/tsconfig.json"
+    },
+    {
+      "path": "../event/tsconfig.json"
     }
   ]
 }

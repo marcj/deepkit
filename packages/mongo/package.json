@@ -26,6 +26,8 @@
   "peerDependencies": {
     "@deepkit/bson": "^1.0.1",
     "@deepkit/core": "^1.0.1",
+    "@deepkit/event": "^1.0.1",
+    "@deepkit/logger": "^1.0.1",
     "@deepkit/orm": "^1.0.1",
     "@deepkit/type": "^1.0.1"
   },
@@ -35,6 +37,8 @@
   "devDependencies": {
     "@deepkit/bson": "^1.0.19",
     "@deepkit/core": "^1.0.19",
+    "@deepkit/event": "^1.0.19",
+    "@deepkit/logger": "^1.0.19",
     "@deepkit/orm": "^1.0.19",
     "@deepkit/orm-integration": "^1.0.1",
     "@deepkit/type": "^1.0.19",

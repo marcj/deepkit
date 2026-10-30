@@ -10,6 +10,15 @@
     },
     {
       "path": "../http/tsconfig.esm.json"
+    },
+    {
+      "path": "../event/tsconfig.esm.json"
+    },
+    {
+      "path": "../framework/tsconfig.esm.json"
+    },
+    {
+      "path": "../logger/tsconfig.esm.json"
     }
   ]
 }

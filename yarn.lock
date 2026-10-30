@@ -2949,11 +2949,17 @@ __metadata:
   dependencies:
     "@angular/ssr": "npm:^20.0.3"
     "@deepkit/app": "npm:^1.0.19"
+    "@deepkit/event": "npm:^1.0.19"
+    "@deepkit/framework": "npm:^1.0.19"
     "@deepkit/http": "npm:^1.0.19"
+    "@deepkit/logger": "npm:^1.0.19"
   peerDependencies:
     "@angular/ssr": ^20.0.3
     "@deepkit/app": ^1.0.1
+    "@deepkit/event": ^1.0.1
+    "@deepkit/framework": ^1.0.1
     "@deepkit/http": ^1.0.1
+    "@deepkit/logger": ^1.0.1
   languageName: unknown
   linkType: soft
 
@@ -3104,6 +3110,7 @@ __metadata:
     "@deepkit/core-rxjs": "npm:^1.0.19"
     "@deepkit/event": "npm:^1.0.19"
     "@deepkit/injector": "npm:^1.0.19"
+    "@deepkit/logger": "npm:^1.0.19"
     "@deepkit/rpc": "npm:^1.0.19"
     "@deepkit/type": "npm:^1.0.19"
     "@lukeed/ms": "npm:^2.0.1"
@@ -3114,6 +3121,7 @@ __metadata:
     "@deepkit/core": ^1.0.1
     "@deepkit/event": ^1.0.1
     "@deepkit/injector": ^1.0.1
+    "@deepkit/logger": ^1.0.1
     "@deepkit/rpc": ^1.0.1
     "@deepkit/type": ^1.0.1
     rxjs: "*"
@@ -3192,6 +3200,7 @@ __metadata:
     "@deepkit/core": "npm:^1.0.19"
     "@deepkit/core-rxjs": "npm:^1.0.19"
     "@deepkit/event": "npm:^1.0.19"
+    "@deepkit/rpc": "npm:^1.0.19"
     "@deepkit/type": "npm:^1.0.19"
     "@types/fs-extra": "npm:^8.0.1"
     "@types/node": "npm:^22.13.1"
@@ -3221,6 +3230,7 @@ __metadata:
     "@deepkit/core": ^1.0.1
     "@deepkit/core-rxjs": ^1.0.1
     "@deepkit/event": ^1.0.1
+    "@deepkit/rpc": ^1.0.1
     "@deepkit/type": ^1.0.1
   bin:
     dui-create-font: ./bin/create-font.js
@@ -3337,6 +3347,7 @@ __metadata:
     "@deepkit/core": "npm:^1.0.19"
     "@deepkit/filesystem": "npm:^1.0.19"
     "@deepkit/orm": "npm:^1.0.19"
+    "@deepkit/type": "npm:^1.0.19"
   languageName: unknown
   linkType: soft
 
@@ -3558,6 +3569,7 @@ __metadata:
     "@deepkit/core": ^1.0.1
     "@deepkit/core-rxjs": ^1.0.1
     "@deepkit/event": ^1.0.1
+    "@deepkit/filesystem": ^1.0.1
     "@deepkit/http": ^1.0.1
     "@deepkit/injector": ^1.0.1
     "@deepkit/logger": ^1.0.1
@@ -3639,6 +3651,8 @@ __metadata:
   dependencies:
     "@deepkit/bson": "npm:^1.0.19"
     "@deepkit/core": "npm:^1.0.19"
+    "@deepkit/event": "npm:^1.0.19"
+    "@deepkit/logger": "npm:^1.0.19"
     "@deepkit/orm": "npm:^1.0.19"
     "@deepkit/orm-integration": "npm:^1.0.1"
     "@deepkit/type": "npm:^1.0.19"
@@ -3649,6 +3663,8 @@ __metadata:
   peerDependencies:
     "@deepkit/bson": ^1.0.1
     "@deepkit/core": ^1.0.1
+    "@deepkit/event": ^1.0.1
+    "@deepkit/logger": ^1.0.1
     "@deepkit/orm": ^1.0.1
     "@deepkit/type": ^1.0.1
   languageName: unknown
@@ -3659,6 +3675,7 @@ __metadata:
   resolution: "@deepkit/mysql@workspace:packages/mysql"
   dependencies:
     "@deepkit/core": "npm:^1.0.19"
+    "@deepkit/logger": "npm:^1.0.19"
     "@deepkit/orm": "npm:^1.0.19"
     "@deepkit/orm-integration": "npm:^1.0.1"
     "@deepkit/sql": "npm:^1.0.19"
@@ -3667,6 +3684,7 @@ __metadata:
     mariadb: "npm:^3.2.3"
   peerDependencies:
     "@deepkit/core": ^1.0.1
+    "@deepkit/logger": ^1.0.1
     "@deepkit/orm": ^1.0.1
     "@deepkit/sql": ^1.0.1
     "@deepkit/stopwatch": ^1.0.1
@@ -3817,6 +3835,7 @@ __metadata:
   resolution: "@deepkit/postgres@workspace:packages/postgres"
   dependencies:
     "@deepkit/core": "npm:^1.0.19"
+    "@deepkit/logger": "npm:^1.0.19"
     "@deepkit/orm": "npm:^1.0.19"
     "@deepkit/orm-integration": "npm:^1.0.1"
     "@deepkit/sql": "npm:^1.0.19"
@@ -3828,6 +3847,7 @@ __metadata:
     sqlstring: "npm:^2.3.2"
   peerDependencies:
     "@deepkit/core": ^1.0.1
+    "@deepkit/logger": ^1.0.1
     "@deepkit/orm": ^1.0.1
     "@deepkit/sql": ^1.0.1
     "@deepkit/stopwatch": ^1.0.1
@@ -3855,6 +3875,7 @@ __metadata:
     "@deepkit/bson": "npm:^1.0.19"
     "@deepkit/core": "npm:^1.0.19"
     "@deepkit/core-rxjs": "npm:^1.0.19"
+    "@deepkit/event": "npm:^1.0.19"
     "@deepkit/injector": "npm:^1.0.19"
     "@deepkit/logger": "npm:^1.0.19"
     "@deepkit/type": "npm:^1.0.19"
@@ -3867,6 +3888,7 @@ __metadata:
     "@deepkit/bson": ^1.0.1
     "@deepkit/core": ^1.0.1
     "@deepkit/core-rxjs": ^1.0.1
+    "@deepkit/event": ^1.0.1
     "@deepkit/injector": ^1.0.1
     "@deepkit/logger": ^1.0.1
     "@deepkit/type": ^1.0.1
@@ -3927,6 +3949,7 @@ __metadata:
   resolution: "@deepkit/sqlite@workspace:packages/sqlite"
   dependencies:
     "@deepkit/core": "npm:^1.0.19"
+    "@deepkit/logger": "npm:^1.0.19"
     "@deepkit/orm": "npm:^1.0.19"
     "@deepkit/orm-integration": "npm:^1.0.1"
     "@deepkit/sql": "npm:^1.0.19"
@@ -3937,6 +3960,7 @@ __metadata:
     sqlstring-sqlite: "npm:^0.1.1"
   peerDependencies:
     "@deepkit/core": ^1.0.1
+    "@deepkit/logger": ^1.0.1
     "@deepkit/orm": ^1.0.1
     "@deepkit/sql": ^1.0.1
     "@deepkit/stopwatch": ^1.0.1

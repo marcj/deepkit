@@ -31,6 +31,7 @@
     "@deepkit/core": "^1.0.1",
     "@deepkit/core-rxjs": "^1.0.1",
     "@deepkit/event": "^1.0.1",
+    "@deepkit/filesystem": "^1.0.1",
     "@deepkit/http": "^1.0.1",
     "@deepkit/injector": "^1.0.1",
     "@deepkit/logger": "^1.0.1",

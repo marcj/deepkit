@@ -19,6 +19,15 @@
     },
     {
       "path": "../http/tsconfig.json"
+    },
+    {
+      "path": "../event/tsconfig.json"
+    },
+    {
+      "path": "../framework/tsconfig.json"
+    },
+    {
+      "path": "../logger/tsconfig.json"
     }
   ]
 }

@@ -26,12 +26,18 @@
   "peerDependencies": {
     "@angular/ssr": "^20.0.3",
     "@deepkit/app": "^1.0.1",
-    "@deepkit/http": "^1.0.1"
+    "@deepkit/event": "^1.0.1",
+    "@deepkit/framework": "^1.0.1",
+    "@deepkit/http": "^1.0.1",
+    "@deepkit/logger": "^1.0.1"
   },
   "devDependencies": {
     "@angular/ssr": "^20.0.3",
     "@deepkit/app": "^1.0.19",
-    "@deepkit/http": "^1.0.19"
+    "@deepkit/event": "^1.0.19",
+    "@deepkit/framework": "^1.0.19",
+    "@deepkit/http": "^1.0.19",
+    "@deepkit/logger": "^1.0.19"
   },
   "jest": {
     "transform": {
