@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
 import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import {
@@ -23,6 +24,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         ButtonComponent,
         DialogDirective,
         ButtonGroupComponent,
+        ApiDocComponent,
         DuiDialogConfirmDirective,
         CloseDialogDirective,
         AppTitle,
@@ -119,6 +121,11 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="html" [code]="code" />
             </doc-code-frame>
 
+            <api-doc component="DialogComponent"></api-doc>
+            <api-doc component="DialogDirective"></api-doc>
+            <api-doc component="CloseDialogDirective"></api-doc>
+            <api-doc component="OpenDialogDirective"></api-doc>
+            <api-doc component="DuiDialogConfirmDirective"></api-doc>
         </div>
     `,
 })

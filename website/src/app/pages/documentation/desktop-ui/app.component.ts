@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { AppTitle } from '@app/app/components/title';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component';
 
 @Component({
     host: { ngSkipHydration: 'true' },
-    imports: [AppTitle],
+    imports: [ApiDocComponent, AppTitle],
     changeDetection: ChangeDetectionStrategy.Eager,
     template: `
         <div class="app-content normalize-text">
@@ -16,6 +17,7 @@ import { AppTitle } from '@app/app/components/title';
                 mode, etc.
             </p>
 
+            <api-doc component="DuiApp"></api-doc>
         </div>
     `,
 })

@@ -249,6 +249,149 @@ export interface ApiType {
         file: string;
         line: number;
     };
+    /** Angular component, directive or service, rendered as API table on the desktop-ui pages. */
+    component?: ComponentApi;
+}
+
+export interface ComponentApi {
+    selector: string;
+    /** extends ValueAccessorBase, so works with ngModel and formControlName */
+    formsCompatible: boolean;
+    members: ComponentMember[];
+}
+
+export interface ComponentMember {
+    kind: 'input' | 'output' | 'property' | 'method';
+    name: string;
+    alias?: string;
+    required?: boolean;
+    type: string;
+    description: string;
+}
+
+// ControlValueAccessor and lifecycle plumbing, not useful in the docs
+const ignoredComponentMembers = ['registerOnChange', 'registerOnTouched', 'setDisabledState', 'writeValue', 'touch'];
+
+function getDecoratorCall(node: ts.Node, names: string[]): ts.CallExpression | undefined {
+    if (!ts.canHaveDecorators(node)) return;
+    for (const decorator of ts.getDecorators(node) ?? []) {
+        const call = decorator.expression;
+        if (ts.isCallExpression(call) && ts.isIdentifier(call.expression) && names.includes(call.expression.text)) {
+            return call;
+        }
+    }
+    return;
+}
+
+function getObjectLiteralProperty(node: ts.Node | undefined, name: string): ts.Expression | undefined {
+    if (!node || !ts.isObjectLiteralExpression(node)) return;
+    for (const prop of node.properties) {
+        if (ts.isPropertyAssignment(prop) && prop.name.getText() === name) return prop.initializer;
+    }
+    return;
+}
+
+function getStringValue(node: ts.Node | undefined): string | undefined {
+    if (node && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))) return node.text;
+    return;
+}
+
+function typeString(type: ts.Type, node: ts.Node, checker: ts.TypeChecker): string {
+    let text = checker.typeToString(type, node, ts.TypeFormatFlags.NoTruncation);
+    // optional members are shown with ?, the | undefined is noise
+    if (type.isUnion() && type.types.some(v => v.flags & ts.TypeFlags.Undefined)) {
+        const types = type.types.filter(v => !(v.flags & ts.TypeFlags.Undefined));
+        text = types.map(v => checker.typeToString(v, node, ts.TypeFormatFlags.NoTruncation)).join(' | ');
+    }
+    return text
+        .replace(/import\("[^"]+"\)\./g, '')
+        .replace(/\bfalse \| true\b/g, 'boolean');
+}
+
+function getComponentMember(
+    symbol: ts.Symbol,
+    decl: ts.Declaration,
+    checker: ts.TypeChecker,
+): ComponentMember | undefined {
+    const name = symbol.getName();
+    const description = getJSDocComment(symbol);
+    const type = checker.getTypeOfSymbolAtLocation(symbol, decl);
+
+    if (ts.isMethodDeclaration(decl)) {
+        if (name.startsWith('ng')) return;
+        const signature = checker.getSignaturesOfType(type, ts.SignatureKind.Call)[0];
+        if (!signature) return;
+        const params = signature.getParameters().map(p => {
+            const pDecl = p.valueDeclaration as ts.ParameterDeclaration | undefined;
+            const optional = pDecl && (pDecl.questionToken || pDecl.initializer) ? '?' : '';
+            const rest = pDecl?.dotDotDotToken ? '...' : '';
+            return rest + p.getName() + optional + ': ' + typeString(checker.getTypeOfSymbolAtLocation(p, decl), decl, checker);
+        });
+        const returnType = checker.typeToString(signature.getReturnType(), decl, ts.TypeFormatFlags.NoTruncation);
+        return { kind: 'method', name: `${name}(${params.join(', ')})`, type: returnType, description };
+    }
+
+    if (!ts.isPropertyDeclaration(decl) && !ts.isGetAccessorDeclaration(decl) && !ts.isSetAccessorDeclaration(decl)) return;
+
+    // signal based: input(), input.required(), model(), output()
+    const typeName = type.getSymbol()?.getName();
+    if (typeName === 'InputSignal' || typeName === 'InputSignalWithTransform' || typeName === 'ModelSignal' || typeName === 'OutputEmitterRef') {
+        const valueType = checker.getTypeArguments(type as ts.TypeReference)[0];
+        const options = ts.isPropertyDeclaration(decl) && decl.initializer && ts.isCallExpression(decl.initializer)
+            ? decl.initializer.arguments.find(ts.isObjectLiteralExpression)
+            : undefined;
+        const alias = getStringValue(getObjectLiteralProperty(options, 'alias'));
+        const required = ts.isPropertyDeclaration(decl) && !!decl.initializer && /\.required\b/.test(decl.initializer.getText().split('(')[0]);
+        const dataType = valueType ? typeString(valueType, decl, checker) : '';
+        if (typeName === 'OutputEmitterRef') return { kind: 'output', name, alias, type: dataType, description };
+        return { kind: 'input', name, alias, required, type: dataType, description };
+    }
+
+    const input = getDecoratorCall(decl, ['Input']);
+    if (input) {
+        const arg = input.arguments[0];
+        const alias = getStringValue(arg) ?? getStringValue(getObjectLiteralProperty(arg, 'alias'));
+        const required = getObjectLiteralProperty(arg, 'required')?.kind === ts.SyntaxKind.TrueKeyword;
+        return { kind: 'input', name, alias, required, type: typeString(type, decl, checker), description };
+    }
+
+    const output = getDecoratorCall(decl, ['Output']);
+    if (output) {
+        // EventEmitter<T> -> T
+        const valueType = checker.getTypeArguments(type as ts.TypeReference)[0];
+        const alias = getStringValue(output.arguments[0]);
+        return { kind: 'output', name, alias, type: valueType ? typeString(valueType, decl, checker) : '', description };
+    }
+
+    return { kind: 'property', name, type: typeString(type, decl, checker), description };
+}
+
+function getComponentApi(node: ts.ClassDeclaration, checker: ts.TypeChecker): ComponentApi | undefined {
+    // services are documented the same way, they just have no selector
+    const decorator = getDecoratorCall(node, ['Component', 'Directive', 'Injectable']);
+    if (!decorator) return;
+    const selector = getStringValue(getObjectLiteralProperty(decorator.arguments[0], 'selector')) || '';
+
+    const members: ComponentMember[] = [];
+    const classType = checker.getTypeAtLocation(node);
+    // includes inherited members, e.g. from ValueAccessorBase
+    for (const symbol of checker.getPropertiesOfType(classType)) {
+        if (ignoredComponentMembers.includes(symbol.getName()) || isInternal(symbol)) continue;
+        const decl = symbol.valueDeclaration ?? symbol.getDeclarations()?.[0];
+        if (!decl || decl.getSourceFile().fileName.includes('/node_modules/')) continue;
+        const modifiers = ts.getCombinedModifierFlags(decl);
+        if (modifiers & (ts.ModifierFlags.Private | ts.ModifierFlags.Protected)) continue;
+        if (ts.isPrivateIdentifier((decl as ts.NamedDeclaration).name as ts.Node)) continue;
+        const member = getComponentMember(symbol, decl, checker);
+        if (!member) continue;
+        members.push(member);
+        if (member.kind === 'input' && checker.getTypeOfSymbolAtLocation(symbol, decl).getSymbol()?.getName() === 'ModelSignal') {
+            // model() is an input plus an output for two-way binding
+            members.push({ kind: 'output', name: (member.alias || member.name) + 'Change', type: member.type, description: '' });
+        }
+    }
+
+    return { selector, formsCompatible: typeExtendsFrom(classType, 'ValueAccessorBase', checker), members };
 }
 
 function isEventConst(node: ts.VariableDeclaration, checker: ts.TypeChecker): boolean {
@@ -411,6 +554,11 @@ function visitDeclaration(
 
     if (ts.isTypeAliasDeclaration(node) || ts.isInterfaceDeclaration(node)) {
         apiType.typeArguments = node.typeParameters?.map(tp => tp.name.getText());
+    }
+
+    if (ts.isClassDeclaration(node)) {
+        const component = getComponentApi(node, checker);
+        if (component) apiType.component = component;
     }
 
     api.push(apiType);

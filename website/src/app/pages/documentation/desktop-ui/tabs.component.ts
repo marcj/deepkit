@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
 import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import { TabComponent, TabsComponent } from '@deepkit/desktop-ui';
@@ -7,7 +8,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
 
 @Component({
     host: { ngSkipHydration: 'true' },
-    imports: [CodeHighlightComponent, CodeFrameComponent, TabsComponent, TabComponent, AppTitle],
+    imports: [CodeHighlightComponent, CodeFrameComponent, ApiDocComponent, TabsComponent, TabComponent, AppTitle],
     template: `
         <div class="app-content normalize-text">
             <div class="app-pre-headline">Desktop UI</div>
@@ -24,6 +25,8 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="html" [code]="code" />
             </doc-code-frame>
 
+            <api-doc component="TabsComponent"></api-doc>
+            <api-doc component="TabComponent"></api-doc>
         </div>
     `,
     changeDetection: ChangeDetectionStrategy.Eager,

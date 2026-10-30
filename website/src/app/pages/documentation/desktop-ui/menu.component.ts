@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
 import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import {
@@ -16,6 +17,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
     imports: [
         CodeHighlightComponent,
         OpenExternalDirective,
+        ApiDocComponent,
         AppTitle,
         CodeFrameComponent,
         MenuComponent,
@@ -108,6 +110,11 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="html" [code]="code"></code-highlight>
             </doc-code-frame>
 
+            <api-doc component="MenuComponent"></api-doc>
+            <api-doc component="MenuItemComponent"></api-doc>
+            <api-doc component="MenuSeparatorComponent"></api-doc>
+            <!--        <api-doc component="MenuRadioComponent"></api-doc>-->
+            <!--        <api-doc component="MenuCheckboxDirective"></api-doc>-->
         </div>
     `,
     changeDetection: ChangeDetectionStrategy.Eager,

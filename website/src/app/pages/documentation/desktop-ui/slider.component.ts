@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
 import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import { InputComponent, SliderComponent } from '@deepkit/desktop-ui';
@@ -12,6 +13,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         SliderComponent,
         FormsModule,
         CodeHighlightComponent,
+        ApiDocComponent,
         InputComponent,
         AppTitle,
     ],
@@ -44,6 +46,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="html" [code]="code"></code-highlight>
             </doc-code-frame>
 
+            <api-doc component="SliderComponent"></api-doc>
         </div>
     `,
     changeDetection: ChangeDetectionStrategy.Eager,

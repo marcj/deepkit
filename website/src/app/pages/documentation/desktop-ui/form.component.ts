@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
 
 import {
     ButtonComponent,
@@ -23,6 +24,7 @@ import {
         SelectBoxComponent,
         OptionDirective,
         ButtonComponent,
+        ApiDocComponent,
         IconComponent,
         AppTitle,
     ],
@@ -110,7 +112,9 @@ import {
             <dui-checkbox [(ngModel)]="disabledAll">Disable all</dui-checkbox>
         </dui-form-row>
 
+        <api-doc component="FormComponent"></api-doc>
 
+        <api-doc component="FormRowComponent"></api-doc>
     `,
 })
 export class DocDesktopUIFormComponent {

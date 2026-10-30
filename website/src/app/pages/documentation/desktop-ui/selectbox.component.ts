@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
 import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import { ButtonComponent, DynamicOptionDirective, OptionDirective, SelectBoxComponent } from '@deepkit/desktop-ui';
@@ -15,6 +16,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         FormsModule,
         DynamicOptionDirective,
         ButtonComponent,
+        ApiDocComponent,
         AppTitle,
     ],
     template: `
@@ -85,6 +87,9 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="html" [code]="code" />
             </doc-code-frame>
 
+            <api-doc component="SelectBoxComponent"></api-doc>
+            <api-doc component="OptionDirective"></api-doc>
+            <api-doc component="OptionSeparatorDirective"></api-doc>
         </div>
     `,
     changeDetection: ChangeDetectionStrategy.Eager,

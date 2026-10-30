@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
 import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import { RadioButtonComponent, RadioGroupComponent } from '@deepkit/desktop-ui';
@@ -11,6 +12,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
         CodeHighlightComponent,
         CodeFrameComponent,
         FormsModule,
+        ApiDocComponent,
         RadioGroupComponent,
         RadioButtonComponent,
         AppTitle,
@@ -44,6 +46,8 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="html" [code]="code" />
             </doc-code-frame>
 
+            <api-doc component="RadioGroupComponent"></api-doc>
+            <api-doc component="RadioButtonComponent"></api-doc>
         </div>
     `,
 })

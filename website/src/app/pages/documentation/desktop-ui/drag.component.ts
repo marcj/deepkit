@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { AppTitle } from '@app/app/components/title.js';
+import { ApiDocComponent } from '@app/app/pages/documentation/desktop-ui/api-doc.component.js';
 import { CodeFrameComponent } from '@app/app/pages/documentation/desktop-ui/code-frame.component.js';
 
 import { DragDirective, DuiDragEvent, PositionChangeDirective, SplitterComponent } from '@deepkit/desktop-ui';
@@ -10,6 +11,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
     imports: [
         CodeHighlightComponent,
         CodeFrameComponent,
+        ApiDocComponent,
         DragDirective,
         SplitterComponent,
         AppTitle,
@@ -55,6 +57,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="typescript" [code]="dragCodeTS" />
             </doc-code-frame>
 
+            <api-doc component="DragDirective"></api-doc>
 
             <h2>Splitter</h2>
 
@@ -77,6 +80,7 @@ import { CodeHighlightComponent } from '@deepkit/ui-library';
                 <code-highlight lang="typescript" [code]="splitterCodeTS" />
             </doc-code-frame>
 
+            <api-doc component="SplitterComponent"></api-doc>
         </div>
     `,
     changeDetection: ChangeDetectionStrategy.Eager,
