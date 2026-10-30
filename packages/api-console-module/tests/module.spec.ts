@@ -2,7 +2,7 @@ import { App } from '@deepkit/app';
 import { expect, test } from '@jest/globals';
 import { ApiConsoleModule } from '../src/module.js';
 import { HttpKernel, HttpModule, HttpRequest } from '@deepkit/http';
-import { ApiEntryPoints } from '@deepkit/api-console-gui/src/api';
+import { ApiEntryPoints } from '@deepkit/api-console-api';
 import { reflect, ReflectionKind, TypeObjectLiteral } from '@deepkit/type';
 import { serializeBSON } from '@deepkit/bson';
 
