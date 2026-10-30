@@ -1424,3 +1424,21 @@ test('union same member, optional', () => {
     const t3 = serialize<T>({ a: 3, b: 4 });
     expect(t3).toEqual({ a: 3, b: 4 });
 });
+
+test('large literal union does not create a guard per member (#478)', () => {
+    type Hour = '00' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '09' | '10' | '11'
+        | '12' | '13' | '14' | '15' | '16' | '17' | '18' | '19' | '20' | '21' | '22' | '23';
+    type Digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+    type Minute = `${'0' | '1' | '2' | '3' | '4' | '5'}${Digit}`;
+    type Clock = `${Hour}:${Minute}:${Minute}`;
+
+    expect(deserialize<Clock>('01:01:59')).toBe('01:01:59');
+    expect(is<Clock>('01:01:59')).toBe(true);
+    expect(is<Clock>('25:01:59')).toBe(false);
+    expect(() => cast<{ v: Clock }>({ v: '24:00:00' })).toThrow('v(type): No valid union member found');
+
+    //loose conversion of grouped number literals
+    type Numbers = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+    expect(cast<Numbers>('3')).toBe(3);
+    expect(is<Numbers>('3')).toBe(false);
+});

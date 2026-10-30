@@ -48,6 +48,7 @@ import {
     TypeArray,
     TypeClass,
     TypeIndexSignature,
+    TypeLiteral,
     TypeObjectLiteral,
     TypeParameter,
     TypeProperty,
@@ -1723,6 +1724,37 @@ export function validatePropertyOrParameter(type: TypePropertySignature | TypePr
     `);
 }
 
+function serializeLiteral(type: TypeLiteral, state: TemplateState) {
+    state.addSetter(state.setVariable('v', type.literal));
+}
+
+function typeGuardLiteral(type: TypeLiteral, state: TemplateState) {
+    state.addSetterAndReportErrorIfInvalid('type', 'Invalid literal', `${state.setVariable('v', type.literal)} === ${state.accessor}`);
+}
+
+function typeGuardLiteralLoose(type: TypeLiteral, state: TemplateState) {
+    //loosely only works for number/bigint/boolean, not for symbols/regexp/string
+    if (type.literal === null || type.literal === undefined || typeof type.literal === 'number' || typeof type.literal === 'bigint' || typeof type.literal === 'boolean') {
+        state.addSetter(`'string' === typeof ${state.accessor} && ${state.setVariable('v', String(type.literal))} === ${state.accessor}`);
+    }
+}
+
+/**
+ * Returns the built-in literal guard if the literal can be checked together with the other literals of a union with a single Map lookup.
+ */
+function getGroupableLiteralGuard(type: Type, typeGuard: TemplateRegistry, state: TemplateState): Template<any> | undefined {
+    if (type.kind !== ReflectionKind.literal || !['string', 'number', 'boolean', 'bigint'].includes(typeof type.literal)) return;
+    //annotated literals (e.g. validators or custom annotations handled in hooks) need their own guard
+    if ((type.decorators && type.decorators.length) || (type.annotations && Reflect.ownKeys(type.annotations).length)) return;
+    const guards = typeGuard.get(type);
+    if (guards.length !== 1 || (guards[0] !== typeGuardLiteral && guards[0] !== typeGuardLiteralLoose) || typeGuard.getDecorator(type).length) return;
+    if (!state.isValidation()) {
+        const templates = state.registry.get(type);
+        if (templates.length !== 1 || templates[0] !== serializeLiteral || state.registry.getDecorator(type).length) return;
+    }
+    return guards[0];
+}
+
 export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: TypeGuardRegistry) {
     //detecting which serializer to use in union is a complex topic and allows a key feature: deserializing an encoding that is entirely based on strings (e.g. URL query string)
     //to support for example numeric string, we need to have multiple guards being able to detect their 'loosely type' equivalence, for example
@@ -1773,6 +1805,9 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
     typeGuards ||= state.registry.serializer.typeGuards;
     const sortedTypeGuards = typeGuards.getSortedTemplateRegistries();
 
+    //large unions of literals (e.g. expanded template literal types) would otherwise create one guard function per member (#478)
+    const groupLiterals = type.types.filter(v => v.kind === ReflectionKind.literal).length >= 10;
+
     for (const [specificality, typeGuard] of sortedTypeGuards) {
         //loosely type guards are only used for deserialization
         if (state.target === 'serialize' && specificality < 1) continue;
@@ -1781,7 +1816,26 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
         if (state.validation === 'strict' && specificality !== 1) continue;
         const validation = !state.validation ? state.target === 'serialize' ? 'strict' : 'loose' : state.validation;
 
+        const looseCheck = specificality <= 0 ? `state.loosely !== false && ` : '';
+        //literals checked with a single lookup: accepted value => deserialized literal
+        const literals = new Map<any, any>();
+        let literalsLine = -1;
+
         for (const t of type.types) {
+            const literalGuard = groupLiterals ? getGroupableLiteralGuard(t, typeGuard, state) : undefined;
+            if (literalGuard) {
+                if (literalsLine === -1) literalsLine = linesPrimitives.push('') - 1;
+                const literal = (t as TypeLiteral).literal;
+                if (literalGuard === typeGuardLiteral) {
+                    if (!literals.has(literal)) literals.set(literal, literal);
+                } else if ('string' !== typeof literal && !literals.has(String(literal))) {
+                    literals.set(String(literal), literal);
+                }
+                continue;
+            }
+            //no guard for this type in this specificality
+            if (!typeGuard.get(t).length) continue;
+
             const fn = createTypeGuardFunction(
                 t,
                 state.fork(undefined, accessor)
@@ -1794,7 +1848,6 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
             );
             if (!fn) continue;
             const guard = state.setVariable('guard_' + ReflectionKind[t.kind], fn);
-            const looseCheck = specificality <= 0 ? `state.loosely !== false && ` : '';
             const isAlternativeCheck = specificality > 1;
             const debug = `type = ${ReflectionKind[t.kind]} ${t.typeName}, specificality=${specificality}`
 
@@ -1819,6 +1872,16 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
                    ${action}
                 }`);
             }
+        }
+
+        if (literals.size) {
+            const literalsVar = state.setVariable('literals', literals);
+            const action = state.isValidation() ? `${state.setter} = true;` : `${state.setter} = ${literalsVar}.get(${state.accessor});`;
+            linesPrimitives[literalsLine] = `
+                //literals, specificality=${specificality}
+                else if (${looseCheck} ${literalsVar}.has(${state.accessor})) {
+                   ${action}
+                }`;
         }
     }
 
@@ -2003,8 +2066,8 @@ export class Serializer {
         this.deserializeRegistry.register(ReflectionKind.union, handleUnion);
         this.serializeRegistry.register(ReflectionKind.union, handleUnion);
 
-        this.deserializeRegistry.register(ReflectionKind.literal, (type, state) => state.addSetter(state.setVariable('v', type.literal)));
-        this.serializeRegistry.register(ReflectionKind.literal, (type, state) => state.addSetter(state.setVariable('v', type.literal)));
+        this.deserializeRegistry.register(ReflectionKind.literal, serializeLiteral);
+        this.serializeRegistry.register(ReflectionKind.literal, serializeLiteral);
 
         this.serializeRegistry.register(ReflectionKind.undefined, (type, state) => state.addSetter(`null`));
         this.deserializeRegistry.register(ReflectionKind.undefined, (type, state) => state.addSetter(`undefined`));
@@ -2318,16 +2381,8 @@ export class Serializer {
         });
         this.typeGuards.register(1, ReflectionKind.array, (type, state) => typeGuardArray(type.type, state));
         this.typeGuards.register(1, ReflectionKind.tuple, typeGuardTuple);
-        this.typeGuards.register(1, ReflectionKind.literal, (type, state) => {
-            state.addSetterAndReportErrorIfInvalid('type', 'Invalid literal', `${state.setVariable('v', type.literal)} === ${state.accessor}`);
-        });
-
-        this.typeGuards.register(-0.5, ReflectionKind.literal, (type, state) => {
-            //loosely only works for number/bigint/boolean, not for symbols/regexp/string
-            if (type.literal === null || type.literal === undefined || typeof type.literal === 'number' || typeof type.literal === 'bigint' || typeof type.literal === 'boolean') {
-                state.addSetter(`'string' === typeof ${state.accessor} && ${state.setVariable('v', String(type.literal))} === ${state.accessor}`);
-            }
-        });
+        this.typeGuards.register(1, ReflectionKind.literal, typeGuardLiteral);
+        this.typeGuards.register(-0.5, ReflectionKind.literal, typeGuardLiteralLoose);
 
         this.typeGuards.register(1, ReflectionKind.regexp, ((type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not a RegExp', `${state.accessor} instanceof RegExp`)));
         this.typeGuards.register(2, ReflectionKind.regexp, ((type, state) => state.addSetter(`'string' === typeof ${state.accessor}`)));
