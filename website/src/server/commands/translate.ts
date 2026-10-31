@@ -37,21 +37,14 @@ ${task}
 }
 
 export class Translator {
-    protected openAi?: OpenAI;
-
     constructor(
-        protected apiKey: AppConfig['openaiApiKey'],
+        protected openAi: OpenAI,
         public model: AppConfig['openaiTranslationModel'],
     ) {}
 
-    protected getClient(): OpenAI {
-        if (!this.apiKey) throw new Error('No OpenAI API key configured, set APP_OPENAI_API_KEY');
-        return (this.openAi ||= new OpenAI({ apiKey: this.apiKey }));
-    }
-
     async translateLabels(lang: string, labels: string[]): Promise<Record<string, string>> {
         if (!labels.length) return {};
-        const response = await this.getClient().responses.create({
+        const response = await this.openAi.responses.create({
             model: this.model,
             instructions: systemPrompt(
                 lang,
@@ -79,7 +72,7 @@ Make sure to use the language: ${lang} ${languages[lang]} and return the transla
     }
 
     async translateMarkdown(lang: string, source: string): Promise<string> {
-        const response = await this.getClient().responses.create({
+        const response = await this.openAi.responses.create({
             model: this.model,
             instructions: systemPrompt(
                 lang,
