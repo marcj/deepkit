@@ -1,4 +1,5 @@
 import { expect, test } from '@jest/globals';
+import { execSync } from 'child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
 
@@ -75,5 +76,17 @@ test('published packages exclude .tsbuildinfo files', () => {
             : existsSync(npmignore) && readFileSync(npmignore, 'utf8').split('\n').includes('*.tsbuildinfo');
         if (!excluded) missing.push(pkg.name);
     }
+    expect(missing).toEqual([]);
+});
+
+test('ESM builds have a committed dist/esm/package.json', () => {
+    // it marks dist/esm as ES modules. `npm run build` of a package creates it, but CI only runs tsc, so it has to
+    // be in git: without it Node loads dist/esm as CommonJS ("does not provide an export named ...")
+    const tracked = new Set(
+        execSync('git ls-files "packages/*/dist/esm/package.json"', { cwd: join(packagesDir, '..'), encoding: 'utf8' }).split('\n'),
+    );
+    const missing = readdirSync(packagesDir).filter(
+        dir => existsSync(join(packagesDir, dir, 'tsconfig.esm.json')) && !tracked.has(`packages/${dir}/dist/esm/package.json`),
+    );
     expect(missing).toEqual([]);
 });
