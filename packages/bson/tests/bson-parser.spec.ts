@@ -244,7 +244,7 @@ test('basic union with typed array', () => {
         v: string | Uint8Array
     }>(serialize({ v: new Binary(buffer, Binary.SUBTYPE_DEFAULT) }))).toEqual({ v: new Uint8Array(buffer) });
     expect(deserializeBSON<{ v: string | Uint8Array }>(serialize({ v: 'abc' }))).toEqual({ v: 'abc' });
-    expect(() => deserializeBSON<{ v: string | Uint8Array }>(serialize({ v: {} }))).toThrow('Cannot convert bson type OBJECT to string | Uint8Array');
+    expect(() => deserializeBSON<{ v: string | Uint8Array }>(serialize({ v: {} }))).toThrow('v(type): Expected string | Uint8Array');
 });
 
 test('basic union with arraybuffer', () => {
@@ -255,7 +255,7 @@ test('basic union with arraybuffer', () => {
     expect(deserializeBSON<{ v: string | ArrayBuffer }>(serialize({ v: 'abc' }))).toEqual({ v: 'abc' });
     expect(() => deserializeBSON<{
         v: string | ArrayBuffer
-    }>(serialize({ v: {} }))).toThrow('Cannot convert bson type OBJECT to string | ArrayBuffer');
+    }>(serialize({ v: {} }))).toThrow('v(type): Expected string | ArrayBuffer');
 });
 
 test('basic union ', () => {
@@ -339,7 +339,7 @@ test('basic union with null | uuid', () => {
     const myUuid = uuid();
     expect(deserializeBSON<{ v: null | UUID }>(serialize({ v: myUuid }))).toEqual({ v: myUuid });
     expect(deserializeBSON<{ v: null | UUID }>(serialize({ v: null }))).toEqual({ v: null });
-    expect(() => deserializeBSON<{ v: null | UUID }>(serialize({ v: 'asdad' }))).toThrow('Cannot convert bson type STRING to null | UUID');
+    expect(() => deserializeBSON<{ v: null | UUID }>(serialize({ v: 'asdad' }))).toThrow('v(type): Expected null | UUID');
 });
 
 test('basic union with uuid', () => {
@@ -370,7 +370,7 @@ test('basic union with regexp', () => {
     const myRegexp = /abc/gmi;
     expect(deserializeBSON<{ v: number | RegExp }>(serialize({ v: myRegexp }))).toEqual({ v: myRegexp });
     expect(deserializeBSON<{ v: number | RegExp }>(serialize({ v: 23 }))).toEqual({ v: 23 });
-    expect(() => deserializeBSON<{ v: number | RegExp }>(serialize({ v: {} }))).toThrow('Cannot convert bson type OBJECT to number | RegExp');
+    expect(() => deserializeBSON<{ v: number | RegExp }>(serialize({ v: {} }))).toThrow('v(type): Expected number | RegExp');
     expect(() => deserializeBSON<{ v: number | RegExp }>(serialize({}))).toThrow('Cannot convert undefined value to number | RegExp');
 });
 
@@ -390,7 +390,7 @@ test('basic array union', () => {
     }>(serialize({ v: 123 }))).toThrow('Cannot convert bson type INT to Array<string | boolean>');
     expect(() => deserializeBSON<{
         v: (string | boolean)[]
-    }>(serialize({ v: ['a', {}] }))).toThrow('Cannot convert bson type OBJECT to string | boolean');
+    }>(serialize({ v: ['a', {}] }))).toThrow('v.1(type): Expected string | boolean');
 });
 
 test('basic two array union', () => {
@@ -398,7 +398,7 @@ test('basic two array union', () => {
     type MyType = number[] | (string | boolean)[];
     expect(deserializeBSON<{ v: MyType }>(serialize({ v: value }))).toEqual({ v: value });
     expect(deserializeBSON<{ v: MyType }>(serialize({ v: [1, 2] }))).toEqual({ v: [1, 2] });
-    expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: 123 }))).toThrow('Cannot convert bson type INT to MyType');
+    expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: 123 }))).toThrow('v(type): Expected Array<number> | Array<string | boolean>');
     //the closest member reports the wrong element
     expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: ['a', {}] }))).toThrow('v.1(type): Expected string | boolean');
 });
@@ -449,7 +449,7 @@ test('basic class array union', () => {
     }
 
     {
-        expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: [{ nope: 'no' }] }))).toThrow(`Cannot convert bson type ARRAY to MyType`);
+        expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: [{ nope: 'no' }] }))).toThrow('v(type): Expected Array<A> | Array<B> | Array<C>');
     }
 });
 
@@ -569,19 +569,19 @@ test('tuple on union', () => {
         expect(deserializeBSON<t>(serialize({ v: ['abc', 34] }))).toEqual({ v: ['abc', 34] });
         expect(deserializeBSON<t>(serialize({ v: [{ d: true }] }))).toEqual({ v: [{ d: true }] });
         expect(deserializeBSON<t>(serialize({ v: ['abc', 34, 55] }))).toEqual({ v: ['abc', 34] });
-        expect(() => deserializeBSON<t>(serialize({ v: ['abc', '44'] }))).toThrow('Cannot convert bson type ARRAY to [string, number] | [C]'); //union type guard are strict
+        expect(() => deserializeBSON<t>(serialize({ v: ['abc', '44'] }))).toThrow('v(type): Expected [string, number] | [C]'); //union type guard are strict
     }
     {
         type t = { v: [number] | [C] };
         expect(deserializeBSON<t>(serialize({ v: [34] }))).toEqual({ v: [34] });
-        expect(() => deserializeBSON<t>(serialize({ v: ['44'] }))).toThrow('Cannot convert bson type ARRAY to [number]'); //union type guard are strict
+        expect(() => deserializeBSON<t>(serialize({ v: ['44'] }))).toThrow('v(type): Expected [number] | [C]'); //union type guard are strict
     }
     {
         type t = { v: [...number[]] | [C] };
         expect(deserializeBSON<t>(serialize({ v: [34] }))).toEqual({ v: [34] });
-        expect(() => deserializeBSON<t>(serialize({ v: ['44'] }))).toThrow('Cannot convert bson type ARRAY to [...number[]] | [C]');
+        expect(() => deserializeBSON<t>(serialize({ v: ['44'] }))).toThrow('v(type): Expected [...number[]] | [C]');
         expect(deserializeBSON<t>(serialize({ v: [34, 55] }))).toEqual({ v: [34, 55] });
-        expect(() => deserializeBSON<t>(serialize({ v: ['44', 55] }))).toThrow('Cannot convert bson type ARRAY to [...number[]] | [C]');
+        expect(() => deserializeBSON<t>(serialize({ v: ['44', 55] }))).toThrow('v(type): Expected [...number[]] | [C]');
     }
     {
         type t = { v: [string, ...number[]] | [C] };
@@ -946,4 +946,16 @@ test('union mismatch reports errors of the closest member (#676)', () => {
     //unknown discriminator
     expect(() => deserialize(serialize({ v: { channel: '1', type: 'unknown', message: { id: '1' } } })))
         .toThrow(`v.type(type): Expected 'message' | 'message-update'`);
+});
+
+test('union errors are the same as in validate()', () => {
+    interface Circle { kind: 'circle'; radius: number }
+    interface Square { kind: 'square'; size: number }
+    type Shape = { v: Circle | Square };
+
+    expect(() => deserializeBSON<Shape>(serialize({ v: { kind: 'circle', radius: 'x' } }))).toThrow('v.radius(type): Not a number');
+    expect(() => deserializeBSON<Shape>(serialize({ v: { kind: 'triangle' } }))).toThrow(`v.kind(type): Expected 'circle' | 'square'`);
+    expect(() => deserializeBSON<Shape>(serialize({ v: 'circle' }))).toThrow('v(type): Expected Circle | Square');
+    expect(() => deserializeBSON<{ v: 'a' | 'b' }>(serialize({ v: 'c' }))).toThrow(`v(type): Expected 'a' | 'b'`);
+    expect(() => deserializeBSON<{ v: string[] | number }>(serialize({ v: ['a', 2] }))).toThrow('v.1(type): Not a string');
 });

@@ -63,17 +63,17 @@ function throwInvalidBsonType(type: Type, state: TemplateState) {
 }
 
 /**
- * When no union member matched, the value is validated against the union to report the errors of the
- * closest union member (e.g. a missing property) instead of only the BSON type. Returns undefined if
- * that gives no more specific error.
+ * When no union member matched, the value is validated against the union, so BSON reports the same errors as
+ * `validate()`: the errors of the member selected by a discriminator or of the closest member, otherwise the
+ * expected members. Returns undefined if the value can't be parsed for validation.
  */
 function getUnionMemberErrors(parser: BaseParser, elementType: BSONType | undefined, type: TypeUnion, path: string): ValidationErrorItem[] | undefined {
     if (!elementType) return;
     const offset = parser.offset;
     try {
         const errors = validate(parser.parse(elementType), type);
-        if (!errors.length || errors.every(v => !v.path)) return;
-        return errors.map(v => new ValidationErrorItem(path ? path + '.' + v.path : v.path, v.code, v.message, v.value));
+        if (!errors.length) return;
+        return errors.map(v => new ValidationErrorItem(path && v.path ? path + '.' + v.path : path || v.path, v.code, v.message, v.value));
     } catch {
         return;
     } finally {

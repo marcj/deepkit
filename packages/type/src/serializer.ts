@@ -1784,7 +1784,8 @@ interface UnionErrorReporter {
  */
 function describeUnionMembers(types: Type[]): string {
     const max = 10;
-    const names = types.slice(0, max).map(v => stringifyShortResolvedType(v));
+    //with alias names, e.g. UUID instead of string
+    const names = types.slice(0, max).map(v => stringifyType(v, { showFullDefinition: false }));
     if (types.length > max) names.push(`... (${types.length - max} more)`);
     return names.join(' | ');
 }
