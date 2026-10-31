@@ -15,7 +15,15 @@ app.setup((module, config) => {
 
 const isBuild = process.env.BUILD === 'angular'; //detecting prerender
 
+// `node dist/app/server/server.mjs migrate` runs a command of the app instead of the server.
+// The request handler starts the server, so it is only created for server:start.
+const command = process.argv[1]?.endsWith('server.mjs') ? process.argv[2] : undefined;
+const isCommand = !!command && command !== 'server:start';
+if (isCommand) {
+    app.execute(process.argv.slice(2)).then(exitCode => process.exit(exitCode), () => process.exit(1));
+}
+
 export const reqHandler =
-    isBuild
+    isBuild || isCommand
         ? () => undefined
         : app.get(RequestHandler).create();
