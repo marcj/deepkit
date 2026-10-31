@@ -830,6 +830,18 @@ export function buildFunction(state: TemplateState, type: Type): Function {
     return state.compilerContext.build(code, 'data', 'state', '_path');
 }
 
+/**
+ * Anonymous object literals and arrays of primitives are used at one place only, so their type guard
+ * is inlined instead of a function call.
+ */
+function isInlineGuardType(type: Type): boolean {
+    if (type.kind === ReflectionKind.array) {
+        const k = type.type.kind;
+        return k === ReflectionKind.string || k === ReflectionKind.number || k === ReflectionKind.boolean || k === ReflectionKind.bigint;
+    }
+    return type.kind === ReflectionKind.objectLiteral && !type.typeName && !hasCircularReference(type);
+}
+
 export function executeTemplates(
     state: TemplateState,
     type: Type,
@@ -874,6 +886,7 @@ export function executeTemplates(
             || type.kind === ReflectionKind.array || type.kind === ReflectionKind.tuple
             || (type.kind === ReflectionKind.class && (type.classType === Set || type.classType === Map))
             || isCustomTypeClass(type)) && !embeddedAnnotation.getFirst(type)
+            && !(state.typeGuard && isInlineGuardType(type))
         ) {
             //wrap circular check if necessary
             if (callExtractedFunctionIfAvailable(state, type)) {
