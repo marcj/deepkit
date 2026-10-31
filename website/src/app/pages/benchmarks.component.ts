@@ -62,11 +62,14 @@ interface ChartEntry {
     label: string;
     hz: number;
     highlight: boolean;
+    /** a raw database driver, the lower bound and no competitor */
+    baseline?: boolean;
 }
 
 @Component({
     selector: 'benchmark-chart',
     changeDetection: ChangeDetectionStrategy.OnPush,
+    host: { '[class.compact]': 'compact()' },
     template: `
         <h3>{{ title() }}</h3>
         @if (description()) {
@@ -74,12 +77,16 @@ interface ChartEntry {
         }
         <div class="chart">
             @for (entry of entries(); track entry.label) {
-                <div class="row" [class.highlight]="entry.highlight">
+                <div class="row" [class.highlight]="entry.highlight" [class.baseline]="entry.baseline">
                     <div class="label">{{ entry.label }}</div>
                     <div class="bar-container">
-                        <div class="bar" [style.width.%]="entry.width"></div>
+                        <div class="track"><div class="bar" [style.width.%]="entry.width"></div></div>
                         <div class="value">
-                            {{ entry.ops }} ops/s <span class="time">{{ entry.time }}</span>
+                            @if (compact()) {
+                                {{ entry.time }}
+                            } @else {
+                                {{ entry.ops }} ops/s <span class="time">{{ entry.time }}</span>
+                            }
                         </div>
                     </div>
                 </div>
@@ -89,58 +96,78 @@ interface ChartEntry {
     styles: `
         :host {
             display: block;
-            margin-bottom: 40px;
         }
         h3 {
-            margin-bottom: 4px;
+            font-size: 15px;
+            font-weight: 700;
+            color: white;
+            margin: 0 0 2px;
         }
         .description {
-            margin: 0 0 12px;
-            color: var(--color-grey);
-            font-size: 14px;
+            margin: 0 0 14px;
+            color: #80878f;
+            font-size: 13px;
+            line-height: 1.5;
         }
         .chart {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 7px;
+        }
+        :host(.compact) .row {
+            grid-template-columns: 136px 1fr;
         }
         .row {
             display: grid;
-            grid-template-columns: 260px 1fr;
-            gap: 12px;
+            grid-template-columns: 150px 1fr;
+            gap: 10px;
             align-items: center;
-            font-size: 14px;
+            font-size: 13px;
         }
         .label {
             text-align: right;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            color: #9aa1a9;
         }
         .bar-container {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(40px, 1fr) auto;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+            min-width: 0;
+        }
+        .track {
+            min-width: 0;
         }
         .bar {
-            height: 18px;
-            min-width: 2px;
-            border-radius: 3px;
-            background: #3a4049;
+            height: 16px;
+            min-width: 3px;
+            border-radius: 4px;
+            background: #2c323b;
         }
         .highlight .bar {
-            background: var(--color-orange);
+            background: linear-gradient(90deg, #c2401a, var(--color-orange));
         }
         .highlight .label {
             color: white;
+            font-weight: 600;
+        }
+        .baseline .bar {
+            background: repeating-linear-gradient(135deg, #2c323b 0 6px, #232830 6px 12px);
+        }
+        .baseline .label {
+            font-style: italic;
         }
         .value {
             white-space: nowrap;
-            font-size: 13px;
+            font-size: 12px;
+            color: #cfd3d8;
         }
         .time {
-            color: var(--color-grey);
-            margin-left: 4px;
+            color: #80878f;
+            margin-left: 2px;
         }
         @media (max-width: 640px) {
             .row {
@@ -157,6 +184,8 @@ export class BenchmarkChartComponent {
     title = input.required<string>();
     description = input<string>('');
     data = input.required<ChartEntry[]>();
+    /** narrow: only the time per operation */
+    compact = input(false);
 
     entries = computed(() => {
         const entries = this.data().slice().sort((a, b) => b.hz - a.hz);
@@ -170,9 +199,10 @@ interface TrendPoint {
     label: string;
     date: string;
     hz: number;
+    release: boolean;
 }
 
-/** Operations per second over the commits, with the last release as dashed line. */
+/** Operations per second over the measured releases and commits, releases as white circles. */
 @Component({
     selector: 'benchmark-trend',
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -183,19 +213,18 @@ interface TrendPoint {
                 <div class="latest">
                     {{ c.latest }}
                     @if (c.change) {
-                        <span [class.faster]="!noise() && c.change.startsWith('+')" [class.slower]="!noise() && c.change.startsWith('-')" [class.unchanged]="noise()">{{ c.change }}</span>
+                        <span [class.faster]="!noise() && c.faster" [class.slower]="!noise() && !c.faster" [class.unchanged]="noise()">{{ noise() ? 'no change' : c.change }}</span>
                     }
                 </div>
             }
         </div>
         @if (chart(); as c) {
-            <svg viewBox="0 0 300 70" preserveAspectRatio="none">
-                @if (c.releaseY !== undefined) {
-                    <line x1="0" x2="300" [attr.y1]="c.releaseY" [attr.y2]="c.releaseY" class="release" />
-                }
+            <svg viewBox="0 0 300 50" preserveAspectRatio="none">
                 <polyline [attr.points]="c.points" />
                 @for (point of c.dots; track point.x) {
-                    <circle [attr.cx]="point.x" [attr.cy]="point.y" r="2.5"><title>{{ point.title }}</title></circle>
+                    <circle [attr.cx]="point.x" [attr.cy]="point.y" [attr.r]="point.release ? 4 : 2.5" [class.release]="point.release">
+                        <title>{{ point.title }}</title>
+                    </circle>
                 }
             </svg>
             <div class="axis">
@@ -207,9 +236,10 @@ interface TrendPoint {
     styles: `
         :host {
             display: block;
-            background: rgba(24, 28, 35, 0.6);
-            border-radius: 4px;
-            padding: 12px 14px 8px;
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 14px 16px 10px;
         }
         .head {
             display: flex;
@@ -220,8 +250,10 @@ interface TrendPoint {
         }
         .label {
             color: white;
+            font-weight: 600;
         }
         .latest {
+            color: #cfd3d8;
             white-space: nowrap;
             span {
                 margin-left: 6px;
@@ -238,8 +270,9 @@ interface TrendPoint {
         }
         svg {
             width: 100%;
-            height: 70px;
+            height: 50px;
             overflow: visible;
+            margin: 4px 0;
         }
         polyline {
             fill: none;
@@ -250,9 +283,10 @@ interface TrendPoint {
         circle {
             fill: var(--color-orange);
         }
-        line.release {
-            stroke: #6b7280;
-            stroke-dasharray: 4 4;
+        circle.release {
+            fill: #0b0d10;
+            stroke: white;
+            stroke-width: 2;
             vector-effect: non-scaling-stroke;
         }
         .axis {
@@ -267,7 +301,7 @@ interface TrendPoint {
 export class BenchmarkTrendComponent {
     label = input.required<string>();
     points = input.required<TrendPoint[]>();
-    /** operations per second of the last release */
+    /** operations per second of the last release, the change is relative to it */
     release = input<{ label: string; hz: number }>();
     /** whether the change to the release is within the measurement error */
     noise = input(false);
@@ -276,19 +310,25 @@ export class BenchmarkTrendComponent {
         const points = this.points();
         if (!points.length) return;
         const release = this.release();
-        const max = Math.max(...points.map(v => v.hz), release?.hz || 0) * 1.1;
-        const y = (hz: number) => 70 - (hz / max) * 70;
+        // time per operation: the line goes down when it gets faster
+        const maxTime = Math.max(...points.map(v => 1 / v.hz)) * 1.1;
+        const y = (hz: number) => 50 - (1 / hz / maxTime) * 50;
         const x = (i: number) => (points.length === 1 ? 150 : (i / (points.length - 1)) * 300);
-        const dots = points.map((v, i) => ({ x: x(i), y: y(v.hz), title: `${v.label} (${v.date.slice(0, 10)}): ${formatOps(v.hz)} ops/s, ${formatTime(v.hz)}` }));
+        const dots = points.map((v, i) => ({
+            x: x(i),
+            y: y(v.hz),
+            release: v.release,
+            title: `${v.release ? 'Release ' : ''}${v.label} (${v.date.slice(0, 10)}): ${formatOps(v.hz)} ops/s, ${formatTime(v.hz)}`,
+        }));
         const last = points[points.length - 1];
         const base = release?.hz || points[0].hz;
-        const percent = (last.hz / base - 1) * 100;
+        const factor = last.hz / base;
         return {
             points: dots.map(v => `${v.x},${v.y}`).join(' '),
             dots,
-            releaseY: release ? y(release.hz) : undefined,
             latest: formatTime(last.hz),
-            change: points.length > 1 || release ? (percent >= 0 ? '+' : '') + percent.toFixed(0) + '%' : '',
+            faster: factor >= 1,
+            change: points.length > 1 || release ? (factor >= 1 ? factor.toFixed(1) + '× faster' : (1 / factor).toFixed(1) + '× slower') : '',
             first: points[0].label,
             last: last.label,
         };
@@ -310,7 +350,7 @@ const charts: ChartDefinition[] = [
         description: 'Checks a user object with nested profile and an array of roles. The result is true or false.',
         suite: 'comparison/validation',
         benchmarks: {
-            'typia is (valid)': 'typia (ahead-of-time compiled)',
+            'typia is (valid)': 'typia (AOT)',
             'deepkit guard (valid)': 'Deepkit guard()',
             'deepkit is (valid)': 'Deepkit is()',
             'typebox Check (valid)': 'TypeBox',
@@ -326,7 +366,7 @@ const charts: ChartDefinition[] = [
         suite: 'comparison/validation',
         benchmarks: {
             'deepkit validate (invalid)': 'Deepkit validate()',
-            'typia validate (invalid)': 'typia (ahead-of-time compiled)',
+            'typia validate (invalid)': 'typia (AOT)',
             'zod safeParse (invalid)': 'Zod',
             'valibot safeParse (invalid)': 'Valibot',
             'typebox Errors (invalid)': 'TypeBox',
@@ -368,17 +408,33 @@ const charts: ChartDefinition[] = [
 ];
 
 
+/** The ORM comparisons, see benchmarks/comparison/orm. */
+const databaseSuites: { suite: string; title: string; drivers: string[] }[] = [
+    { suite: 'comparison/orm-postgres', title: 'PostgreSQL', drivers: ['pg', 'postgres.js'] },
+    { suite: 'comparison/orm-sqlite', title: 'SQLite', drivers: ['better-sqlite3'] },
+    { suite: 'comparison/orm-mongo', title: 'MongoDB', drivers: ['mongodb'] },
+];
+
+const databaseOperations: { name: string; title: string; description: string }[] = [
+    { name: 'findOne by id', title: 'findOne by id', description: 'A row by its primary key.' },
+    { name: 'find 10,000 rows', title: 'Load 10,000 rows', description: 'All rows of the table as objects.' },
+    { name: 'insert 1,000 rows', title: 'Insert 1,000 rows', description: 'In one unit of work or batch, then deleted again.' },
+];
+
 /** Benchmarks of whole operations, shown over time. */
 const trends: { title: string; items: { suite: string; name: string; label: string }[] }[] = [
     {
         title: 'Database',
         items: [
-            { suite: 'orm/sqlite', name: 'query findOne', label: 'SQLite findOne' },
-            { suite: 'orm/sqlite', name: 'insert single item', label: 'SQLite insert' },
-            { suite: 'mongo', name: 'findOne by _id', label: 'MongoDB findOne' },
-            { suite: 'mongo', name: 'find 100 with hydration', label: 'MongoDB find 100 entities' },
-            { suite: 'mongo', name: 'insert 100 in one session', label: 'MongoDB insert 100 in a session' },
-            { suite: 'mongo', name: 'change detection + update of a loaded entity', label: 'MongoDB load, change, update' },
+            { suite: 'comparison/orm-postgres', name: 'Deepkit: findOne by id', label: 'PostgreSQL findOne' },
+            { suite: 'comparison/orm-postgres', name: 'Deepkit: find 10,000 rows', label: 'PostgreSQL 10,000 rows' },
+            { suite: 'comparison/orm-postgres', name: 'Deepkit: insert 1,000 rows', label: 'PostgreSQL insert 1,000' },
+            { suite: 'comparison/orm-sqlite', name: 'Deepkit: findOne by id', label: 'SQLite findOne' },
+            { suite: 'comparison/orm-sqlite', name: 'Deepkit: find 10,000 rows', label: 'SQLite 10,000 rows' },
+            { suite: 'comparison/orm-sqlite', name: 'Deepkit: insert 1,000 rows', label: 'SQLite insert 1,000' },
+            { suite: 'comparison/orm-mongo', name: 'Deepkit: findOne by id', label: 'MongoDB findOne' },
+            { suite: 'comparison/orm-mongo', name: 'Deepkit: find 10,000 rows', label: 'MongoDB 10,000 documents' },
+            { suite: 'comparison/orm-mongo', name: 'Deepkit: insert 1,000 rows', label: 'MongoDB insert 1,000' },
         ],
     },
     {
@@ -441,7 +497,8 @@ const suiteTitles: { [name: string]: string } = {
     'injector/scaling': 'Dependency injection: scaling',
     'app/module': 'App modules',
     'event/dispatcher': 'Events',
-    'http/router': 'HTTP',
+    'http/router': 'HTTP router and serialization',
+    'http/kernel': 'HTTP requests',
     'rpc/actions': 'RPC actions',
     'rpc/messages': 'RPC messages',
     'orm/sqlite': 'ORM with SQLite',
@@ -458,148 +515,301 @@ const suiteTitles: { [name: string]: string } = {
             value="Performance of Deepkit validation, serialization, BSON, ORM, HTTP, RPC and dependency injection, compared with typia, Zod, Valibot, ArkType, TypeBox, class-validator and the previous release."
         ></app-description>
         <dw-header />
-        <div class="app-content benchmarks">
-            <h1>Benchmarks</h1>
-            <p>
-                Every package of Deepkit has benchmarks, and the comparisons with other libraries use the same data
-                and run in the same process. The results below are from
-                @if (latest(); as run) {
-                    <a href="https://github.com/deepkit/deepkit-framework/commit/{{ run.commit }}">{{ run.label }}</a>
-                    on {{ formatDate(run.date) }},
-                }
-                measured on a dedicated machine:
-                @if (machine; as m) {
-                    {{ m.cpu }}, {{ m.platform }}, Node.js {{ m.node }}.
-                }
-            </p>
+        <div class="bench-page">
+            <section class="bm-card bm-hero">
+                <h1>Benchmarks</h1>
+                <p>
+                    Every package of Deepkit has benchmarks. The comparisons with other libraries use the same data and
+                    run in the same process, on a dedicated machine.
+                </p>
+                <div class="meta">
+                    @if (latest(); as run) {
+                        <a class="chip" href="https://github.com/deepkit/deepkit-framework/commit/{{ run.commit }}">master {{ run.label }}</a>
+                        <span class="chip">{{ formatDate(run.date) }}</span>
+                    }
+                    @if (machine; as m) {
+                        <span class="chip">{{ m.cpu }}</span>
+                        <span class="chip">Node.js {{ m.node }}</span>
+                    }
+                </div>
+            </section>
 
-            <h2>Compared with other libraries</h2>
-            <p>
-                Operations per second, higher is better. Deepkit reads the TypeScript types at runtime, so there is no
-                schema to write: the validators below check a plain <code>interface User</code>. typia also uses
-                TypeScript types, but generates its code at build time.
-            </p>
-            @for (chart of charts(); track chart.title) {
-                <benchmark-chart [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+            <section class="bm-card">
+                <h2>Compared with other libraries</h2>
+                <p class="intro">
+                    Operations per second, higher is better. Deepkit reads the TypeScript types at runtime, so there is no
+                    schema to write: the validators check a plain <code>interface User</code>. typia also uses TypeScript
+                    types, but generates its code at build time.
+                </p>
+                <div class="charts">
+                    @for (chart of charts(); track chart.title) {
+                        <benchmark-chart class="panel" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                    }
+                </div>
+            </section>
+
+            @if (databases().length) {
+                <section class="bm-card">
+                    <h2>Databases</h2>
+                    <p class="intro">
+                        Complete ORM operations against a real database on the same machine: a table with
+                        10,000 rows, read as entities or objects of each library. Time per operation, the longer the bar the
+                        faster. The raw drivers (striped) are the lower bound of what an ORM on top of them can reach.
+                    </p>
+                    @for (database of databases(); track database.name) {
+                        <h3>{{ database.title }}</h3>
+                        <div class="charts three">
+                            @for (chart of database.charts; track chart.title) {
+                                <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                            }
+                        </div>
+                    }
+                </section>
             }
 
             @if (release(); as release) {
-                <h2>Since the last release</h2>
-                <p>
-                    {{ latest()?.label }} compared with {{ release.run.label }}, the same benchmarks on the same machine:
-                    <strong>{{ release.faster }}</strong> faster, <strong>{{ release.slower }}</strong> slower and
-                    {{ release.noise }} unchanged within the measurement error, of {{ release.total }} benchmarks.
-                </p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th></th>
-                            <th>{{ release.run.label }}</th>
-                            <th>{{ latest()?.label }}</th>
-                            <th>Change</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (row of release.highlights; track row.label) {
-                            <tr>
-                                <td>
-                                    <code>{{ row.label }}</code>
-                                </td>
-                                <td>{{ row.before }}</td>
-                                <td>{{ row.after }}</td>
-                                <td class="faster">{{ row.factor }}</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-
-            <h2>Over time</h2>
-            <p>
-                Whole operations, per measured commit, from the first to the latest. The dashed line is the last
-                release{{ releaseLabel() ? ' (' + releaseLabel() + ')' : '' }}, the percentage the change of the
-                latest commit to it, grey if within the measurement error. Hover a point for its numbers.
-            </p>
-            @for (group of trends(); track group.title) {
-                <h3>{{ group.title }}</h3>
-                <div class="trends">
-                    @for (item of group.items; track item.label) {
-                        <benchmark-trend [label]="item.label" [points]="item.points" [release]="item.release" [noise]="item.noise" />
-                    }
-                </div>
-            }
-
-            <h2>All benchmarks</h2>
-            <p>
-                Time per operation in the latest run, and the change of operations per second since the last release.
-                Changes within twice the measurement error count as no change.
-            </p>
-            @for (suite of suites(); track suite.id) {
-                <details id="{{ suite.id }}">
-                    <summary>
-                        <h3>{{ suite.title }}</h3>
-                        <span class="file">{{ suite.rows.length }} benchmarks, {{ suite.file }}</span>
-                    </summary>
-                    <table>
-                        <tbody>
-                            @for (row of suite.rows; track row.name) {
+                <section class="bm-card">
+                    <h2>Releases and master</h2>
+                    <p class="intro">
+                        Time per operation in the last releases and in master, the same benchmarks on the same machine,
+                        each with its change to the column before.
+                        Compared with {{ release.run.label }}, master is faster in <strong>{{ release.faster }}</strong>,
+                        slower in <strong>{{ release.slower }}</strong> and unchanged within the measurement error in
+                        {{ release.noise }} of {{ release.total }} benchmarks.
+                    </p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
                                 <tr>
-                                    <td>{{ row.name }}</td>
-                                    <td class="number">{{ row.time }}</td>
-                                    <td class="number">{{ row.ops }} ops/s</td>
-                                    <td class="number" [class.faster]="row.faster" [class.slower]="row.slower" [class.unchanged]="!row.faster && !row.slower">
-                                        {{ row.change }}
-                                    </td>
+                                    <th></th>
+                                    @if (release.previous; as previous) {
+                                        <th class="number">{{ previous.label }}</th>
+                                    }
+                                    <th class="number with-change">{{ release.run.label }}</th>
+                                    <th class="number with-change">master</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </details>
+                            </thead>
+                            <tbody>
+                                @for (row of release.highlights; track row.label) {
+                                    <tr>
+                                        <td><code>{{ row.label }}</code></td>
+                                        @for (cell of row.cells; track $index; let last = $last) {
+                                            <td class="number" [class.strong]="last">
+                                                {{ cell.time }}
+                                                @if (cell.change; as change) {
+                                                    <span class="change" [class.faster]="change.faster" [class.slower]="change.slower" [class.unchanged]="!change.faster && !change.slower">{{ change.text }}</span>
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
             }
 
-            <h2>Run them yourself</h2>
-            <p>
-                The benchmarks are in <code>benchmarks/</code> of each package and in <code>benchmarks/comparison</code>.
-                The results are written to <code>benchmarks/results/&lt;machine&gt;</code>; the ones of this page are
-                committed in the repository.
-            </p>
-            <highlight-code
-                lang="bash"
-                code="git clone https://github.com/deepkit/deepkit-framework.git
+            <section class="bm-card">
+                <h2>Over time</h2>
+                <p class="intro">
+                    <strong>Time per operation, lower is better</strong>, of whole features from the oldest measured
+                    release to master. White circles are releases. The factor compares master with the last
+                    release{{ releaseLabel() ? ' (' + releaseLabel() + ')' : '' }}, grey if within the measurement error.
+                    Hover a point for its numbers.
+                </p>
+                @for (group of trends(); track group.title) {
+                    <h3>{{ group.title }}</h3>
+                    <div class="trends">
+                        @for (item of group.items; track item.label) {
+                            <benchmark-trend [label]="item.label" [points]="item.points" [release]="item.release" [noise]="item.noise" />
+                        }
+                    </div>
+                }
+            </section>
+
+            <section class="bm-card">
+                <h2>All benchmarks</h2>
+                <p class="intro">
+                    Time per operation in master and the change of operations per second since the last release.
+                    Changes within twice the measurement error count as no change.
+                </p>
+                @for (suite of suites(); track suite.id) {
+                    <details id="{{ suite.id }}">
+                        <summary>
+                            <span class="suite-title">{{ suite.title }}</span>
+                            <span class="file">{{ suite.rows.length }} benchmarks · {{ suite.file }}</span>
+                        </summary>
+                        <div class="table-scroll">
+                            <table>
+                                <tbody>
+                                    @for (row of suite.rows; track row.name) {
+                                        <tr>
+                                            <td>{{ row.name }}</td>
+                                            <td class="number strong">{{ row.time }}</td>
+                                            <td class="number">{{ row.ops }} ops/s</td>
+                                            <td class="number" [class.faster]="row.faster" [class.slower]="row.slower" [class.unchanged]="!row.faster && !row.slower">
+                                                {{ row.change }}
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                }
+            </section>
+
+            <section class="bm-card">
+                <h2>Run them yourself</h2>
+                <p class="intro">
+                    The benchmarks are in <code>benchmarks/</code> of each package and in
+                    <code>benchmarks/comparison</code>. The results are written to
+                    <code>benchmarks/results/&lt;machine&gt;</code>; the ones of this page are committed in the repository.
+                </p>
+                <highlight-code
+                    lang="bash"
+                    code="git clone https://github.com/deepkit/deepkit-framework.git
 cd deepkit-framework
 yarn && npm run postinstall && npm run tsc
 
 npm run bench                         # all benchmarks
 npm run bench -- type bson            # files whose path contains type or bson
 npm run bench -- --target 1.0.19      # the same benchmarks against a published version"
-            />
+                />
+            </section>
         </div>
         <dw-footer />
     `,
     styles: `
-        .benchmarks {
-            max-width: 1000px;
-            margin: 0 auto;
+        .bench-page {
+            box-sizing: border-box;
+            width: 100%;
+            text-align: left;
+            max-width: 1080px;
+            margin: 40px auto 0;
+            padding: 0 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            font-size: 15px;
+            line-height: 1.6;
+            color: #cfd3d8;
+        }
+        .bm-card {
+            background: var(--color-content-text-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 28px 30px;
+        }
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: white;
+            margin: 0 0 8px;
+        }
+        h2 {
+            font-size: 19px;
+            font-weight: 700;
+            color: white;
+            margin: 0 0 6px;
+        }
+        h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: white;
+            margin: 22px 0 10px;
+        }
+        p {
+            margin: 0;
+        }
+        .intro {
+            color: #9aa1a9;
+            font-size: 14px;
+            max-width: 78ch;
+            margin-bottom: 20px;
+        }
+        code {
+            font-style: normal;
+            font-size: 13px;
+            color: #e3e6ea;
+            white-space: nowrap;
+        }
+        a {
+            color: var(--color-link);
+        }
+        .bm-hero p {
+            color: #9aa1a9;
+            max-width: 70ch;
+        }
+        .meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 16px 0 0;
+        }
+        .chip,
+        a.chip {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.06);
+            color: #b8bec5;
+            text-decoration: none;
+        }
+        a.chip:hover {
+            color: white;
+        }
+        .charts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+            gap: 16px;
+        }
+        .charts.three {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+        .panel {
+            background: rgba(255, 255, 255, 0.025);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin: 0;
+        }
+        .trends {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+        }
+        .table-scroll {
+            overflow-x: auto;
         }
         table {
             width: 100%;
             border-collapse: collapse;
             font-size: 14px;
-            margin-bottom: 30px;
         }
         th,
         td {
             text-align: left;
-            padding: 5px 8px;
-            border-bottom: 1px solid rgba(224, 224, 224, 0.08);
+            padding: 7px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.025);
         }
         th {
             font-weight: normal;
-            color: var(--color-grey);
+            font-size: 12px;
+            color: #80878f;
         }
         .number {
             text-align: right;
             white-space: nowrap;
+        }
+        td:first-child {
+            white-space: nowrap;
+        }
+        .strong {
+            color: white;
         }
         .faster {
             color: #5cb85c;
@@ -607,36 +817,56 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
         .slower {
             color: #e0645c;
         }
-        .trends {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 12px;
-            margin-bottom: 24px;
-        }
         .unchanged {
-            color: var(--color-grey);
+            color: #80878f;
+        }
+        th.with-change {
+            padding-right: 106px;
+        }
+        .change {
+            display: inline-block;
+            min-width: 88px;
+            margin-left: 8px;
+            font-size: 12px;
+            text-align: left;
         }
         details {
-            border-bottom: 1px solid rgba(224, 224, 224, 0.08);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         summary {
             display: flex;
             align-items: baseline;
-            gap: 10px;
+            gap: 12px;
             cursor: pointer;
-            padding: 10px 0;
-            h3 {
-                display: inline;
-                margin: 0;
+            padding: 12px 0;
+            list-style: none;
+            &::before {
+                content: '▸';
+                color: #80878f;
+                font-size: 12px;
             }
         }
+        details[open] summary::before {
+            content: '▾';
+        }
         details[open] summary {
-            margin-bottom: 6px;
+            margin-bottom: 4px;
+        }
+        .suite-title {
+            color: white;
+            font-weight: 700;
         }
         .file {
             font-size: 12px;
-            font-weight: normal;
-            color: var(--color-grey);
+            color: #80878f;
+        }
+        @media (max-width: 640px) {
+            .bm-card {
+                padding: 20px 16px;
+            }
+            .charts {
+                grid-template-columns: 1fr;
+            }
         }
     `,
 })
@@ -653,6 +883,26 @@ export class BenchmarksComponent {
     protected releaseIndex = computed(() => {
         for (let i = data.runs.length - 1; i >= 0; i--) if (data.runs[i].release) return i;
         return -1;
+    });
+
+    protected databases = computed(() => {
+        const index = this.latestIndex();
+        return databaseSuites.flatMap(database => {
+            const suite = data.suites.find(v => v.name === database.suite);
+            if (!suite) return [];
+            const charts = databaseOperations.map(operation => {
+                const entries: ChartEntry[] = [];
+                for (const benchmark of suite.benchmarks) {
+                    const [library, name] = benchmark.name.split(': ');
+                    const hz = benchmark.hz[index];
+                    if (name !== operation.name || !hz) continue;
+                    const baseline = database.drivers.includes(library);
+                    entries.push({ label: baseline ? library + ' (driver)' : library, hz, highlight: library === 'Deepkit', baseline });
+                }
+                return { title: operation.title, description: operation.description, entries };
+            }).filter(v => v.entries.length);
+            return charts.length ? [{ name: database.suite, title: database.title, charts }] : [];
+        });
     });
 
     protected charts = computed(() => {
@@ -681,13 +931,39 @@ export class BenchmarksComponent {
                 else slower++;
             }
         }
+        const p = this.previousReleaseIndex();
+        // previous release, last release, master: each with its change to the column before
+        const columns = p === -1 ? [a, b] : [p, a, b];
         const rows = highlights.flatMap(h => {
             const benchmark = data.suites.find(v => v.name === h.suite)?.benchmarks.find(v => v.name === h.name);
-            const before = benchmark?.hz[a], after = benchmark?.hz[b];
-            if (!before || !after) return [];
-            return [{ label: h.label, before: formatTime(before), after: formatTime(after), factor: after >= before ? (after / before).toFixed(1) + '× faster' : (before / after).toFixed(1) + '× slower' }];
+            if (!benchmark || !benchmark.hz[a] || !benchmark.hz[b]) return [];
+            const cells = columns.map((run, i) => {
+                const hz = benchmark.hz[run];
+                if (!hz) return { time: '–' };
+                const before = i > 0 ? columns[i - 1] : -1;
+                const c = before === -1 ? undefined : change(benchmark, before, run);
+                if (!c) return { time: formatTime(hz) };
+                const factor = 1 + c.percent / 100;
+                return {
+                    time: formatTime(hz),
+                    change: c.noise
+                        ? { text: 'no change', faster: false, slower: false }
+                        : { text: factor >= 1 ? factor.toFixed(1) + '× faster' : (1 / factor).toFixed(1) + '× slower', faster: factor >= 1, slower: factor < 1 },
+                };
+            });
+            return [{ label: h.label, cells }];
         });
-        return { run: data.runs[a], faster, slower, noise, total: faster + slower + noise, highlights: rows };
+        return {
+            run: data.runs[a],
+            previous: p === -1 ? undefined : data.runs[p],
+            faster, slower, noise, total: faster + slower + noise, highlights: rows,
+        };
+    });
+
+    /** the release before the last one */
+    protected previousReleaseIndex = computed(() => {
+        for (let i = this.releaseIndex() - 1; i >= 0; i--) if (data.runs[i].release) return i;
+        return -1;
     });
 
     protected releaseLabel = computed(() => (this.releaseIndex() === -1 ? '' : data.runs[this.releaseIndex()].label));
@@ -702,7 +978,7 @@ export class BenchmarksComponent {
                 const points: TrendPoint[] = [];
                 data.runs.forEach((run, i) => {
                     const hz = benchmark.hz[i];
-                    if (!run.release && hz) points.push({ label: run.label, date: run.date, hz });
+                    if (hz) points.push({ label: run.label, date: run.date, hz, release: run.release });
                 });
                 if (!points.length) return [];
                 const releaseHz = r === -1 ? null : benchmark.hz[r];

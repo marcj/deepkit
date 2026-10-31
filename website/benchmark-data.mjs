@@ -21,7 +21,7 @@ function compareVersions(a, b) {
     return 0;
 }
 
-/** The date of the commit, so a commit measured later is still at its place in the history. */
+/** The date of the commit (or tag of a release), so a run measured later is still at its place in the history. */
 function commitDate(commit) {
     try {
         return execFileSync('git', ['log', '-1', '--format=%cI', commit], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
@@ -32,14 +32,16 @@ function commitDate(commit) {
 
 const files = existsSync(resultsDir) ? readdirSync(resultsDir).filter(v => v.endsWith('.json') && !v.includes('-dirty')) : [];
 const results = files.map(file => JSON.parse(readFileSync(join(resultsDir, file), 'utf8')));
-for (const result of results) result.sortDate = (!isRelease(result.label) && result.commit && commitDate(result.commit)) || result.date;
+for (const result of results) {
+    result.sortDate = (isRelease(result.label) ? commitDate('v' + result.label) : result.commit && commitDate(result.commit)) || result.date;
+}
 
-// releases by version, then commits by date
+// in the order of the history: releases at the date of their tag, commits at their date
 results.sort((a, b) => {
-    const ra = isRelease(a.label), rb = isRelease(b.label);
-    if (ra && rb) return compareVersions(a.label, b.label);
-    if (ra !== rb) return ra ? -1 : 1;
-    return new Date(a.sortDate).getTime() - new Date(b.sortDate).getTime();
+    const diff = new Date(a.sortDate).getTime() - new Date(b.sortDate).getTime();
+    if (diff) return diff;
+    if (isRelease(a.label) && isRelease(b.label)) return compareVersions(a.label, b.label);
+    return 0;
 });
 
 const suites = new Map();
