@@ -4,6 +4,7 @@ import { Meta } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 import { Translation } from '@app/app/components/translation.js';
 import { ogImagePath, siteUrl } from '@app/common/seo.js';
+import { docs } from '@app/common/docs.js';
 
 
 /**
@@ -88,6 +89,8 @@ export class Seo {
         this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
         this.meta.updateTag({ name: 'twitter:image', content: image });
 
+        this.setStructuredData(this.structuredData(path, canonical));
+
         for (const link of Array.from(this.document.head.querySelectorAll('link[rel="alternate"][hreflang], link[rel="alternate"][type="text/markdown"]'))) link.remove();
         // the page as markdown for LLMs and coding agents, see LlmsController
         if (/^\/[a-z]{2}\/documentation(\/|$)/.test(path) && !path.includes('/desktop-ui')) {
@@ -101,6 +104,60 @@ export class Seo {
             for (const [code, route] of Object.entries(alternates)) this.addAlternate(code, siteUrl + route);
             this.addAlternate('x-default', siteUrl + alternates.en);
         }
+    }
+
+    /** schema.org data for search engines: the project on start pages, breadcrumbs on documentation pages */
+    protected structuredData(path: string, canonical: string): object | undefined {
+        const codes = this.translation.languages.map(v => v.code);
+        if (path === '/' || codes.some(code => path === '/' + code)) {
+            return {
+                '@context': 'https://schema.org',
+                '@graph': [
+                    { '@type': 'WebSite', name: 'Deepkit', url: siteUrl + '/' },
+                    {
+                        '@type': 'SoftwareSourceCode',
+                        name: 'Deepkit',
+                        description: 'TypeScript framework with runtime types: one TypeScript type for validation, serialization, database, HTTP, RPC and dependency injection.',
+                        url: siteUrl + '/',
+                        codeRepository: 'https://github.com/deepkit/deepkit-framework',
+                        programmingLanguage: 'TypeScript',
+                        runtimePlatform: 'Node.js',
+                        license: 'https://opensource.org/licenses/MIT',
+                        author: { '@type': 'Person', name: 'Marc J. Schmidt' },
+                    },
+                ],
+            };
+        }
+        const match = path.match(/^\/([a-z]{2})\/documentation(?:\/(.+))?$/);
+        if (!match || !match[2]) return;
+        const category = docs.find(c => c.pages.some(p => p.path === match[2]));
+        const page = category?.pages.find(p => p.path === match[2]);
+        if (!category || !page) return;
+        const items = [{ name: this.translation.translate('Docs'), url: `${siteUrl}/${match[1]}/documentation` }];
+        const first = category.pages[0];
+        if (category.category && first.path !== page.path) {
+            items.push({ name: this.translation.translate(category.category), url: `${siteUrl}/${match[1]}/documentation/${first.path}` });
+        }
+        items.push({ name: this.translation.translate(page.title), url: siteUrl + canonical });
+        return {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: items.map((v, i) => ({ '@type': 'ListItem', position: i + 1, name: v.name, item: v.url })),
+        };
+    }
+
+    protected setStructuredData(data: object | undefined) {
+        let script = this.document.head.querySelector<HTMLScriptElement>('script[type="application/ld+json"]');
+        if (!data) {
+            script?.remove();
+            return;
+        }
+        if (!script) {
+            script = this.document.createElement('script');
+            script.setAttribute('type', 'application/ld+json');
+            this.document.head.appendChild(script);
+        }
+        script.textContent = JSON.stringify(data);
     }
 
     /** Start pages and docs exist in all languages. */

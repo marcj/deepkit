@@ -47,6 +47,29 @@ export function getPermanentRedirect(url: string): string | undefined {
     if ((match = path.match(/^(?:\/([a-z]{2}))?\/documentation\/(?:([a-z-]+)\/)?examples(\/|$)/))) {
         return `/${match[1] || 'en'}/documentation${match[2] ? '/' + match[2] : ''}`;
     }
+    // renamed documentation pages
+    const renamed: Record<string, string> = {
+        'package/mongodb': 'package/mongo',
+        'package/filesystem-s3': 'package/filesystem-aws-s3',
+        'dependency-injection/dependency-injection': 'dependency-injection',
+        'runtime-types/runtime-types': 'runtime-types',
+        topsort: 'package/topsort',
+        event: 'package/event',
+    };
+    if ((match = path.match(/^(?:\/([a-z]{2}))?\/documentation\/(.+?)(\.md)?$/)) && renamed[match[2]]) {
+        return `/${match[1] || 'en'}/documentation/${renamed[match[2]]}${match[3] || ''}`;
+    }
+    // the documentation of runtime types was called "type" before 2023
+    if ((match = path.match(/^(?:\/([a-z]{2}))?\/documentation\/type(\/|$)/))) return `/${match[1] || 'en'}/documentation/runtime-types`;
+    if (path === '/docs' || path === '/docs/') return '/en/documentation';
+    // markdown links of the documentation resolved against the root, e.g. /framework.md, /runtime-types/validation.md
+    if ((match = path.match(/^\/([a-z0-9-]+(?:\/[a-z0-9-]+)*)(\.md)?$/)) && !/^[a-z]{2}(\/|$)/.test(match[1])) {
+        const page = renamed[match[1]] || match[1];
+        if ((match[2] || page === 'framework') && docs.some(category => category.pages.some(v => v.path === page))) {
+            return `/en/documentation/${page}${match[2] || ''}`;
+        }
+    }
+
     // documentation and blog are under the language since the translations
     if (/^\/(documentation|blog)(\/|$)/.test(path)) return '/en' + url;
     return;
