@@ -257,6 +257,10 @@ const performanceCharts = [
             <div class="wrapper hero">
                 <h1>{{ texts.heroTitle | translate }}</h1>
                 <h3 class="text">{{ texts.heroText | translate }}</h3>
+                <div class="badges">
+                    <a href="https://discord.gg/U24mryk7Wq"><img alt="Discord" src="https://img.shields.io/discord/759513055117180999?style=square&label=Discord" /></a>
+                    <a href="https://www.npmjs.com/package/@deepkit/type"><img alt="npm" src="https://img.shields.io/npm/v/@deepkit/type.svg?style=square" /></a>
+                </div>
                 <div class="code-box">npm init &#64;deepkit/app&#64;latest my-app</div>
                 <p class="llm-hint">{{ texts.llmHint | translate }} <a href="/llms.txt">llms.txt</a> (<a href="/llms-full.txt">llms-full.txt</a>)</p>
             </div>
@@ -385,6 +389,16 @@ const performanceCharts = [
             padding-top: 560px;
             max-width: 750px;
         }
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        .badges img {
+            display: block;
+            height: 20px;
+        }
         .code-box {
             margin-top: 45px;
             border: 1px solid #292929;
@@ -507,6 +521,9 @@ const performanceCharts = [
         }
         .get-started {
             margin-bottom: 150px;
+        }
+        .hero .badges + .code-box {
+            margin-top: 25px;
         }
         .get-started .code-box {
             margin-top: 10px;
