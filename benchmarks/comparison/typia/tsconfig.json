@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": "..",
+    "outDir": "../typia-generated",
+    "plugins": [{ "transform": "typia/lib/transform" }]
+  },
+  "files": ["validators.ts"]
+}

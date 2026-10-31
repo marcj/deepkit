@@ -15,7 +15,6 @@
     "tests/**/*.ts"
   ],
   "include": [
-    "benchmarks",
     "src",
     "index.ts"
   ],

@@ -1,0 +1,21 @@
+{
+  "name": "@deepkit/benchmarks",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Benchmarks of all packages and comparisons with other libraries, see runner.ts",
+  "devDependencies": {
+    "@deepkit/bench": "^1.0.19",
+    "@sinclair/typebox": "^0.34.52",
+    "arktype": "^2.2.9",
+    "bson": "^7.3.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "reflect-metadata": "^0.2.2",
+    "ttsc": "0.34.1",
+    "typescript-native": "npm:typescript@^7.0.2",
+    "typia": "15.2.0",
+    "valibot": "^1.5.0",
+    "zod": "^4.6.7"
+  }
+}

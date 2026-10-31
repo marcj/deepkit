@@ -22,11 +22,14 @@
     "publish-force": "node scripts/build-stamp.js check && lerna publish --no-private --no-commit-hooks --force-publish",
     "version": "node scripts/sync-peer-versions.js",
     "check:circular": "madge --extensions ts --warning --circular",
-    "publish-website": "heroku container:push web && heroku container:release web"
+    "publish-website": "heroku container:push web && heroku container:release web",
+    "bench": "node --import @deepkit/run benchmarks/runner.ts",
+    "bench:typia": "cd benchmarks && ttsc -p comparison/typia/tsconfig.json"
   },
   "workspaces": [
     "website",
     "packages/*",
+    "benchmarks",
     "!packages/fs",
     "!packages/orm-browser-example",
     "!packages/framework-examples"
@@ -105,5 +108,9 @@
       "packages/api-console-module"
     ]
   },
-  "packageManager": "yarn@4.9.2"
+  "packageManager": "yarn@4.9.2",
+  "resolutions": {
+    "@typia/utils": "15.2.0",
+    "@typia/interface": "15.2.0"
+  }
 }

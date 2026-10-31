@@ -10,7 +10,6 @@
   },
   "reflection": true,
   "include": [
-    "benchmarks",
     "src",
     "index.ts"
   ],

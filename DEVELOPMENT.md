@@ -114,6 +114,10 @@ deepkit-framework/packages/example-app » npm run start
 ```
 
 
+## Benchmarks
+
+`npm run bench` runs the benchmarks of all packages and the comparisons with other libraries, `npm run bench -- --target 1.0.19` the same against a published version. See [benchmarks/README.md](benchmarks/README.md).
+
 ## Making changes 
 
 In order to make sure that all packages are built correctly and that Jest understands cross-package references you
