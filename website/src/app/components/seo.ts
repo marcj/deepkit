@@ -56,11 +56,13 @@ export class Seo {
         const content = this.contentLanguage();
         const routes = this.translationRoutes(path);
 
-        this.document.documentElement.lang = content || lang;
+        // Desktop UI pages exist in English only, under every language prefix
+        const englishOnly = /^\/[a-z]{2}\/documentation\/desktop-ui(\/|$)/.test(path);
+        this.document.documentElement.lang = englishOnly ? 'en' : content || lang;
 
         let canonical = path;
         let alternates: Record<string, string> | undefined;
-        if (/^\/[a-z]{2}\/blog(\/|$)/.test(path)) {
+        if (englishOnly || /^\/[a-z]{2}\/blog(\/|$)/.test(path)) {
             canonical = routes.en;
         } else if (this.isTranslated(path)) {
             if (content && content !== lang) {

@@ -75,6 +75,14 @@ app.listen(httpWorkflow.onRoute, (event) => {
     event.stopImmediatePropagation();
 }, 50);
 
+// Pages (paths without file extension) are revalidated by browsers and kept by Cloudflare for 5 minutes only,
+// so a deploy is visible right away. Routes with their own cache-control (images, markdown) override it.
+app.listen(httpWorkflow.onRoute, (event) => {
+    const path = (event.request.url || '').split('?')[0];
+    if (event.request.method !== 'GET' || path.startsWith('/api/') || /\.[a-z0-9]+$/i.test(path)) return;
+    event.response.setHeader('cache-control', 'public, max-age=0, s-maxage=300');
+}, 60);
+
 app.command('search:index', async (search: Search) => await search.index());
 app.command('search:find', async (query: string, search: Search) => {
     console.log(await search.find(query));
