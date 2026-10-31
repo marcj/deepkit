@@ -44,7 +44,7 @@ function run(args) {
     const tsc = spawnSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--build', 'tsconfig.json', 'tsconfig.esm.json'], { cwd: root, stdio: 'inherit' });
     if (tsc.status !== 0) return tsc.status ?? 1;
 
-    const expectedSuites = spawnSync(jest[0], [...jest.slice(1), '--listTests'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter(Boolean).length;
+    const expectedSuites = new Set(spawnSync(jest[0], [...jest.slice(1), '--listTests'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter(Boolean));
     const resultFile = join(tmpdir(), `deepkit-test-result-${process.pid}.json`);
     const status = spawnSync(jest[0], [...jest.slice(1), '--forceExit', '--no-cache', ...args, '--json', `--outputFile=${resultFile}`], { cwd: root, stdio: 'inherit' }).status ?? 1;
     const result = existsSync(resultFile) ? JSON.parse(readFileSync(resultFile, 'utf8')) : undefined;
@@ -52,7 +52,11 @@ function run(args) {
 
     const problems = [];
     if (status !== 0 || !result || !result.success) problems.push('tests failed');
-    else if (result.numTotalTestSuites !== expectedSuites) problems.push(`only ${result.numTotalTestSuites} of ${expectedSuites} test suites ran`);
+    else {
+        const ran = new Set(result.testResults.map(v => v.name));
+        const missing = [...expectedSuites].filter(v => !ran.has(v));
+        if (missing.length) problems.push(`${missing.length} of ${expectedSuites.size} test suites did not run: ${missing.join(', ')}`);
+    }
     if (workingTreeFingerprint() !== sources) problems.push('sources changed during the test run');
     if (problems.length) {
         rmSync(certificateFile, { force: true });
