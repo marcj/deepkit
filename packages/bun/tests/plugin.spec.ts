@@ -39,7 +39,8 @@ bunTest(
             expect(code).toContain('__ΩUser');
             // the type argument is passed directly to the ReceiveType parameter, as module-level variable
             expect(code).toContain('receiveType(Ωt0)');
-            expect(code).toMatch(/Ωt0 = \[\(\) => ___User/);
+            // older Bun versions rename __ΩUser to ___User when bundling, newer keep it
+            expect(code).toMatch(/Ωt0 = \[\(\) => (___User|__ΩUser)\b/);
         } finally {
             rmSync(outDir, { recursive: true, force: true });
         }

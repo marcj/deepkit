@@ -255,8 +255,10 @@ describe('replica set, primary secondary', () => {
             readPreference: 'primary',
         })).rejects.toThrow('Connection failed: no primary available');
 
+        // listen before the primary is back, the next heartbeat (every 100ms) can change the topology right away
+        const recovered = client.eventDispatcher.next(onMongoTopologyChange);
         await primary.startProxy();
-        await client.eventDispatcher.next(onMongoTopologyChange);
+        await recovered;
         expect(client.config.hosts[0].stats.heartbeats).toBe(2);
         expect(client.config.hosts[0].stats.heartbeatsFailed).toBe(1);
         expect(client.config.hosts[1].stats.heartbeats).toBe(2);

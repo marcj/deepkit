@@ -11,7 +11,7 @@ packages/*/dist/*
 packages/benchmark/src/orm/end-to-end/sqlite/prisma.sqlite
 packages/benchmark/src/orm/end-to-end/sqlite/prisma.sqlite-journal
 packages/benchmark/results
-packages/example-app/var/debug
+packages/example-app/var
 packages/example-app/migrations
 packages/create-app/files/dist
 packages/create-app/files/var
