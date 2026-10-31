@@ -245,4 +245,4 @@ dispatcher.dispatch(MyEvent);
 
 The event system is included in @deepkit/app. If you want to use it standalone, you can install it manually:
 
-See [Event](../event.md) for installation instructions.
+See [Event](../package/event.md) for installation instructions.

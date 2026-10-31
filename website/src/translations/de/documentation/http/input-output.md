@@ -291,7 +291,7 @@ router.get('/', () => {
 });
 ```
 
-Die Template-Engine-Variante mit JSX hat den Vorteil, dass verwendete Variablen automatisch HTML-escaped werden. Siehe auch [Template](./template.md).
+Die Template-Engine-Variante mit JSX hat den Vorteil, dass verwendete Variablen automatisch HTML-escaped werden. Siehe auch [Template](../template.md).
 
 ### Benutzerdefinierter Content-Type
 

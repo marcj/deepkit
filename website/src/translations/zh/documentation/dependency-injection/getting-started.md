@@ -36,7 +36,7 @@ const injector = InjectorContext.forProviders([
 const repository = injector.get(UserRepository);
 ```
 
-在此情况下，`injector` 对象即为依赖注入容器。函数 `InjectorContext.forProviders` 接受一个提供者数组。参见[依赖注入提供者](dependency-injection.md#di-providers)了解可传递的值。
+在此情况下，`injector` 对象即为依赖注入容器。函数 `InjectorContext.forProviders` 接受一个提供者数组。参见[依赖注入提供者](providers.md)了解可传递的值。
 
 ### 模块 API
 

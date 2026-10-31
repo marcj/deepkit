@@ -156,7 +156,7 @@ serialize<Model>(
 
 ## Data
 
-각 property는 Reflection API를 통해 읽을 수 있는 추가 meta-data를 가질 수 있습니다. 자세한 내용은 [런타임 타입 리플렉션](runtime-types.md#runtime-types-reflection)을 참고하세요.
+각 property는 Reflection API를 통해 읽을 수 있는 추가 meta-data를 가질 수 있습니다. 자세한 내용은 [런타임 타입 리플렉션](reflection.md)을 참고하세요.
 
 ```typescript
 import { ReflectionClass } from '@deepkit/type';

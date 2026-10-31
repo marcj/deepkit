@@ -180,7 +180,7 @@ Deepkit フレームワークには、マイグレーションの作成・実行
 ts-node app.ts migration:create --migrationDir src/migrations
 ```
 
-新しいマイグレーションファイルが `migrations` に作成されます。このフォルダは FrameworkModule で設定されているデフォルトのディレクトリです。変更するには、環境変数（[設定](configuration.md) の章で説明）で構成を変更するか、`FrameworkModule` のコンストラクタに `migrationDir` オプションを渡します。
+新しいマイグレーションファイルが `migrations` に作成されます。このフォルダは FrameworkModule で設定されているデフォルトのディレクトリです。変更するには、環境変数（[設定](../app/configuration.md) の章で説明）で構成を変更するか、`FrameworkModule` のコンストラクタに `migrationDir` オプションを渡します。
 
 ```typescript
 new FrameworkModule({

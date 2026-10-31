@@ -44,7 +44,7 @@ Im Folgenden finden Sie eine vollständige Liste aller Deepkit-Pakete mit Links 
 - [@deepkit/filesystem](/documentation/package/filesystem.md)
 - [@deepkit/filesystem-ftp](/documentation/package/filesystem-ftp.md)
 - [@deepkit/filesystem-sftp](/documentation/package/filesystem-sftp.md)
-- [@deepkit/filesystem-s3](/documentation/package/filesystem-s3.md)
+- [@deepkit/filesystem-s3](/documentation/package/filesystem-aws-s3.md)
 - [@deepkit/filesystem-google](/documentation/package/filesystem-google.md)
 - [@deepkit/filesystem-database](/documentation/package/filesystem-database.md)
 
@@ -54,7 +54,7 @@ Im Folgenden finden Sie eine vollständige Liste aller Deepkit-Pakete mit Links 
 - [@deepkit/mysql](/documentation/package/mysql.md)
 - [@deepkit/postgres](/documentation/package/postgres.md)
 - [@deepkit/sqlite](/documentation/package/sqlite.md)
-- [@deepkit/mongodb](/documentation/package/mongodb.md)
+- [@deepkit/mongodb](/documentation/package/mongo.md)
 
 ### Grundlagen
 
@@ -70,7 +70,7 @@ Im Folgenden finden Sie eine vollständige Liste aller Deepkit-Pakete mit Links 
 
 - [@deepkit/api-console](/documentation/package/api-console.md)
 - [@deepkit/devtool](/documentation/package/devtool.md)
-- [@deepkit/desktop-ui](/documentation/package/desktop-ui.md)
+- [@deepkit/desktop-ui](/documentation/desktop-ui/getting-started.md)
 - [@deepkit/orm-browser](/documentation/package/orm-browser.md)
 - [@deepkit/bench](/documentation/package/bench.md)
 - [@deepkit/run](/documentation/package/run.md)

@@ -21,7 +21,7 @@ app.post('/user', function(request) {
 HTTP router, RPC abstraction, 데이터베이스 abstraction을 포함한 많은 Deepkit 구성 요소는 내장된 검증 시스템을 제공합니다. 이러한 메커니즘은 자동으로 트리거되어, 수동 개입이 필요 없는 경우가 많습니다.
 
 
-자동 검증이 언제 어떻게 발생하는지에 대한 포괄적인 이해를 위해 다음 챕터들을 참고하세요([CLI](../cli.md), [HTTP](../http.md), [RPC](../rpc.md), [ORM](../orm.md)).
+자동 검증이 언제 어떻게 발생하는지에 대한 포괄적인 이해를 위해 다음 챕터들을 참고하세요([CLI](../app.md), [HTTP](../http.md), [RPC](../rpc.md), [ORM](../orm.md)).
 필요한 제약 조건과 데이터 타입을 숙지하십시오. 올바르게 정의된 Parameter는 Deepkit의 자동 검증 기능을 활성화하여 수작업을 줄이고 더 깔끔하고 안전한 코드를 보장합니다.
 
 ## 사용법

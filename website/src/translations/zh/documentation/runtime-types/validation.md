@@ -20,7 +20,7 @@ app.post('/user', function(request) {
 
 Deepkit 的许多组件，包括 HTTP 路由器、RPC 抽象，甚至数据库抽象，都内置了验证系统。这些机制会自动触发，通常无需手动干预。
 
-要全面了解自动验证何时以及如何发生，请参阅特定章节（[CLI](../cli.md)、[HTTP](../http.md)、[RPC](../rpc.md)、[ORM](../orm.md)）。
+要全面了解自动验证何时以及如何发生，请参阅特定章节（[CLI](../app.md)、[HTTP](../http.md)、[RPC](../rpc.md)、[ORM](../orm.md)）。
 熟悉必要的约束与数据类型。合理定义参数可以释放 Deepkit 的自动化验证潜力，减少手工工作，确保代码更简洁、更安全。
 
 ## 用法

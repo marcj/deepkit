@@ -51,4 +51,4 @@ httpServer.on('request', (req, res) => {
 });
 ```
 
-Deepkit framework를 사용하는 애플리케이션에는 기본적으로 `http`, `rpc`, 그리고 `cli` scope가 있습니다. 각각 [CLI](../cli.md), [HTTP](../http.md), 또는 [RPC](../rpc.md) 장을 참고하세요.
+Deepkit framework를 사용하는 애플리케이션에는 기본적으로 `http`, `rpc`, 그리고 `cli` scope가 있습니다. 각각 [CLI](../app.md), [HTTP](../http.md), 또는 [RPC](../rpc.md) 장을 참고하세요.

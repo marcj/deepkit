@@ -181,7 +181,7 @@ Das `FrameworkModule` stellt mehrere Befehle zur Verwaltung von Migrationen bere
 ts-node app.ts migration:create --migrationDir src/migrations
 ```
 
-Eine neue Migrationsdatei wird in `migrations` erstellt. Dieser Ordner ist das standardmäßig im FrameworkModule konfigurierte Verzeichnis. Um es zu ändern, passen Sie die Konfiguration entweder über Umgebungsvariablen an (wie im Kapitel [Konfiguration](configuration.md) beschrieben) oder indem Sie die Option `migrationDir` an den Konstruktor von `FrameworkModule` übergeben.
+Eine neue Migrationsdatei wird in `migrations` erstellt. Dieser Ordner ist das standardmäßig im FrameworkModule konfigurierte Verzeichnis. Um es zu ändern, passen Sie die Konfiguration entweder über Umgebungsvariablen an (wie im Kapitel [Konfiguration](../app/configuration.md) beschrieben) oder indem Sie die Option `migrationDir` an den Konstruktor von `FrameworkModule` übergeben.
 
 ```typescript
 new FrameworkModule({

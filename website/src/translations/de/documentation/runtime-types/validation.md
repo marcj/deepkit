@@ -21,7 +21,7 @@ Validierung ist nicht nur eine Option; sie ist ein integraler Bestandteil solide
 Viele Komponenten von Deepkit, einschließlich des HTTP-Routers, der RPC-Abstraktion und sogar der Datenbankabstraktion, verfügen über eingebaute Validierungssysteme. Diese Mechanismen werden automatisch ausgelöst, was oft die Notwendigkeit manueller Eingriffe eliminiert.
 
 
-Für ein umfassendes Verständnis, wann und wie automatische Validierung erfolgt, verweisen wir auf die spezifischen Kapitel ([CLI](../cli.md), [HTTP](../http.md), [RPC](../rpc.md), [ORM](../orm.md)). 
+Für ein umfassendes Verständnis, wann und wie automatische Validierung erfolgt, verweisen wir auf die spezifischen Kapitel ([CLI](../app.md), [HTTP](../http.md), [RPC](../rpc.md), [ORM](../orm.md)). 
 Machen Sie sich mit den notwendigen Constraints und Datentypen vertraut. Korrekt definierte Parameter erschließen Deepkits automatisches Validierungspotenzial, reduzieren manuelle Arbeit und sorgen für saubereren, sichereren Code.
 
 ## Verwendung

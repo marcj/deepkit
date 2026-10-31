@@ -51,4 +51,4 @@ httpServer.on('request', (req, res) => {
 });
 ```
 
-Applications using the Deepkit framework have by default an `http`, an `rpc`, and a `cli` scope. See respectively the chapter [CLI](../cli.md), [HTTP](../http.md), or [RPC](../rpc.md).
+Applications using the Deepkit framework have by default an `http`, an `rpc`, and a `cli` scope. See respectively the chapter [CLI](../app.md), [HTTP](../http.md), or [RPC](../rpc.md).

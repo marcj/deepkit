@@ -36,7 +36,7 @@ const injector = InjectorContext.forProviders([
 const repository = injector.get(UserRepository);
 ```
 
-この場合の `injector` オブジェクトは Dependency Injection コンテナです。`InjectorContext.forProviders` 関数はプロバイダーの配列を受け取ります。どの値を渡せるかについては、[Dependency Injection のプロバイダー](dependency-injection.md#di-providers) の章を参照してください。
+この場合の `injector` オブジェクトは Dependency Injection コンテナです。`InjectorContext.forProviders` 関数はプロバイダーの配列を受け取ります。どの値を渡せるかについては、[Dependency Injection のプロバイダー](providers.md) の章を参照してください。
 
 ### Module API
 

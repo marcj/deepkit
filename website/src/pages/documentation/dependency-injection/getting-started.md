@@ -36,7 +36,7 @@ const injector = InjectorContext.forProviders([
 const repository = injector.get(UserRepository);
 ```
 
-The `injector` object in this case is the dependency injection container. The function `InjectorContext.forProviders` takes an array of providers. See the section [Dependency Injection Providers](dependency-injection.md#di-providers) to learn which values can be passed.
+The `injector` object in this case is the dependency injection container. The function `InjectorContext.forProviders` takes an array of providers. See the section [Dependency Injection Providers](providers.md) to learn which values can be passed.
 
 ### Module API
 

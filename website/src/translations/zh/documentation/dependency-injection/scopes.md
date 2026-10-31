@@ -51,4 +51,4 @@ httpServer.on('request', (req, res) => {
 });
 ```
 
-使用 Deepkit 框架的应用默认拥有 `http`、`rpc` 和 `cli` 作用域。分别参见章节 [CLI](../cli.md)、[HTTP](../http.md) 或 [RPC](../rpc.md)。
+使用 Deepkit 框架的应用默认拥有 `http`、`rpc` 和 `cli` 作用域。分别参见章节 [CLI](../app.md)、[HTTP](../http.md) 或 [RPC](../rpc.md)。

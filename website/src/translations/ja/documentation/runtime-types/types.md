@@ -156,7 +156,7 @@ serialize<Model>(
 
 ## Data
 
-各 Property は、リフレクション API 経由で読み取れる追加のメタデータを追加できます。詳細は[ランタイム型のリフレクション](runtime-types.md#runtime-types-reflection)を参照してください。
+各 Property は、リフレクション API 経由で読み取れる追加のメタデータを追加できます。詳細は[ランタイム型のリフレクション](reflection.md)を参照してください。
 
 ```typescript
 import { ReflectionClass } from '@deepkit/type';

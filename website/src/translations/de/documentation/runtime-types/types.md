@@ -156,7 +156,7 @@ serialize<Model>(
 
 ## Data
 
-Jede Property kann zusätzliche Metadaten hinzufügen, die über die Reflection API ausgelesen werden können. Siehe [Laufzeit-Typen-Reflexion](runtime-types.md#runtime-types-reflection) für weitere Informationen.
+Jede Property kann zusätzliche Metadaten hinzufügen, die über die Reflection API ausgelesen werden können. Siehe [Laufzeit-Typen-Reflexion](reflection.md) für weitere Informationen.
 
 ```typescript
 import { ReflectionClass } from '@deepkit/type';

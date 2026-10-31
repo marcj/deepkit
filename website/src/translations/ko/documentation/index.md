@@ -43,7 +43,7 @@ Deepkit은 MIT 라이선스 하에 자유롭게 제공되는 오픈 소스 TypeS
 - [@deepkit/filesystem](/documentation/package/filesystem.md)
 - [@deepkit/filesystem-ftp](/documentation/package/filesystem-ftp.md)
 - [@deepkit/filesystem-sftp](/documentation/package/filesystem-sftp.md)
-- [@deepkit/filesystem-s3](/documentation/package/filesystem-s3.md)
+- [@deepkit/filesystem-s3](/documentation/package/filesystem-aws-s3.md)
 - [@deepkit/filesystem-google](/documentation/package/filesystem-google.md)
 - [@deepkit/filesystem-database](/documentation/package/filesystem-database.md)
 
@@ -53,7 +53,7 @@ Deepkit은 MIT 라이선스 하에 자유롭게 제공되는 오픈 소스 TypeS
 - [@deepkit/mysql](/documentation/package/mysql.md)
 - [@deepkit/postgres](/documentation/package/postgres.md)
 - [@deepkit/sqlite](/documentation/package/sqlite.md)
-- [@deepkit/mongodb](/documentation/package/mongodb.md)
+- [@deepkit/mongodb](/documentation/package/mongo.md)
 
 ### 기초
 
@@ -69,7 +69,7 @@ Deepkit은 MIT 라이선스 하에 자유롭게 제공되는 오픈 소스 TypeS
 
 - [@deepkit/api-console](/documentation/package/api-console.md)
 - [@deepkit/devtool](/documentation/package/devtool.md)
-- [@deepkit/desktop-ui](/documentation/package/desktop-ui.md)
+- [@deepkit/desktop-ui](/documentation/desktop-ui/getting-started.md)
 - [@deepkit/orm-browser](/documentation/package/orm-browser.md)
 - [@deepkit/bench](/documentation/package/bench.md)
 - [@deepkit/run](/documentation/package/run.md)

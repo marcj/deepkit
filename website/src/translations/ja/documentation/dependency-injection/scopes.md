@@ -51,4 +51,4 @@ httpServer.on('request', (req, res) => {
 });
 ```
 
-Deepkit フレームワークを使用するアプリケーションには、デフォルトで `http`、`rpc`、`cli` のスコープがあります。詳しくはそれぞれ [CLI](../cli.md)、[HTTP](../http.md)、[RPC](../rpc.md) の章を参照してください。
+Deepkit フレームワークを使用するアプリケーションには、デフォルトで `http`、`rpc`、`cli` のスコープがあります。詳しくはそれぞれ [CLI](../app.md)、[HTTP](../http.md)、[RPC](../rpc.md) の章を参照してください。

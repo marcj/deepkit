@@ -36,7 +36,7 @@ const injector = InjectorContext.forProviders([
 const repository = injector.get(UserRepository);
 ```
 
-이 경우의 `injector` 객체는 Dependency Injection 컨테이너입니다. `InjectorContext.forProviders` Function은 Provider 배열을 받습니다. 어떤 값을 전달할 수 있는지는 [Dependency Injection Providers](dependency-injection.md#di-providers) 섹션을 참고하세요.
+이 경우의 `injector` 객체는 Dependency Injection 컨테이너입니다. `InjectorContext.forProviders` Function은 Provider 배열을 받습니다. 어떤 값을 전달할 수 있는지는 [Dependency Injection Providers](providers.md) 섹션을 참고하세요.
 
 ### Module API
 

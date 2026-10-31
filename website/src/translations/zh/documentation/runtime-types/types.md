@@ -156,7 +156,7 @@ serialize<Model>(
 
 ## Data
 
-每个属性都可以添加可通过反射 API 读取的额外元数据。更多信息参见[运行时类型反射](runtime-types.md#runtime-types-reflection)。
+每个属性都可以添加可通过反射 API 读取的额外元数据。更多信息参见[运行时类型反射](reflection.md)。
 
 ```typescript
 import { ReflectionClass } from '@deepkit/type';

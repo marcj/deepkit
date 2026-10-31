@@ -51,4 +51,4 @@ httpServer.on('request', (req, res) => {
 });
 ```
 
-Anwendungen, die das Deepkit-Framework verwenden, haben standardmäßig einen `http`-, einen `rpc`- und einen `cli`-Scope. Siehe dazu die Kapitel [CLI](../cli.md), [HTTP](../http.md) und [RPC](../rpc.md).
+Anwendungen, die das Deepkit-Framework verwenden, haben standardmäßig einen `http`-, einen `rpc`- und einen `cli`-Scope. Siehe dazu die Kapitel [CLI](../app.md), [HTTP](../http.md) und [RPC](../rpc.md).

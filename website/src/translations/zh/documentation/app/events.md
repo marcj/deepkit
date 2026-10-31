@@ -245,4 +245,4 @@ dispatcher.dispatch(MyEvent);
 
 事件系统已包含在 @deepkit/app 中。如果你想单独使用，可以手动安装：
 
-有关安装说明，请参见[事件](../event.md)。
+有关安装说明，请参见[事件](../package/event.md)。

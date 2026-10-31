@@ -180,7 +180,7 @@ Deepkit 框架提供了强大的迁移系统，允许你创建、执行和回滚
 ts-node app.ts migration:create --migrationDir src/migrations
 ```
 
-一个新的迁移文件会创建在 `migrations` 目录中。该目录是 FrameworkModule 中配置的默认目录。要更改它，可以通过环境变量（如[配置](configuration.md)一章所述）修改配置，或在构造 `FrameworkModule` 时传入 `migrationDir` 选项。
+一个新的迁移文件会创建在 `migrations` 目录中。该目录是 FrameworkModule 中配置的默认目录。要更改它，可以通过环境变量（如[配置](../app/configuration.md)一章所述）修改配置，或在构造 `FrameworkModule` 时传入 `migrationDir` 选项。
 
 ```typescript
 new FrameworkModule({

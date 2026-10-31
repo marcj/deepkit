@@ -291,7 +291,7 @@ router.get('/', () => {
 });
 ```
 
-JSX가 있는 템플릿 엔진 방식은 사용된 변수가 자동으로 HTML escape된다는 장점이 있습니다. [Template](./template.md)도 참고하세요.
+JSX가 있는 템플릿 엔진 방식은 사용된 변수가 자동으로 HTML escape된다는 장점이 있습니다. [Template](../template.md)도 참고하세요.
 
 ### 사용자 지정 Content Type
 

@@ -21,7 +21,7 @@ Validation isn't just an option; it's an integral component of robust software d
 Many of Deepkit's components, including the HTTP router, the RPC abstraction, and even the database abstraction, come with embedded validation systems. These mechanisms are automatically triggered, often eliminating the need for manual intervention.
 
 
-For a comprehensive understanding of when and how automatic validation occurs, refer to specific chapters ([CLI](../cli.md), [HTTP](../http.md), [RPC](../rpc.md), [ORM](../orm.md)). 
+For a comprehensive understanding of when and how automatic validation occurs, refer to specific chapters ([CLI](../app.md), [HTTP](../http.md), [RPC](../rpc.md), [ORM](../orm.md)). 
 Familiarize yourself with the necessary constraints and data types. Properly defined parameters can unlock Deepkit's automated validation potential, reducing manual labor and ensuring cleaner, more secure code.
 
 ## Usage
