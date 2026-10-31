@@ -4,7 +4,6 @@
     "module": "es2022",
     "moduleResolution": "bundler",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
     "skipLibCheck": true
   },
   "reflection": true

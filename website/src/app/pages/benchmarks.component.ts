@@ -165,6 +165,136 @@ export class BenchmarkChartComponent {
     });
 }
 
+
+interface TrendPoint {
+    label: string;
+    date: string;
+    hz: number;
+}
+
+/** Operations per second over the commits, with the last release as dashed line. */
+@Component({
+    selector: 'benchmark-trend',
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    template: `
+        <div class="head">
+            <div class="label">{{ label() }}</div>
+            @if (chart(); as c) {
+                <div class="latest">
+                    {{ c.latest }}
+                    @if (c.change) {
+                        <span [class.faster]="!noise() && c.change.startsWith('+')" [class.slower]="!noise() && c.change.startsWith('-')" [class.unchanged]="noise()">{{ c.change }}</span>
+                    }
+                </div>
+            }
+        </div>
+        @if (chart(); as c) {
+            <svg viewBox="0 0 300 70" preserveAspectRatio="none">
+                @if (c.releaseY !== undefined) {
+                    <line x1="0" x2="300" [attr.y1]="c.releaseY" [attr.y2]="c.releaseY" class="release" />
+                }
+                <polyline [attr.points]="c.points" />
+                @for (point of c.dots; track point.x) {
+                    <circle [attr.cx]="point.x" [attr.cy]="point.y" r="2.5"><title>{{ point.title }}</title></circle>
+                }
+            </svg>
+            <div class="axis">
+                <span>{{ c.first }}</span>
+                <span>{{ c.last }}</span>
+            </div>
+        }
+    `,
+    styles: `
+        :host {
+            display: block;
+            background: rgba(24, 28, 35, 0.6);
+            border-radius: 4px;
+            padding: 12px 14px 8px;
+        }
+        .head {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .label {
+            color: white;
+        }
+        .latest {
+            white-space: nowrap;
+            span {
+                margin-left: 6px;
+            }
+        }
+        .faster {
+            color: #5cb85c;
+        }
+        .slower {
+            color: #e0645c;
+        }
+        .unchanged {
+            color: var(--color-grey);
+        }
+        svg {
+            width: 100%;
+            height: 70px;
+            overflow: visible;
+        }
+        polyline {
+            fill: none;
+            stroke: var(--color-orange);
+            stroke-width: 2;
+            vector-effect: non-scaling-stroke;
+        }
+        circle {
+            fill: var(--color-orange);
+        }
+        line.release {
+            stroke: #6b7280;
+            stroke-dasharray: 4 4;
+            vector-effect: non-scaling-stroke;
+        }
+        .axis {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--color-grey);
+            margin-top: 4px;
+        }
+    `,
+})
+export class BenchmarkTrendComponent {
+    label = input.required<string>();
+    points = input.required<TrendPoint[]>();
+    /** operations per second of the last release */
+    release = input<{ label: string; hz: number }>();
+    /** whether the change to the release is within the measurement error */
+    noise = input(false);
+
+    chart = computed(() => {
+        const points = this.points();
+        if (!points.length) return;
+        const release = this.release();
+        const max = Math.max(...points.map(v => v.hz), release?.hz || 0) * 1.1;
+        const y = (hz: number) => 70 - (hz / max) * 70;
+        const x = (i: number) => (points.length === 1 ? 150 : (i / (points.length - 1)) * 300);
+        const dots = points.map((v, i) => ({ x: x(i), y: y(v.hz), title: `${v.label} (${v.date.slice(0, 10)}): ${formatOps(v.hz)} ops/s, ${formatTime(v.hz)}` }));
+        const last = points[points.length - 1];
+        const base = release?.hz || points[0].hz;
+        const percent = (last.hz / base - 1) * 100;
+        return {
+            points: dots.map(v => `${v.x},${v.y}`).join(' '),
+            dots,
+            releaseY: release ? y(release.hz) : undefined,
+            latest: formatTime(last.hz),
+            change: points.length > 1 || release ? (percent >= 0 ? '+' : '') + percent.toFixed(0) + '%' : '',
+            first: points[0].label,
+            last: last.label,
+        };
+    });
+}
+
 /** A chart of benchmarks of one suite in the latest run. */
 interface ChartDefinition {
     title: string;
@@ -237,6 +367,57 @@ const charts: ChartDefinition[] = [
     },
 ];
 
+
+/** Benchmarks of whole operations, shown over time. */
+const trends: { title: string; items: { suite: string; name: string; label: string }[] }[] = [
+    {
+        title: 'Database',
+        items: [
+            { suite: 'orm/sqlite', name: 'query findOne', label: 'SQLite findOne' },
+            { suite: 'orm/sqlite', name: 'insert single item', label: 'SQLite insert' },
+            { suite: 'mongo', name: 'findOne by _id', label: 'MongoDB findOne' },
+            { suite: 'mongo', name: 'find 100 with hydration', label: 'MongoDB find 100 entities' },
+            { suite: 'mongo', name: 'insert 100 in one session', label: 'MongoDB insert 100 in a session' },
+            { suite: 'mongo', name: 'change detection + update of a loaded entity', label: 'MongoDB load, change, update' },
+        ],
+    },
+    {
+        title: 'HTTP requests',
+        items: [
+            { suite: 'http/kernel', name: 'GET with route parameter', label: 'GET with route parameter' },
+            { suite: 'http/kernel', name: 'GET list of 10 with query parameter', label: 'GET list of 10' },
+            { suite: 'http/kernel', name: 'POST with validated JSON body', label: 'POST with validated body' },
+        ],
+    },
+    {
+        title: 'RPC',
+        items: [
+            { suite: 'rpc/actions', name: 'user: getUser (entity return)', label: 'Action returning an entity' },
+            { suite: 'rpc/actions', name: 'product: createProduct (complex args, entity return)', label: 'Action with object arguments' },
+            { suite: 'rpc/actions', name: 'user: listUsers (complex result with array)', label: 'Action returning a list' },
+        ],
+    },
+    {
+        title: 'Dependency injection and app',
+        items: [
+            { suite: 'injector/di', name: 'get provider with dependencies', label: 'Service with dependencies' },
+            { suite: 'injector/di', name: 'scoped: new scope each call', label: 'Scoped service, new scope' },
+            { suite: 'app/module', name: 'App.get() - resolve service', label: 'App.get()' },
+        ],
+    },
+    {
+        title: 'Validation and serialization',
+        items: [
+            { suite: 'comparison/validation', name: 'deepkit is (valid)', label: 'is<User>()' },
+            { suite: 'comparison/validation', name: 'deepkit validate (invalid)', label: 'validate<User>() with errors' },
+            { suite: 'comparison/serialization', name: 'deepkit deserialize', label: 'deserialize<User>()' },
+            { suite: 'comparison/serialization', name: 'deepkit serialize', label: 'serialize<User>()' },
+            { suite: 'bson/serialization', name: 'deserialize nested object', label: 'BSON deserialize' },
+            { suite: 'bson/serialization', name: 'serialize nested object', label: 'BSON serialize' },
+        ],
+    },
+];
+
 /** Benchmarks shown in "Since the last release". */
 const highlights: { suite: string; name: string; label: string }[] = [
     { suite: 'comparison/validation', name: 'deepkit is (valid)', label: 'is<User>()' },
@@ -270,7 +451,7 @@ const suiteTitles: { [name: string]: string } = {
 
 @Component({
     changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [AppTitle, AppDescription, HeaderComponent, FooterComponent, HighlightCodeComponent, BenchmarkChartComponent],
+    imports: [AppTitle, AppDescription, HeaderComponent, FooterComponent, HighlightCodeComponent, BenchmarkChartComponent, BenchmarkTrendComponent],
     template: `
         <app-title value="Benchmarks"></app-title>
         <app-description
@@ -331,6 +512,21 @@ const suiteTitles: { [name: string]: string } = {
                         }
                     </tbody>
                 </table>
+            }
+
+            <h2>Over time</h2>
+            <p>
+                Whole operations, per measured commit, from the first to the latest. The dashed line is the last
+                release{{ releaseLabel() ? ' (' + releaseLabel() + ')' : '' }}, the percentage the change of the
+                latest commit to it, grey if within the measurement error. Hover a point for its numbers.
+            </p>
+            @for (group of trends(); track group.title) {
+                <h3>{{ group.title }}</h3>
+                <div class="trends">
+                    @for (item of group.items; track item.label) {
+                        <benchmark-trend [label]="item.label" [points]="item.points" [release]="item.release" [noise]="item.noise" />
+                    }
+                </div>
             }
 
             <h2>All benchmarks</h2>
@@ -411,6 +607,12 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
         .slower {
             color: #e0645c;
         }
+        .trends {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
         .unchanged {
             color: var(--color-grey);
         }
@@ -486,6 +688,28 @@ export class BenchmarksComponent {
             return [{ label: h.label, before: formatTime(before), after: formatTime(after), factor: after >= before ? (after / before).toFixed(1) + '× faster' : (before / after).toFixed(1) + '× slower' }];
         });
         return { run: data.runs[a], faster, slower, noise, total: faster + slower + noise, highlights: rows };
+    });
+
+    protected releaseLabel = computed(() => (this.releaseIndex() === -1 ? '' : data.runs[this.releaseIndex()].label));
+
+    protected trends = computed(() => {
+        const r = this.releaseIndex();
+        return trends.map(group => ({
+            title: group.title,
+            items: group.items.flatMap(item => {
+                const benchmark = data.suites.find(v => v.name === item.suite)?.benchmarks.find(v => v.name === item.name);
+                if (!benchmark) return [];
+                const points: TrendPoint[] = [];
+                data.runs.forEach((run, i) => {
+                    const hz = benchmark.hz[i];
+                    if (!run.release && hz) points.push({ label: run.label, date: run.date, hz });
+                });
+                if (!points.length) return [];
+                const releaseHz = r === -1 ? null : benchmark.hz[r];
+                const c = r === -1 ? undefined : change(benchmark, r, this.latestIndex());
+                return [{ label: item.label, points, release: releaseHz ? { label: data.runs[r].label, hz: releaseHz } : undefined, noise: !!c?.noise }];
+            }),
+        })).filter(v => v.items.length);
     });
 
     protected suites = computed(() => {

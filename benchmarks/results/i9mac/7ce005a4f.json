@@ -452,172 +452,172 @@
     "packages/http/benchmarks/http.bench.ts": {
       "http/router": {
         "route match - simple static": {
-          "hz": 6834370.34,
-          "rme": 1673.87,
-          "mean": 0.00014631925834876502,
-          "iterations": 6834371
+          "hz": 6431240.82,
+          "rme": 1693.61,
+          "mean": 0.00015549098968607576,
+          "iterations": 6431241
         },
         "route match - single param": {
-          "hz": 4756046.14,
-          "rme": 2.3,
-          "mean": 0.00021025868361344317,
-          "iterations": 4760000
+          "hz": 4814584.31,
+          "rme": 2.37,
+          "mean": 0.00020770225103734392,
+          "iterations": 4820000
         },
         "route match - multi param": {
-          "hz": 3681315.84,
-          "rme": 1.84,
-          "mean": 0.00027164200054200557,
-          "iterations": 3690000
+          "hz": 3559460.35,
+          "rme": 32.06,
+          "mean": 0.00028094146320224527,
+          "iterations": 3560000
         },
         "route match - with query": {
-          "hz": 883600.8,
-          "rme": 2.1,
-          "mean": 0.0011317327975113153,
-          "iterations": 884000
+          "hz": 878599.43,
+          "rme": 2.12,
+          "mean": 0.0011381751012514113,
+          "iterations": 879000
         },
         "route match - many routes (first)": {
-          "hz": 14753384.3,
-          "rme": 6.83,
-          "mean": 0.00006778105819783183,
-          "iterations": 14760000
+          "hz": 14482054.23,
+          "rme": 6.19,
+          "mean": 0.00006905097743271049,
+          "iterations": 14490000
         },
         "route match - many routes (middle)": {
-          "hz": 7602106.23,
-          "rme": 3.32,
-          "mean": 0.00013154249224704804,
-          "iterations": 7610000
+          "hz": 7429517.36,
+          "rme": 3.27,
+          "mean": 0.00013459824529569897,
+          "iterations": 7440000
         },
         "route match - many routes (last)": {
-          "hz": 2801806.36,
-          "rme": 4.97,
-          "mean": 0.00035691260314060465,
-          "iterations": 2802000
+          "hz": 2815544.39,
+          "rme": 4.92,
+          "mean": 0.0003551711012073804,
+          "iterations": 2816000
         },
         "route match - not found": {
-          "hz": 4783673.89,
-          "rme": 2.28,
-          "mean": 0.00020904435031315213,
+          "hz": 4780031.94,
+          "rme": 2,
+          "mean": 0.00020920362317327745,
           "iterations": 4790000
         },
         "resolve request - simple": {
-          "hz": 21241456.28,
-          "rme": 29.22,
-          "mean": 0.000047077751482352024,
-          "iterations": 21250000
+          "hz": 22091597.13,
+          "rme": 8.34,
+          "mean": 0.000045266079864252984,
+          "iterations": 22100000
         },
         "resolve request - with params": {
-          "hz": 5262816.79,
-          "rme": 2.71,
-          "mean": 0.0001900123148007625,
-          "iterations": 5270000
+          "hz": 5290185.37,
+          "rme": 2.73,
+          "mean": 0.00018902929301886734,
+          "iterations": 5300000
         },
         "resolve request - with query": {
-          "hz": 887698.07,
-          "rme": 2.34,
-          "mean": 0.001126509156531516,
-          "iterations": 888000
+          "hz": 892825.1,
+          "rme": 2.1,
+          "mean": 0.0011200401926092045,
+          "iterations": 893000
         },
         "serialize - single user": {
-          "hz": 620424.76,
-          "rme": 2.24,
-          "mean": 0.0016117989838969242,
-          "iterations": 621000
+          "hz": 604535.22,
+          "rme": 2.02,
+          "mean": 0.0016541633421487867,
+          "iterations": 605000
         },
         "serialize - user array (10)": {
-          "hz": 62119.9,
-          "rme": 2.08,
-          "mean": 0.016097900787781415,
-          "iterations": 62200
+          "hz": 61936.18,
+          "rme": 1.8,
+          "mean": 0.01614565162903194,
+          "iterations": 62000
         },
         "serialize - api response": {
-          "hz": 54660.89,
-          "rme": 6.72,
-          "mean": 0.018294614954295362,
-          "iterations": 54700
+          "hz": 54971.73,
+          "rme": 6.46,
+          "mean": 0.018191168018182907,
+          "iterations": 55000
         },
         "JSON.stringify - single user": {
-          "hz": 335109.92,
-          "rme": 0.93,
-          "mean": 0.0029840954434523378,
-          "iterations": 336000
+          "hz": 336832.57,
+          "rme": 0.78,
+          "mean": 0.0029688340830860646,
+          "iterations": 337000
         },
         "JSON.stringify - user array (10)": {
-          "hz": 43518.8,
-          "rme": 1.04,
-          "mean": 0.02297857504587127,
-          "iterations": 43600
+          "hz": 43947.98,
+          "rme": 1.06,
+          "mean": 0.02275417300000051,
+          "iterations": 44000
         },
         "deserialize - single user": {
-          "hz": 2172320.12,
-          "rme": 13.19,
-          "mean": 0.00046033730924990976,
-          "iterations": 2173000
+          "hz": 2158792.61,
+          "rme": 13.14,
+          "mean": 0.00046322189346918643,
+          "iterations": 2159000
         },
         "deserialize - user array (10)": {
-          "hz": 228702.85,
-          "rme": 9.17,
-          "mean": 0.0043724858872378316,
-          "iterations": 228800
+          "hz": 229699.45,
+          "rme": 3.43,
+          "mean": 0.004353515028297608,
+          "iterations": 229700
         },
         "JSON.parse - single user": {
-          "hz": 1245704.44,
-          "rme": 1.53,
-          "mean": 0.0008027586412519982,
-          "iterations": 1246000
+          "hz": 1267118.98,
+          "rme": 1.6,
+          "mean": 0.0007891918706624155,
+          "iterations": 1268000
         },
         "create router registry": {
-          "hz": 82316518.04,
-          "rme": 22,
-          "mean": 0.000012148230072815374,
-          "iterations": 82400000
+          "hz": 88169825.29,
+          "rme": 14.89,
+          "mean": 0.000011341748684807178,
+          "iterations": 88200000
         },
         "registry - add GET route": {
-          "hz": 3165022.93,
-          "rme": 20.02,
-          "mean": 0.00031595347725834667,
-          "iterations": 3166000
+          "hz": 3033577.05,
+          "rme": 19.71,
+          "mean": 0.0003296438437705948,
+          "iterations": 3034000
         },
         "registry - add 5 routes": {
-          "hz": 753749.21,
-          "rme": 13.62,
-          "mean": 0.0013267012267904356,
-          "iterations": 754000
+          "hz": 727206.4,
+          "rme": 12.44,
+          "mean": 0.0013751254065934055,
+          "iterations": 728000
         },
         "resolveUrl - single param": {
-          "hz": 179367448.4,
-          "rme": 3.36,
-          "mean": 0.00000557514760312155,
-          "iterations": 179400000
+          "hz": 161781401.12,
+          "rme": 47.84,
+          "mean": 0.000006181180241038325,
+          "iterations": 161800000
         },
         "resolveUrl - multi param": {
-          "hz": 112369745.01,
-          "rme": 19.33,
-          "mean": 0.000008899192571174106,
-          "iterations": 112400000
+          "hz": 98092749.18,
+          "rme": 62.57,
+          "mean": 0.000010194433414882757,
+          "iterations": 98100000
         },
         "middleware config - create": {
-          "hz": 132874.8,
-          "rme": 26.82,
-          "mean": 0.007525881595183965,
+          "hz": 132852.61,
+          "rme": 26.72,
+          "mean": 0.007527138705794215,
           "iterations": 132900
         },
         "middleware config - with route filter": {
-          "hz": 67853.16,
-          "rme": 16.42,
-          "mean": 0.01473770733431491,
-          "iterations": 67900
+          "hz": 67422.42,
+          "rme": 16.16,
+          "mean": 0.014831860740740973,
+          "iterations": 67500
         },
         "read controller metadata": {
-          "hz": 24718585.28,
-          "rme": 6.84,
-          "mean": 0.000040455389684466124,
-          "iterations": 24720000
+          "hz": 24576843.55,
+          "rme": 6.85,
+          "mean": 0.00004068870756712756,
+          "iterations": 24580000
         },
         "get routes from router": {
-          "hz": 1357040653.68,
-          "rme": 9.8,
-          "mean": 7.368975994108795e-7,
-          "iterations": 1358000000
+          "hz": 1356525655.53,
+          "rme": 9.87,
+          "mean": 7.371773588799245e-7,
+          "iterations": 1357000000
         }
       }
     },
@@ -2130,6 +2130,40 @@
           "rme": 21.4,
           "mean": 0.0008685894704858777,
           "iterations": 1152000
+        }
+      }
+    },
+    "packages/http/benchmarks/kernel.bench.ts": {
+      "http/kernel": {
+        "GET with route parameter": {
+          "hz": 8475.71,
+          "rme": 74.6,
+          "mean": 0.11798422912735884,
+          "iterations": 8480
+        },
+        "GET list of 10 with query parameter": {
+          "hz": 6465.09,
+          "rme": 35.6,
+          "mean": 0.15467687418856274,
+          "iterations": 6470
+        },
+        "POST with validated JSON body": {
+          "hz": 4451.92,
+          "rme": 78.66,
+          "mean": 0.22462232569631282,
+          "iterations": 4452
+        },
+        "validation error (400)": {
+          "hz": 8894.59,
+          "rme": 34.89,
+          "mean": 0.11242792741573061,
+          "iterations": 8900
+        },
+        "not found (404)": {
+          "hz": 12664.67,
+          "rme": 51.98,
+          "mean": 0.07895984498815967,
+          "iterations": 12670
         }
       }
     }

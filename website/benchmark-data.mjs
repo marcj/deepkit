@@ -1,5 +1,6 @@
 // Aggregates the benchmark results of a machine (benchmarks/results/<machine>/*.json, written by `npm run bench`)
 // into src/app/benchmarks/benchmark-data.json for the benchmarks page.
+import { execFileSync } from 'child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
@@ -20,15 +21,25 @@ function compareVersions(a, b) {
     return 0;
 }
 
+/** The date of the commit, so a commit measured later is still at its place in the history. */
+function commitDate(commit) {
+    try {
+        return execFileSync('git', ['log', '-1', '--format=%cI', commit], { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    } catch {
+        return undefined;
+    }
+}
+
 const files = existsSync(resultsDir) ? readdirSync(resultsDir).filter(v => v.endsWith('.json') && !v.includes('-dirty')) : [];
 const results = files.map(file => JSON.parse(readFileSync(join(resultsDir, file), 'utf8')));
+for (const result of results) result.sortDate = (!isRelease(result.label) && result.commit && commitDate(result.commit)) || result.date;
 
 // releases by version, then commits by date
 results.sort((a, b) => {
     const ra = isRelease(a.label), rb = isRelease(b.label);
     if (ra && rb) return compareVersions(a.label, b.label);
     if (ra !== rb) return ra ? -1 : 1;
-    return a.date.localeCompare(b.date);
+    return new Date(a.sortDate).getTime() - new Date(b.sortDate).getTime();
 });
 
 const suites = new Map();
@@ -52,7 +63,7 @@ results.forEach((result, runIndex) => {
 
 const data = {
     machine: results.length ? results[results.length - 1].machine : undefined,
-    runs: results.map(v => ({ label: v.label, commit: v.commit, date: v.date, release: isRelease(v.label) })),
+    runs: results.map(v => ({ label: v.label, commit: v.commit, date: v.sortDate, release: isRelease(v.label) })),
     suites: [...suites.values()].map(v => ({ name: v.name, file: v.file, benchmarks: [...v.benchmarks.values()] })),
 };
 
