@@ -1,10 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { FooterComponent } from '@app/app/components/footer.component.js';
-import { HeaderComponent } from '@app/app/components/header.component.js';
-import { AppTitle } from '@app/app/components/title';
-import { TranslatePipe, Translation, i18nRoutePipe } from '@app/app/components/translation.js';
-import { libraries, texts } from '@app/common/docs.js';
+import { TranslatePipe, i18nRoutePipe } from '@app/app/components/translation.js';
+import { libraries } from '@app/common/docs.js';
 
 @Component({
     selector: 'a[package]',
@@ -70,153 +67,73 @@ export class LibraryEntryComponent {
     selector: 'app-libraries',
     styles: [
         `
-            .category {
-                font-size: 12px;
-                /*font-weight: 700;*/
-                color: #969b9c;
-                text-transform: uppercase;
-                display: flex;
-                flex-direction: row;
-
-                &::after {
-                    content: '';
-                    display: block;
-                    flex: 1;
-                    height: 1px;
-                    background: rgba(224, 224, 224, 0.16);
-                    margin-left: 10px;
-                    top: 13px;
-                    position: relative;
-                }
-            }
-
             .libraries {
                 display: flex;
                 flex-direction: column;
-                gap: 20px;
+            }
+
+            .category {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+                gap: 40px;
+                padding: 40px 0;
+                border-top: 1px solid rgba(224, 224, 224, 0.12);
+            }
+
+            .intro h3 {
+                font-size: 22px;
+                font-weight: 400;
+                color: #f9eddf;
+                margin: 0 0 12px;
+            }
+
+            .intro p {
+                font-size: 14px;
+                line-height: 1.8;
+                color: #a9adb3;
+                margin: 0;
             }
 
             .grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                grid-gap: 20px;
-
-                .main {
-                    grid-column: 1 / -1;
-                }
-
-                .twice {
-                    grid-column: 1 / span 2;
-                }
-
-                @media (max-width: 640px) {
-                    .main,
-                    .twice {
-                        grid-column: unset;
-                    }
-                }
+                grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                grid-gap: 12px;
+                align-content: start;
             }
 
-            .banner {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                text-align: center;
-                margin: 20px auto;
-                padding: 40px 10px;
-                border: 1px dashed rgba(224, 224, 224, 0.16);
-                background-color: #12151a;
-
-                h2,
-                div {
-                    margin: 0;
-                    font-size: 16px;
-                    font-style: normal;
-                    line-height: 180%;
-                    color: #c5c5c5;
-                    font-weight: normal;
-                }
-
-                h2 {
-                    color: white;
-                }
-            }
-
-            .cta {
-                display: flex;
-                flex-direction: row;
-                gap: 10px;
-                justify-content: center;
-
-                a,
-                a:link {
-                    color: white;
-                    font-size: 14px;
+            @media (max-width: 760px) {
+                .category {
+                    grid-template-columns: minmax(0, 1fr);
+                    gap: 20px;
                 }
             }
         `,
     ],
-    imports: [
-        AppTitle,
-        HeaderComponent,
-        LibraryEntryComponent,
-        RouterLink,
-        FooterComponent,
-        TranslatePipe,
-        i18nRoutePipe,
-    ],
+    imports: [LibraryEntryComponent, RouterLink, TranslatePipe, i18nRoutePipe],
     changeDetection: ChangeDetectionStrategy.Eager,
     template: `
-        <app-title value="Libraries"></app-title>
-        <dw-header />
-        <div class="app-content-full">
-            <div class="wrapper banner">
-                <h2>{{ texts.banner1 | translate }}</h2>
-                <div>{{ texts.banner2 | translate }}</div>
-
-                <div class="cta" style="padding-top: 10px;">
-                    <a href="https://discord.gg/U24mryk7Wq"
-                        ><img
-                            alt="Discord"
-                            src="https://img.shields.io/discord/759513055117180999?style=square&label=Discord"
-                    /></a>
-                    <a href="https://www.npmjs.com/package/@deepkit/type"
-                        ><img alt="npm" src="https://img.shields.io/npm/v/@deepkit/type.svg?style=square"
-                    /></a>
-                </div>
-                <div class="cta">
-                    <a class="button" routerLink="/{{ translation.lang() }}/documentation/app">{{
-                        texts.gettingStarted | translate
-                    }}</a>
-                    <a class="button" href="https://github.com/deepkit/deepkit-framework">{{
-                        texts.viewOnGitHub | translate
-                    }}</a>
-                </div>
-            </div>
-            <div class="wrapper libraries">
-                @for (category of libraries; track $index) {
-                    <div class="category">{{ category.category }}</div>
+        <div class="libraries">
+            @for (category of libraries; track $index) {
+                <section class="category">
+                    <div class="intro">
+                        <h3>{{ category.category | translate }}</h3>
+                        <p>{{ category.description | translate }}</p>
+                    </div>
                     <div class="grid">
                         @for (library of category.items; track $index) {
                             <a
                                 [title]="library.title | translate"
-                                class="{{ library.class || '' }}"
                                 [routerLink]="library.path | i18nRoute"
-                                [package]="library.package | translate"
+                                [package]="library.package"
                                 [description]="library.description | translate"
                             ></a>
                         }
                     </div>
-                }
-            </div>
+                </section>
+            }
         </div>
-
-        <dw-footer />
     `,
 })
 export class LibrariesComponent {
     protected readonly libraries = libraries;
-    protected readonly texts = texts;
-
-    translation = inject(Translation);
 }

@@ -21,6 +21,10 @@ app-search {
   left: 0;
   right: 0;
   top: 0;
+  /* readable on top of images */
+  background: rgba(0, 0, 0, 0.7);
+  -webkit-backdrop-filter: blur(7px);
+  backdrop-filter: blur(7px);
 }
 
 @keyframes fadeInHeader {

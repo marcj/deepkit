@@ -109,6 +109,7 @@ async function translateBasics(translator: Translator, lang: string) {
 
     for (const category of libraries) {
         if (category.category) labels.push(category.category);
+        labels.push(category.description);
         for (const item of category.items) {
             labels.push(item.title);
             labels.push(item.description);

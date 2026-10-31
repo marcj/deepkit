@@ -13,6 +13,44 @@ export const texts = {
     blog: 'Blog',
     benchmarks: 'Benchmarks',
     chapters: 'Chapters',
+
+    // start page
+    startTitle: 'Deepkit: the TypeScript framework with runtime types',
+    startDescription:
+        'Deepkit is a high-performance TypeScript framework with runtime types: one TypeScript type for validation, serialization, database, HTTP, RPC and dependency injection. No schemas, no decorators for DI, no code generation.',
+    heroTitle: 'The TypeScript Framework with Runtime Types',
+    heroText:
+        'One TypeScript type for validation, serialization, database, HTTP, RPC and dependency injection. No schemas to keep in sync, no code generator, and faster than the libraries you would otherwise combine.',
+    oneTypeTitle: 'One type for the whole backend',
+    oneTypeText:
+        'The class User below is the validation rule, the JSON format, the database table and the API documentation at the same time. The HTTP body is validated and converted before your code runs, invalid input is answered with a 400 and the exact errors.',
+    performanceTitle: 'Fast because it knows your types',
+    performanceText:
+        'Deepkit compiles validators, serializers and database mappers for your types at runtime into plain JavaScript functions. Time per operation, lower is better, measured against the most used libraries.',
+    allBenchmarks: 'All benchmarks',
+    runtimeTypesTitle: 'Runtime types: validation and serialization without schemas',
+    runtimeTypesText:
+        'The type compiler makes the types of your TypeScript code available at runtime, including interfaces, generics, unions and mapped types like Omit. Validate, type guard, cast and serialize with the types you already have, instead of a Zod schema or class-validator decorators next to them.',
+    httpTitle: 'HTTP router with typed parameters',
+    httpText:
+        'Route parameters, query strings and bodies are converted and validated from their TypeScript types, return values are serialized with theirs. Functional routes or controller classes, both with dependency injection.',
+    diTitle: 'Dependency injection without decorators',
+    diText:
+        'Constructor parameters are resolved by their type, interfaces included. No @Injectable(), no injection tokens, no reflect-metadata. Modules, scopes and configuration are part of the same container, which is compiled to plain JavaScript.',
+    ormTitle: 'TypeScript ORM for PostgreSQL, MySQL, SQLite and MongoDB',
+    ormText:
+        'Entities are classes or interfaces with type annotations. Tables, indexes and migrations follow from the types. Unit of work, identity map, relations and a type-safe query API that returns real class instances.',
+    rpcTitle: 'Type-safe RPC between server and client',
+    rpcText:
+        'Call methods of server controllers like local functions, over WebSockets or TCP. Arguments and results are validated and serialized with their types, including classes, dates and RxJS Observables for streams.',
+    appTitle: 'Command line, configuration and modules',
+    appText:
+        'Commands take their arguments and flags from the function signature. Configuration is a class, loaded from environment variables and validated at startup; services receive exactly the part of it they need.',
+    learnMore: 'Learn more',
+    librariesTitle: 'Libraries',
+    librariesText: 'Every part of Deepkit is its own package. Use the whole framework or only the libraries you need.',
+    startNowTitle: 'Get started',
+    startNowText: 'Create a new Deepkit app with HTTP, database and CLI in one command.',
 } as const;
 
 export const docs: DocCategory[] = [
@@ -218,6 +256,8 @@ export const docs: DocCategory[] = [
 
 export type LibraryCategory = {
     category: string;
+    /** what the libraries of the category have in common and why that helps */
+    description: string;
     items: {
         title: string;
         path: string;
@@ -230,271 +270,287 @@ export type LibraryCategory = {
 export const libraries: LibraryCategory[] = [
     {
         category: 'Composition',
+        description:
+            'Start with App for a CLI tool or a service and add the Framework for a complete server. Every library plugs in as a module with its own configuration and services, so a project grows from a single file to a modular application without changing its foundation.',
         items: [
             {
                 title: 'App',
                 path: 'documentation/app',
                 package: '@deepkit/app',
-                description: 'Command line interface (CLI) parser, config loader, dependency injection container, event system, modules system.',
+                description: 'The foundation of an application: CLI commands, typed configuration from environment variables, dependency injection, events and modules.',
                 class: 'main',
             },
             {
                 title: 'Framework',
                 path: 'documentation/framework',
                 package: '@deepkit/framework',
-                description: 'App module that provides application/HTTP/RPC server, worker, debugger, integration tests.',
+                description: 'The complete server: HTTP and RPC in one process, workers, debugger and profiler, and a testing facade for integration tests.',
             },
             {
                 title: 'HTTP',
                 path: 'documentation/http',
                 package: '@deepkit/http',
-                description: 'App module that provides HTTP server based on Node http module with validation and serialization.',
+                description: 'Routes as functions or controllers. Parameters, query strings and bodies are validated and converted from their types, responses serialized.',
             },
             {
                 title: 'Angular SSR',
                 path: 'documentation/package/angular-ssr',
                 package: '@deepkit/angular-ssr',
-                description: 'App module to integrate Angular SSR.',
+                description: 'Serve and server-side render your Angular app from your Deepkit application.',
             },
         ],
     },
     {
         category: 'Infrastructure',
+        description:
+            'Communication between your services and with your clients. Messages are binary encoded and validated with their types on both ends. The broker gives all instances of your app shared queues, caches and locks: in memory during development, on a broker server or Redis in production, without changing your code.',
         items: [
             {
                 title: 'RPC',
                 path: 'documentation/rpc',
                 package: '@deepkit/rpc',
-                description: 'Remote procedure call (RPC) with binary encoding for WebSockets and TCP.',
+                description: 'Call server methods from the browser or other services like local functions: typed, validated and binary encoded, with streams via RxJS.',
                 class: 'twice',
             },
             {
                 title: 'RPC TCP',
                 path: 'documentation/package/rpc-tcp',
                 package: '@deepkit/rpc-tcp',
-                description: 'TCP server and client for Deepkit RPC.',
+                description: 'TCP transport for RPC between backend services.',
             },
             {
                 title: 'Broker',
                 path: 'documentation/broker',
                 package: '@deepkit/broker',
-                description: 'Message broker with queues, pub/sub, key-value, 2 level cache, and distributed locks.',
+                description: 'Shared state for all instances of your app: message bus, queues, key-value store, cache and distributed locks, all typed.',
                 class: 'twice',
             },
             {
                 title: 'Broker Redis',
                 path: 'documentation/package/broker-redis',
                 package: '@deepkit/broker-redis',
-                description: 'Broker Redis adapter.',
+                description: 'Runs the broker on Redis when you already operate one. Same API, only the adapter changes.',
             },
         ],
     },
     {
         category: 'Filesystem',
+        description:
+            'One API for files, wherever they are stored. Develop on the local disk, test in memory and run on S3 or Google Cloud Storage in production by switching only the adapter in your configuration. The code that reads and writes files stays the same.',
         items: [
             {
                 title: 'Filesystem',
                 path: 'documentation/filesystem',
                 package: '@deepkit/filesystem',
-                description: 'Unified API to work with local and remote filesystems.',
+                description: 'The common API to read, write, list and move files, with adapters for the local disk and memory included.',
                 class: 'main',
             },
             {
                 title: 'Filesystem FTP',
                 path: 'documentation/filesystem/ftp',
                 package: '@deepkit/filesystem-ftp',
-                description: 'Fileystem FTP adapter.',
+                description: 'Files on FTP servers, behind the same API.',
             },
             {
                 title: 'Filesystem SFTP',
                 path: 'documentation/filesystem/sftp',
                 package: '@deepkit/filesystem-sftp',
-                description: 'Fileystem SFTP (SSH) adapter.',
+                description: 'Files on any server reachable via SSH, behind the same API.',
             },
             {
                 title: 'Filesystem S3',
                 path: 'documentation/filesystem/aws-s3',
                 package: '@deepkit/filesystem-s3',
-                description: 'Fileystem S3 adapter.',
+                description: 'Amazon S3 and S3-compatible storage like MinIO, behind the same API.',
             },
             {
                 title: 'Filesystem Google',
                 path: 'documentation/filesystem/google-storage',
                 package: '@deepkit/filesystem-google',
-                description: 'Fileystem Google Storage adapter.',
+                description: 'Google Cloud Storage, behind the same API.',
             },
             {
                 title: 'Filesystem Database',
                 path: 'documentation/filesystem/database',
                 package: '@deepkit/filesystem-database',
-                description: 'Fileystem adapter for Deepkit ORM.',
+                description: 'Files stored in your database via Deepkit ORM, no extra storage service needed.',
             },
         ],
     },
     {
         category: 'Database',
+        description:
+            'Your entities are TypeScript classes or interfaces. The same model and the same queries work with PostgreSQL, MySQL, SQLite and MongoDB, so you can test on SQLite, deploy on PostgreSQL, or change the database later without rewriting your data layer.',
         items: [
             {
                 title: 'ORM/DBAL',
                 path: 'documentation/orm',
                 package: '@deepkit/orm',
-                description: 'Object-relational Mapper (ORM) and data access library (DAL). MongoDB, SQLite, Postgres, MySQL.',
+                description: 'Data mapper ORM with unit of work, identity map, relations, migrations and a type-safe query API.',
                 class: 'main',
             },
             {
                 title: 'ORM MySQL',
                 path: 'documentation/package/mysql',
                 package: '@deepkit/mysql',
-                description: 'MySQL Adapter for Deepkit ORM.',
+                description: 'Adapter for MySQL and MariaDB.',
             },
             {
                 title: 'ORM Postgres',
                 path: 'documentation/package/postgres',
                 package: '@deepkit/postgres',
-                description: 'PostgreSQL Adapter for Deepkit ORM.',
+                description: 'Adapter for PostgreSQL.',
             },
             {
                 title: 'ORM SQLite',
                 path: 'documentation/package/sqlite',
                 package: '@deepkit/sqlite',
-                description: 'SQLite Adapter for Deepkit ORM.',
+                description: 'Adapter for SQLite, for development, tests and embedded apps.',
             },
             {
                 title: 'ORM Mongo',
                 path: 'documentation/package/mongo',
-                package: '@deepkit/mongodb',
-                description: 'MongoDB Adapter for Deepkit ORM.',
+                package: '@deepkit/mongo',
+                description: 'Adapter for MongoDB with its own driver and BSON compiled from your types, faster than the official driver.',
             },
         ],
     },
     {
         category: 'Fundamentals',
+        description:
+            'The building blocks Deepkit is made of. Each one works on its own in any TypeScript project, a backend, a frontend or a library, and they fit together when you use more of them.',
         items: [
             {
                 title: 'Type',
                 path: 'documentation/runtime-types',
                 package: '@deepkit/type',
-                description: 'Runtime types with reflection, JSON serialization, validation, and type guards.',
+                description: 'TypeScript types at runtime: validation, serialization, type guards and reflection, without schemas.',
                 class: 'twice',
             },
             {
                 title: 'Event',
                 path: 'documentation/app/events',
                 package: '@deepkit/event',
-                description: 'Async and synchronous event dispatcher.',
+                description: 'Typed events, synchronous and asynchronous, with listeners from the dependency injection container.',
             },
             {
                 title: 'Dependency Injection',
                 path: 'documentation/dependency-injection',
                 package: '@deepkit/injector',
-                description: 'Dependency injection (DI) container with modules, config, scopes, and nominal type alias/interface support.',
+                description: 'Dependency injection by type, interfaces included, without decorators. Modules, scopes and configuration.',
                 class: 'twice',
             },
             {
                 title: 'Template',
                 path: 'documentation/package/template',
                 package: '@deepkit/template',
-                description: 'HTML template engine based on JSX.',
+                description: 'JSX templates on the server with access to the dependency injection container.',
             },
             {
                 title: 'Logger',
                 path: 'documentation/app/logger',
                 package: '@deepkit/logger',
-                description: 'Logger with scopes, colors, and custom transporter and formatter.',
+                description: 'Logging with scopes, colors, and your own transports and formatters.',
                 class: 'twice',
             },
             {
                 title: 'Workflow',
                 path: 'documentation/package/workflow',
                 package: '@deepkit/workflow',
-                description: 'Workflow engine / finite state machine.',
+                description: 'State machines for processes like orders or payments: only allowed transitions happen, and each step can trigger events.',
             },
             {
                 title: 'Stopwatch',
                 path: 'documentation/package/stopwatch',
                 package: '@deepkit/stopwatch',
-                description: 'Profile and collect execution time of code.',
+                description: 'Measures where the time of a request goes, shown in the profiler of the debugger.',
             },
         ],
     },
     {
         category: 'Tools',
+        description:
+            'Tools that build on the types you already wrote: API documentation, database browser and debugger come from your code, not from separate definitions you have to keep up to date.',
         items: [
             {
                 title: 'Devtool',
                 path: 'documentation/package/devtool',
                 package: '@deepkit/devtool',
-                description: 'Chrome devtools for Deepkit (RPC).',
+                description: 'Chrome devtools extension to inspect the RPC traffic of your app.',
             },
             {
                 title: 'Desktop UI',
                 path: 'documentation/desktop-ui/getting-started',
                 package: '@deepkit/desktop-ui',
-                description: 'Angular Desktop UI library.',
+                description: 'Angular component library for desktop-like applications.',
             },
             {
                 title: 'ORM Browser',
                 path: 'documentation/package/orm-browser',
                 package: '@deepkit/orm-browser',
-                description: 'Web user interface to manage ORM data.',
+                description: 'Browse and edit the data of your entities, and see the schema and migrations, in the browser.',
             },
             {
                 title: 'API console',
                 path: 'documentation/package/api-console',
                 package: '@deepkit/api-console',
-                description: 'Web user interface to manage ORM data.',
+                description: 'Interactive documentation of your HTTP and RPC API in the browser, generated from your types.',
             },
             {
                 title: 'Bench',
                 path: 'documentation/package/bench',
                 package: '@deepkit/bench',
-                description: 'Tools to run benchmarks and collect statistics.',
+                description: 'Benchmark suites with statistics, the tool behind Deepkit\'s own benchmarks.',
             },
         ],
     },
     {
         category: 'Core',
+        description:
+            'Low-level libraries the others are built on, useful on their own when you need exactly that piece.',
         items: [
             {
                 title: 'BSON',
                 path: 'documentation/package/bson',
                 package: '@deepkit/bson',
-                description: 'BSON encoder and decoder.',
+                description: 'BSON encoder and decoder compiled from your types, faster than the official bson package.',
             },
             {
                 title: 'Core',
                 path: 'documentation/package/core',
                 package: '@deepkit/core',
-                description: 'Core functions for working with JavaScript.',
+                description: 'JavaScript utilities used by all packages, including the context for compiled functions.',
             },
             {
                 title: 'Topsort',
                 path: 'documentation/package/topsort',
                 package: '@deepkit/topsort',
-                description: 'Topological sorting algorithm.',
+                description: 'Topological sorting, e.g. for dependencies between modules or entities.',
             },
         ],
     },
     {
         category: 'Runtime',
+        description:
+            'Runtime types need the type compiler in your build. It works with the TypeScript compiler, Vite and Bun, so you keep the toolchain you already use.',
         items: [
             {
                 title: 'Vite',
                 path: 'documentation/package/vite',
                 package: '@deepkit/vite',
-                description: 'Vite plugin to use Deepkit runtime types.',
+                description: 'Vite plugin for runtime types in frontend and backend builds.',
             },
             {
                 title: 'Bun',
                 path: 'documentation/package/bun',
                 package: '@deepkit/bun',
-                description: 'Bun plugin to use Deepkit runtime types.',
+                description: 'Bun plugin for runtime types.',
             },
             {
                 title: 'Type Compiler',
                 path: 'documentation/package/type-compiler',
                 package: '@deepkit/type-compiler',
-                description: 'Type compiler as TypeScript plugin to make runtime types available.',
+                description: 'TypeScript transformer that makes your types available at runtime.',
             },
         ],
     },

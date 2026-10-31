@@ -16,7 +16,7 @@ import { DuiApp, DuiStyleComponent } from '@deepkit/desktop-ui';
     },
     template: `
         <dui-style />
-        <app-title value="Deepkit Enterprise TypeScript Framework" />
+        <app-title value="Deepkit" />
 
         @if (translation.ready()) {
             <router-outlet></router-outlet>

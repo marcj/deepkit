@@ -58,7 +58,20 @@ export function change(benchmark: Benchmark, a: number, b: number): { percent: n
     return { percent, noise: Math.abs(percent) <= rme * 2 };
 }
 
-interface ChartEntry {
+/** The given benchmarks of a suite in the latest measured run (master), labelled for a chart. */
+export function latestChartEntries(suiteName: string, benchmarks: Record<string, string>): ChartEntry[] {
+    let index = data.runs.length - 1;
+    while (index > 0 && data.runs[index].release) index--;
+    const suite = data.suites.find(v => v.name === suiteName);
+    const entries: ChartEntry[] = [];
+    for (const [name, label] of Object.entries(benchmarks)) {
+        const hz = suite?.benchmarks.find(v => v.name === name)?.hz[index];
+        if (hz) entries.push({ label, hz, highlight: label.startsWith('Deepkit') });
+    }
+    return entries;
+}
+
+export interface ChartEntry {
     label: string;
     hz: number;
     highlight: boolean;

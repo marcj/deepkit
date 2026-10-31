@@ -30,10 +30,14 @@ export class AppMetaStack {
         const titles = this.stack.filter(v => v.type === 'title');
         const descriptions = this.stack.filter(v => v.type === 'description');
 
-        const title = titles
-            .map(v => v.value)
-            .filter(v => v)
-            .reverse();
+        // a complete title (e.g. of the start page) replaces the composed one
+        const full = titles.filter(v => v.value && (v as AppTitle).full).pop();
+        const title = full
+            ? [full.value]
+            : titles
+                  .map(v => v.value)
+                  .filter(v => v)
+                  .reverse();
         // the description of the most specific page, not all of them joined
         const description = descriptions
             .map(v => v.value)
@@ -55,6 +59,8 @@ export class AppMetaStack {
 })
 export class AppTitle implements OnChanges, OnInit, OnDestroy {
     @Input() value?: string | any;
+    /** the whole title, without the titles of the parent pages and the site name */
+    @Input() full = false;
     type = 'title';
 
     constructor(private stack: AppMetaStack) {}
