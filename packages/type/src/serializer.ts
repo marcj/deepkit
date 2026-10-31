@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { ClassType, CompilerContext, CustomError, getObjectKeysSize, hasProperty, isArray, isFunction, isInteger, isIterable, isNumeric, isObject, isObjectLiteral, iterableSize, stringifyValueWithType, toFastProperties } from '@deepkit/core';
+import { ClassType, CompilerContext, CustomError, getClassName, getObjectKeysSize, hasProperty, isArray, isFunction, isInteger, isIterable, isNumeric, isObject, isObjectLiteral, iterableSize, stringifyValueWithType, toFastProperties } from '@deepkit/core';
 import {
     AnnotationDefinition,
     assertType,
@@ -471,6 +471,14 @@ export class TemplateState {
     extendPath(path: string | RuntimeCode | number | symbol): this {
         this.path.push(path instanceof RuntimeCode ? path : String(path));
         return this;
+    }
+
+    /**
+     * Type error `Expected ${expected}, got ${type of the value}`, e.g. `Expected 'a' | 'b', got number`.
+     */
+    assignExpectedError(expected: string) {
+        this.setContext({ ValidationErrorItem, describeValueType });
+        return `if (state.errors) state.errors.push(new ValidationErrorItem(${collapsePath(this.path)}, 'type', ${JSON.stringify('Expected ' + expected + ', got ')} + describeValueType(${this.originalAccessor}), ${this.originalAccessor}));`;
     }
 
     assignValidationError(code: string, message: string) {
@@ -1729,7 +1737,8 @@ function serializeLiteral(type: TypeLiteral, state: TemplateState) {
 }
 
 function typeGuardLiteral(type: TypeLiteral, state: TemplateState) {
-    state.addSetterAndReportErrorIfInvalid('type', 'Expected ' + stringifyShortResolvedType(type), `${state.setVariable('v', type.literal)} === ${state.accessor}`);
+    state.addSetter(`${state.setVariable('v', type.literal)} === ${state.accessor}`);
+    if (state.isValidation()) state.addCodeForSetter(`if (!${state.setter}) ${state.assignExpectedError(stringifyShortResolvedType(type))}`);
 }
 
 function typeGuardLiteralLoose(type: TypeLiteral, state: TemplateState) {
@@ -1774,8 +1783,20 @@ type UnionMember = [type: Type, guard: Function];
 
 interface UnionErrorReporter {
     members: UnionMember[];
+    //descriptions of the valid members/discriminator values, e.g. `Circle | Square`
     discriminator?: { name: string; members: Map<any, UnionMember>; expected: string };
     expected: string;
+}
+
+/**
+ * The type of a value for error messages: `string`, `number`, `array`, `object`, `null`, `undefined`, or the class name, e.g. `Date`.
+ */
+export function describeValueType(value: any): string {
+    if (value === null) return 'null';
+    if (Array.isArray(value)) return 'array';
+    if ('object' !== typeof value) return typeof value;
+    const prototype = Object.getPrototypeOf(value);
+    return !prototype || prototype === Object.prototype ? 'object' : getClassName(value);
 }
 
 /**
@@ -1829,7 +1850,7 @@ function getUnionDiscriminator(members: UnionMember[]): UnionErrorReporter['disc
                 literalTypes.push({ kind: ReflectionKind.literal, literal });
             }
         }
-        return { name: property.name, members: byLiteral, expected: 'Expected ' + describeUnionMembers(literalTypes) };
+        return { name: property.name, members: byLiteral, expected: describeUnionMembers(literalTypes) };
     }
     return;
 }
@@ -1855,7 +1876,8 @@ function reportUnionMemberErrors(reporter: UnionErrorReporter, value: any, state
         const discriminator = reporter.discriminator;
         const member = discriminator.members.get((value as any)[discriminator.name]);
         if (!member) {
-            state.errors.push(new ValidationErrorItem(joinPath(path, discriminator.name), 'type', discriminator.expected, (value as any)[discriminator.name]));
+            const discriminatorValue = (value as any)[discriminator.name];
+            state.errors.push(new ValidationErrorItem(joinPath(path, discriminator.name), 'type', `Expected ${discriminator.expected}, got ${describeValueType(discriminatorValue)}`, discriminatorValue));
             return true;
         }
         const errors: ValidationErrorItem[] = [];
@@ -2032,11 +2054,11 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
     const getReporter = (): UnionErrorReporter => {
         if (reporter) return reporter;
         const members: UnionMember[] = type.types.filter(v => v.kind !== ReflectionKind.literal).map(v => [v, createTypeGuardFunction(v, { validation: 'strict' }, serializerToUse) || (() => false)]);
-        return reporter = { members, discriminator: getUnionDiscriminator(members), expected: 'Expected ' + describeUnionMembers(type.types) };
+        return reporter = { members, discriminator: getUnionDiscriminator(members), expected: describeUnionMembers(type.types) };
     };
     const reportMemberErrors = state.setVariable('reportUnionMemberErrors', (value: any, runtimeState: any, path: string) => {
         if (reportUnionMemberErrors(getReporter(), value, runtimeState, path)) return;
-        runtimeState.errors.push(new ValidationErrorItem(path, 'type', getReporter().expected, value));
+        runtimeState.errors.push(new ValidationErrorItem(path, 'type', `Expected ${getReporter().expected}, got ${describeValueType(value)}`, value));
     });
     const handleErrors = state.setter ? `
         if (state.errors) {
@@ -2453,7 +2475,8 @@ export class Serializer {
         this.typeGuards.register(1, ReflectionKind.templateLiteral, (type, state) => {
             state.setContext({ extendTemplateLiteral: extendTemplateLiteral });
             const typeVar = state.setVariable('type', type);
-            state.addSetterAndReportErrorIfInvalid('type', 'Expected ' + stringifyShortResolvedType(type), `'string' === typeof ${state.accessor} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: ${state.accessor}}, ${typeVar})`);
+            state.addSetter(`'string' === typeof ${state.accessor} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: ${state.accessor}}, ${typeVar})`);
+            if (state.isValidation()) state.addCodeForSetter(`if (!${state.setter}) ${state.assignExpectedError(stringifyShortResolvedType(type))}`);
         });
 
         this.typeGuards.register(1, ReflectionKind.undefined, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not undefined', `'undefined' === typeof ${state.accessor}`));

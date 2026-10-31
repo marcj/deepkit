@@ -1138,5 +1138,11 @@ export function bsonTypeGuardLiteral(type: TypeLiteral, state: TemplateState) {
 export function bsonTypeGuardTemplateLiteral(type: TypeTemplateLiteral, state: TemplateState) {
     state.setContext({ extendTemplateLiteral: extendTemplateLiteral });
     const typeVar = state.setVariable('type', type);
-    state.addSetterAndReportErrorIfInvalid('type', 'Expected ' + stringifyShortResolvedType(type), `state.elementType === ${BSONType.STRING} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: state.parser.read(state.elementType)}, ${typeVar})`);
+    state.addSetter(`state.elementType === ${BSONType.STRING} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: state.parser.read(state.elementType)}, ${typeVar})`);
+    if (state.isValidation()) {
+        //the value is not parsed yet, so the BSON type is named, like in `Cannot convert bson type INT to X`
+        state.setContext({ ValidationErrorItem, BSONType });
+        const message = JSON.stringify(`Expected ${stringifyShortResolvedType(type)}, got bson type `);
+        state.addCodeForSetter(`if (!${state.setter} && state.errors) state.errors.push(new ValidationErrorItem(${collapsePath(state.path)}, 'type', ${message} + BSONType[state.elementType], undefined));`);
+    }
 }

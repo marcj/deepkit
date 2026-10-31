@@ -217,7 +217,7 @@ test('class with union literal', () => {
     expect(validate<ConnectionOptions>({ readConcernLevel: 'majority' })).toEqual([]);
     expect(validate<ConnectionOptions>({ readConcernLevel: 'invalid' })).toEqual([{
         code: 'type',
-        message: 'Expected \'local\' | \'majority\' | \'linearizable\' | \'available\'',
+        message: 'Expected \'local\' | \'majority\' | \'linearizable\' | \'available\', got string',
         path: 'readConcernLevel',
         value: 'invalid',
     }]);
@@ -419,7 +419,7 @@ test('union member constraint errors are reported (#577)', () => {
     expect(validate<MyClass>({ code: '' })).toEqual([{ code: 'minLength', message: 'Min length is 1', path: 'code', value: '' }]);
     expect(() => cast<MyClass>({ code: 'abc' })).toThrow('code(maxLength): Max length is 2');
     //no member matches the type
-    expect(validate<MyClass>({ code: 1 } as any)).toEqual([{ code: 'type', message: 'Expected string | null', path: 'code', value: 1 }]);
+    expect(validate<MyClass>({ code: 1 } as any)).toEqual([{ code: 'type', message: 'Expected string | null, got number', path: 'code', value: 1 }]);
 });
 
 test('union of objects reports errors of the closest member (#577, #676)', () => {
@@ -432,7 +432,7 @@ test('union of objects reports errors of the closest member (#577, #676)', () =>
         { code: 'type', message: 'Not an object', path: 'v.message', value: undefined },
     ]);
     //equally close members are ambiguous
-    expect(validate<{ a: string } | { b: string }>({})).toMatchObject([{ path: '', message: 'Expected {a: string} | {b: string}' }]);
+    expect(validate<{ a: string } | { b: string }>({})).toMatchObject([{ path: '', message: 'Expected {a: string} | {b: string}, got object' }]);
 });
 
 test('union errors name the expected members', () => {
@@ -440,13 +440,20 @@ test('union errors name the expected members', () => {
     interface Square { kind: 'square'; size: number }
 
     //names instead of full definitions
-    expect(validate<Circle | Square>('circle')).toEqual([{ code: 'type', message: 'Expected Circle | Square', path: '', value: 'circle' }]);
-    expect(validate<string | number>(true)).toEqual([{ code: 'type', message: 'Expected string | number', path: '', value: true }]);
-    expect(validate<'a' | 'b'>('c')).toEqual([{ code: 'type', message: `Expected 'a' | 'b'`, path: '', value: 'c' }]);
+    expect(validate<Circle | Square>('circle')).toEqual([{ code: 'type', message: 'Expected Circle | Square, got string', path: '', value: 'circle' }]);
+    expect(validate<string | number>(true)).toEqual([{ code: 'type', message: 'Expected string | number, got boolean', path: '', value: true }]);
+    expect(validate<'a' | 'b'>('c')).toEqual([{ code: 'type', message: `Expected 'a' | 'b', got string`, path: '', value: 'c' }]);
+
+    //the received type
+    expect(validate<string | number>([1])[0].message).toBe('Expected string | number, got array');
+    expect(validate<string | number>(null)[0].message).toBe('Expected string | number, got null');
+    expect(validate<string | number>(new Date)[0].message).toBe('Expected string | number, got Date');
+    expect(validate<{ kind: 'circle' }>({ kind: 1 })[0].message).toBe(`Expected 'circle', got number`);
+    expect(validate<`a${number}`>(1)[0].message).toBe('Expected `a${number}`, got number');
 
     //large unions list the first members only
     type Large = 'a0' | 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7' | 'a8' | 'a9' | 'a10' | 'a11';
-    expect(validate<Large>('x')[0].message).toBe(`Expected 'a0' | 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7' | 'a8' | 'a9' | ... (2 more)`);
+    expect(validate<Large>('x')[0].message).toBe(`Expected 'a0' | 'a1' | 'a2' | 'a3' | 'a4' | 'a5' | 'a6' | 'a7' | 'a8' | 'a9' | ... (2 more), got string`);
 });
 
 test('discriminated union errors', () => {
@@ -457,8 +464,8 @@ test('discriminated union errors', () => {
     //the discriminator selects the member
     expect(validate<Shape>({ shape: { kind: 'square', size: 'big' } })).toEqual([{ code: 'type', message: 'Not a number', path: 'shape.size', value: 'big' }]);
     //unknown or missing discriminator
-    expect(validate<Shape>({ shape: { kind: 'triangle' } })).toEqual([{ code: 'type', message: `Expected 'circle' | 'square'`, path: 'shape.kind', value: 'triangle' }]);
-    expect(validate<Shape>({ shape: { radius: 1 } })).toEqual([{ code: 'type', message: `Expected 'circle' | 'square'`, path: 'shape.kind', value: undefined }]);
+    expect(validate<Shape>({ shape: { kind: 'triangle' } })).toEqual([{ code: 'type', message: `Expected 'circle' | 'square', got string`, path: 'shape.kind', value: 'triangle' }]);
+    expect(validate<Shape>({ shape: { radius: 1 } })).toEqual([{ code: 'type', message: `Expected 'circle' | 'square', got undefined`, path: 'shape.kind', value: undefined }]);
 });
 
 test('union with array reports element errors', () => {

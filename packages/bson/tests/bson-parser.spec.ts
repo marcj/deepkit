@@ -954,8 +954,9 @@ test('union errors are the same as in validate()', () => {
     type Shape = { v: Circle | Square };
 
     expect(() => deserializeBSON<Shape>(serialize({ v: { kind: 'circle', radius: 'x' } }))).toThrow('v.radius(type): Not a number');
-    expect(() => deserializeBSON<Shape>(serialize({ v: { kind: 'triangle' } }))).toThrow(`v.kind(type): Expected 'circle' | 'square'`);
-    expect(() => deserializeBSON<Shape>(serialize({ v: 'circle' }))).toThrow('v(type): Expected Circle | Square');
-    expect(() => deserializeBSON<{ v: 'a' | 'b' }>(serialize({ v: 'c' }))).toThrow(`v(type): Expected 'a' | 'b'`);
+    expect(() => deserializeBSON<Shape>(serialize({ v: { kind: 'triangle' } }))).toThrow(`v.kind(type): Expected 'circle' | 'square', got string`);
+    expect(() => deserializeBSON<Shape>(serialize({ v: 'circle' }))).toThrow('v(type): Expected Circle | Square, got string');
+    expect(() => deserializeBSON<Shape>(serialize({ v: [1] }))).toThrow('v(type): Expected Circle | Square, got array');
+    expect(() => deserializeBSON<{ v: 'a' | 'b' }>(serialize({ v: 3 }))).toThrow(`v(type): Expected 'a' | 'b', got number`);
     expect(() => deserializeBSON<{ v: string[] | number }>(serialize({ v: ['a', 2] }))).toThrow('v.1(type): Not a string');
 });
