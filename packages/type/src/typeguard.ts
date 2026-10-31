@@ -28,15 +28,15 @@ export function getValidatorFunction<T>(serializerToUse: Serializer = serializer
     return fn as Guard<T>;
 }
 
-export function is<T>(data: any, serializerToUse: Serializer = serializer, errors: ValidationErrorItem[] = [], receiveType?: ReceiveType<T>): data is T {
-    //`errors` is passed to `is` to trigger type validations as well
+export function is<T>(data: any, serializerToUse: Serializer = serializer, errors?: ValidationErrorItem[], receiveType?: ReceiveType<T>): data is T {
     const fn = getValidatorFunction(serializerToUse, receiveType);
-    return fn(data, { errors });
+    // validation constraints are checked either way, errors only collects their messages
+    return errors ? fn(data, { errors }) : fn(data);
 }
 
 export function guard<T>(serializerToUse: Serializer = serializer, receiveType?: ReceiveType<T>): Guard<T> {
     const fn = getValidatorFunction(serializerToUse, receiveType);
-    return ((data: any) => fn(data, { errors: [] })) as Guard<T>;
+    return ((data: any) => fn(data)) as Guard<T>;
 }
 
 /**

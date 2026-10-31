@@ -380,7 +380,8 @@ test('es2021', () => {
     }, {target: ts.ScriptTarget.ES2021});
     console.log(res);
     expect(res.app).toContain(`const __ΩPick = [`);
-    expect(res.app).toContain(`const type = typeOf([], [() => __ΩReadUser, 'n!'])`);
+    expect(res.app).toContain(`const Ωt0 = [() => __ΩReadUser, 'n!'];`);
+    expect(res.app).toContain(`const type = typeOf([], Ωt0)`);
 });
 
 test('es2022', () => {
@@ -397,7 +398,8 @@ test('es2022', () => {
     }, {target: ts.ScriptTarget.ES2022});
     console.log(res);
     expect(res.app).toContain(`const __ΩPick = [`);
-    expect(res.app).toContain(`const type = typeOf([], [() => __ΩReadUser, 'n!'])`)
+    expect(res.app).toContain(`const Ωt0 = [() => __ΩReadUser, 'n!'];`);
+    expect(res.app).toContain(`const type = typeOf([], Ωt0)`)
 });
 
 
@@ -796,4 +798,70 @@ test('types of third-party declaration files', () => {
     expect(res.app).toContain('() => default_class_1.default');
     expect(res.app).toContain('() => cjs_1.default');
     expect(res.app.match(/\(\) => plain_1\.OpenAI/g)).toHaveLength(2);
+});
+
+test('type arguments are passed directly to known ReceiveType parameters', () => {
+    const res = transpile({
+        'app': `
+            import { ReceiveType } from './lib';
+            interface User { id: number }
+            function local<T>(type?: ReceiveType<T>) {}
+            function second<T>(a: string, type?: ReceiveType<T>) {}
+            function overloaded<T>(a: string, type?: ReceiveType<T>): void;
+            function overloaded<T>(type?: ReceiveType<T>): void;
+            function overloaded(...args: any[]) {}
+            class Cls<T> { constructor(type?: ReceiveType<T>) {} method<T>(type?: ReceiveType<T>) {} run() { return this.method<User>(); } }
+            export function a() { return local<User>(); }
+            export function b() { return second<User>('x'); }
+            export function c(args: any[]) { return second<User>(...args); }
+            export function d(t: any) { return local<User>(t); }
+            export function e() { return new Cls<User>(); }
+            export function f(obj: any) { return obj.anything<User>(); }
+            export function g() { return overloaded<User>('x'); }
+        `,
+        'lib.ts': `export type ReceiveType<T> = any;`,
+    });
+    // the type arguments reference only module-level types, so they are module-level variables
+    expect(res.app).toContain(`const Ωt0 = [() => __ΩUser, 'n!'];`);
+    expect(res.app).toMatch(/function a\(\) { return local\(Ωt\d+\); }/);
+    expect(res.app).toMatch(/function b\(\) { return second\('x', Ωt\d+\); }/);
+    expect(res.app).toMatch(/run\(\) { return this.method\(Ωt\d+\); }/);
+    expect(res.app).toMatch(/function e\(\) { return new Cls\(Ωt\d+\); }/);
+    // positions unknown (spread), already used by an argument, unknown target or overloads that differ: via Ω
+    expect(res.app).toMatch(/\(second.Ω = \[Ωt\d+\], second\(...args\)\)/);
+    expect(res.app).toMatch(/\(local.Ω = \[Ωt\d+\], local\(t\)\)/);
+    expect(res.app).toMatch(/\(obj.anything.Ω = \[Ωt\d+\], obj.anything\(\)\)/);
+    expect(res.app).toMatch(/\(overloaded.Ω = \[Ωt\d+\], overloaded\('x'\)\)/);
+});
+
+test('type arguments are module-level variables if they reference no local declaration', () => {
+    const res = transpile({
+        'app': `
+            import { ReceiveType, typeOf } from './lib';
+            interface User { id: number }
+            function is<T>(data: any, type?: ReceiveType<T>) {}
+            class Model { check(v: any) { return is<Model>(v); } self() { return is<this>(1); } }
+            export const a = is<string[]>([]);
+            export const b = is<User>({});
+            export function local() { interface User { x: string } return is<User>({}); }
+            export function generic<T>(type?: ReceiveType<T>) { return is<T[]>([], type); }
+            export function inLoop(items: any[]) { return items.filter(v => is<User>(v)); }
+            export function nested() { interface Local { x: string } return is<Local>(is<Local>(1)); }
+            export const t1 = typeOf<User>();
+            export const t2 = typeOf<string>();
+        `,
+        'lib.ts': `export type ReceiveType<T> = any; export function typeOf(...args: any[]): any {}`,
+    });
+    // typeOf() returns a new type for inline types, it may be changed by the caller
+    expect(res.app).toMatch(/exports.t1 = \(0, lib_1.typeOf\)\(\[\], Ωt\d+\);/);
+    expect(res.app).toContain(`exports.t2 = (0, lib_1.typeOf)([], ['&']);`);
+    expect(res.app).toContain(`const Ωt0 = [() => Model, 'P7!'];`);
+    expect(res.app).toContain(`check(v) { return is(v, Ωt0); }`);
+    expect(res.app).toMatch(/exports.a = is\(\[\], Ωt\d+\);/);
+    expect(res.app).toMatch(/exports.b = is\({}, Ωt\d+\);/);
+    expect(res.app).toMatch(/v => is\(v, Ωt\d+\)/);
+    // a local type and a type parameter are created on every call
+    expect(res.app).toContain(`return is({}, [() => __ΩUser, 'n!']);`);
+    expect(res.app).toContain(`return is(is(1, [() => __ΩLocal, 'n!']), [() => __ΩLocal, 'n!']);`);
+    expect(res.app).toContain(`(is.Ω = [[type, 'n!F']], is([], type))`);
 });

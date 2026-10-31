@@ -1266,7 +1266,8 @@ test('ReceiveType standard function', () => {
     console.log('js', js);
     expect(js).toContain('type = cast.Ω?.[0]');
     expect(js).toContain('cast.Ω = undefined');
-    expect(js).toContain('cast.Ω = [');
+    //the declaration is known, so the type is passed directly as argument
+    expect(js).toContain('cast(Ωt0)');
 
     const type = transpileAndReturn(code);
     expect(type).toEqual({ kind: ReflectionKind.string });
@@ -1283,7 +1284,8 @@ test('ReceiveType arrow function', () => {
     console.log('js', js);
     expect(js).toContain('type = cast.Ω?.[0]');
     expect(js).toContain('cast.Ω = undefined');
-    expect(js).toContain('cast.Ω = [');
+    //the declaration is known, so the type is passed directly as argument
+    expect(js).toContain('cast(Ωt0)');
 
     const type = transpileAndReturn(code);
     expect(type).toEqual({ kind: ReflectionKind.string });

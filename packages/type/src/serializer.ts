@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { ClassType, CompilerContext, CustomError, getClassName, getObjectKeysSize, hasProperty, isArray, isFunction, isInteger, isIterable, isNumeric, isObject, isObjectLiteral, iterableSize, stringifyValueWithType, toFastProperties } from '@deepkit/core';
+import { ClassType, CompilerContext, CustomError, getClassName, getObjectKeysSize, hasProperty, isArray, isFunction, isInteger, isIterable, isNumeric, isObject, isObjectLiteral, stringifyValueWithType, toFastProperties } from '@deepkit/core';
 import {
     AnnotationDefinition,
     assertType,
@@ -186,12 +186,14 @@ export function getPartialSerializeFunction(type: TypeClass | TypeObjectLiteral,
 /**
  * Returns a (cached) serializer function for the given registry (serialize or deserialize).
  */
-export function getSerializeFunction(type: Type, registry: TemplateRegistry, namingStrategy: NamingStrategy = new NamingStrategy(), path: string = '', jitStack = new JitStack()): SerializeFunction {
+export function getSerializeFunction(type: Type, registry: TemplateRegistry, namingStrategy?: NamingStrategy, path: string = '', jitStack?: JitStack): SerializeFunction {
     const jit = getTypeJitContainer(type);
-    const id = registry.id + '_' + namingStrategy.id + '_' + path;
-    if (jit[id]) return jit[id];
+    // serialize()/deserialize() call this on every call, the key of the default naming strategy is computed once
+    const id = !namingStrategy && !path ? registry.defaultFunctionKey : registry.id + '_' + (namingStrategy ? namingStrategy.id : 'default') + '_' + path;
+    const fn = jit[id];
+    if (fn) return fn;
 
-    jit[id] = createSerializeFunction(type, registry, namingStrategy, path, jitStack);
+    jit[id] = createSerializeFunction(type, registry, namingStrategy || new NamingStrategy(), path, jitStack || new JitStack());
     toFastProperties(jit);
 
     return jit[id];
@@ -243,12 +245,16 @@ export function createTypeGuardFunction(type: Type, stateIn?: Partial<TemplateSt
     }
     state.path = [new RuntimeCode('_path')];
     state.setterDisabled = false;
+    state.typeGuard = true;
 
     const templates = state.registry.get(type);
     if (!templates.length) return undefined;
 
     executeTemplates(state, type, withLoose);
 
+    // Without circular reference (state._stack) the generated code changes no state, only state.errors given by the caller.
+    // So the state can be shared instead of allocating one per call.
+    const stateFallback = hasCircularReference(type) ? '{}' : compiler.reserveConst({}, 'emptyState');
     compiler.context.set('typeSettings', typeSettings);
     //set unpopulatedCheck to ReturnSymbol to jump over those properties
     compiler.context.set('UnpopulatedCheckReturnSymbol', UnpopulatedCheck.ReturnSymbol);
@@ -259,7 +265,7 @@ export function createTypeGuardFunction(type: Type, stateIn?: Partial<TemplateSt
     const code = `
         var result;
         if (_path === undefined) _path = '';
-        state = state ? state : {};
+        state = state ? state : ${stateFallback};
         var oldUnpopulatedCheck = typeSettings.unpopulatedCheck;
         typeSettings.unpopulatedCheck = UnpopulatedCheckReturnSymbol;
         ${state.template}
@@ -372,6 +378,11 @@ export class TemplateState {
     public scoreObject?: boolean;
 
     /**
+     * Set for the code of type guard functions. Their `_path` is only used for the messages in `state.errors`.
+     */
+    public typeGuard?: boolean;
+
+    /**
      * When this is set all specificalities are used (used in union type guards to detect which member to pick).
      */
     public allSpecificalities?: TypeGuardRegistry;
@@ -427,6 +438,7 @@ export class TemplateState {
     fork(setter?: string | ContainerAccessor, accessor?: string | ContainerAccessor, path?: (string | RuntimeCode)[]): TemplateState {
         const state = new TemplateState(setter ?? this.setter, accessor ?? this.accessor, this.compilerContext, this.registry, this.namingStrategy, this.jitStack, path || this.path.slice(0));
         state.validation = this.validation;
+        state.typeGuard = this.typeGuard;
         state.setterDisabled = this.setterDisabled;
         state.target = this.target;
         state.parentTypes = this.parentTypes;
@@ -626,6 +638,11 @@ export class TemplateRegistry {
     protected static ids: number = 0;
     id: number = TemplateRegistry.ids++;
 
+    /**
+     * Cache key of getSerializeFunction() with the default naming strategy.
+     */
+    readonly defaultFunctionKey: string = this.id + '_default_';
+
     protected templates: { [kind in ReflectionKind]?: Template<any>[] } = {};
     protected decorator: TemplateDecorator[] = [];
 
@@ -766,9 +783,11 @@ export function callExtractedFunctionIfAvailable(state: TemplateState, type: Typ
     const jit = state.jitStack.get(getJitStackKey(state), type);
     if (!jit) return false;
     const withSetter = !state.setterDisabled && state.setter;
+    // type guards need the path only for error messages, building it for every call is expensive
+    const path = state.typeGuard && state.path.length > 1 ? `state.errors ? ${collapsePath(state.path)} : _path` : collapsePath(state.path);
     state.addCode(`
     //call jit=${jit.id} for setter="${state.setter}" via propertyName ${state.propertyName ? collapsePath([state.propertyName]) : ''}
-    ${withSetter ? `${state.setter} = ` : ''}${state.setVariable('jit', jit)}.fn(${state.accessor || 'undefined'}, state, ${collapsePath(state.path)});
+    ${withSetter ? `${state.setter} = ` : ''}${state.setVariable('jit', jit)}.fn(${state.accessor || 'undefined'}, state, ${path});
     `);
     if (withSetter) state.accessor = state.setter;
     return true;
@@ -802,7 +821,6 @@ export function buildFunction(state: TemplateState, type: Type): Function {
         var result;
         if (_path === undefined) _path = '';
         ${circularCheckBeginning}
-        state = state ? state : {};
         ${state.template}
 
         ${circularCheckEnd}
@@ -863,7 +881,11 @@ export function executeTemplates(
                 return state.template;
             } else {
                 const extract = extractStateToFunctionAndCallIt(state, type);
-                state.replaceTemplate(`
+                // with a setter, the accessor is the setter now and not the value, so there is nothing to check
+                state.replaceTemplate(state.accessor === state.setter ? `
+                    // extracted jit=${extract.id} function via state.propertyName="${getPropertyNameString(state.propertyName)}"
+                    ${state.template}
+                ` : `
                     // extracted jit=${extract.id} function via state.propertyName="${getPropertyNameString(state.propertyName)}"
                     if (!state._stack || !state._stack.includes(${state.accessor})) {
                         ${state.template}
@@ -1553,18 +1575,26 @@ export function serializeArray(type: TypeArray, state: TemplateState) {
 }
 
 export function typeGuardArray(elementType: Type, state: TemplateState) {
-    state.setContext({ isIterable, iterableSize });
+    state.setContext({ isIterable });
     const v = state.compilerContext.reserveName('v');
+    const valid = state.compilerContext.reserveName('valid');
     const i = state.compilerContext.reserveName('i');
     const item = state.compilerContext.reserveName('item');
-    //we just use `a.length` to check whether its array-like, because Array.isArray() is way too slow.
+    // All items have to be valid. With state.errors, all items are checked to collect every error.
     state.addCodeForSetter(`
          let ${v} = false;
          let ${i} = 0;
          if (isIterable(${state.accessor})) {
-            ${v} = iterableSize(${state.accessor}) === 0;
+            ${v} = true;
             for (const ${item} of ${state.accessor}) {
-                ${executeTemplates(state.fork(v, item).extendPath(new RuntimeCode(i)), elementType)}
+                let ${valid} = false;
+                ${executeTemplates(state.fork(valid, item).extendPath(new RuntimeCode(i)), elementType)}
+                if (!${valid}) {
+                    ${v} = false;
+                    if (!state.errors) break;
+                } else if (${v}) {
+                    ${v} = ${valid};
+                }
                 ${i}++;
             }
          } else if (${state.isValidation()}) {

@@ -36,11 +36,26 @@ export function isClassInstance(target: any): boolean {
  * Returns true if given obj is a function.
  */
 export function isFunction(obj: any): obj is Function {
-    if ('function' === typeof obj) {
-        return !obj.toString().startsWith('class ') && !obj.toString().startsWith('class{');
-    }
+    return 'function' === typeof obj && !isClassSource(obj);
+}
 
-    return false;
+const classSources = new WeakMap<Function, boolean>();
+
+/**
+ * Whether a function is declared with `class`. Functions without prototype (arrow functions, methods, async
+ * functions) are no classes. For the others, the source is checked once: Function.prototype.toString() builds the
+ * source string on every call, which made isFunction() and isClass() slow in hot paths like resolveReceiveType().
+ */
+function isClassSource(fn: Function): boolean {
+    // the prototype of a class is not writable, so it can't be removed
+    if (!fn.prototype) return false;
+    let result = classSources.get(fn);
+    if (result === undefined) {
+        const source = fn.toString();
+        result = source.startsWith('class ') || source.startsWith('class{');
+        classSources.set(fn, result);
+    }
+    return result;
 }
 
 export const AsyncFunction = (async () => {
@@ -68,11 +83,7 @@ export function isPromise<T>(obj: any | Promise<T>): obj is Promise<T> {
  * Returns true if given obj is a ES6 class (ES5 fake classes are not supported).
  */
 export function isClass(obj: any): obj is AbstractClassType {
-    if ('function' === typeof obj) {
-        return obj.toString().startsWith('class ') || obj.toString().startsWith('class{');
-    }
-
-    return false;
+    return 'function' === typeof obj && isClassSource(obj);
 }
 
 declare var global: any;
@@ -109,7 +120,10 @@ export function isObject(obj: any): obj is { [key: string]: any } {
  * between them and all other object literals.
  */
 export function isObjectLiteral(obj: any): obj is { [key: string]: any } {
-    return isObject(obj) && !(obj instanceof Date) && !(obj instanceof Map) && !(obj instanceof Set);
+    if ('object' !== typeof obj || obj === null) return false;
+    // fast path for plain objects, the instanceof checks below are expensive
+    if (obj.constructor === Object) return true;
+    return !isArray(obj) && !(obj instanceof Date) && !(obj instanceof Map) && !(obj instanceof Set);
 }
 
 export const isArray: (obj: any) => obj is any[] = Array.isArray;

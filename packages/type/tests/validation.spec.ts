@@ -472,3 +472,14 @@ test('union with array reports element errors', () => {
     expect(validate<string[] | number>(['a', 2])).toEqual([{ code: 'type', message: 'Not a string', path: '1', value: 2 }]);
     expect(validate<{ tags: string[] | string }>({ tags: [1] })).toEqual([{ code: 'type', message: 'Not a string', path: 'tags.0', value: 1 }]);
 });
+
+test('array type guard checks every item', () => {
+    expect(is<string[]>(['a', 1, 'b'])).toBe(false);
+    expect(is<string[]>([1, 'a'])).toBe(false);
+    expect(is<string[]>(['a', 'b'])).toBe(true);
+    expect(is<string[]>([])).toBe(true);
+    expect(is<{ tags: string[] }>({ tags: ['a', 1, 'b'] })).toBe(false);
+    expect(is<Set<number>>(new Set([1, 'a', 2]))).toBe(false);
+    expect(is<Map<string, number>>(new Map<string, any>([['a', 'x'], ['b', 2]]))).toBe(false);
+    expect(validate<string[]>([1, 'a', 2]).map(v => v.path)).toEqual(['0', '2']);
+});

@@ -13,9 +13,15 @@
     "class-validator": "^0.15.1",
     "reflect-metadata": "^0.2.2",
     "ttsc": "0.34.1",
-    "typescript-native": "npm:typescript@^7.0.2",
     "typia": "15.2.0",
     "valibot": "^1.5.0",
     "zod": "^4.6.7"
+  },
+  "optionalDependencies": {
+    "@typescript/typescript-darwin-arm64": "7.0.2",
+    "@typescript/typescript-darwin-x64": "7.0.2",
+    "@typescript/typescript-linux-arm64": "7.0.2",
+    "@typescript/typescript-linux-x64": "7.0.2",
+    "@typescript/typescript-win32-x64": "7.0.2"
   }
 }

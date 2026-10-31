@@ -37,8 +37,9 @@ bunTest(
             const code = readFileSync(join(outDir, 'model.js'), 'utf8');
             expect(code).toContain('static __type');
             expect(code).toContain('__ΩUser');
-            // bun prints the property as receiveType.Ω or receiveType["Ω"], depending on its version
-            expect(code).toMatch(/receiveType(\.Ω|\["Ω"\]) = \[\[/);
+            // the type argument is passed directly to the ReceiveType parameter, as module-level variable
+            expect(code).toContain('receiveType(Ωt0)');
+            expect(code).toMatch(/Ωt0 = \[\(\) => ___User/);
         } finally {
             rmSync(outDir, { recursive: true, force: true });
         }

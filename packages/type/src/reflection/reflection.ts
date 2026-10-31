@@ -84,11 +84,15 @@ export function resolveReceiveType(type?: Packed | Type | Function | ClassType |
         if (type[type.length - 1] === 'n!' || type[type.length - 1] === 'P7!') {
             //n! represents a simple inline: [Op.inline, 0]
             //P7! represents a class reference: [Op.Frame, Op.classReference, 0] (Op.Frame seems unnecessary)
+            const reference = type;
             typeFn = (type as any)[0] as Function | any;
             type = (isFunction(typeFn) ? typeFn() : typeFn) as Packed | Type | ClassType | AbstractClassType | ReflectionClass<any> | undefined;
             if (!type) {
                 throw new Error(`No type resolved for ${String(typeFn)}. Circular import or no runtime type available.${runtimeTypeHelp}`);
             }
+            // fast path for an already resolved type alias or interface. The type compiler puts type arguments
+            // without local references in module variables, so they are cached there as well.
+            if (isArray(type) && type.__type) return reference.__type = type.__type;
         }
     }
 

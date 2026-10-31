@@ -86,8 +86,10 @@ test('pass type argument named function', () => {
         `
     });
 
-    expect(res.app).toContain(`(getType.Ω = `);
-    expect(res.app).toContain(`, getType<string>())`);
+    //the declaration is known, so the type is passed directly as argument
+    expect(res.app).toContain(`const Ωt0 = ['&'];`);
+    expect(res.app).toContain(`getType<string>(Ωt0);`);
+    expect(res.app).not.toContain(`getType.Ω = [`);
 });
 
 test('pass type argument arrow function', () => {

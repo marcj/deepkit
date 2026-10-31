@@ -132,6 +132,7 @@ const {
     isNamedExports,
     isNamedTupleMember,
     isNewExpression,
+    isSpreadElement,
     isObjectLiteralExpression,
     isOptionalTypeNode,
     isParameter,
@@ -142,6 +143,7 @@ const {
     isSourceFile,
     isExportAssignment,
     isStringLiteral,
+    isArrayLiteralExpression,
     isTypeAliasDeclaration,
     isTypeLiteralNode,
     isTypeParameterDeclaration,
@@ -476,6 +478,28 @@ function getReceiveTypeParameter(type: TypeNode): TypeReferenceNode | undefined 
     return;
 }
 
+/** Maps type argument index to the index of the function parameter with ReceiveType of that type parameter. */
+type ReceiveTypeInfo = Map<number, number>;
+
+/**
+ * For `function fn<T>(a: string, type?: ReceiveType<T>)`: type argument 0 goes to parameter 1.
+ */
+function extractReceiveTypeMapping(typeParameters: readonly TypeParameterDeclaration[] | undefined, parameters: readonly ts.ParameterDeclaration[]): ReceiveTypeInfo | undefined {
+    if (!typeParameters || typeParameters.length === 0) return;
+    const mapping: ReceiveTypeInfo = new Map();
+    for (let paramIdx = 0; paramIdx < parameters.length; paramIdx++) {
+        const param = parameters[paramIdx];
+        if (!param.type || param.dotDotDotToken) continue;
+        const receiveType = getReceiveTypeParameter(param.type);
+        const first = receiveType?.typeArguments?.[0];
+        if (!first || !isTypeReferenceNode(first) || !isIdentifier(first.typeName)) continue;
+        const name = getIdentifierName(first.typeName);
+        const typeParamIdx = typeParameters.findIndex(v => getIdentifierName(v.name) === name);
+        if (typeParamIdx >= 0) mapping.set(typeParamIdx, paramIdx);
+    }
+    return mapping.size ? mapping : undefined;
+}
+
 export class Cache {
     resolver: ReflectionConfigCache = {};
     sourceFiles: { [fileName: string]: SourceFile } = {};
@@ -506,6 +530,15 @@ function isForwardRefCall(node: CallExpression): boolean {
     const callee = node.expression;
     const name = isIdentifier(callee) ? callee : isPropertyAccessExpression(callee) && isIdentifier(callee.name) ? callee.name : undefined;
     return !!name && getIdentifierName(name) === 'forwardRef' && node.arguments.length === 1 && isArrowFunction(node.arguments[0]);
+}
+
+/**
+ * Whether the packed type is a reference to a named type or class: `[() => __ΩUser, 'n!']` or `[() => User, 'P7!']`.
+ */
+function isTypeReferencePack(expression: Expression): boolean {
+    if (!isArrayLiteralExpression(expression) || expression.elements.length !== 2) return false;
+    const ops = expression.elements[1];
+    return isStringLiteral(ops) && (ops.text === 'n!' || ops.text === 'P7!');
 }
 
 export class ReflectionTransformer implements CustomTransformer {
@@ -557,6 +590,13 @@ export class ReflectionTransformer implements CustomTransformer {
      * as temporary storage.
      */
     protected tempResultIdentifier?: Identifier;
+
+    /**
+     * Type arguments of calls that only reference module-level declarations are moved to a module-level variable,
+     * so the array is created once and the runtime caches the computed type on it.
+     */
+    protected hoistedTypeArguments: Statement[] = [];
+    protected hoistedTypeArgumentId = 0;
     protected parseConfigHost: ParseConfigHost;
     protected intrinsicMetaDeclaration: TypeAliasDeclaration;
 
@@ -743,6 +783,8 @@ export class ReflectionTransformer implements CustomTransformer {
         this.addImports = [];
         this.additionalImports.clear();
         this.functionTypeAssignments = [];
+        this.hoistedTypeArguments = [];
+        this.hoistedTypeArgumentId = 0;
 
         const start = Date.now();
         const configResolver = this.getConfigResolver(sourceFile);
@@ -879,7 +921,9 @@ export class ReflectionTransformer implements CustomTransformer {
                         // const resolvedType = this.resolveType(node.typeArguments[0]);
                         const type = this.getTypeOfType(node.typeArguments[0]);
                         if (!type) return node;
-                        args.push(type);
+                        // typeOf() returns the type to the caller, who may change it (e.g. to build types dynamically), so
+                        // a new type is computed on every call. Only references to named types (the same type anyway) are hoisted.
+                        args.push(isTypeReferencePack(type) ? this.hoistTypeArgument(type, node) : type);
 
                         return this.f.updateCallExpression(node, node.expression, node.typeArguments, this.f.createNodeArray(args));
                     }
@@ -895,7 +939,17 @@ export class ReflectionTransformer implements CustomTransformer {
                 const typeExpressions: Expression[] = [];
                 for (const a of node.typeArguments) {
                     const type = this.getTypeOfType(a);
-                    typeExpressions.push(type || this.f.createIdentifier('undefined'));
+                    typeExpressions.push(type ? this.hoistTypeArgument(type, node) : this.f.createIdentifier('undefined'));
+                }
+
+                //when the declaration of the called function is known, the types are passed as arguments to its ReceiveType parameters:
+                //no Ω side channel (two arrays per call and a property write on the function)
+                const receiveTypeInfo = this.resolveCallReceiveTypeInfo(node);
+                const directArgs = receiveTypeInfo && this.buildDirectPassingArgs(node.arguments || this.f.createNodeArray<Expression>(), typeExpressions, receiveTypeInfo);
+                if (directArgs) {
+                    return isNewExpression(node)
+                        ? this.f.updateNewExpression(node, node.expression, node.typeArguments, directArgs)
+                        : this.f.updateCallExpression(node, node.expression, node.typeArguments, directArgs);
                 }
 
                 let container: Expression = this.f.createIdentifier('globalThis');
@@ -1183,6 +1237,7 @@ export class ReflectionTransformer implements CustomTransformer {
         }
 
         newTopStatements.push(...this.functionTypeAssignments);
+        newTopStatements.push(...this.hoistedTypeArguments);
 
         // we want to keep "use strict", or "use client", etc at the very top
         const indexOfFirstLiteralExpression = this.sourceFile.statements.findIndex(v => isExpressionStatement(v) && isStringLiteral(v.expression));
@@ -1333,6 +1388,126 @@ export class ReflectionTransformer implements CustomTransformer {
             return this.f.createIdentifier(names.join('.'));
         }
         return;
+    }
+
+    /** ReceiveType info per function declaration, undefined if it has no ReceiveType parameters. */
+    protected receiveTypeInfoCache = new Map<Node, ReceiveTypeInfo | undefined>();
+
+    protected getReceiveTypeInfo(decl: Node, typeParameters: readonly TypeParameterDeclaration[] | undefined, parameters: readonly ts.ParameterDeclaration[]): ReceiveTypeInfo | undefined {
+        if (this.receiveTypeInfoCache.has(decl)) return this.receiveTypeInfoCache.get(decl);
+        const info = extractReceiveTypeMapping(typeParameters, parameters);
+        this.receiveTypeInfoCache.set(decl, info);
+        return info;
+    }
+
+    /**
+     * ReceiveType info of a function or method with overloads, only if all signatures have the same ReceiveType positions.
+     */
+    protected getOverloadsReceiveTypeInfo(declarations: (FunctionDeclaration | MethodDeclaration)[]): ReceiveTypeInfo | undefined {
+        let result: ReceiveTypeInfo | undefined;
+        for (const decl of declarations) {
+            const info = this.getReceiveTypeInfo(decl, decl.typeParameters, decl.parameters);
+            if (!info) return;
+            if (result && [...info].join() !== [...result].join()) return;
+            result = info;
+        }
+        return result;
+    }
+
+    /**
+     * The declaration of a value identifier, following imports to the declaration in the imported file.
+     */
+    protected resolveValueDeclaration(identifier: Identifier): Node | undefined {
+        const name = getIdentifierName(identifier) as __String;
+        let declaration: Node | undefined;
+        for (let current: Node | undefined = identifier.parent; current; current = current.parent) {
+            if (isNodeWithLocals(current) && current.locals) {
+                const found = current.locals.get(name);
+                if (found && found.declarations && found.declarations[0] && !isParameter(found.declarations[0])) {
+                    declaration = found.declarations[0];
+                    break;
+                }
+            }
+            if (current.kind === SyntaxKind.SourceFile) break;
+        }
+        if (!declaration) return;
+
+        let importDeclaration: ImportDeclaration | JSDocImportTag | undefined;
+        let importedName: string = name as string;
+        if (isImportSpecifier(declaration)) {
+            importDeclaration = declaration.parent.parent.parent;
+            if (declaration.propertyName) importedName = getIdentifierName(declaration.propertyName);
+        } else if (isImportClause(declaration)) {
+            importDeclaration = declaration.parent;
+            importedName = 'default';
+        } else if (isImportDeclaration(declaration)) {
+            return;
+        }
+        if (importDeclaration) return this.resolveImportSpecifier(importedName, importDeclaration, this.sourceFile);
+        return declaration;
+    }
+
+    /**
+     * ReceiveType parameters of the function a call goes to, if the compiler can see its declaration:
+     * `fn<T>()`, `new Cls<T>()`, `this.method<T>()` and `obj.method<T>()` for `const obj = new Cls()`.
+     */
+    protected resolveCallReceiveTypeInfo(node: CallExpression | NewExpression): ReceiveTypeInfo | undefined {
+        const expression = node.expression;
+
+        if (isIdentifier(expression)) {
+            const decl = this.resolveValueDeclaration(expression);
+            if (!decl) return;
+            if (isFunctionDeclaration(decl)) return this.getOverloadsReceiveTypeInfo(((decl as any).symbol?.declarations || [decl]).filter(isFunctionDeclaration));
+            if (isNewExpression(node) && isClassDeclaration(decl)) {
+                const ctor = decl.members.find(isConstructorDeclaration);
+                return ctor ? this.getReceiveTypeInfo(decl, decl.typeParameters, ctor.parameters) : undefined;
+            }
+            if (isVariableDeclaration(decl) && decl.parent && decl.parent.flags & NodeFlags.Const && decl.initializer) {
+                let init: Expression = getAssignTypeExpression(decl.initializer) || decl.initializer;
+                while (isParenthesizedExpression(init)) init = init.expression;
+                if (isArrowFunction(init) || isFunctionExpression(init)) return this.getReceiveTypeInfo(init, init.typeParameters, init.parameters);
+            }
+            return;
+        }
+
+        if (isPropertyAccessExpression(expression) && isIdentifier(expression.name)) {
+            const methodName = getIdentifierName(expression.name);
+            const findMethods = (cls: ClassDeclaration | ClassExpression) => cls.members.filter(m => isMethodDeclaration(m) && isIdentifier(m.name) && getIdentifierName(m.name) === methodName) as MethodDeclaration[];
+
+            if (expression.expression.kind === SyntaxKind.ThisKeyword) {
+                for (let parent: Node | undefined = node; parent; parent = parent.parent) {
+                    if (isClassDeclaration(parent) || isClassExpression(parent)) return this.getOverloadsReceiveTypeInfo(findMethods(parent));
+                }
+                return;
+            }
+
+            if (isIdentifier(expression.expression)) {
+                const decl = this.resolveValueDeclaration(expression.expression);
+                if (!decl || !isVariableDeclaration(decl) || !decl.parent || !(decl.parent.flags & NodeFlags.Const)) return;
+                const init = decl.initializer;
+                if (init && isNewExpression(init) && isIdentifier(init.expression)) {
+                    const cls = this.resolveValueDeclaration(init.expression);
+                    return cls && isClassDeclaration(cls) ? this.getOverloadsReceiveTypeInfo(findMethods(cls)) : undefined;
+                }
+            }
+        }
+        return;
+    }
+
+    /**
+     * The call arguments with the types at their ReceiveType parameters, padded with `void 0`.
+     * Undefined if an argument is already at such a position or the positions are unknown (spread).
+     */
+    protected buildDirectPassingArgs(existingArgs: NodeArray<Expression>, typeExpressions: Expression[], info: ReceiveTypeInfo): Expression[] | undefined {
+        if (existingArgs.some(isSpreadElement)) return;
+        const args: Expression[] = [...existingArgs];
+        for (const [typeArgIdx, paramIdx] of info) {
+            if (typeArgIdx >= typeExpressions.length) continue;
+            if (paramIdx < existingArgs.length) return;
+            while (args.length < paramIdx) args.push(this.f.createVoidZero());
+            args[paramIdx] = typeExpressions[typeArgIdx];
+        }
+        return args;
     }
 
     protected injectResetΩ<T extends FunctionDeclaration | FunctionExpression | MethodDeclaration | ConstructorDeclaration | ArrowFunction>(node: T): T {
@@ -2967,6 +3142,59 @@ export class ReflectionTransformer implements CustomTransformer {
             }
         }
         return;
+    }
+
+    /**
+     * Returns an identifier of a module-level variable with the type program if it references no local declaration
+     * (type parameters, local types or variables) and all references are in arrow functions (evaluated lazily, so
+     * declaration order doesn't matter). Otherwise the expression is returned unchanged.
+     */
+    protected hoistTypeArgument(expression: Expression, callNode: Node): Expression {
+        const fileLocals = isNodeWithLocals(this.sourceFile) ? this.sourceFile.locals : undefined;
+        if (!fileLocals) return expression;
+
+        const names: string[] = [];
+        const collect = (node: Node, inArrow: boolean): boolean => {
+            if (node.kind === SyntaxKind.ThisKeyword || node.kind === SyntaxKind.SuperKeyword) return false;
+            if (isIdentifier(node)) {
+                if (!inArrow) return false;
+                names.push(getIdentifierName(node));
+                return true;
+            }
+            const arrow = isArrowFunction(node);
+            if (arrow && node.parameters.length) return false;
+            let valid = true;
+            ts.forEachChild(node, child => {
+                if (valid && !collect(child, inArrow || arrow)) valid = false;
+            });
+            return valid;
+        };
+        if (!collect(expression, false)) return expression;
+
+        // updated nodes (e.g. a call with a transformed argument) have no parent, the original node has
+        let scope: Node | undefined = ts.getOriginalNode(callNode).parent;
+        for (; scope && scope.kind !== SyntaxKind.SourceFile; scope = scope.parent) {
+            const locals = isNodeWithLocals(scope) ? scope.locals : undefined;
+            const typeParameters = (scope as { typeParameters?: NodeArray<TypeParameterDeclaration> }).typeParameters;
+            for (const name of names) {
+                // __ΩUser is the runtime type of a type named User
+                const declared = name.startsWith('__Ω') ? name.slice(3) : name;
+                if (locals && (locals.has(escapeLeadingUnderscores(name)) || locals.has(escapeLeadingUnderscores(declared)))) return expression;
+                if (typeParameters && typeParameters.some(v => getIdentifierName(v.name) === declared)) return expression;
+            }
+        }
+        // unknown scope
+        if (!scope) return expression;
+
+        let name: string;
+        do {
+            name = 'Ωt' + this.hoistedTypeArgumentId++;
+        } while (fileLocals.has(escapeLeadingUnderscores(name)));
+        const identifier = this.f.createIdentifier(name);
+        this.hoistedTypeArguments.push(this.f.createVariableStatement(undefined, this.f.createVariableDeclarationList(
+            [this.f.createVariableDeclaration(identifier, undefined, undefined, expression)], ts.NodeFlags.Const,
+        )));
+        return identifier;
     }
 
     protected getTypeOfType(type: Node | Declaration): Expression | undefined {
