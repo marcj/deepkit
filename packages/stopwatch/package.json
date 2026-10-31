@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/stopwatch",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "description": "Deepkit Stopwatch",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -23,12 +23,12 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "peerDependencies": {
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/type": "^1.0.19"
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/type": "^1.1.0"
   },
   "devDependencies": {
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/type": "^1.0.19"
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/type": "^1.1.0"
   },
   "jest": {
     "testEnvironment": "node",

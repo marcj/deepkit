@@ -3,6 +3,31 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **sql,desktop-ui:** add the missing shebang to the bin scripts ([#598](https://github.com/deepkit/deepkit-framework/issues/598)) ([beb019e](https://github.com/deepkit/deepkit-framework/commit/beb019e71a3826738e75beffe22a5a48e88e49d4))
+- **sql,postgres,sqlite:** parse column defaults instead of eval() ([f0661ec](https://github.com/deepkit/deepkit-framework/commit/f0661ec7121fb4a0c0b58341cb20eb8ba9eaeb68))
+- **sql:** bring back --path for the standalone migration commands ([849ef19](https://github.com/deepkit/deepkit-framework/commit/849ef19a95b0612668a1b4a43e5e9f0dfdbe07b9)), closes [#613](https://github.com/deepkit/deepkit-framework/issues/613)
+- **sql:** create all tables before adding foreign keys in database.migrate() ([1ae363e](https://github.com/deepkit/deepkit-framework/commit/1ae363e33cf9ba018d38e38f08c3de0b4d20087d))
+- **sql:** use dynamic import instead of require to fix command execution in esm environments ([2c5766a](https://github.com/deepkit/deepkit-framework/commit/2c5766a78ef44d77f7bb6be3080bda5e6a1e4d3a))
+- **type:** treat `new X` without parentheses as a computed default value ([82a2455](https://github.com/deepkit/deepkit-framework/commit/82a2455fb059ec8c3c2519e91936905bea866faa)), closes [#545](https://github.com/deepkit/deepkit-framework/issues/545)
+
+### Features
+
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/sql

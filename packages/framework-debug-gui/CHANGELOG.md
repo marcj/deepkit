@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **app,framework,api-console-module,orm-browser:** find GUI packages via module resolution e767a1e, closes #608
+
+### Features
+
+- enable isolatedModules (#683) c730cfc, closes #683
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/marcj/deepkit/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/framework-debug-gui

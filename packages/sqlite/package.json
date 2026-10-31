@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/sqlite",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "description": "deepkit/orm SQLite adapter",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -24,25 +24,25 @@
   "author": "Marc J. Schmidt <marc@marcjschmidt.de>",
   "license": "MIT",
   "peerDependencies": {
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/orm": "^1.0.19",
-    "@deepkit/sql": "^1.0.19",
-    "@deepkit/stopwatch": "^1.0.19",
-    "@deepkit/type": "^1.0.19"
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/orm": "^1.1.0",
+    "@deepkit/sql": "^1.1.0",
+    "@deepkit/stopwatch": "^1.1.0",
+    "@deepkit/type": "^1.1.0"
   },
   "dependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "better-sqlite3": "^12.11.1"
   },
   "devDependencies": {
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/orm": "^1.0.19",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/orm": "^1.1.0",
     "@deepkit/orm-integration": "^1.0.1",
-    "@deepkit/sql": "^1.0.19",
-    "@deepkit/stopwatch": "^1.0.19",
-    "@deepkit/type": "^1.0.19"
+    "@deepkit/sql": "^1.1.0",
+    "@deepkit/stopwatch": "^1.1.0",
+    "@deepkit/type": "^1.1.0"
   },
   "jest": {
     "runner": "../../jest-serial-runner.js",

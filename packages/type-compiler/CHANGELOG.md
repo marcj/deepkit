@@ -3,6 +3,44 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **compiler:** module type for nodenext ([35ff3b9](https://github.com/deepkit/deepkit-framework/commit/35ff3b98c1e9ee79f25d8f5cbb09a6350f5e3045))
+- **type-compiler:** correct plugin export paths ([1cc3068](https://github.com/deepkit/deepkit-framework/commit/1cc3068ab65208f01e3a5f13e9f2184cb6dc2929))
+- **type-compiler:** detect the module format of .mts/.cts files and nested packages ([8cb50c6](https://github.com/deepkit/deepkit-framework/commit/8cb50c650ea405f6c962a0c35e0009e7dd99878d)), closes [#639](https://github.com/deepkit/deepkit-framework/issues/639)
+- **type-compiler:** hoist \_\_type of module-level functions ([#664](https://github.com/deepkit/deepkit-framework/issues/664)) ([4492545](https://github.com/deepkit/deepkit-framework/commit/44925457ba5d0b3403e7e8ad3a7f5e690cc62ec2))
+- **type-compiler:** keep forwardRef(() => Type) undecorated for Angular's linker ([c097e96](https://github.com/deepkit/deepkit-framework/commit/c097e96199ce37039abb6eb358498f1c96fe6c5a))
+- **type-compiler:** load the lib files of all targets, including ES2024 and later ([b234b52](https://github.com/deepkit/deepkit-framework/commit/b234b520aabb82924f814e70315f1c4b2bf27e5c))
+- **type-compiler:** re-export type programs of named re-exports ([#634](https://github.com/deepkit/deepkit-framework/issues/634), [#318](https://github.com/deepkit/deepkit-framework/issues/318)) ([e8543b1](https://github.com/deepkit/deepkit-framework/commit/e8543b1704a271da8341087f09de7f38dd8735c1))
+- **type-compiler:** replace whole type reference when inferring a type parameter ([#509](https://github.com/deepkit/deepkit-framework/issues/509)) ([f4495fe](https://github.com/deepkit/deepkit-framework/commit/f4495fe293ec231e41cdcafe1b8acfda195a2f9f))
+- **type-compiler:** resolve types from .mts and .cts files ([493b2bb](https://github.com/deepkit/deepkit-framework/commit/493b2bb1d4cd4277a1e00d0a93c4213cb2d1d938))
+- **type-compiler:** skip type programs for declare statements ([#601](https://github.com/deepkit/deepkit-framework/issues/601)) ([77b865f](https://github.com/deepkit/deepkit-framework/commit/77b865fa0039a5c2c68ce3a4a80253fe67bcdd31))
+- **type-compiler:** support calls with type arguments in optional chains ([#612](https://github.com/deepkit/deepkit-framework/issues/612)) ([9a1f315](https://github.com/deepkit/deepkit-framework/commit/9a1f315ecfd31ae159e25db75cf699e250f9eca3))
+- **type-compiler:** support tsconfig extends as array ([#600](https://github.com/deepkit/deepkit-framework/issues/600)) ([bdc6533](https://github.com/deepkit/deepkit-framework/commit/bdc6533f92ae8cada68606cfe52f4946ee7766b2))
+- **type-compiler:** support TypeScript versions before 5.5 ([7e6cbca](https://github.com/deepkit/deepkit-framework/commit/7e6cbcaa5fd33bfbdc117535c0ec2eeb7bc7737d))
+- **type,type-compiler,bson:** useful union errors, default and aliased imports of library types ([97074f8](https://github.com/deepkit/deepkit-framework/commit/97074f859b9f2d377b3c3ba7bdd91820670a92b5)), closes [#577](https://github.com/deepkit/deepkit-framework/issues/577) [#676](https://github.com/deepkit/deepkit-framework/issues/676) [#601](https://github.com/deepkit/deepkit-framework/issues/601)
+- **vite,type-compiler:** accept FilterPattern for include and exclude ([#696](https://github.com/deepkit/deepkit-framework/issues/696)) ([c1bcfda](https://github.com/deepkit/deepkit-framework/commit/c1bcfdadccc97859db16b0d55f2ab07933dee0b9))
+
+### Features
+
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+- **type:** support intrinsics Capitalize, Uppercase, Lowercase, Uncapitalize ([#681](https://github.com/deepkit/deepkit-framework/issues/681)) ([ffd1bc7](https://github.com/deepkit/deepkit-framework/commit/ffd1bc7b55cf08ce23be440bab33dd6925299d1c))
+
+### Performance Improvements
+
+- **type,type-compiler,core:** faster type guards, type arguments and serializer calls ([c39c8fd](https://github.com/deepkit/deepkit-framework/commit/c39c8fd8838fa205400507ba0146918333186044)), closes [#568](https://github.com/deepkit/deepkit-framework/issues/568)
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 ### Bug Fixes

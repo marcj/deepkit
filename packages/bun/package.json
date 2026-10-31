@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/bun",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "description": "Deepkit Bun Plugin for Deepkit Runtime Types support",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -24,11 +24,11 @@
     "install": "rm -rf node_modules/typescript || exit 0"
   },
   "peerDependencies": {
-    "@deepkit/type-compiler": "^1.0.19",
+    "@deepkit/type-compiler": "^1.1.0",
     "typescript": "*"
   },
   "devDependencies": {
-    "@deepkit/type-compiler": "^1.0.19",
+    "@deepkit/type-compiler": "^1.1.0",
     "bun-types": "^1.2.2"
   },
   "jest": {

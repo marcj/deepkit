@@ -3,6 +3,33 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **bson,type:** report the same union errors in BSON as in validate() ([35ce1f6](https://github.com/deepkit/deepkit-framework/commit/35ce1f6520b15d85f3050a941da271b4d9bb4e18))
+- **bson:** ensure wrapped bson value is bson type null when null or undefined ([9af338e](https://github.com/deepkit/deepkit-framework/commit/9af338e0a5cac72bd4caede8829323e63e67a826)), closes [#678](https://github.com/deepkit/deepkit-framework/issues/678)
+- **bson:** report errors of the closest union member on union mismatch ([#676](https://github.com/deepkit/deepkit-framework/issues/676)) ([bc146ee](https://github.com/deepkit/deepkit-framework/commit/bc146eed936143d2dea3b0bea011504e24f833eb))
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **type,bson:** name the received type in union and literal errors ([55bc216](https://github.com/deepkit/deepkit-framework/commit/55bc216e325fc8754e68adfe6ac4bd7addc30fdc))
+- **type,orm,mongo,http,framework:** overridden references, optional Embedded, Mongo dot paths ([#704](https://github.com/deepkit/deepkit-framework/issues/704), [#254](https://github.com/deepkit/deepkit-framework/issues/254), [#697](https://github.com/deepkit/deepkit-framework/issues/697)) ([4a8a7a4](https://github.com/deepkit/deepkit-framework/commit/4a8a7a4b859024047dc86e5c9c941c17ae992bc9)), closes [#439](https://github.com/deepkit/deepkit-framework/issues/439) [#591](https://github.com/deepkit/deepkit-framework/issues/591) [#346](https://github.com/deepkit/deepkit-framework/issues/346) [#430](https://github.com/deepkit/deepkit-framework/issues/430) [#444](https://github.com/deepkit/deepkit-framework/issues/444) [#375](https://github.com/deepkit/deepkit-framework/issues/375)
+- **type,type-compiler,bson:** useful union errors, default and aliased imports of library types ([97074f8](https://github.com/deepkit/deepkit-framework/commit/97074f859b9f2d377b3c3ba7bdd91820670a92b5)), closes [#577](https://github.com/deepkit/deepkit-framework/issues/577) [#676](https://github.com/deepkit/deepkit-framework/issues/676) [#601](https://github.com/deepkit/deepkit-framework/issues/601)
+
+### Features
+
+- **bench:** benchmarks for all core packages, comparisons and a runner that tracks results ([b5abf6f](https://github.com/deepkit/deepkit-framework/commit/b5abf6f7139b7c31dd4997b7a1d084a1348c8136))
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+- **type:** scored union resolver ([a1f8ee3](https://github.com/deepkit/deepkit-framework/commit/a1f8ee3a345c696e341e37bc26065b97157392fe))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/bson

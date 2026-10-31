@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/broker",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -27,24 +27,24 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "peerDependencies": {
-    "@deepkit/bson": "^1.0.19",
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/event": "^1.0.19",
-    "@deepkit/injector": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/rpc": "^1.0.19",
-    "@deepkit/type": "^1.0.19",
+    "@deepkit/bson": "^1.1.0",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/event": "^1.1.0",
+    "@deepkit/injector": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/rpc": "^1.1.0",
+    "@deepkit/type": "^1.1.0",
     "rxjs": "*"
   },
   "devDependencies": {
-    "@deepkit/bson": "^1.0.19",
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/core-rxjs": "^1.0.19",
-    "@deepkit/event": "^1.0.19",
-    "@deepkit/injector": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/rpc": "^1.0.19",
-    "@deepkit/type": "^1.0.19",
+    "@deepkit/bson": "^1.1.0",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/core-rxjs": "^1.1.0",
+    "@deepkit/event": "^1.1.0",
+    "@deepkit/injector": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/rpc": "^1.1.0",
+    "@deepkit/type": "^1.1.0",
     "rxjs": "*"
   },
   "jest": {

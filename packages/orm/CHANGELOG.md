@@ -3,6 +3,33 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **orm,mongo:** a filter field set to undefined no longer matches everything ([#692](https://github.com/deepkit/deepkit-framework/issues/692)) ([1b945c7](https://github.com/deepkit/deepkit-framework/commit/1b945c7f4398c520c4acab9db5673efc22fd9e0a))
+- **orm:** count() ignores pagination and sort of the query ([#668](https://github.com/deepkit/deepkit-framework/issues/668)) ([1ba444a](https://github.com/deepkit/deepkit-framework/commit/1ba444a1516378bc53a9ae95b5bd12df8108e4f6))
+- **orm:** do not skip all other uow listeners if first event has default prevented ([#670](https://github.com/deepkit/deepkit-framework/issues/670)) ([2796bb1](https://github.com/deepkit/deepkit-framework/commit/2796bb1409fced310febebc6c0b324dc0027f2ff))
+- **orm:** hydrate known references when the full entity is loaded ([#636](https://github.com/deepkit/deepkit-framework/issues/636)) ([32f05c8](https://github.com/deepkit/deepkit-framework/commit/32f05c8ce4e2b17ea1bb6a4862df44d8d63626a2))
+- **orm:** joined back references of a reference upgraded to a full entity ([61ede01](https://github.com/deepkit/deepkit-framework/commit/61ede01c6b3dbc3bb6d6212a81ddfd99568168b8)), closes [#636](https://github.com/deepkit/deepkit-framework/issues/636)
+- **orm:** merge event listeners to prevent loosing them when setting to a different dispatcher instance ([#671](https://github.com/deepkit/deepkit-framework/issues/671)) ([f3c9683](https://github.com/deepkit/deepkit-framework/commit/f3c96834ed2121cca6152d138f8a01d33817a9fd))
+- **orm:** return soft delete query results to be consistent with normal query operation results ([#672](https://github.com/deepkit/deepkit-framework/issues/672)) ([ef7bb9f](https://github.com/deepkit/deepkit-framework/commit/ef7bb9fa936aee424aa9032cdcef38c8e21d03f1))
+- **type,orm,mongo,http,framework:** overridden references, optional Embedded, Mongo dot paths ([#704](https://github.com/deepkit/deepkit-framework/issues/704), [#254](https://github.com/deepkit/deepkit-framework/issues/254), [#697](https://github.com/deepkit/deepkit-framework/issues/697)) ([4a8a7a4](https://github.com/deepkit/deepkit-framework/commit/4a8a7a4b859024047dc86e5c9c941c17ae992bc9)), closes [#439](https://github.com/deepkit/deepkit-framework/issues/439) [#591](https://github.com/deepkit/deepkit-framework/issues/591) [#346](https://github.com/deepkit/deepkit-framework/issues/346) [#430](https://github.com/deepkit/deepkit-framework/issues/430) [#444](https://github.com/deepkit/deepkit-framework/issues/444) [#375](https://github.com/deepkit/deepkit-framework/issues/375)
+
+### Features
+
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/orm

@@ -3,6 +3,39 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **http:** don't reveal whether files outside of the static root exist ([52141c6](https://github.com/deepkit/deepkit-framework/commit/52141c6e8620a549c59d8d7f4765ce53be5f9aef))
+- **http:** errors and timeouts of middlewares fail the request ([#439](https://github.com/deepkit/deepkit-framework/issues/439)) ([a953246](https://github.com/deepkit/deepkit-framework/commit/a95324651e4c242c509334ebfb31058fe187bb53))
+- **http:** match header parameters case-insensitively ([#653](https://github.com/deepkit/deepkit-framework/issues/653)) ([beebd60](https://github.com/deepkit/deepkit-framework/commit/beebd60f1b3976afe5e5d2db940aa7a6cc80df2a))
+- **http:** respond with the status code of an HttpError thrown in a middleware ([#589](https://github.com/deepkit/deepkit-framework/issues/589)) ([253fb8f](https://github.com/deepkit/deepkit-framework/commit/253fb8fb55d1d8dc25fc94e0619abd431303a546))
+- **http:** trigger onResponse when a middleware ends the response ([#590](https://github.com/deepkit/deepkit-framework/issues/590)) ([7aa3d08](https://github.com/deepkit/deepkit-framework/commit/7aa3d084f1a57d5e4367d690713393909619c51e))
+- **template,mongo,http,framework:** make the ESM builds loadable ([814ca04](https://github.com/deepkit/deepkit-framework/commit/814ca04b36765b7c62b79c787e84b86582ebca63))
+- **type,orm,mongo,http,framework:** overridden references, optional Embedded, Mongo dot paths ([#704](https://github.com/deepkit/deepkit-framework/issues/704), [#254](https://github.com/deepkit/deepkit-framework/issues/254), [#697](https://github.com/deepkit/deepkit-framework/issues/697)) ([4a8a7a4](https://github.com/deepkit/deepkit-framework/commit/4a8a7a4b859024047dc86e5c9c941c17ae992bc9)), closes [#439](https://github.com/deepkit/deepkit-framework/issues/439) [#591](https://github.com/deepkit/deepkit-framework/issues/591) [#346](https://github.com/deepkit/deepkit-framework/issues/346) [#430](https://github.com/deepkit/deepkit-framework/issues/430) [#444](https://github.com/deepkit/deepkit-framework/issues/444) [#375](https://github.com/deepkit/deepkit-framework/issues/375)
+- wrong InjectorContext scope set in HTTP, and wrong received in RPC ([#673](https://github.com/deepkit/deepkit-framework/issues/673)) ([a56b7dd](https://github.com/deepkit/deepkit-framework/commit/a56b7ddbaa50cdb901bb453ae10f867d4b86f563))
+
+### Features
+
+- **bench:** benchmarks for all core packages, comparisons and a runner that tracks results ([b5abf6f](https://github.com/deepkit/deepkit-framework/commit/b5abf6f7139b7c31dd4997b7a1d084a1348c8136))
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+- **website,http:** benchmarks over time, complete HTTP requests as benchmark ([add08b7](https://github.com/deepkit/deepkit-framework/commit/add08b7538beb44f75fc3147edd21b591b857061))
+
+### Performance Improvements
+
+- **type,http:** fast discriminated unions, no scoring outside unions, flat query strings ([d5ce462](https://github.com/deepkit/deepkit-framework/commit/d5ce4629c290722b4af76a356c70f53d645fd302))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 ### Bug Fixes

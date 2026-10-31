@@ -3,6 +3,34 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **app,framework,api-console-module,orm-browser:** find GUI packages via module resolution ([e767a1e](https://github.com/deepkit/deepkit-framework/commit/e767a1efbaa8cefc8b1e06c7ace0e5c8c13d698b)), closes [#608](https://github.com/deepkit/deepkit-framework/issues/608)
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **deps:** declare all @deepkit/\* packages that are imported ([ba76daa](https://github.com/deepkit/deepkit-framework/commit/ba76daacc071e489994a83d8a8aecefbec25d67b))
+- **framework:** do not hang the debug store when the broker is unreachable ([43f0144](https://github.com/deepkit/deepkit-framework/commit/43f014421e77abeaeb6d45595953a508f7ee00d6))
+- **framework:** use an in-process broker for debug frames without workers ([eb3cad7](https://github.com/deepkit/deepkit-framework/commit/eb3cad7305757f9e6c534439011108f204e9afb0))
+- **injector:** use the unscoped provider in scopes without their own provider ([dca8e69](https://github.com/deepkit/deepkit-framework/commit/dca8e69e242386e65b896ef7e0b89cbc2eb3518e))
+- **rpc:** normalize stopwatch frame names ([26a06cd](https://github.com/deepkit/deepkit-framework/commit/26a06cd15d5b23423d5dc6504d5f4a87cce20a77))
+- **template,mongo,http,framework:** make the ESM builds loadable ([814ca04](https://github.com/deepkit/deepkit-framework/commit/814ca04b36765b7c62b79c787e84b86582ebca63))
+- **type,orm,mongo,http,framework:** overridden references, optional Embedded, Mongo dot paths ([#704](https://github.com/deepkit/deepkit-framework/issues/704), [#254](https://github.com/deepkit/deepkit-framework/issues/254), [#697](https://github.com/deepkit/deepkit-framework/issues/697)) ([4a8a7a4](https://github.com/deepkit/deepkit-framework/commit/4a8a7a4b859024047dc86e5c9c941c17ae992bc9)), closes [#439](https://github.com/deepkit/deepkit-framework/issues/439) [#591](https://github.com/deepkit/deepkit-framework/issues/591) [#346](https://github.com/deepkit/deepkit-framework/issues/346) [#430](https://github.com/deepkit/deepkit-framework/issues/430) [#444](https://github.com/deepkit/deepkit-framework/issues/444) [#375](https://github.com/deepkit/deepkit-framework/issues/375)
+- wrong InjectorContext scope set in HTTP, and wrong received in RPC ([#673](https://github.com/deepkit/deepkit-framework/issues/673)) ([a56b7dd](https://github.com/deepkit/deepkit-framework/commit/a56b7ddbaa50cdb901bb453ae10f867d4b86f563))
+
+### Features
+
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/framework

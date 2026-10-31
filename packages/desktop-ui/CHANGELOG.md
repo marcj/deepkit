@@ -3,6 +3,33 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **deps:** declare all @deepkit/\* packages that are imported ([ba76daa](https://github.com/deepkit/deepkit-framework/commit/ba76daacc071e489994a83d8a8aecefbec25d67b))
+- **desktop-ui:** dropdown: re-observe position only when target changes ([758e8ba](https://github.com/deepkit/deepkit-framework/commit/758e8bada92c80fff63e34154e6a5835263b9e81))
+- **desktop-ui:** format dates with LOCALE_ID and a 24-hour clock ([1f8cff6](https://github.com/deepkit/deepkit-framework/commit/1f8cff6536e9a21cdc9d320458d8c60d29883dec))
+- **sql,desktop-ui:** add the missing shebang to the bin scripts ([#598](https://github.com/deepkit/deepkit-framework/issues/598)) ([beb019e](https://github.com/deepkit/deepkit-framework/commit/beb019e71a3826738e75beffe22a5a48e88e49d4))
+
+### Features
+
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+
+### Performance Improvements
+
+- **desktop-ui:** only emit runtime types where desktop-ui and ui-library use them ([5288594](https://github.com/deepkit/deepkit-framework/commit/52885946373281e61d5dd9de181877e09626c749))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/desktop-ui

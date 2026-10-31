@@ -3,6 +3,31 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **app,framework,api-console-module,orm-browser:** find GUI packages via module resolution ([e767a1e](https://github.com/deepkit/deepkit-framework/commit/e767a1efbaa8cefc8b1e06c7ace0e5c8c13d698b)), closes [#608](https://github.com/deepkit/deepkit-framework/issues/608)
+- **app:** ensure already uppercased names stay the same ([afbf6e2](https://github.com/deepkit/deepkit-framework/commit/afbf6e228482d04413497e6a8f724ef40f1a201d))
+- **app:** keep the default of flag properties when the flag is not given ([4764a5c](https://github.com/deepkit/deepkit-framework/commit/4764a5c8614a6bf4b5e0de5be0926eb90de3279a))
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **type,type-compiler,bson:** useful union errors, default and aliased imports of library types ([97074f8](https://github.com/deepkit/deepkit-framework/commit/97074f859b9f2d377b3c3ba7bdd91820670a92b5)), closes [#577](https://github.com/deepkit/deepkit-framework/issues/577) [#676](https://github.com/deepkit/deepkit-framework/issues/676) [#601](https://github.com/deepkit/deepkit-framework/issues/601)
+- wrong InjectorContext scope set in HTTP, and wrong received in RPC ([#673](https://github.com/deepkit/deepkit-framework/issues/673)) ([a56b7dd](https://github.com/deepkit/deepkit-framework/commit/a56b7ddbaa50cdb901bb453ae10f867d4b86f563))
+
+### Features
+
+- **bench:** benchmarks for all core packages, comparisons and a runner that tracks results ([b5abf6f](https://github.com/deepkit/deepkit-framework/commit/b5abf6f7139b7c31dd4997b7a1d084a1348c8136))
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/app

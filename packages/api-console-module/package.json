@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/api-console-module",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "description": "API Console",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -23,30 +23,30 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "peerDependencies": {
-    "@deepkit/app": "^1.0.19",
-    "@deepkit/broker": "^1.0.19",
-    "@deepkit/bson": "^1.0.19",
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/http": "^1.0.19",
-    "@deepkit/injector": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/rpc": "^1.0.19",
-    "@deepkit/type": "^1.0.19"
+    "@deepkit/app": "^1.1.0",
+    "@deepkit/broker": "^1.1.0",
+    "@deepkit/bson": "^1.1.0",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/http": "^1.1.0",
+    "@deepkit/injector": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/rpc": "^1.1.0",
+    "@deepkit/type": "^1.1.0"
   },
   "dependencies": {
-    "@deepkit/api-console-api": "^1.0.19",
-    "@deepkit/api-console-gui": "^1.0.19"
+    "@deepkit/api-console-api": "^1.1.0",
+    "@deepkit/api-console-gui": "^1.1.0"
   },
   "devDependencies": {
-    "@deepkit/app": "^1.0.19",
-    "@deepkit/broker": "^1.0.19",
-    "@deepkit/bson": "^1.0.19",
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/http": "^1.0.19",
-    "@deepkit/injector": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/rpc": "^1.0.19",
-    "@deepkit/type": "^1.0.19",
+    "@deepkit/app": "^1.1.0",
+    "@deepkit/broker": "^1.1.0",
+    "@deepkit/bson": "^1.1.0",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/http": "^1.1.0",
+    "@deepkit/injector": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/rpc": "^1.1.0",
+    "@deepkit/type": "^1.1.0",
     "rxjs": "~7.8.0"
   },
   "jest": {

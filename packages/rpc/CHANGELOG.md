@@ -3,6 +3,33 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **deps:** declare all @deepkit/\* packages that are imported ([ba76daa](https://github.com/deepkit/deepkit-framework/commit/ba76daacc071e489994a83d8a8aecefbec25d67b))
+- **rpc:** keep subscribed observables and subjects alive until they complete ([6243c3e](https://github.com/deepkit/deepkit-framework/commit/6243c3ef712c8787f564cff99c0c9a654538b928))
+- **rpc:** reject messages sent while the server is unreachable ([1bb0bf9](https://github.com/deepkit/deepkit-framework/commit/1bb0bf955825b651c85f1db432d12815184a0af4))
+- **rpc:** reject PreSerialized values in messages that cannot splice them ([1799053](https://github.com/deepkit/deepkit-framework/commit/17990539a1d1ce64a5a942ceb0934dfea4690d0f))
+- **rpc:** stop a replaced socket from stranding calls on the new connection ([2de8673](https://github.com/deepkit/deepkit-framework/commit/2de8673fa0525e2170e94b77cb4c23db618cd059))
+- wrong InjectorContext scope set in HTTP, and wrong received in RPC ([#673](https://github.com/deepkit/deepkit-framework/issues/673)) ([a56b7dd](https://github.com/deepkit/deepkit-framework/commit/a56b7ddbaa50cdb901bb453ae10f867d4b86f563))
+
+### Features
+
+- **bench:** benchmarks for all core packages, comparisons and a runner that tracks results ([b5abf6f](https://github.com/deepkit/deepkit-framework/commit/b5abf6f7139b7c31dd4997b7a1d084a1348c8136))
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+- **rpc:** send one value to many connections without serializing it each time ([43ecb1e](https://github.com/deepkit/deepkit-framework/commit/43ecb1ed0a938d2637941121b83788836c03481b))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 ### Features

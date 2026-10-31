@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/type",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "description": "@deepkit/type, the fastest universal TypeScript serializer and validator with JIT engine for frontend, backend, http-transport, RPC, and database, with built-in validations, for Browser/NodeJS.",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -24,14 +24,14 @@
   "author": "Marc J. Schmidt <marc@marcjschmidt.de>",
   "license": "MIT",
   "peerDependencies": {
-    "@deepkit/core": "^1.0.19"
+    "@deepkit/core": "^1.1.0"
   },
   "dependencies": {
-    "@deepkit/type-spec": "^1.0.19"
+    "@deepkit/type-spec": "^1.1.0"
   },
   "devDependencies": {
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/type-compiler": "^1.0.19",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/type-compiler": "^1.1.0",
     "@types/lz-string": "^1.3.34",
     "@types/node": "^22.13.1",
     "@typescript/vfs": "^1.5.0",

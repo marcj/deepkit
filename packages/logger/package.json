@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/logger",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "description": "Deepkit logger",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -24,12 +24,12 @@
   "author": "Marc J. Schmidt <marc@marcjschmidt.de>",
   "license": "MIT",
   "peerDependencies": {
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/injector": "^1.0.19"
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/injector": "^1.1.0"
   },
   "devDependencies": {
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/injector": "^1.0.19"
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/injector": "^1.1.0"
   },
   "jest": {
     "testEnvironment": "node",

@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **app,framework,api-console-module,orm-browser:** find GUI packages via module resolution ([e767a1e](https://github.com/deepkit/deepkit-framework/commit/e767a1efbaa8cefc8b1e06c7ace0e5c8c13d698b)), closes [#608](https://github.com/deepkit/deepkit-framework/issues/608)
+- **orm-browser:** render array content, and disable editing ([06d058d](https://github.com/deepkit/deepkit-framework/commit/06d058d92b37598c7b7ad7767aee84575c949cd0))
+
+### Features
+
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/orm-browser-gui

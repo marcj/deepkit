@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/http",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "description": "Deepkit HTTP server and router.",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -23,29 +23,29 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "peerDependencies": {
-    "@deepkit/app": "^1.0.19",
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/event": "^1.0.19",
-    "@deepkit/injector": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/stopwatch": "^1.0.19",
-    "@deepkit/template": "^1.0.19",
-    "@deepkit/type": "^1.0.19",
-    "@deepkit/workflow": "^1.0.19"
+    "@deepkit/app": "^1.1.0",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/event": "^1.1.0",
+    "@deepkit/injector": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/stopwatch": "^1.1.0",
+    "@deepkit/template": "^1.1.0",
+    "@deepkit/type": "^1.1.0",
+    "@deepkit/workflow": "^1.1.0"
   },
   "dependencies": {
     "formidable": "^3.5.2"
   },
   "devDependencies": {
-    "@deepkit/app": "^1.0.19",
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/event": "^1.0.19",
-    "@deepkit/injector": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/stopwatch": "^1.0.19",
-    "@deepkit/template": "^1.0.19",
-    "@deepkit/type": "^1.0.19",
-    "@deepkit/workflow": "^1.0.19",
+    "@deepkit/app": "^1.1.0",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/event": "^1.1.0",
+    "@deepkit/injector": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/stopwatch": "^1.1.0",
+    "@deepkit/template": "^1.1.0",
+    "@deepkit/type": "^1.1.0",
+    "@deepkit/workflow": "^1.1.0",
     "@types/formidable": "^3.4.5",
     "@types/node": "^22.13.1"
   },

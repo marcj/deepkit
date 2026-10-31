@@ -3,6 +3,35 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **core,filesystem:** handle Windows paths in getCurrentDirName and the local adapter ([#688](https://github.com/deepkit/deepkit-framework/issues/688), [#694](https://github.com/deepkit/deepkit-framework/issues/694)) ([75816ef](https://github.com/deepkit/deepkit-framework/commit/75816effbee603e2d32aaa15137fbe12525b0fe8))
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **deps:** commit dist/esm/package.json of all packages with an ESM build ([9dbdfcc](https://github.com/deepkit/deepkit-framework/commit/9dbdfcc62f498d095d4f16cfb653124488796557))
+- **deps:** declare all @deepkit/\* packages that are imported ([ba76daa](https://github.com/deepkit/deepkit-framework/commit/ba76daacc071e489994a83d8a8aecefbec25d67b))
+- **template,mongo,http,framework:** make the ESM builds loadable ([814ca04](https://github.com/deepkit/deepkit-framework/commit/814ca04b36765b7c62b79c787e84b86582ebca63))
+
+### Features
+
+- **bench:** benchmarks for all core packages, comparisons and a runner that tracks results ([b5abf6f](https://github.com/deepkit/deepkit-framework/commit/b5abf6f7139b7c31dd4997b7a1d084a1348c8136))
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+
+### Performance Improvements
+
+- **type,type-compiler,core:** faster type guards, type arguments and serializer calls ([c39c8fd](https://github.com/deepkit/deepkit-framework/commit/c39c8fd8838fa205400507ba0146918333186044)), closes [#568](https://github.com/deepkit/deepkit-framework/issues/568)
+- **type:** check plain objects in the generated type guard, not in isObjectLiteral ([b7012e2](https://github.com/deepkit/deepkit-framework/commit/b7012e2589f942395a2ddad8006e0edf4855a33c))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 ### Features

@@ -3,6 +3,33 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **deps:** declare all @deepkit/\* packages that are imported ([ba76daa](https://github.com/deepkit/deepkit-framework/commit/ba76daacc071e489994a83d8a8aecefbec25d67b))
+- **orm:** joined back references of a reference upgraded to a full entity ([61ede01](https://github.com/deepkit/deepkit-framework/commit/61ede01c6b3dbc3bb6d6212a81ddfd99568168b8)), closes [#636](https://github.com/deepkit/deepkit-framework/issues/636)
+- **sql,postgres,sqlite:** parse column defaults instead of eval() ([f0661ec](https://github.com/deepkit/deepkit-framework/commit/f0661ec7121fb4a0c0b58341cb20eb8ba9eaeb68))
+- **sql:** bring back --path for the standalone migration commands ([849ef19](https://github.com/deepkit/deepkit-framework/commit/849ef19a95b0612668a1b4a43e5e9f0dfdbe07b9)), closes [#613](https://github.com/deepkit/deepkit-framework/issues/613)
+- **sqlite:** update better-sqlite3 to 12.11 for Node.js 26 support ([e6ad1fb](https://github.com/deepkit/deepkit-framework/commit/e6ad1fbe5f17483e79259f6a8953743e0d57ae43))
+- **sqlite:** validate maxConnections of the connection pool ([dab7244](https://github.com/deepkit/deepkit-framework/commit/dab7244288100b83bf94f140afed295034b59343)), closes [#393](https://github.com/deepkit/deepkit-framework/issues/393)
+- **type,orm,mongo,http,framework:** overridden references, optional Embedded, Mongo dot paths ([#704](https://github.com/deepkit/deepkit-framework/issues/704), [#254](https://github.com/deepkit/deepkit-framework/issues/254), [#697](https://github.com/deepkit/deepkit-framework/issues/697)) ([4a8a7a4](https://github.com/deepkit/deepkit-framework/commit/4a8a7a4b859024047dc86e5c9c941c17ae992bc9)), closes [#439](https://github.com/deepkit/deepkit-framework/issues/439) [#591](https://github.com/deepkit/deepkit-framework/issues/591) [#346](https://github.com/deepkit/deepkit-framework/issues/346) [#430](https://github.com/deepkit/deepkit-framework/issues/430) [#444](https://github.com/deepkit/deepkit-framework/issues/444) [#375](https://github.com/deepkit/deepkit-framework/issues/375)
+
+### Features
+
+- **bench:** benchmarks for all core packages, comparisons and a runner that tracks results ([b5abf6f](https://github.com/deepkit/deepkit-framework/commit/b5abf6f7139b7c31dd4997b7a1d084a1348c8136))
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 **Note:** Version bump only for package @deepkit/sqlite

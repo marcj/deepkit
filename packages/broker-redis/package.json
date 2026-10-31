@@ -1,6 +1,6 @@
 {
   "name": "@deepkit/broker-redis",
-  "version": "1.0.19",
+  "version": "1.1.0",
   "description": "Deepkit Broker Redis adapter",
   "type": "commonjs",
   "main": "./dist/cjs/index.js",
@@ -23,11 +23,11 @@
     "build": "echo '{\"type\": \"module\"}' > ./dist/esm/package.json"
   },
   "dependencies": {
-    "@deepkit/broker": "^1.0.19",
-    "@deepkit/bson": "^1.0.19",
-    "@deepkit/core": "^1.0.19",
-    "@deepkit/logger": "^1.0.19",
-    "@deepkit/type": "^1.0.19",
+    "@deepkit/broker": "^1.1.0",
+    "@deepkit/bson": "^1.1.0",
+    "@deepkit/core": "^1.1.0",
+    "@deepkit/logger": "^1.1.0",
+    "@deepkit/type": "^1.1.0",
     "ioredis": "^5.6.1"
   },
   "jest": {

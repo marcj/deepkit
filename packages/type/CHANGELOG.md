@@ -3,6 +3,53 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [1.1.0](https://github.com/deepkit/deepkit-framework/compare/v1.0.19...v1.1.0) (2026-10-31)
+
+### Bug Fixes
+
+- **bson,type:** report the same union errors in BSON as in validate() ([35ce1f6](https://github.com/deepkit/deepkit-framework/commit/35ce1f6520b15d85f3050a941da271b4d9bb4e18))
+- **deps:** `@deepkit/*` peer dependencies require the current version ([#574](https://github.com/deepkit/deepkit-framework/issues/574)) ([ee7546f](https://github.com/deepkit/deepkit-framework/commit/ee7546f4416b66546e146591a45d39094f49c1c6))
+- **type-compiler:** hoist \_\_type of module-level functions ([#664](https://github.com/deepkit/deepkit-framework/issues/664)) ([4492545](https://github.com/deepkit/deepkit-framework/commit/44925457ba5d0b3403e7e8ad3a7f5e690cc62ec2))
+- **type-compiler:** re-export type programs of named re-exports ([#634](https://github.com/deepkit/deepkit-framework/issues/634), [#318](https://github.com/deepkit/deepkit-framework/issues/318)) ([e8543b1](https://github.com/deepkit/deepkit-framework/commit/e8543b1704a271da8341087f09de7f38dd8735c1))
+- **type,bson:** name the received type in union and literal errors ([55bc216](https://github.com/deepkit/deepkit-framework/commit/55bc216e325fc8754e68adfe6ac4bd7addc30fdc))
+- **type,orm,mongo,http,framework:** overridden references, optional Embedded, Mongo dot paths ([#704](https://github.com/deepkit/deepkit-framework/issues/704), [#254](https://github.com/deepkit/deepkit-framework/issues/254), [#697](https://github.com/deepkit/deepkit-framework/issues/697)) ([4a8a7a4](https://github.com/deepkit/deepkit-framework/commit/4a8a7a4b859024047dc86e5c9c941c17ae992bc9)), closes [#439](https://github.com/deepkit/deepkit-framework/issues/439) [#591](https://github.com/deepkit/deepkit-framework/issues/591) [#346](https://github.com/deepkit/deepkit-framework/issues/346) [#430](https://github.com/deepkit/deepkit-framework/issues/430) [#444](https://github.com/deepkit/deepkit-framework/issues/444) [#375](https://github.com/deepkit/deepkit-framework/issues/375)
+- **type,type-compiler,bson:** useful union errors, default and aliased imports of library types ([97074f8](https://github.com/deepkit/deepkit-framework/commit/97074f859b9f2d377b3c3ba7bdd91820670a92b5)), closes [#577](https://github.com/deepkit/deepkit-framework/issues/577) [#676](https://github.com/deepkit/deepkit-framework/issues/676) [#601](https://github.com/deepkit/deepkit-framework/issues/601)
+- **type:** a tuple only extends an array if all its elements do ([11a70ee](https://github.com/deepkit/deepkit-framework/commit/11a70ee8af7ac5d43e89f1aa12273ee331c83ddf))
+- **type:** check large literal unions with a single lookup ([#478](https://github.com/deepkit/deepkit-framework/issues/478)) ([543e189](https://github.com/deepkit/deepkit-framework/commit/543e189635835745f4e8dbcbb80faa1bd68d5c15))
+- **type:** check that UUID values are valid UUIDs ([79a865e](https://github.com/deepkit/deepkit-framework/commit/79a865e9b323e443fe8d0f945af86a0eb2f390d6))
+- **type:** deserialized classes with a superClass are reflectable again ([#241](https://github.com/deepkit/deepkit-framework/issues/241)) ([b86d3d2](https://github.com/deepkit/deepkit-framework/commit/b86d3d294595abf4caff2ac670ef5cfc92ab7519))
+- **type:** don't crash ValidationErrorItem.toString on circular values ([#505](https://github.com/deepkit/deepkit-framework/issues/505)) ([70ae003](https://github.com/deepkit/deepkit-framework/commit/70ae003a69f354c378394d99d90b22e5aea54f14))
+- **type:** explain how to fix missing runtime type errors ([#562](https://github.com/deepkit/deepkit-framework/issues/562), [#508](https://github.com/deepkit/deepkit-framework/issues/508)) ([8722519](https://github.com/deepkit/deepkit-framework/commit/87225195fc8bbfdd99ce19a4428971f5b1f91e4c))
+- **type:** fix type collapse when B resolves to unknown ([1130ddd](https://github.com/deepkit/deepkit-framework/commit/1130dddc996f85c9102c9fe4d52feb258ac0d3e4))
+- **type:** infer tuple elements after a rest element from the end ([#524](https://github.com/deepkit/deepkit-framework/issues/524)) ([7483886](https://github.com/deepkit/deepkit-framework/commit/7483886311ef23df9be935581c5e78ff04850d34))
+- **type:** large literal unions keep applying template hooks ([#478](https://github.com/deepkit/deepkit-framework/issues/478)) ([ae2790e](https://github.com/deepkit/deepkit-framework/commit/ae2790ea49faf04953ce6c38fe4cc1819303eb35))
+- **type:** remove the uuid and buffer dependencies ([#705](https://github.com/deepkit/deepkit-framework/issues/705), [#699](https://github.com/deepkit/deepkit-framework/issues/699)) ([9036b3b](https://github.com/deepkit/deepkit-framework/commit/9036b3bba0f28ff619e8139342b2c7f5f4a66d5a))
+- **type:** report errors of the closest union member ([#577](https://github.com/deepkit/deepkit-framework/issues/577), [#676](https://github.com/deepkit/deepkit-framework/issues/676)) ([840b9eb](https://github.com/deepkit/deepkit-framework/commit/840b9ebc086671fef03e17691b4178b0a2080b68))
+- **type:** treat `new X` without parentheses as a computed default value ([82a2455](https://github.com/deepkit/deepkit-framework/commit/82a2455fb059ec8c3c2519e91936905bea866faa)), closes [#545](https://github.com/deepkit/deepkit-framework/issues/545)
+
+### Features
+
+- **bench:** benchmarks for all core packages, comparisons and a runner that tracks results ([b5abf6f](https://github.com/deepkit/deepkit-framework/commit/b5abf6f7139b7c31dd4997b7a1d084a1348c8136))
+- enable isolatedModules ([#683](https://github.com/deepkit/deepkit-framework/issues/683)) ([c730cfc](https://github.com/deepkit/deepkit-framework/commit/c730cfcfadc898f632b3c64b90ca57fa6764af32))
+- **type:** scored union resolver ([a1f8ee3](https://github.com/deepkit/deepkit-framework/commit/a1f8ee3a345c696e341e37bc26065b97157392fe))
+- **type:** support intrinsics Capitalize, Uppercase, Lowercase, Uncapitalize ([#681](https://github.com/deepkit/deepkit-framework/issues/681)) ([ffd1bc7](https://github.com/deepkit/deepkit-framework/commit/ffd1bc7b55cf08ce23be440bab33dd6925299d1c))
+
+### Performance Improvements
+
+- **type,http:** fast discriminated unions, no scoring outside unions, flat query strings ([d5ce462](https://github.com/deepkit/deepkit-framework/commit/d5ce4629c290722b4af76a356c70f53d645fd302))
+- **type,type-compiler,core:** faster type guards, type arguments and serializer calls ([c39c8fd](https://github.com/deepkit/deepkit-framework/commit/c39c8fd8838fa205400507ba0146918333186044)), closes [#568](https://github.com/deepkit/deepkit-framework/issues/568)
+- **type:** check plain objects in the generated type guard, not in isObjectLiteral ([b7012e2](https://github.com/deepkit/deepkit-framework/commit/b7012e2589f942395a2ddad8006e0edf4855a33c))
+- **type:** inline the guards of anonymous object literals and arrays of primitives ([7ce005a](https://github.com/deepkit/deepkit-framework/commit/7ce005a4fc7af3c2bd5f23bf8119adffaf7d5d0d))
+
+### BREAKING CHANGES
+
+- const enums converted to regular enums in:
+  - MappedModifier (type-spec)
+  - BinaryBigIntType (type)
+  - BrokerType (broker)
+  - RpcMessageRouteType (rpc)
+  - AuthMechanism (mongo)
+
 ## [1.0.19](https://github.com/deepkit/deepkit-framework/compare/v1.0.17...v1.0.19) (2025-09-22)
 
 ### Features
