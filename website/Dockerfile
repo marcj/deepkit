@@ -19,6 +19,7 @@ ADD .git /app/.git
 ADD package.json lerna.json tsconfig.json tsconfig.esm.json tsconfig.base.json install-compiler.sh /app/
 ADD .yarnrc.yml yarn.lock /app/
 ADD .yarn /app/.yarn
+ADD scripts /app/scripts
 
 ADD packages /app/packages
 RUN rm -rf /app/packages/devtool
