@@ -65,7 +65,7 @@ results.forEach((result, runIndex) => {
 
 const data = {
     machine: results.length ? results[results.length - 1].machine : undefined,
-    runs: results.map(v => ({ label: v.label, commit: v.commit, date: v.sortDate, release: isRelease(v.label) })),
+    runs: results.map(v => ({ label: v.label, commit: v.commit, date: v.sortDate, release: isRelease(v.label), libraries: v.libraries || {} })),
     suites: [...suites.values()].map(v => ({ name: v.name, file: v.file, benchmarks: [...v.benchmarks.values()] })),
 };
 

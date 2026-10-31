@@ -10,6 +10,8 @@ interface BenchmarkRun {
     commit?: string;
     date: string;
     release: boolean;
+    /** installed versions of the compared libraries in this run */
+    libraries?: { [name: string]: string };
 }
 
 interface Benchmark {
@@ -58,6 +60,41 @@ export function change(benchmark: Benchmark, a: number, b: number): { percent: n
     return { percent, noise: Math.abs(percent) <= rme * 2 };
 }
 
+/** npm package of a library as it is labelled in the charts, for its version in the result files */
+const libraryPackages: { [label: string]: string } = {
+    'typia': 'typia',
+    'typia (AOT)': 'typia',
+    'typia json.stringify': 'typia',
+    'Zod': 'zod',
+    'Valibot': 'valibot',
+    'TypeBox': '@sinclair/typebox',
+    'ArkType': 'arktype',
+    'class-validator': 'class-validator',
+    'class-transformer': 'class-transformer',
+    'bson serialize': 'bson',
+    'bson deserialize': 'bson',
+    'Prisma': 'prisma',
+    'Drizzle': 'drizzle-orm',
+    'TypeORM': 'typeorm',
+    'MikroORM': '@mikro-orm/core',
+    'Sequelize': 'sequelize',
+    'Mongoose': 'mongoose',
+    'mongodb': 'mongodb',
+    'mongodb (driver)': 'mongodb',
+    'pg': 'pg',
+    'pg (driver)': 'pg',
+    'postgres.js': 'postgres',
+    'postgres.js (driver)': 'postgres',
+    'better-sqlite3': 'better-sqlite3',
+    'better-sqlite3 (driver)': 'better-sqlite3',
+};
+
+/** Version of the library with the given chart label in a run, undefined for Deepkit and unknown labels. */
+function libraryVersion(label: string, runIndex: number): string | undefined {
+    const name = libraryPackages[label];
+    return name ? data.runs[runIndex]?.libraries?.[name] : undefined;
+}
+
 /** The given benchmarks of a suite in the latest measured run (master), labelled for a chart. */
 export function latestChartEntries(suiteName: string, benchmarks: Record<string, string>): ChartEntry[] {
     let index = data.runs.length - 1;
@@ -66,7 +103,7 @@ export function latestChartEntries(suiteName: string, benchmarks: Record<string,
     const entries: ChartEntry[] = [];
     for (const [name, label] of Object.entries(benchmarks)) {
         const hz = suite?.benchmarks.find(v => v.name === name)?.hz[index];
-        if (hz) entries.push({ label, hz, highlight: label.startsWith('Deepkit') });
+        if (hz) entries.push({ label, hz, highlight: label.startsWith('Deepkit'), version: libraryVersion(label, index) });
     }
     return entries;
 }
@@ -77,6 +114,8 @@ export interface ChartEntry {
     highlight: boolean;
     /** a raw database driver, the lower bound and no competitor */
     baseline?: boolean;
+    /** version of a compared library */
+    version?: string;
 }
 
 @Component({
@@ -91,7 +130,12 @@ export interface ChartEntry {
         <div class="chart">
             @for (entry of entries(); track entry.label) {
                 <div class="row" [class.highlight]="entry.highlight" [class.baseline]="entry.baseline">
-                    <div class="label">{{ entry.label }}</div>
+                    <div class="label" [attr.title]="entry.version ? entry.label + ' ' + entry.version : entry.label">
+                        {{ entry.label }}
+                        @if (entry.version) {
+                            <span class="version">{{ entry.version }}</span>
+                        }
+                    </div>
                     <div class="bar-container">
                         <div class="track"><div class="bar" [style.width.%]="entry.width"></div></div>
                         <div class="value">
@@ -128,11 +172,11 @@ export interface ChartEntry {
             gap: 7px;
         }
         :host(.compact) .row {
-            grid-template-columns: 136px 1fr;
+            grid-template-columns: 168px 1fr;
         }
         .row {
             display: grid;
-            grid-template-columns: 150px 1fr;
+            grid-template-columns: 190px 1fr;
             gap: 10px;
             align-items: center;
             font-size: 13px;
@@ -166,6 +210,11 @@ export interface ChartEntry {
         .highlight .label {
             color: white;
             font-weight: 600;
+        }
+        .version {
+            font-size: 11px;
+            color: #6b727a;
+            font-style: normal;
         }
         .baseline .bar {
             background: repeating-linear-gradient(135deg, #2c323b 0 6px, #232830 6px 12px);
@@ -910,7 +959,8 @@ export class BenchmarksComponent {
                     const hz = benchmark.hz[index];
                     if (name !== operation.name || !hz) continue;
                     const baseline = database.drivers.includes(library);
-                    entries.push({ label: baseline ? library + ' (driver)' : library, hz, highlight: library === 'Deepkit', baseline });
+                    const label = baseline ? library + ' (driver)' : library;
+                    entries.push({ label, hz, highlight: library === 'Deepkit', baseline, version: libraryVersion(label, index) });
                 }
                 return { title: operation.title, description: operation.description, entries };
             }).filter(v => v.entries.length);
@@ -925,7 +975,7 @@ export class BenchmarksComponent {
             const entries: ChartEntry[] = [];
             for (const [name, label] of Object.entries(chart.benchmarks)) {
                 const hz = suite?.benchmarks.find(v => v.name === name)?.hz[index];
-                if (hz) entries.push({ label, hz, highlight: label.startsWith('Deepkit') });
+                if (hz) entries.push({ label, hz, highlight: label.startsWith('Deepkit'), version: libraryVersion(label, index) });
             }
             return { title: chart.title, description: chart.description, entries };
         });

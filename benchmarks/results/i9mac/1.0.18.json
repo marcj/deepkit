@@ -12,6 +12,36 @@
     "platform": "linux x64",
     "node": "v26.13.0"
   },
+  "libraries": {
+    "@mikro-orm/core": "7.2.5",
+    "@mikro-orm/mongodb": "7.2.5",
+    "@mikro-orm/postgresql": "7.2.5",
+    "@mikro-orm/sqlite": "7.2.5",
+    "@prisma/adapter-better-sqlite3": "7.10.1",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "@sinclair/typebox": "0.34.52",
+    "arktype": "2.2.9",
+    "better-sqlite3": "12.11.1",
+    "bson": "7.3.3",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "drizzle-orm": "0.45.4",
+    "mongodb": "7.7.0",
+    "mongoose": "9.11.4",
+    "pg": "8.23.1",
+    "pg-hstore": "2.3.4",
+    "postgres": "3.4.9",
+    "prisma": "7.10.1",
+    "reflect-metadata": "0.2.2",
+    "sequelize": "6.37.8",
+    "sqlite3": "6.0.1",
+    "ttsc": "0.34.1",
+    "typeorm": "1.1.2",
+    "typia": "15.2.0",
+    "valibot": "1.5.0",
+    "zod": "4.6.7"
+  },
   "files": {
     "benchmarks/comparison/bson.bench.ts": {
       "comparison/bson": {

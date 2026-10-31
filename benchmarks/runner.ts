@@ -29,11 +29,29 @@ interface ResultFile {
     commit?: string;
     date: string;
     machine: { hostname: string; cpu: string; cores: number; platform: string; node: string };
+    /** installed versions of the compared libraries (zod, prisma, ...), shown next to their results */
+    libraries?: { [name: string]: string };
     /** file -> suite -> benchmark -> result */
     files: { [file: string]: { [suite: string]: { [benchmark: string]: BenchmarkEntry } } };
 }
 
 const root = join(import.meta.dirname, '..');
+
+/** The installed versions of the libraries the comparisons run against, from their package.json in node_modules. */
+function libraryVersions(): { [name: string]: string } {
+    const benchmarksPackage = JSON.parse(readFileSync(join(root, 'benchmarks', 'package.json'), 'utf8'));
+    const names = [...Object.keys({ ...benchmarksPackage.dependencies, ...benchmarksPackage.devDependencies }), 'better-sqlite3'];
+    const versions: { [name: string]: string } = {};
+    for (const name of names.filter(v => !v.startsWith('@deepkit/')).sort()) {
+        for (const dir of [join(root, 'benchmarks', 'node_modules'), join(root, 'node_modules')]) {
+            const file = join(dir, name, 'package.json');
+            if (!existsSync(file)) continue;
+            versions[name] = JSON.parse(readFileSync(file, 'utf8')).version;
+            break;
+        }
+    }
+    return versions;
+}
 const resultsDir = join(root, 'benchmarks', 'results');
 
 function findBenchmarks(filters: string[]): string[] {
@@ -148,6 +166,7 @@ function run(args: string[]) {
         commit,
         date: new Date().toISOString(),
         machine: { hostname: hostname(), cpu: cpus()[0]?.model.trim() || '', cores: cpus().length, platform: `${process.platform} ${process.arch}`, node: process.version },
+        libraries: libraryVersions(),
         files: {},
     };
 
@@ -178,6 +197,7 @@ function run(args: string[]) {
     if (filters.length && existsSync(out)) {
         const existing: ResultFile = JSON.parse(readFileSync(out, 'utf8'));
         result.files = { ...existing.files, ...result.files };
+        result.libraries = { ...existing.libraries, ...result.libraries };
         Object.assign(result, { label: existing.label, commit: existing.commit, date: existing.date });
     }
     mkdirSync(dirname(out), { recursive: true });
