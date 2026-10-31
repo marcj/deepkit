@@ -52,7 +52,11 @@ const nodeFormat: ((...args: any[]) => string) | undefined = (globalThis as any)
  * Remaining arguments are appended separated by a space.
  */
 export function format(fmt?: any, ...args: any[]): string {
-    if (nodeFormat) return nodeFormat(fmt, ...args);
+    if (nodeFormat) {
+        // most messages are a single string, which util.format returns unchanged
+        if (!args.length && 'string' === typeof fmt) return fmt;
+        return nodeFormat(fmt, ...args);
+    }
 
     if (args.length) {
         fmt = String(fmt).replace(
