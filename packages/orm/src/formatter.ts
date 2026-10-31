@@ -45,6 +45,16 @@ type DBRecord = { [name: string]: any };
 /**
  * Every query resolving gets its own formatter.
  */
+/**
+ * Whether the relation already has a value, without reading the getter of an unpopulated relation
+ * (makeInvalidReference), which throws. A reference upgraded to a full object has these getters.
+ */
+function hasAssignedValue(item: any, property: ReflectionProperty): boolean {
+    if (Object.prototype.hasOwnProperty.call(item, property.symbol)) return !!item[property.symbol];
+    if (Object.getOwnPropertyDescriptor(item, property.name)?.get) return false;
+    return !!item[property.name];
+}
+
 export class Formatter {
     //it's important to have for each formatter own proxyClasses since we attached to Proxy's prototype the database session
     protected referenceClasses: Map<ReflectionClass<any>, ClassType> = new Map();
@@ -345,7 +355,7 @@ export class Formatter {
                         item[join.propertySchema.name] = dbRecord[refName].map((item: any) => {
                             return this.hydrateModel(join.query.model, resolveForeignReflectionClass(join.propertySchema), item, true);
                         });
-                    } else if (!item[join.propertySchema.name]) {
+                    } else if (!hasAssignedValue(item, join.propertySchema)) {
                         item[join.propertySchema.name] = [];
                     }
                 } else if (hasValue) {
