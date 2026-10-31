@@ -12,6 +12,7 @@ import {
     cast,
     DatabaseField,
     Entity,
+    Embedded,
     entity,
     getPrimaryKeyExtractor,
     getPrimaryKeyHashGenerator,
@@ -24,6 +25,7 @@ import {
     Unique,
     UUID,
     uuid,
+    validate,
 } from '@deepkit/type';
 
 
@@ -1118,4 +1120,58 @@ test('logger', async () => {
     await database.persist(new Entity('test1'));
 
     expect(logger.getOutput()).toContain(`INSERT INTO "Entity"`);
+});
+
+test('joinWith on a property overridden with Reference (#704)', async () => {
+    class Author { id: number & PrimaryKey & AutoIncrement = 0; name: string = 'Peter'; }
+    class Base { id: number & PrimaryKey & AutoIncrement = 0; author?: Author; }
+    class Post extends Base { override author?: Author & Reference; }
+
+    const database = await databaseFactory([Author, Post]);
+    const post = new Post();
+    post.author = new Author();
+    await database.persist(post.author, post);
+
+    const found = await database.query(Post).joinWith('author').findOne();
+    expect(found.author!.name).toBe('Peter');
+});
+
+test('nested join on a back reference (#375)', async () => {
+    class Entity1 {
+        id: number & AutoIncrement & PrimaryKey = 0;
+        constructor(public entity2: Entity2 & Reference, public entity3: Entity3 & Reference) {}
+    }
+    class Entity2 {
+        id: number & AutoIncrement & PrimaryKey = 0;
+        entity3s?: Entity3[] & BackReference;
+    }
+    class Entity3 {
+        id: number & AutoIncrement & PrimaryKey = 0;
+        constructor(public entity2: Entity2 & Reference) {}
+    }
+
+    const database = await databaseFactory([Entity1, Entity2, Entity3]);
+    const entity2 = new Entity2();
+    const first = new Entity3(entity2);
+    await database.persist(entity2, first, new Entity3(entity2), new Entity1(entity2, first));
+
+    const found = await database.query(Entity1).useJoinWith('entity2').joinWith('entity3s').end().findOne();
+    expect(found.entity2.entity3s!.map(v => v.id)).toEqual([1, 2]);
+});
+
+test('optional embedded property (#254)', async () => {
+    class Address { city!: string; }
+    @entity.name('optional-embedded')
+    class Customer { id: number & AutoIncrement & PrimaryKey = 0; address?: Embedded<Address>; }
+
+    expect(validate<Customer>(new Customer())).toEqual([]);
+    expect(validate<Customer>({ id: 1, address: { city: 1 } }).map(v => v.path)).toEqual(['address.city']);
+
+    const database = await databaseFactory([Customer]);
+    const withAddress = new Customer();
+    withAddress.address = { city: 'Berlin' };
+    await database.persist(new Customer(), withAddress);
+    const found = await database.query(Customer).orderBy('id').find();
+    expect(found[0].address).toBe(undefined);
+    expect(found[1].address).toEqual({ city: 'Berlin' });
 });

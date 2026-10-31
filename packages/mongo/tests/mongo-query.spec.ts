@@ -1,6 +1,6 @@
 import { expect, test } from '@jest/globals';
 import { convertClassQueryToMongo, convertPlainQueryToMongo } from '../index.js';
-import { Embedded, PrimaryKey, Reference } from '@deepkit/type';
+import { Embedded, MongoId, PrimaryKey, Reference, ReflectionKind } from '@deepkit/type';
 
 class SimpleConfig {
     items: string[] = [];
@@ -251,4 +251,20 @@ test('excluded', () => {
         const m = convertPlainQueryToMongo(Simple, obj);
         expect(m).toEqual(obj);
     }
+});
+
+test('dot path into an embedded object is converted with its type (#697)', () => {
+    class Message { _id: MongoId & PrimaryKey = ''; channel: string = ''; }
+    class Channel {
+        _id: MongoId & PrimaryKey = '';
+        tailMessage?: Omit<Message, 'channel'>;
+    }
+    const id = '5be340cb2ffb5e901a9b62e4';
+    const converted: any = convertClassQueryToMongo(Channel, { 'tailMessage._id': id } as any);
+    expect(converted['tailMessage._id'].type.kind).toBe(ReflectionKind.string);
+    expect(converted['tailMessage._id'].type.typeName).toBe('MongoId');
+    const inList: any = convertClassQueryToMongo(Channel, { 'tailMessage._id': { $in: [id] } } as any);
+    expect(inList['tailMessage._id'].$in[0].type.typeName).toBe('MongoId');
+    //unknown paths stay as they are
+    expect(convertClassQueryToMongo(Channel, { 'unknown.path': 1 } as any)).toEqual({ 'unknown.path': 1 });
 });

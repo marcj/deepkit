@@ -50,7 +50,6 @@
     "@deepkit/framework-debug-gui": "^1.0.19",
     "@deepkit/orm-browser-api": "^1.0.19",
     "@deepkit/orm-browser-gui": "^1.0.19",
-    "@types/ws": "^7.4.0",
     "ws": "^7.4.2"
   },
   "devDependencies": {

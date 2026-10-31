@@ -1392,7 +1392,14 @@ export function typeGuardObjectLiteral(type: TypeObjectLiteral | TypeClass, stat
                 const template = executeTemplates(propertyState, member.type);
                 if (!template) throw new Error(`No template found for ${member.type.kind}`);
 
-                lines.push(`let ${checkValid} = false;` + template);
+                //outside of deserialization, the embedded value is a nested object, so an optional one can be undefined.
+                //in deserialization, its fields are part of the parent object.
+                if (state.target !== 'deserialize' && isOptional(member)) {
+                    const optionalCheck = `${propertyAccessor} !== undefined` + (!isNullable(member) ? ` && ${propertyAccessor} !== null` : '');
+                    lines.push(`let ${checkValid} = false; if (${optionalCheck}) {${template}}`);
+                } else {
+                    lines.push(`let ${checkValid} = false;` + template);
+                }
             } else {
                 let optional = isOptional(member);
                 if (state.validation === 'loose' && member.kind === ReflectionKind.property && member.default) {

@@ -1144,9 +1144,26 @@ export class ReflectionClass<T> {
 
         const index = property.getIndex();
         if (index) {
-            const indexFound = this.indexes.findIndex(v => v.names.length === 0 && v.names[0] === property.name);
+            const indexFound = this.indexes.findIndex(v => v.names.length === 1 && v.names[0] === property.name);
             if (indexFound !== -1) this.indexes.splice(indexFound, 1);
         }
+    }
+
+    /**
+     * Updates references, primary keys, auto increments and indexes after the type of a property changed.
+     */
+    protected updatePropertyIndexes(property: ReflectionProperty) {
+        arrayRemoveItem(this.references, property);
+        arrayRemoveItem(this.primaries, property);
+        arrayRemoveItem(this.autoIncrements, property);
+        const indexFound = this.indexes.findIndex(v => v.names.length === 1 && v.names[0] === property.name);
+        if (indexFound !== -1) this.indexes.splice(indexFound, 1);
+
+        if (property.isReference() || property.isBackReference()) this.references.push(property);
+        if (property.isPrimaryKey()) this.primaries.push(property);
+        if (property.isAutoIncrement()) this.autoIncrements.push(property);
+        const index = property.getIndex();
+        if (index) this.indexes.push({ names: [property.name], options: index });
     }
 
     registerProperty(property: ReflectionProperty) {
@@ -1210,7 +1227,9 @@ export class ReflectionClass<T> {
         if (member.kind === ReflectionKind.property || member.kind === ReflectionKind.propertySignature) {
             const existing = this.getPropertyOrUndefined(member.name);
             if (existing) {
+                //an overriding property, e.g. `override author?: Author & Reference`, can change what the property is
                 existing.setType(member.type);
+                this.updatePropertyIndexes(existing);
             } else {
                 this.registerProperty(new ReflectionProperty(member, this));
             }

@@ -27,7 +27,7 @@ export function convertClassQueryToMongo<T, K extends keyof T, Q extends FilterQ
         if (value === undefined) return null;
         const type = resolvePath(path, schema.type);
         return serialize(value, undefined, mongoSerializer, undefined, type);
-    }, fieldNamesMap, customMapping);
+    }, fieldNamesMap, customMapping, true);
 }
 
 export function convertPlainQueryToMongo<T, K extends keyof T>(
@@ -41,5 +41,5 @@ export function convertPlainQueryToMongo<T, K extends keyof T>(
         const type = resolvePath(path, convertClassType.type);
         const classValue = deserialize(value, undefined, serializer, undefined, type);
         return serialize(classValue, undefined, mongoSerializer, undefined, type);
-    }, fieldNamesMap, customMapping);
+    }, fieldNamesMap, customMapping, true);
 }

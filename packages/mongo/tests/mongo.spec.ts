@@ -859,3 +859,18 @@ test('non-optional MongoId', async () => {
     expect(items4.length).toBe(1);
     expect(items4[0]).toBeInstanceOf(Model);
 });
+
+test('filter with a dot path into an embedded object (#697)', async () => {
+    class Message { _id: MongoId & PrimaryKey = ''; channel: string = ''; text: string = ''; }
+    class Channel {
+        _id: MongoId & PrimaryKey = '';
+        tailMessage?: Omit<Message, 'channel'>;
+    }
+    const db = await createDatabase('dot-path-filter');
+    db.registerEntity(Channel);
+    const channel = new Channel();
+    channel.tailMessage = { _id: '5be340cb2ffb5e901a9b62e4', text: 'hi' };
+    await db.persist(channel);
+
+    expect(await db.query(Channel).filter({ 'tailMessage._id': '5be340cb2ffb5e901a9b62e4' } as any).count()).toBe(1);
+});

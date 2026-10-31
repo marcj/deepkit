@@ -1663,3 +1663,15 @@ test('optional MongoId in object', () => {
     const back = getBSONDeserializer<T>()(bson);
     expect(back.v).toBeUndefined();
 });
+
+test('array of object literals with MongoId (#444)', () => {
+    class Doc {
+        _id: MongoId & PrimaryKey = '';
+        references: Array<{ cls: string, id: MongoId }> = [];
+    }
+    const doc = new Doc();
+    doc._id = '5be340cb2ffb5e901a9b62e5';
+    doc.references.push({ cls: 'User', id: '5be340cb2ffb5e901a9b62e4' });
+    const back = deserializeBSON<Doc>(getBSONSerializer<Doc>()(doc));
+    expect(back.references).toEqual([{ cls: 'User', id: '5be340cb2ffb5e901a9b62e4' }]);
+});

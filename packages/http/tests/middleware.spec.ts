@@ -473,3 +473,15 @@ test('middleware on http controller', async () => {
         expect(response.getHeader('middleware_b')).toEqual('1');
     }
 });
+
+test('middleware ends the response and calls next with an error (#591)', async () => {
+    const httpKernel = createHttpKernel([Controller], [], [], [httpMiddleware.for((req, res, next) => {
+        res.statusCode = 403;
+        res.end();
+        next(new Error('denied'));
+    })]);
+
+    const response = await httpKernel.request(HttpRequest.GET('/user/name1'));
+    expect(response.statusCode).toEqual(403);
+    expect(response.bodyString).toEqual('');
+});

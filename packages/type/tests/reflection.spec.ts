@@ -1,6 +1,6 @@
 import { test, expect } from '@jest/globals';
 import { ReflectionClass, typeOf } from '../src/reflection/reflection.js';
-import { assertType, Group, ReflectionKind, stringifyType } from '../src/reflection/type.js';
+import { assertType, BackReference, Group, PrimaryKey, Reference, ReflectionKind, stringifyType } from '../src/reflection/type.js';
 
 test('union empty interfaces', () => {
     interface Dog {
@@ -58,4 +58,28 @@ test('groups', () => {
     expect(field2.isInGroup('b')).toBe(true);
     expect(field2.isInGroup('c')).toBe(false);
     expect(stringifyType(field2.type)).toBe(`string | number`);
+});
+
+test('overriding a property with Reference registers the reference (#704)', () => {
+    class Author { id: number & PrimaryKey = 0; }
+    class Book { id: number & PrimaryKey = 0; post?: Post & Reference; }
+    class Base { id: number & PrimaryKey = 0; author?: Author; books?: Book[]; }
+    class Post extends Base {
+        override author?: Author & Reference;
+        override books?: Book[] & BackReference;
+    }
+    const reflection = ReflectionClass.from(Post);
+    expect(reflection.getReferences().map(v => v.name)).toEqual(['author', 'books']);
+    expect(ReflectionClass.from(Base).getReferences()).toEqual([]);
+});
+
+test('Omit of methods with a keyof parameter (#430)', () => {
+    class SomeClass {
+        fieldA!: string;
+        someFunction(input: keyof this) {}
+    }
+    type MethodKeys<T> = { [K in keyof T]: T[K] extends (...args: any) => any ? K : never }[keyof T];
+    const type = typeOf<Omit<SomeClass, MethodKeys<SomeClass>>>();
+    assertType(type, ReflectionKind.objectLiteral);
+    expect(type.types.map(v => (v as any).name)).toEqual(['fieldA']);
 });

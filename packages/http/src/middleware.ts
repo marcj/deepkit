@@ -79,8 +79,8 @@ export class HttpMiddlewareApi {
     }
 
     /**
-     * When the middleware does not respond (either calling next() or sending headers) withing <timeout> milliseconds,
-     * automatically the next is executed and warning printed.
+     * When the middleware neither calls next() nor ends the response within <timeout> milliseconds,
+     * the request fails with HttpGatewayTimeoutError (504) and a warning is logged.
      */
     timeout(timeout: number) {
         this.t.timeout = timeout;

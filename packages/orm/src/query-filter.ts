@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { ReflectionClass, ReflectionKind, ReflectionProperty } from '@deepkit/type';
+import { pathResolver, ReflectionClass, ReflectionKind, Type } from '@deepkit/type';
 import { ClassType, isArray, isPlainObject } from '@deepkit/core';
 import { FilterQuery } from './query.js';
 
@@ -37,7 +37,7 @@ export function replaceQueryFilterParameter<T>(reflectionClass: ReflectionClass<
 
 function convertProperty(
     schema: ReflectionClass<any>,
-    property: ReflectionProperty,
+    type: Type,
     fieldValue: any,
     name: string,
     converter: Converter,
@@ -67,7 +67,7 @@ function convertProperty(
                         break;
                     }
                 } else if (key === '$not') {
-                    fieldValue[key] = convertProperty(schema, property, value, name, converter, fieldNamesMap, customMapping);
+                    fieldValue[key] = convertProperty(schema, type, value, name, converter, fieldNamesMap, customMapping);
                 } else if (key === '$all') {
                     if (isArray(value[0])) {
                         //Nested Array
@@ -93,7 +93,7 @@ function convertProperty(
                     fieldNamesMap[name] = true;
                 } else {
                     fieldNamesMap[name] = true;
-                    if (property.getKind() === ReflectionKind.array && !isArray(value)) {
+                    if (type.kind === ReflectionKind.array && !isArray(value)) {
                         //implicit array conversion
                         (fieldValue as any)[key] = converter(schema, name + '.0', value);
                     } else {
@@ -104,7 +104,7 @@ function convertProperty(
         }
     } else {
         fieldNamesMap[name] = true;
-        if (property.getKind() === ReflectionKind.array && !isArray(fieldValue)) {
+        if (type.kind === ReflectionKind.array && !isArray(fieldValue)) {
             //implicit array conversion
             return converter(schema, name + '.0', fieldValue);
         } else {
@@ -121,6 +121,11 @@ export function convertQueryFilter<T, K extends keyof T, Q extends FilterQuery<T
     converter: Converter,
     fieldNamesMap: QueryFieldNames = {},
     customMapping: QueryCustomFields = {},
+    /**
+     * Converts paths into embedded objects too, e.g. `{'address.city': 'Berlin'}`, with the type at that path.
+     * SQL compares such paths against JSON, so it keeps the values as they are.
+     */
+    convertDeepPaths: boolean = false,
 ): Q {
     const result: { [i: string]: any } = {};
     const schema = ReflectionClass.from(classType);
@@ -130,26 +135,27 @@ export function convertQueryFilter<T, K extends keyof T, Q extends FilterQuery<T
 
         let fieldValue: any = filter[key];
         const property = schema.getPropertyOrUndefined(key);
+        const type = property ? property.getType() : convertDeepPaths && key.includes('.') && key[0] !== '$' ? pathResolver(schema.type)(key) : undefined;
 
         //when i is a reference, we rewrite it to the foreign key name
         let targetI = property && property.isReference() ? property.getForeignKeyName() : key;
 
         if (key[0] === '$' && isArray(fieldValue)) {
-            result[key] = (fieldValue as any[]).map(v => convertQueryFilter(classType, v, converter, fieldNamesMap, customMapping));
+            result[key] = (fieldValue as any[]).map(v => convertQueryFilter(classType, v, converter, fieldNamesMap, customMapping, convertDeepPaths));
             continue;
         }
 
-        if (property) {
+        if (type) {
             if ((filter[key] as any) instanceof RegExp) {
                 fieldValue = filter[key];
             } else {
-                fieldValue = convertProperty(schema, property, filter[key], key, converter, fieldNamesMap, customMapping);
+                fieldValue = convertProperty(schema, type, filter[key], key, converter, fieldNamesMap, customMapping);
             }
         }
 
         if (fieldValue !== undefined) {
             result[targetI] = fieldValue;
-        } else if (property && filter[key] === undefined) {
+        } else if (type && filter[key] === undefined) {
             // { name: undefined } is not {}: dropping the field would match all documents
             result[targetI] = undefined;
         }
