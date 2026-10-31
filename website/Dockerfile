@@ -1,4 +1,4 @@
-FROM node:24-alpine3.20
+FROM node:24.22.1-alpine
 ENV TZ="Europe/Berlin"
 
 RUN mkdir /app/
@@ -34,7 +34,7 @@ ADD benchmarks/results /app/benchmarks/results
 ADD website /app/website
 RUN npm run build
 
-FROM node:24-alpine3.20
+FROM node:24.22.1-alpine
 ENV TZ="Europe/Berlin"
 
 EXPOSE 8080
