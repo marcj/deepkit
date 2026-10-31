@@ -1,0 +1,2137 @@
+{
+  "label": "f3970915e",
+  "version": "1.0.19",
+  "commit": "f3970915e",
+  "date": "2026-10-31T16:02:21.111Z",
+  "machine": {
+    "hostname": "i9mac",
+    "cpu": "Intel(R) Core(TM) i9-8950HK CPU @ 2.90GHz",
+    "cores": 12,
+    "platform": "linux x64",
+    "node": "v26.13.0"
+  },
+  "files": {
+    "benchmarks/comparison/bson.bench.ts": {
+      "comparison/bson": {
+        "deepkit serialize": {
+          "hz": 553483.87,
+          "rme": 33.37,
+          "mean": 0.001806737398374009,
+          "iterations": 553500
+        },
+        "bson serialize": {
+          "hz": 284982.12,
+          "rme": 7.86,
+          "mean": 0.003508992038596531,
+          "iterations": 285000
+        },
+        "deepkit deserialize": {
+          "hz": 517714.67,
+          "rme": 16.07,
+          "mean": 0.0019315658960988536,
+          "iterations": 517800
+        },
+        "bson deserialize": {
+          "hz": 230512.85,
+          "rme": 9.1,
+          "mean": 0.004338152996530761,
+          "iterations": 230600
+        }
+      }
+    },
+    "benchmarks/comparison/serialization.bench.ts": {
+      "comparison/serialization": {
+        "JSON.stringify": {
+          "hz": 1517372.62,
+          "rme": 4.46,
+          "mean": 0.0006590339011857723,
+          "iterations": 1518000
+        },
+        "deepkit serialize + JSON.stringify": {
+          "hz": 1171307.34,
+          "rme": 6.33,
+          "mean": 0.0008537468941979519,
+          "iterations": 1172000
+        },
+        "deepkit getSerializeFunction + JSON.stringify": {
+          "hz": 1180162.29,
+          "rme": 6.16,
+          "mean": 0.0008473410906011945,
+          "iterations": 1181000
+        },
+        "typia json.stringify": {
+          "hz": 1032439.1,
+          "rme": 6.47,
+          "mean": 0.0009685801306873172,
+          "iterations": 1033000
+        },
+        "deepkit serialize": {
+          "hz": 5581838.94,
+          "rme": 24.24,
+          "mean": 0.00017915242834109878,
+          "iterations": 5582000
+        },
+        "class-transformer instanceToPlain": {
+          "hz": 81107.43,
+          "rme": 37.78,
+          "mean": 0.012329326827764964,
+          "iterations": 81110
+        },
+        "deepkit deserialize": {
+          "hz": 5052471.2,
+          "rme": 54.17,
+          "mean": 0.00019792294913912546,
+          "iterations": 5053000
+        },
+        "deepkit cast (with validation)": {
+          "hz": 2492240.58,
+          "rme": 15.43,
+          "mean": 0.000401245372643403,
+          "iterations": 2493000
+        },
+        "class-transformer plainToInstance": {
+          "hz": 86469.01,
+          "rme": 20.66,
+          "mean": 0.011564836658959663,
+          "iterations": 86500
+        }
+      }
+    },
+    "benchmarks/comparison/validation.bench.ts": {
+      "comparison/validation": {
+        "deepkit is (valid)": {
+          "hz": 16947079.73,
+          "rme": 1.91,
+          "mean": 0.00005900721634218206,
+          "iterations": 16950000
+        },
+        "deepkit guard (valid)": {
+          "hz": 19926608.61,
+          "rme": 2.65,
+          "mean": 0.000050184154239839805,
+          "iterations": 19930000
+        },
+        "deepkit getValidatorFunction (valid)": {
+          "hz": 19897159.88,
+          "rme": 3.29,
+          "mean": 0.000050258429145728304,
+          "iterations": 19900000
+        },
+        "typia is (valid)": {
+          "hz": 41253610.31,
+          "rme": 5.11,
+          "mean": 0.00002424030266602077,
+          "iterations": 41260000
+        },
+        "typebox Check (valid)": {
+          "hz": 25977725.36,
+          "rme": 12.28,
+          "mean": 0.00003849451735950703,
+          "iterations": 25980000
+        },
+        "arktype (valid)": {
+          "hz": 27586337.56,
+          "rme": 3.26,
+          "mean": 0.000036249828307358654,
+          "iterations": 27590000
+        },
+        "valibot safeParse (valid)": {
+          "hz": 681013.39,
+          "rme": 3.54,
+          "mean": 0.0014683999032258036,
+          "iterations": 682000
+        },
+        "zod safeParse (valid)": {
+          "hz": 3896863,
+          "rme": 20.14,
+          "mean": 0.00025661666820629394,
+          "iterations": 3897000
+        },
+        "class-validator (valid)": {
+          "hz": 35087.49,
+          "rme": 43.09,
+          "mean": 0.028500184867482306,
+          "iterations": 35090
+        },
+        "deepkit validate (invalid)": {
+          "hz": 3287404.68,
+          "rme": 15.28,
+          "mean": 0.00030419132948328494,
+          "iterations": 3290000
+        },
+        "typia validate (invalid)": {
+          "hz": 989495.2,
+          "rme": 5.87,
+          "mean": 0.0010106163191919105,
+          "iterations": 990000
+        },
+        "typebox Errors (invalid)": {
+          "hz": 118247.05,
+          "rme": 8.8,
+          "mean": 0.00845687051563866,
+          "iterations": 118300
+        },
+        "arktype (invalid)": {
+          "hz": 52373.03,
+          "rme": 20.25,
+          "mean": 0.01909379650763334,
+          "iterations": 52400
+        },
+        "valibot safeParse (invalid)": {
+          "hz": 531947.98,
+          "rme": 15.28,
+          "mean": 0.0018798830714287335,
+          "iterations": 532000
+        },
+        "zod safeParse (invalid)": {
+          "hz": 717636.81,
+          "rme": 96.71,
+          "mean": 0.001393462530555566,
+          "iterations": 720000
+        },
+        "class-validator (invalid)": {
+          "hz": 35594.95,
+          "rme": 47.33,
+          "mean": 0.02809387134831395,
+          "iterations": 35600
+        }
+      }
+    },
+    "packages/app/benchmarks/app.bench.ts": {
+      "app/module": {
+        "createModule - empty": {
+          "hz": 34589.09,
+          "rme": 27.87,
+          "mean": 0.02891084997109817,
+          "iterations": 34600
+        },
+        "createModule - with providers": {
+          "hz": 35437.9,
+          "rme": 30.72,
+          "mean": 0.028218376422535173,
+          "iterations": 35500
+        },
+        "module class instantiation": {
+          "hz": 535781.76,
+          "rme": 69.54,
+          "mean": 0.001866431587846636,
+          "iterations": 535782
+        },
+        "module class with config": {
+          "hz": 556424.03,
+          "rme": 8.37,
+          "mean": 0.0017971905439856425,
+          "iterations": 557000
+        },
+        "App creation - empty": {
+          "hz": 657670.1,
+          "rme": 6.53,
+          "mean": 0.0015205191869301095,
+          "iterations": 658000
+        },
+        "App creation - with providers": {
+          "hz": 498931.17,
+          "rme": 2.85,
+          "mean": 0.0020042844689379044,
+          "iterations": 499000
+        },
+        "App creation - with imports": {
+          "hz": 265544.78,
+          "rme": 9.55,
+          "mean": 0.0037658432454819504,
+          "iterations": 265600
+        },
+        "App.get() - resolve service": {
+          "hz": 7707282.84,
+          "rme": 71.94,
+          "mean": 0.0001297474117660283,
+          "iterations": 7707283
+        },
+        "App.get() - from imported module": {
+          "hz": 21019885.23,
+          "rme": 7.72,
+          "mean": 0.00004757399904852419,
+          "iterations": 21020000
+        },
+        "App.configure()": {
+          "hz": 391720.93,
+          "rme": 14.67,
+          "mean": 0.002552837797345717,
+          "iterations": 391800
+        },
+        "App creation - nested imports": {
+          "hz": 184855.17,
+          "rme": 5.9,
+          "mean": 0.005409640535424603,
+          "iterations": 184900
+        },
+        "App.setup() chain": {
+          "hz": 477183.83,
+          "rme": 6.4,
+          "mean": 0.002095628410041883,
+          "iterations": 478000
+        },
+        "Module.configure()": {
+          "hz": 370545.64,
+          "rme": 6.92,
+          "mean": 0.0026987228814016537,
+          "iterations": 371000
+        },
+        "AppModule direct instantiation": {
+          "hz": 635483.19,
+          "rme": 5.5,
+          "mean": 0.0015736057500000485,
+          "iterations": 636000
+        },
+        "App creation - 5 module imports": {
+          "hz": 73641.5,
+          "rme": 7.13,
+          "mean": 0.01357929906377239,
+          "iterations": 73700
+        }
+      }
+    },
+    "packages/bson/benchmarks/bson.bench.ts": {
+      "bson/serialization": {
+        "serialize small object": {
+          "hz": 2471558.94,
+          "rme": 54.48,
+          "mean": 0.00040460293446601753,
+          "iterations": 2472000
+        },
+        "deserialize small object": {
+          "hz": 2224485.59,
+          "rme": 27.91,
+          "mean": 0.0004495421334831426,
+          "iterations": 2225000
+        },
+        "serialize object with dates": {
+          "hz": 2081694.6,
+          "rme": 61.57,
+          "mean": 0.00048037786215177904,
+          "iterations": 2082000
+        },
+        "deserialize object with dates": {
+          "hz": 1237380.74,
+          "rme": 29.58,
+          "mean": 0.0008081586922455451,
+          "iterations": 1238000
+        },
+        "serialize nested object": {
+          "hz": 1043704.17,
+          "rme": 26.52,
+          "mean": 0.0009581259015137547,
+          "iterations": 1043800
+        },
+        "deserialize nested object": {
+          "hz": 985576.95,
+          "rme": 45.29,
+          "mean": 0.0010146341237322596,
+          "iterations": 986000
+        },
+        "serialize array (1000 items)": {
+          "hz": 1421.12,
+          "rme": 52.98,
+          "mean": 0.703669917721509,
+          "iterations": 1422
+        },
+        "deserialize array (1000 items)": {
+          "hz": 1497.07,
+          "rme": 35.83,
+          "mean": 0.6679715086782281,
+          "iterations": 1498
+        },
+        "serialize array (5000 items)": {
+          "hz": 285.51,
+          "rme": 37.82,
+          "mean": 3.5024715419580756,
+          "iterations": 286
+        },
+        "deserialize array (5000 items)": {
+          "hz": 253.1,
+          "rme": 26.52,
+          "mean": 3.950942944881889,
+          "iterations": 254
+        },
+        "serialize number array (1000)": {
+          "hz": 15738.93,
+          "rme": 24.99,
+          "mean": 0.06353671092757561,
+          "iterations": 15740
+        },
+        "deserialize number array (1000)": {
+          "hz": 38077.78,
+          "rme": 15.56,
+          "mean": 0.02626203676470534,
+          "iterations": 38080
+        },
+        "serialize string array (1000)": {
+          "hz": 1896.41,
+          "rme": 16.26,
+          "mean": 0.527313022667348,
+          "iterations": 1897
+        },
+        "deserialize string array (1000)": {
+          "hz": 3636.28,
+          "rme": 7,
+          "mean": 0.2750063497387735,
+          "iterations": 3637
+        },
+        "serialize complex document": {
+          "hz": 318025.11,
+          "rme": 4.98,
+          "mean": 0.0031444057780574373,
+          "iterations": 318100
+        },
+        "deserialize complex document": {
+          "hz": 274191.68,
+          "rme": 4.49,
+          "mean": 0.0036470836579143282,
+          "iterations": 274200
+        }
+      }
+    },
+    "packages/event/benchmarks/event.bench.ts": {
+      "event/dispatcher": {
+        "sync event - single listener": {
+          "hz": 57816523.95,
+          "rme": 4.32,
+          "mean": 0.000017296093427879672,
+          "iterations": 57820000
+        },
+        "sync event - no listeners": {
+          "hz": 55584085.89,
+          "rme": 5.39,
+          "mean": 0.00001799076091726613,
+          "iterations": 55600000
+        },
+        "async event - single sync listener": {
+          "hz": 2813516.93,
+          "rme": 16.81,
+          "mean": 0.0003554270419331827,
+          "iterations": 2814000
+        },
+        "async event - single async listener": {
+          "hz": 2630975.73,
+          "rme": 15.97,
+          "mean": 0.00038008712390727006,
+          "iterations": 2631000
+        },
+        "async event - 10 listeners": {
+          "hz": 845673.88,
+          "rme": 5.81,
+          "mean": 0.0011824889338061563,
+          "iterations": 846000
+        },
+        "data event - with payload": {
+          "hz": 2186200.29,
+          "rme": 16.35,
+          "mean": 0.00045741463054413997,
+          "iterations": 2187000
+        },
+        "sync event - pre-compiled dispatcher": {
+          "hz": 48286523.81,
+          "rme": 13.49,
+          "mean": 0.000020709711966873923,
+          "iterations": 48300000
+        },
+        "sync event - with propagation stop": {
+          "hz": 12151475.84,
+          "rme": 20.65,
+          "mean": 0.00008229453059210437,
+          "iterations": 12160000
+        },
+        "dispatcher creation + listener add": {
+          "hz": 2514917.12,
+          "rme": 61.4,
+          "mean": 0.00039762741749502234,
+          "iterations": 2515000
+        }
+      }
+    },
+    "packages/http/benchmarks/http.bench.ts": {
+      "http/router": {
+        "route match - simple static": {
+          "hz": 6793418.33,
+          "rme": 1693.26,
+          "mean": 0.00014720129849204024,
+          "iterations": 6793419
+        },
+        "route match - single param": {
+          "hz": 4857864.75,
+          "rme": 5.41,
+          "mean": 0.0002058517582304522,
+          "iterations": 4860000
+        },
+        "route match - multi param": {
+          "hz": 3673030.53,
+          "rme": 3.73,
+          "mean": 0.00027225474782608696,
+          "iterations": 3680000
+        },
+        "route match - with query": {
+          "hz": 867961.88,
+          "rme": 4.96,
+          "mean": 0.0011521243271889303,
+          "iterations": 868000
+        },
+        "route match - many routes (first)": {
+          "hz": 14739677.16,
+          "rme": 9.72,
+          "mean": 0.0000678440911126192,
+          "iterations": 14740000
+        },
+        "route match - many routes (middle)": {
+          "hz": 7580198.35,
+          "rme": 6.72,
+          "mean": 0.0001319226693017106,
+          "iterations": 7590000
+        },
+        "route match - many routes (last)": {
+          "hz": 2795486.27,
+          "rme": 7.73,
+          "mean": 0.00035771951788272265,
+          "iterations": 2796000
+        },
+        "route match - not found": {
+          "hz": 4652284.53,
+          "rme": 4.28,
+          "mean": 0.0002149481600858322,
+          "iterations": 4660000
+        },
+        "resolve request - simple": {
+          "hz": 22232233.35,
+          "rme": 9.45,
+          "mean": 0.00004497973660071922,
+          "iterations": 22240000
+        },
+        "resolve request - with params": {
+          "hz": 5336732.65,
+          "rme": 4.74,
+          "mean": 0.0001873805689138508,
+          "iterations": 5340000
+        },
+        "resolve request - with query": {
+          "hz": 902855.85,
+          "rme": 4.94,
+          "mean": 0.001107596522702112,
+          "iterations": 903000
+        },
+        "serialize - single user": {
+          "hz": 629091.08,
+          "rme": 4.52,
+          "mean": 0.0015895949333333407,
+          "iterations": 630000
+        },
+        "serialize - user array (10)": {
+          "hz": 62767.06,
+          "rme": 4.25,
+          "mean": 0.01593192366242071,
+          "iterations": 62800
+        },
+        "serialize - api response": {
+          "hz": 55155.59,
+          "rme": 10.92,
+          "mean": 0.01813052782608747,
+          "iterations": 55200
+        },
+        "JSON.stringify - single user": {
+          "hz": 335074.25,
+          "rme": 2.93,
+          "mean": 0.0029844131815476285,
+          "iterations": 336000
+        },
+        "JSON.stringify - user array (10)": {
+          "hz": 43849.53,
+          "rme": 4.55,
+          "mean": 0.022805263849658496,
+          "iterations": 43900
+        },
+        "deserialize - single user": {
+          "hz": 2162527.19,
+          "rme": 14.26,
+          "mean": 0.00046242193111416886,
+          "iterations": 2163000
+        },
+        "deserialize - user array (10)": {
+          "hz": 227345.84,
+          "rme": 11.75,
+          "mean": 0.004398584995603306,
+          "iterations": 227400
+        },
+        "JSON.parse - single user": {
+          "hz": 1248762.57,
+          "rme": 1.55,
+          "mean": 0.0008007927397918457,
+          "iterations": 1249000
+        },
+        "create router registry": {
+          "hz": 88463097.35,
+          "rme": 15.23,
+          "mean": 0.000011304148621469273,
+          "iterations": 88500000
+        },
+        "registry - add GET route": {
+          "hz": 3161796.64,
+          "rme": 20.32,
+          "mean": 0.00031627587507913505,
+          "iterations": 3162000
+        },
+        "registry - add 5 routes": {
+          "hz": 761639.31,
+          "rme": 13.09,
+          "mean": 0.0013129574448818753,
+          "iterations": 762000
+        },
+        "resolveUrl - single param": {
+          "hz": 179486080.67,
+          "rme": 14.95,
+          "mean": 0.00000557146267966572,
+          "iterations": 179500000
+        },
+        "resolveUrl - multi param": {
+          "hz": 110133000.48,
+          "rme": 18.98,
+          "mean": 0.000009079930589836271,
+          "iterations": 110200000
+        },
+        "middleware config - create": {
+          "hz": 134477.28,
+          "rme": 26.35,
+          "mean": 0.007436200208178126,
+          "iterations": 134500
+        },
+        "middleware config - with route filter": {
+          "hz": 67673.31,
+          "rme": 17.06,
+          "mean": 0.014776874165435926,
+          "iterations": 67700
+        },
+        "read controller metadata": {
+          "hz": 25555370.41,
+          "rme": 1.81,
+          "mean": 0.00003913071828124983,
+          "iterations": 25600000
+        },
+        "get routes from router": {
+          "hz": 1356905952.85,
+          "rme": 9.8,
+          "mean": 7.369707516580904e-7,
+          "iterations": 1357000000
+        }
+      }
+    },
+    "packages/injector/benchmarks/injector.bench.ts": {
+      "injector/di": {
+        "baseline: new Database()": {
+          "hz": 1348104277.73,
+          "rme": 25.27,
+          "mean": 7.417823802816933e-7,
+          "iterations": 1349000000
+        },
+        "get simple provider": {
+          "hz": 46370426.89,
+          "rme": 0.65,
+          "mean": 0.0000215654689224138,
+          "iterations": 46400000
+        },
+        "get provider with dependencies": {
+          "hz": 45501807.24,
+          "rme": 1.52,
+          "mean": 0.000021977149057017546,
+          "iterations": 45600000
+        },
+        "get via resolver function": {
+          "hz": 1361486516.72,
+          "rme": 1.16,
+          "mean": 7.344912988252608e-7,
+          "iterations": 1362000000
+        },
+        "scoped: same scope (cached)": {
+          "hz": 25145768.14,
+          "rme": 25.34,
+          "mean": 0.00003976812298210705,
+          "iterations": 25150000
+        },
+        "scoped: new scope each call": {
+          "hz": 17827695.11,
+          "rme": 9.19,
+          "mean": 0.00005609250067302286,
+          "iterations": 17830000
+        },
+        "context.getInjector().get()": {
+          "hz": 41405707.03,
+          "rme": 2.1,
+          "mean": 0.00002415126009638522,
+          "iterations": 41500000
+        },
+        "new InjectorContext(module)": {
+          "hz": 465115754.22,
+          "rme": 33.63,
+          "mean": 0.0000021500024261241927,
+          "iterations": 467000000
+        },
+        "createChildScope()": {
+          "hz": 368597215.62,
+          "rme": 51.79,
+          "mean": 0.0000027129884807373835,
+          "iterations": 368600000
+        },
+        "createChildScope().getInjector()": {
+          "hz": 88295799.95,
+          "rme": 4.39,
+          "mean": 0.000011325567021517747,
+          "iterations": 88300000
+        }
+      }
+    },
+    "packages/injector/benchmarks/scaling.bench.ts": {
+      "injector/scaling": {
+        "10 providers: get()": {
+          "hz": 102472313.11,
+          "rme": 15.73,
+          "mean": 0.0000097587335512196,
+          "iterations": 102500000
+        },
+        "10 providers: resolver()": {
+          "hz": 1360928028.68,
+          "rme": 1.87,
+          "mean": 7.347927141807463e-7,
+          "iterations": 1361000000
+        },
+        "50 providers: get()": {
+          "hz": 103556200.08,
+          "rme": 1.72,
+          "mean": 0.00000965659225868728,
+          "iterations": 103600000
+        },
+        "50 providers: resolver()": {
+          "hz": 1338735467.21,
+          "rme": 33.24,
+          "mean": 7.469735616131467e-7,
+          "iterations": 1339000000
+        },
+        "100 providers: get()": {
+          "hz": 103617036.43,
+          "rme": 0.64,
+          "mean": 0.000009650922613307556,
+          "iterations": 103700000
+        },
+        "100 providers: resolver()": {
+          "hz": 1338894566.07,
+          "rme": 33.12,
+          "mean": 7.46884799850621e-7,
+          "iterations": 1339000000
+        },
+        "200 providers: get()": {
+          "hz": 103619299.22,
+          "rme": 0.64,
+          "mean": 0.000009650711861137946,
+          "iterations": 103700000
+        },
+        "200 providers: resolver()": {
+          "hz": 1338843353.99,
+          "rme": 33.29,
+          "mean": 7.469133689320442e-7,
+          "iterations": 1339000000
+        },
+        "500 providers: get()": {
+          "hz": 103645526.81,
+          "rme": 0.59,
+          "mean": 0.000009648269739633724,
+          "iterations": 103700000
+        },
+        "500 providers: resolver()": {
+          "hz": 1338889818.74,
+          "rme": 33.34,
+          "mean": 7.468874480956238e-7,
+          "iterations": 1339000000
+        },
+        "chain depth 1: get()": {
+          "hz": 103631246.99,
+          "rme": 0.61,
+          "mean": 0.000009649599218900832,
+          "iterations": 103700000
+        },
+        "chain depth 3: get()": {
+          "hz": 103619181.7,
+          "rme": 0.69,
+          "mean": 0.000009650722806171354,
+          "iterations": 103700000
+        },
+        "chain depth 5: get()": {
+          "hz": 103646125.06,
+          "rme": 0.66,
+          "mean": 0.000009648214050144488,
+          "iterations": 103700000
+        },
+        "chain depth 10: get()": {
+          "hz": 103624394.81,
+          "rme": 0.64,
+          "mean": 0.000009650237299903535,
+          "iterations": 103700000
+        },
+        "singleton: get()": {
+          "hz": 46387538.36,
+          "rme": 0.45,
+          "mean": 0.000021557513836206477,
+          "iterations": 46400000
+        },
+        "scoped: same scope get()": {
+          "hz": 23573342.49,
+          "rme": 4.39,
+          "mean": 0.00004242079800678474,
+          "iterations": 23580000
+        },
+        "scoped: new scope + get()": {
+          "hz": 7181767.55,
+          "rme": 3.49,
+          "mean": 0.00013924148789986194,
+          "iterations": 7190000
+        },
+        "tag injection: get service with tags": {
+          "hz": 103630868.99,
+          "rme": 0.62,
+          "mean": 0.000009649634416586016,
+          "iterations": 103700000
+        },
+        "transient: get() (new instance)": {
+          "hz": 17669152.02,
+          "rme": 10.3,
+          "mean": 0.0000565958116581771,
+          "iterations": 17670000
+        },
+        "non-transient: get() (cached)": {
+          "hz": 46234004.75,
+          "rme": 0.62,
+          "mean": 0.00002162910190064762,
+          "iterations": 46300000
+        },
+        "resolver caching: direct get()": {
+          "hz": 103592366.07,
+          "rme": 0.72,
+          "mean": 0.000009653220965251783,
+          "iterations": 103600000
+        },
+        "resolver caching: cached resolver()": {
+          "hz": 1361790947.39,
+          "rme": 0.69,
+          "mean": 7.343271020557761e-7,
+          "iterations": 1362000000
+        },
+        "resolver caching: context.resolve()": {
+          "hz": 1345909747.33,
+          "rme": 29.67,
+          "mean": 7.429918699851813e-7,
+          "iterations": 1346000000
+        },
+        "injector creation: 10 providers": {
+          "hz": 6776.62,
+          "rme": 85.27,
+          "mean": 0.14756622020648513,
+          "iterations": 6780
+        },
+        "injector creation: 100 providers": {
+          "hz": 129.65,
+          "rme": 33.2,
+          "mean": 7.712831030769163,
+          "iterations": 130
+        },
+        "injector creation: 500 providers": {
+          "hz": 12.03,
+          "rme": 1.66,
+          "mean": 83.1287016923077,
+          "iterations": 13
+        }
+      }
+    },
+    "packages/logger/benchmarks/logger.bench.ts": {
+      "logger/core": {
+        "log info - no formatter": {
+          "hz": 4031243.22,
+          "rme": 12.93,
+          "mean": 0.0002480624327876944,
+          "iterations": 4032000
+        },
+        "log info - default formatter": {
+          "hz": 358725.16,
+          "rme": 2.1,
+          "mean": 0.002787649437325916,
+          "iterations": 359000
+        },
+        "log info - color formatter": {
+          "hz": 717361.63,
+          "rme": 3.76,
+          "mean": 0.0013939970571030613,
+          "iterations": 718000
+        },
+        "log debug level": {
+          "hz": 3752291.51,
+          "rme": 1.6,
+          "mean": 0.0002665038140957481,
+          "iterations": 3760000
+        },
+        "log warning level": {
+          "hz": 3753168.34,
+          "rme": 1.66,
+          "mean": 0.00026644155292553177,
+          "iterations": 3760000
+        },
+        "log error level": {
+          "hz": 3743950.85,
+          "rme": 1.62,
+          "mean": 0.00026709752373333317,
+          "iterations": 3750000
+        },
+        "log info - disabled (filtered)": {
+          "hz": 46134565.73,
+          "rme": 2.88,
+          "mean": 0.000021675721536796614,
+          "iterations": 46200000
+        },
+        "scoped logger - info": {
+          "hz": 692182.47,
+          "rme": 5.27,
+          "mean": 0.0014447057604617744,
+          "iterations": 693000
+        },
+        "scoped logger creation (cached)": {
+          "hz": 1361606927.23,
+          "rme": 1.1,
+          "mean": 7.344263458150247e-7,
+          "iterations": 1362000000
+        },
+        "log with format args": {
+          "hz": 1402382.25,
+          "rme": 6.36,
+          "mean": 0.0007130723478260806,
+          "iterations": 1403000
+        },
+        "log with data": {
+          "hz": 2632653.6,
+          "rme": 0.62,
+          "mean": 0.0003798448833333362,
+          "iterations": 2640000
+        },
+        "memory logger - info": {
+          "hz": 1765710.46,
+          "rme": 292.65,
+          "mean": 0.0005663442678369202,
+          "iterations": 1766000
+        },
+        "log info - 3 transports": {
+          "hz": 2011671.32,
+          "rme": 6.24,
+          "mean": 0.0004970990989065993,
+          "iterations": 2012000
+        },
+        "logger.is() check": {
+          "hz": 193877862.06,
+          "rme": 34.4,
+          "mean": 0.000005157886462094046,
+          "iterations": 193900000
+        }
+      }
+    },
+    "packages/mongo/benchmarks/mongo.bench.ts": {
+      "mongo": {
+        "convert filter (no database)": {
+          "hz": 597864.2,
+          "rme": 14.7,
+          "mean": 0.0016726206454849477,
+          "iterations": 598000
+        },
+        "findOne by _id": {
+          "hz": 2914.74,
+          "rme": 24.31,
+          "mean": 0.34308429811320335,
+          "iterations": 2915
+        },
+        "find 100 with hydration": {
+          "hz": 762.33,
+          "rme": 21.58,
+          "mean": 1.3117750275229434,
+          "iterations": 763
+        },
+        "find 100 without hydration (lean)": {
+          "hz": 831.32,
+          "rme": 19.69,
+          "mean": 1.2029006802884608,
+          "iterations": 832
+        },
+        "count with filter": {
+          "hz": 1188.42,
+          "rme": 5.46,
+          "mean": 0.8414506181665063,
+          "iterations": 1189
+        },
+        "insert one": {
+          "hz": 3655.59,
+          "rme": 30.44,
+          "mean": 0.2735539072757149,
+          "iterations": 3656
+        },
+        "insert 100 in one session": {
+          "hz": 494.62,
+          "rme": 39.18,
+          "mean": 2.021737321212117,
+          "iterations": 495
+        },
+        "patchOne": {
+          "hz": 2465.69,
+          "rme": 13.98,
+          "mean": 0.4055658653690319,
+          "iterations": 2466
+        },
+        "change detection + update of a loaded entity": {
+          "hz": 1149.15,
+          "rme": 22.7,
+          "mean": 0.8702062608695285,
+          "iterations": 1150
+        }
+      }
+    },
+    "packages/rpc/benchmarks/actions.bench.ts": {
+      "rpc/actions": {
+        "simple: ping (no args, string return)": {
+          "hz": 90500.99,
+          "rme": 42.16,
+          "mean": 0.011049602902869772,
+          "iterations": 90600
+        },
+        "simple: echo (string arg, string return)": {
+          "hz": 96522.71,
+          "rme": 35.73,
+          "mean": 0.010360256469979321,
+          "iterations": 96600
+        },
+        "simple: add (2 number args, number return)": {
+          "hz": 100029.43,
+          "rme": 32.45,
+          "mean": 0.009997058041958112,
+          "iterations": 100100
+        },
+        "simple: validateNumber (with validation)": {
+          "hz": 90580.95,
+          "rme": 136.03,
+          "mean": 0.011039849328224867,
+          "iterations": 90581
+        },
+        "user: getUser (entity return)": {
+          "hz": 59350.07,
+          "rme": 40.92,
+          "mean": 0.016849180707070966,
+          "iterations": 59400
+        },
+        "user: createUser (2 string args, entity return)": {
+          "hz": 57391.35,
+          "rme": 32.23,
+          "mean": 0.017424229494773163,
+          "iterations": 57400
+        },
+        "product: getProduct (entity return)": {
+          "hz": 46872.47,
+          "rme": 47.48,
+          "mean": 0.02133448584221767,
+          "iterations": 46900
+        },
+        "product: createProduct (complex args, entity return)": {
+          "hz": 48872.74,
+          "rme": 51.15,
+          "mean": 0.020461304892270035,
+          "iterations": 48873
+        },
+        "user: listUsers (complex result with array)": {
+          "hz": 26188.2,
+          "rme": 34.64,
+          "mean": 0.03818513039825763,
+          "iterations": 26189
+        },
+        "product: search (object args, array return)": {
+          "hz": 22325.69,
+          "rme": 34.79,
+          "mean": 0.04479144011466698,
+          "iterations": 22326
+        },
+        "user: processUsers (2 items)": {
+          "hz": 55329.55,
+          "rme": 52.39,
+          "mean": 0.01807352432676686,
+          "iterations": 55330
+        },
+        "user: processUsers (10 items)": {
+          "hz": 26577.08,
+          "rme": 24.37,
+          "mean": 0.037626411917293955,
+          "iterations": 26600
+        },
+        "user: processUsers (100 items)": {
+          "hz": 4517.11,
+          "rme": 25.96,
+          "mean": 0.22138062610619755,
+          "iterations": 4520
+        },
+        "product: bulkCreate (2 items)": {
+          "hz": 47660.2,
+          "rme": 49.98,
+          "mean": 0.020981869641850084,
+          "iterations": 47661
+        },
+        "product: bulkCreate (10 items)": {
+          "hz": 22534.02,
+          "rme": 25.65,
+          "mean": 0.04437734764862411,
+          "iterations": 22540
+        },
+        "type cache: first call (cold)": {
+          "hz": 2276.92,
+          "rme": 28.75,
+          "mean": 0.43918901976279934,
+          "iterations": 2277
+        },
+        "type cache: subsequent calls (warm)": {
+          "hz": 102451.27,
+          "rme": 35.23,
+          "mean": 0.009760738390244345,
+          "iterations": 102500
+        },
+        "sequential: 5 simple calls": {
+          "hz": 21322.25,
+          "rme": 31.29,
+          "mean": 0.046899374214720096,
+          "iterations": 21330
+        },
+        "sequential: 5 entity calls": {
+          "hz": 12248.93,
+          "rme": 34.72,
+          "mean": 0.08163977469387645,
+          "iterations": 12250
+        },
+        "connect + call + disconnect": {
+          "hz": 2116.84,
+          "rme": 19.53,
+          "mean": 0.47240244780351887,
+          "iterations": 2117
+        }
+      }
+    },
+    "packages/rpc/benchmarks/messages.bench.ts": {
+      "rpc/messages": {
+        "createRpcMessage (no body)": {
+          "hz": 170061380.93,
+          "rme": 1.51,
+          "mean": 0.000005880229800117552,
+          "iterations": 170100000
+        },
+        "createRpcMessage small body": {
+          "hz": 102308118.96,
+          "rme": 13.88,
+          "mean": 0.00000977439532792541,
+          "iterations": 102310000
+        },
+        "createRpcMessage medium body": {
+          "hz": 75939872.27,
+          "rme": 60.89,
+          "mean": 0.000013168312904925137,
+          "iterations": 75940000
+        },
+        "createRpcMessage large body": {
+          "hz": 99289482.36,
+          "rme": 0.63,
+          "mean": 0.00001007156021148032,
+          "iterations": 99300000
+        },
+        "serialize (no body)": {
+          "hz": 11381760.64,
+          "rme": 8.33,
+          "mean": 0.00008785986909569815,
+          "iterations": 11390000
+        },
+        "serialize small body": {
+          "hz": 2319184.2,
+          "rme": 17.16,
+          "mean": 0.0004311861038793055,
+          "iterations": 2320000
+        },
+        "serialize medium body": {
+          "hz": 490252.71,
+          "rme": 7.39,
+          "mean": 0.002039764360595587,
+          "iterations": 490300
+        },
+        "serialize large body": {
+          "hz": 4203.66,
+          "rme": 31.74,
+          "mean": 0.23788803472883338,
+          "iterations": 4204
+        },
+        "deserialize (no body)": {
+          "hz": 7116552.35,
+          "rme": 2.76,
+          "mean": 0.00014051747963482916,
+          "iterations": 7120000
+        },
+        "deserialize small (header only)": {
+          "hz": 7106089.65,
+          "rme": 2.82,
+          "mean": 0.000140724371589309,
+          "iterations": 7110000
+        },
+        "deserialize medium (header only)": {
+          "hz": 7309320.66,
+          "rme": 2.86,
+          "mean": 0.00013681161997263763,
+          "iterations": 7310000
+        },
+        "deserialize large (header only)": {
+          "hz": 7309567.08,
+          "rme": 2.78,
+          "mean": 0.0001368070077975434,
+          "iterations": 7310000
+        },
+        "parseBody small": {
+          "hz": 3920170.54,
+          "rme": 23.9,
+          "mean": 0.00025509094312675635,
+          "iterations": 3921000
+        },
+        "parseBody medium": {
+          "hz": 454838.66,
+          "rme": 10.26,
+          "mean": 0.002198581800395595,
+          "iterations": 454900
+        },
+        "parseBody large": {
+          "hz": 3424.51,
+          "rme": 10.02,
+          "mean": 0.2920127436496778,
+          "iterations": 3425
+        },
+        "decodeBody small (cached decoder)": {
+          "hz": 6831231.57,
+          "rme": 21.78,
+          "mean": 0.00014638648815789895,
+          "iterations": 6840000
+        },
+        "decodeBody medium (cached decoder)": {
+          "hz": 491620.76,
+          "rme": 10.58,
+          "mean": 0.0020340882204592883,
+          "iterations": 491700
+        },
+        "decodeBody large (cached decoder)": {
+          "hz": 3382.38,
+          "rme": 10.89,
+          "mean": 0.2956500860183116,
+          "iterations": 3383
+        },
+        "round-trip small": {
+          "hz": 987977.29,
+          "rme": 19.4,
+          "mean": 0.001012169011133595,
+          "iterations": 988000
+        },
+        "round-trip medium": {
+          "hz": 202553.43,
+          "rme": 25.11,
+          "mean": 0.004936968914116842,
+          "iterations": 202600
+        },
+        "create + serialize sourceDest message": {
+          "hz": 1686932.38,
+          "rme": 23.09,
+          "mean": 0.0005927919875518264,
+          "iterations": 1687000
+        },
+        "deserialize + parse sourceDest message": {
+          "hz": 2144999.69,
+          "rme": 16.9,
+          "mean": 0.00046620053286722225,
+          "iterations": 2145000
+        },
+        "serialize composite message": {
+          "hz": 882568.4,
+          "rme": 2.48,
+          "mean": 0.0011330566602491148,
+          "iterations": 883000
+        },
+        "deserialize + getBodies composite": {
+          "hz": 2990376.76,
+          "rme": 3.17,
+          "mean": 0.000334406023666664,
+          "iterations": 3000000
+        },
+        "deserialize + getBodies + parseBody composite": {
+          "hz": 997638.45,
+          "rme": 16.87,
+          "mean": 0.0010023671392785818,
+          "iterations": 998000
+        },
+        "serialize RpcTypes.Ack": {
+          "hz": 11031279.6,
+          "rme": 4.65,
+          "mean": 0.00009065131485507544,
+          "iterations": 11040000
+        },
+        "serialize RpcTypes.Ping": {
+          "hz": 11017674.8,
+          "rme": 4.62,
+          "mean": 0.00009076325254083317,
+          "iterations": 11020000
+        },
+        "serialize RpcTypes.Action": {
+          "hz": 961538.48,
+          "rme": 8.38,
+          "mean": 0.001039999983360868,
+          "iterations": 961600
+        },
+        "serialize RpcTypes.ResponseActionSimple": {
+          "hz": 848900.9,
+          "rme": 22.8,
+          "mean": 0.0011779938044758846,
+          "iterations": 849000
+        }
+      }
+    },
+    "packages/sqlite/benchmarks/orm.bench.ts": {
+      "orm/sqlite": {
+        "deserialize single entity": {
+          "hz": 1266341.45,
+          "rme": 4.54,
+          "mean": 0.0007896764325177601,
+          "iterations": 1267000
+        },
+        "deserialize 100 entities": {
+          "hz": 12703.64,
+          "rme": 4.61,
+          "mean": 0.07871758552320927,
+          "iterations": 12710
+        },
+        "cast single entity": {
+          "hz": 845033.32,
+          "rme": 5.13,
+          "mean": 0.0011833852895981063,
+          "iterations": 846000
+        },
+        "serialize single entity": {
+          "hz": 498672.06,
+          "rme": 1.78,
+          "mean": 0.002005325923847668,
+          "iterations": 499000
+        },
+        "create query": {
+          "hz": 858528.58,
+          "rme": 19.89,
+          "mean": 0.001164783591385327,
+          "iterations": 859000
+        },
+        "query with filter": {
+          "hz": 397102.41,
+          "rme": 8.05,
+          "mean": 0.002518242097989952,
+          "iterations": 398000
+        },
+        "query with multiple filters": {
+          "hz": 135444.16,
+          "rme": 12.94,
+          "mean": 0.0073831166494466175,
+          "iterations": 135500
+        },
+        "query with select": {
+          "hz": 358935.09,
+          "rme": 11.89,
+          "mean": 0.002786019058495789,
+          "iterations": 359000
+        },
+        "clone query": {
+          "hz": 759594.89,
+          "rme": 7.86,
+          "mean": 0.0013164912210526171,
+          "iterations": 760000
+        },
+        "create session": {
+          "hz": 4944233.5,
+          "rme": 2.72,
+          "mean": 0.00020225581999999922,
+          "iterations": 4950000
+        },
+        "session add item": {
+          "hz": 1185393.45,
+          "rme": 13.6,
+          "mean": 0.0008436017580101023,
+          "iterations": 1186000
+        },
+        "session add 10 items": {
+          "hz": 183706.28,
+          "rme": 14.36,
+          "mean": 0.0054434719858541085,
+          "iterations": 183800
+        },
+        "query count": {
+          "hz": 59790.87,
+          "rme": 21.03,
+          "mean": 0.016724961321069723,
+          "iterations": 59800
+        },
+        "query findOne": {
+          "hz": 16060.54,
+          "rme": 106.18,
+          "mean": 0.06226439798269206,
+          "iterations": 16061
+        },
+        "query find (limit 10)": {
+          "hz": 11266.48,
+          "rme": 22.82,
+          "mean": 0.08875887959183801,
+          "iterations": 11270
+        },
+        "query find with filter": {
+          "hz": 9443.14,
+          "rme": 19.15,
+          "mean": 0.10589700116401908,
+          "iterations": 9450
+        },
+        "insert single item": {
+          "hz": 14812.58,
+          "rme": 32.01,
+          "mean": 0.06751017914979773,
+          "iterations": 14820
+        },
+        "patch single item": {
+          "hz": 4496.02,
+          "rme": 17.84,
+          "mean": 0.2224190519999942,
+          "iterations": 4500
+        }
+      }
+    },
+    "packages/type/benchmarks/change-detection.bench.ts": {
+      "type/change-detection": {
+        "createSnapshot (small entity)": {
+          "hz": 119094459.37,
+          "rme": 0.74,
+          "mean": 0.000008396696246851389,
+          "iterations": 119100000
+        },
+        "createSnapshot (medium entity)": {
+          "hz": 278225.33,
+          "rme": 1.83,
+          "mean": 0.0035942090286738226,
+          "iterations": 279000
+        },
+        "createSnapshot (large entity)": {
+          "hz": 168107.16,
+          "rme": 6.62,
+          "mean": 0.005948586486325821,
+          "iterations": 168200
+        },
+        "detect changes (no changes, small)": {
+          "hz": 28009647.02,
+          "rme": 37.57,
+          "mean": 0.00003570198507675935,
+          "iterations": 28010000
+        },
+        "detect changes (no changes, medium)": {
+          "hz": 3206232.46,
+          "rme": 25.55,
+          "mean": 0.00031189254485981615,
+          "iterations": 3210000
+        },
+        "detect changes (no changes, large)": {
+          "hz": 1062188.14,
+          "rme": 49.38,
+          "mean": 0.0009414527986829582,
+          "iterations": 1063000
+        },
+        "detect changes (with changes, small)": {
+          "hz": 5682779.17,
+          "rme": 21.51,
+          "mean": 0.0001759702373746219,
+          "iterations": 5683000
+        },
+        "detect changes (with changes, medium)": {
+          "hz": 1867469.19,
+          "rme": 28.5,
+          "mean": 0.0005354840674518303,
+          "iterations": 1868000
+        },
+        "detect changes (with changes, large)": {
+          "hz": 638250.75,
+          "rme": 40.38,
+          "mean": 0.0015667823327588108,
+          "iterations": 638300
+        },
+        "extract primary key (small)": {
+          "hz": 632809092.25,
+          "rme": 4.45,
+          "mean": 0.0000015802554233807435,
+          "iterations": 633000000
+        },
+        "extract primary key (medium)": {
+          "hz": 595563888.81,
+          "rme": 93.67,
+          "mean": 0.00000167908098322148,
+          "iterations": 596000000
+        },
+        "extract primary key (large)": {
+          "hz": 36895024.78,
+          "rme": 2.37,
+          "mean": 0.000027103925420054235,
+          "iterations": 36900000
+        },
+        "generate PK hash (small)": {
+          "hz": 198535652.81,
+          "rme": 1.01,
+          "mean": 0.000005036878695871135,
+          "iterations": 198600000
+        },
+        "generate PK hash (medium)": {
+          "hz": 197268413.97,
+          "rme": 16.19,
+          "mean": 0.000005069235261023672,
+          "iterations": 197300000
+        },
+        "generate PK hash (large)": {
+          "hz": 35189648.16,
+          "rme": 2.63,
+          "mean": 0.000028417448096591075,
+          "iterations": 35200000
+        },
+        "buildChanges (no changes, small)": {
+          "hz": 4751133.42,
+          "rme": 17.28,
+          "mean": 0.0002104760932773253,
+          "iterations": 4760000
+        },
+        "buildChanges (no changes, medium)": {
+          "hz": 237883.43,
+          "rme": 10.18,
+          "mean": 0.004203739596469349,
+          "iterations": 237900
+        },
+        "buildChanges (no changes, large)": {
+          "hz": 130771.23,
+          "rme": 23.87,
+          "mean": 0.007646942025994047,
+          "iterations": 130800
+        },
+        "buildChanges (with changes, small)": {
+          "hz": 3538232.58,
+          "rme": 16.43,
+          "mean": 0.00028262698333332467,
+          "iterations": 3540000
+        },
+        "buildChanges (with changes, medium)": {
+          "hz": 219725.21,
+          "rme": 10.81,
+          "mean": 0.004551139222019819,
+          "iterations": 219800
+        },
+        "buildChanges (with changes, large)": {
+          "hz": 120954.16,
+          "rme": 17.04,
+          "mean": 0.008267595165289693,
+          "iterations": 121000
+        }
+      }
+    },
+    "packages/type/benchmarks/reflection.bench.ts": {
+      "type/reflection": {
+        "ReflectionClass.from (cached)": {
+          "hz": 13574569,
+          "rme": 9.98,
+          "mean": 0.00007366716391752579,
+          "iterations": 13580000
+        },
+        "typeOf<string>": {
+          "hz": 1270667.7,
+          "rme": 11.66,
+          "mean": 0.0007869878151062122,
+          "iterations": 1271000
+        },
+        "typeOf<number>": {
+          "hz": 1225701.75,
+          "rme": 8.98,
+          "mean": 0.0008158591623164798,
+          "iterations": 1226000
+        },
+        "typeOf<User>": {
+          "hz": 3474021.82,
+          "rme": 3.69,
+          "mean": 0.00028785081149425567,
+          "iterations": 3480000
+        },
+        "typeOf<Product>": {
+          "hz": 129293009,
+          "rme": 19.48,
+          "mean": 0.000007734370232018445,
+          "iterations": 129300000
+        },
+        "typeOf<Order>": {
+          "hz": 54223208.71,
+          "rme": 6.39,
+          "mean": 0.000018442287421731313,
+          "iterations": 54300000
+        },
+        "typeOf<PaymentMethod>": {
+          "hz": 54409654.56,
+          "rme": 6.78,
+          "mean": 0.00001837909113761463,
+          "iterations": 54500000
+        },
+        "typeOf<User[]>": {
+          "hz": 480823.03,
+          "rme": 25.17,
+          "mean": 0.0020797672530671442,
+          "iterations": 480900
+        },
+        "typeOf<Map<string, User>>": {
+          "hz": 444311.75,
+          "rme": 22.4,
+          "mean": 0.0022506719779478005,
+          "iterations": 444400
+        },
+        "reflect(User)": {
+          "hz": 5333381.22,
+          "rme": 9.78,
+          "mean": 0.00018749831666665928,
+          "iterations": 5340000
+        },
+        "reflect(function)": {
+          "hz": 5446702.83,
+          "rme": 4.18,
+          "mean": 0.0001835973122935785,
+          "iterations": 5450000
+        },
+        "resolveReceiveType<string>": {
+          "hz": 65785782.25,
+          "rme": 5.25,
+          "mean": 0.000015200852917933616,
+          "iterations": 65800000
+        },
+        "resolveReceiveType<User>": {
+          "hz": 3317644.19,
+          "rme": 5.78,
+          "mean": 0.0003014187006024118,
+          "iterations": 3320000
+        },
+        "getProperties()": {
+          "hz": 1354806161.11,
+          "rme": 10.32,
+          "mean": 7.381129704796951e-7,
+          "iterations": 1355000000
+        },
+        "getPropertyNames()": {
+          "hz": 1353012324,
+          "rme": 11.14,
+          "mean": 7.390915679468142e-7,
+          "iterations": 1354000000
+        },
+        "getProperty(name)": {
+          "hz": 46534384.75,
+          "rme": 3.21,
+          "mean": 0.000021489485793991338,
+          "iterations": 46600000
+        },
+        "hasProperty(name)": {
+          "hz": 39617224.41,
+          "rme": 0.9,
+          "mean": 0.00002524154619647235,
+          "iterations": 39700000
+        },
+        "iterate all properties": {
+          "hz": 23030204.98,
+          "rme": 0.31,
+          "mean": 0.0000434212374891769,
+          "iterations": 23100000
+        },
+        "getMethods()": {
+          "hz": 1356767322.54,
+          "rme": 9.76,
+          "mean": 7.370460530582521e-7,
+          "iterations": 1357000000
+        },
+        "getMethodNames()": {
+          "hz": 1356199515.44,
+          "rme": 9.76,
+          "mean": 7.373546359617235e-7,
+          "iterations": 1357000000
+        },
+        "getMethod(name)": {
+          "hz": 61101976.36,
+          "rme": 0.54,
+          "mean": 0.00001636608272875731,
+          "iterations": 61200000
+        },
+        "hasMethod(name)": {
+          "hz": 46931938.79,
+          "rme": 1.54,
+          "mean": 0.00002130745129787317,
+          "iterations": 47000000
+        },
+        "method.getParameters()": {
+          "hz": 41812087.33,
+          "rme": 0.43,
+          "mean": 0.000023916529021479668,
+          "iterations": 41900000
+        },
+        "type.kind === ReflectionKind.string": {
+          "hz": 297435566.93,
+          "rme": 2.27,
+          "mean": 0.0000033620727013422563,
+          "iterations": 298000000
+        },
+        "type.kind === ReflectionKind.class": {
+          "hz": 297403376.41,
+          "rme": 2.27,
+          "mean": 0.0000033624366073825558,
+          "iterations": 298000000
+        },
+        "type.kind === ReflectionKind.union": {
+          "hz": 297420787.29,
+          "rme": 2.28,
+          "mean": 0.0000033622397718122645,
+          "iterations": 298000000
+        },
+        "type.kind === ReflectionKind.array": {
+          "hz": 297402988.48,
+          "rme": 2.28,
+          "mean": 0.0000033624409932888604,
+          "iterations": 298000000
+        },
+        "property.isOptional()": {
+          "hz": 1356517065,
+          "rme": 9.77,
+          "mean": 7.37182027265981e-7,
+          "iterations": 1357000000
+        },
+        "property.getType()": {
+          "hz": 1356568131.11,
+          "rme": 9.81,
+          "mean": 7.37154277081777e-7,
+          "iterations": 1357000000
+        },
+        "property.isArray()": {
+          "hz": 297368909.72,
+          "rme": 2.28,
+          "mean": 0.000003362826332214713,
+          "iterations": 298000000
+        },
+        "property.getKind()": {
+          "hz": 1055558852.4,
+          "rme": 7.67,
+          "mean": 9.473654621212128e-7,
+          "iterations": 1056000000
+        },
+        "ReflectionFunction.from(fn)": {
+          "hz": 3473104.87,
+          "rme": 17.96,
+          "mean": 0.00028792680829008567,
+          "iterations": 3474000
+        },
+        "function.getParameters()": {
+          "hz": 1350135691.73,
+          "rme": 16.15,
+          "mean": 7.406662945966252e-7,
+          "iterations": 1351000000
+        },
+        "function.getReturnType()": {
+          "hz": 1356594904.48,
+          "rme": 9.77,
+          "mean": 7.371397288136595e-7,
+          "iterations": 1357000000
+        },
+        "reflection.getClassName()": {
+          "hz": 237858239.11,
+          "rme": 2.18,
+          "mean": 0.00000420418482773119,
+          "iterations": 238000000
+        },
+        "reflection.getClassType()": {
+          "hz": 264794985.58,
+          "rme": 1.64,
+          "mean": 0.0000037765065596671006,
+          "iterations": 264800000
+        },
+        "reflection.getConstructorOrUndefined()": {
+          "hz": 103589379.91,
+          "rme": 1.03,
+          "mean": 0.000009653499237450627,
+          "iterations": 103600000
+        }
+      }
+    },
+    "packages/type/benchmarks/serialization.bench.ts": {
+      "type/serialization": {
+        "deepkit small deserialize": {
+          "hz": 1906657.02,
+          "rme": 23.61,
+          "mean": 0.000524478178003866,
+          "iterations": 1906700
+        },
+        "deepkit small serialize": {
+          "hz": 1916510.63,
+          "rme": 6.34,
+          "mean": 0.0005217816098069932,
+          "iterations": 1917000
+        },
+        "deepkit medium deserialize": {
+          "hz": 897794.38,
+          "rme": 31.45,
+          "mean": 0.0011138407828507858,
+          "iterations": 898000
+        },
+        "deepkit medium serialize": {
+          "hz": 375098.12,
+          "rme": 7.03,
+          "mean": 0.0026659691149027573,
+          "iterations": 375100
+        },
+        "deepkit large deserialize": {
+          "hz": 180208.6,
+          "rme": 8.3,
+          "mean": 0.0055491246367166455,
+          "iterations": 180300
+        },
+        "deepkit large serialize": {
+          "hz": 75286.52,
+          "rme": 30.53,
+          "mean": 0.013282590327679825,
+          "iterations": 75287
+        },
+        "deepkit array[100] deserialize": {
+          "hz": 111681.35,
+          "rme": 6.58,
+          "mean": 0.008954046750223743,
+          "iterations": 111700
+        },
+        "deepkit array[100] serialize": {
+          "hz": 106975.79,
+          "rme": 6.31,
+          "mean": 0.009347909691589005,
+          "iterations": 107000
+        },
+        "deepkit array[1000] deserialize": {
+          "hz": 10408.13,
+          "rme": 23.72,
+          "mean": 0.09607878021133669,
+          "iterations": 10410
+        },
+        "deepkit array[1000] serialize": {
+          "hz": 10325.13,
+          "rme": 9.93,
+          "mean": 0.09685104414327608,
+          "iterations": 10330
+        },
+        "deepkit array[10000] deserialize": {
+          "hz": 960.23,
+          "rme": 18.2,
+          "mean": 1.0414136399583558,
+          "iterations": 961
+        },
+        "deepkit array[10000] serialize": {
+          "hz": 917.74,
+          "rme": 18.22,
+          "mean": 1.089633657236121,
+          "iterations": 919
+        },
+        "deepkit deeply-nested deserialize": {
+          "hz": 970354.18,
+          "rme": 3.39,
+          "mean": 0.001030551542739422,
+          "iterations": 971000
+        },
+        "deepkit deeply-nested serialize": {
+          "hz": 430985,
+          "rme": 1.88,
+          "mean": 0.0023202663758700574,
+          "iterations": 431000
+        },
+        "deepkit union-types deserialize": {
+          "hz": 827110,
+          "rme": 11.26,
+          "mean": 0.0012090290340909784,
+          "iterations": 827200
+        },
+        "deepkit union-types serialize": {
+          "hz": 829821.51,
+          "rme": 2.99,
+          "mean": 0.0012050784289156329,
+          "iterations": 830000
+        },
+        "deepkit special-types deserialize": {
+          "hz": 251865.9,
+          "rme": 5.36,
+          "mean": 0.003970366768559369,
+          "iterations": 251900
+        },
+        "deepkit special-types serialize": {
+          "hz": 110022.81,
+          "rme": 2.97,
+          "mean": 0.009089024178020263,
+          "iterations": 110100
+        },
+        "deepkit tree-structure deserialize": {
+          "hz": 481628.05,
+          "rme": 149.56,
+          "mean": 0.0020762910145227698,
+          "iterations": 482000
+        },
+        "deepkit tree-structure serialize": {
+          "hz": 736724.89,
+          "rme": 2.87,
+          "mean": 0.001357358785617306,
+          "iterations": 737000
+        },
+        "deepkit linked-list deserialize": {
+          "hz": 1371810.57,
+          "rme": 17.77,
+          "mean": 0.000728963619533501,
+          "iterations": 1372000
+        },
+        "deepkit linked-list serialize": {
+          "hz": 1470392.46,
+          "rme": 3.44,
+          "mean": 0.0006800905377294643,
+          "iterations": 1471000
+        },
+        "deepkit category-hierarchy deserialize": {
+          "hz": 819161.62,
+          "rme": 3.09,
+          "mean": 0.0012207603207317317,
+          "iterations": 820000
+        },
+        "deepkit category-hierarchy serialize": {
+          "hz": 802570.85,
+          "rme": 26.57,
+          "mean": 0.0012459959215442185,
+          "iterations": 803000
+        }
+      }
+    },
+    "packages/type/benchmarks/union.bench.ts": {
+      "type/union": {
+        "guard union (rotating members)": {
+          "hz": 18947274.02,
+          "rme": 10.26,
+          "mean": 0.00005277804073878644,
+          "iterations": 18950000
+        },
+        "guard union text only": {
+          "hz": 22014380.17,
+          "rme": 5.04,
+          "mean": 0.00004542485376930077,
+          "iterations": 22020000
+        },
+        "deserialize union": {
+          "hz": 3527556.77,
+          "rme": 880.01,
+          "mean": 0.0002834823264372552,
+          "iterations": 3527557
+        }
+      }
+    },
+    "packages/type/benchmarks/validation.bench.ts": {
+      "type/validation": {
+        "guard (valid)": {
+          "hz": 25741299.08,
+          "rme": 4.36,
+          "mean": 0.00003884807821359224,
+          "iterations": 25750000
+        },
+        "guard (invalid)": {
+          "hz": 21814705.11,
+          "rme": 24.19,
+          "mean": 0.00004584063799266755,
+          "iterations": 21820000
+        },
+        "validate (valid)": {
+          "hz": 17919056.19,
+          "rme": 20,
+          "mean": 0.00005580651065848241,
+          "iterations": 17920000
+        },
+        "validate (invalid)": {
+          "hz": 6304878.99,
+          "rme": 18.33,
+          "mean": 0.00015860732630744732,
+          "iterations": 6310000
+        },
+        "is (valid, no errors)": {
+          "hz": 14469863.52,
+          "rme": 16.33,
+          "mean": 0.00006910915217691753,
+          "iterations": 14470000
+        },
+        "is (invalid, no errors)": {
+          "hz": 13066597.3,
+          "rme": 19.45,
+          "mean": 0.00007653101851568426,
+          "iterations": 13070000
+        },
+        "is (valid, with errors)": {
+          "hz": 11174454.03,
+          "rme": 15.31,
+          "mean": 0.00008948983076923158,
+          "iterations": 11180000
+        },
+        "is (invalid, with errors)": {
+          "hz": 5733012.25,
+          "rme": 15.35,
+          "mean": 0.0001744283731707308,
+          "iterations": 5740000
+        },
+        "assert (valid)": {
+          "hz": 9799802.75,
+          "rme": 14.09,
+          "mean": 0.00010204287023445326,
+          "iterations": 9810000
+        },
+        "assert (invalid, try-catch)": {
+          "hz": 144132.19,
+          "rme": 8.75,
+          "mean": 0.006938075547850323,
+          "iterations": 144200
+        },
+        "constraints (valid)": {
+          "hz": 4187221.92,
+          "rme": 3.33,
+          "mean": 0.0002388218293556036,
+          "iterations": 4190000
+        },
+        "constraints (invalid)": {
+          "hz": 2533351.9,
+          "rme": 10.77,
+          "mean": 0.0003947339488189004,
+          "iterations": 2540000
+        },
+        "constraints validate (invalid)": {
+          "hz": 1216598.58,
+          "rme": 18.99,
+          "mean": 0.0008219638085456061,
+          "iterations": 1217000
+        },
+        "array objects (valid)": {
+          "hz": 8365455.4,
+          "rme": 19.95,
+          "mean": 0.00011953921839904244,
+          "iterations": 8370000
+        },
+        "array objects (invalid)": {
+          "hz": 3059598.72,
+          "rme": 10.78,
+          "mean": 0.00032684024607841807,
+          "iterations": 3060000
+        },
+        "array objects validate (invalid)": {
+          "hz": 621680.3,
+          "rme": 14.55,
+          "mean": 0.001608543813504749,
+          "iterations": 622000
+        },
+        "large array (100 items)": {
+          "hz": 309223.6,
+          "rme": 26.05,
+          "mean": 0.003233905868089235,
+          "iterations": 309300
+        },
+        "deep nested (valid)": {
+          "hz": 1367424.86,
+          "rme": 5.77,
+          "mean": 0.0007313016089181623,
+          "iterations": 1368000
+        },
+        "deep nested (invalid)": {
+          "hz": 997336.6,
+          "rme": 13.11,
+          "mean": 0.001002670509018098,
+          "iterations": 998000
+        },
+        "deep nested validate (invalid)": {
+          "hz": 324267.79,
+          "rme": 30.86,
+          "mean": 0.003083870928152991,
+          "iterations": 324300
+        },
+        "union text (valid)": {
+          "hz": 39499538.84,
+          "rme": 15.19,
+          "mean": 0.00002531675126582345,
+          "iterations": 39500000
+        },
+        "union image (valid)": {
+          "hz": 32391966.79,
+          "rme": 3.94,
+          "mean": 0.000030871851851848225,
+          "iterations": 32400000
+        },
+        "union video (valid)": {
+          "hz": 33840815.67,
+          "rme": 5.32,
+          "mean": 0.000029550115155095596,
+          "iterations": 33850000
+        },
+        "union file (valid)": {
+          "hz": 30490102.88,
+          "rme": 3.35,
+          "mean": 0.000032797527901641364,
+          "iterations": 30500000
+        },
+        "union text (invalid)": {
+          "hz": 8628818.81,
+          "rme": 9,
+          "mean": 0.00011589071714948166,
+          "iterations": 8630000
+        },
+        "union image (invalid)": {
+          "hz": 7968880.84,
+          "rme": 2.68,
+          "mean": 0.00012548813563361948,
+          "iterations": 7970000
+        },
+        "union validate (invalid)": {
+          "hz": 1543383.98,
+          "rme": 15.87,
+          "mean": 0.0006479268996114037,
+          "iterations": 1544000
+        },
+        "overhead: guard (valid)": {
+          "hz": 23091447.51,
+          "rme": 21.43,
+          "mean": 0.00004330607683983155,
+          "iterations": 23100000
+        },
+        "overhead: validate (valid)": {
+          "hz": 16823572.79,
+          "rme": 9.43,
+          "mean": 0.00005944040617944801,
+          "iterations": 16830000
+        },
+        "overhead: guard (invalid)": {
+          "hz": 19836584.18,
+          "rme": 24.24,
+          "mean": 0.000050411905141133644,
+          "iterations": 19840000
+        },
+        "overhead: validate (invalid)": {
+          "hz": 6809220.97,
+          "rme": 15.92,
+          "mean": 0.0001468596781204242,
+          "iterations": 6810000
+        },
+        "overhead: guard (many errors)": {
+          "hz": 1978762.03,
+          "rme": 77.5,
+          "mean": 0.0005053664780191778,
+          "iterations": 1979000
+        },
+        "overhead: validate (many errors)": {
+          "hz": 1152113.08,
+          "rme": 19.6,
+          "mean": 0.0008679703564614826,
+          "iterations": 1153000
+        }
+      }
+    }
+  }
+}
