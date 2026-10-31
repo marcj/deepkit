@@ -21,6 +21,7 @@ export const texts = {
     heroTitle: 'The TypeScript Framework with Runtime Types',
     heroText:
         'One TypeScript type for validation, serialization, database, HTTP, RPC and dependency injection. No schemas to keep in sync, no code generator, and faster than the libraries you would otherwise combine.',
+    llmHint: 'Are you an LLM? Skip the pixels, we wrote markdown just for you:',
     oneTypeTitle: 'One type for the whole backend',
     oneTypeText:
         'The class User below is the validation rule, the JSON format, the database table and the API documentation at the same time. The HTTP body is validated and converted before your code runs, invalid input is answered with a 400 and the exact errors.',

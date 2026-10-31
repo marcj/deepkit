@@ -86,7 +86,15 @@ export class Seo {
         this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
         this.meta.updateTag({ name: 'twitter:image', content: image });
 
-        for (const link of Array.from(this.document.head.querySelectorAll('link[rel="alternate"][hreflang]'))) link.remove();
+        for (const link of Array.from(this.document.head.querySelectorAll('link[rel="alternate"][hreflang], link[rel="alternate"][type="text/markdown"]'))) link.remove();
+        // the page as markdown for LLMs and coding agents, see LlmsController
+        if (/^\/[a-z]{2}\/documentation(\/|$)/.test(path) && !path.includes('/desktop-ui')) {
+            const link = this.document.createElement('link');
+            link.setAttribute('rel', 'alternate');
+            link.setAttribute('type', 'text/markdown');
+            link.setAttribute('href', siteUrl + path.replace(/\/$/, '') + '.md');
+            this.document.head.appendChild(link);
+        }
         if (alternates && Object.keys(alternates).length > 1) {
             for (const [code, route] of Object.entries(alternates)) this.addAlternate(code, siteUrl + route);
             this.addAlternate('x-default', siteUrl + alternates.en);

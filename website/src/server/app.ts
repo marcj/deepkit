@@ -10,6 +10,7 @@ import { MarkdownParser } from '@app/common/markdown';
 import { migrate } from '@app/server/commands/migrate';
 import { BenchmarkController, BenchmarkHttpController } from '@app/server/controller/benchmark.controller';
 import { getPermanentRedirect, SeoController } from '@app/server/controller/seo.controller';
+import { LlmsController } from '@app/server/controller/llms.controller';
 import { AdminController } from '@app/server/controller/admin.controller';
 import { RpcKernelSecurity, SessionState } from '@deepkit/rpc';
 import { AppRpcKernelSecurity, AppSession } from '@app/server/rpc';
@@ -37,6 +38,7 @@ export const app = new App({
         BenchmarkController,
         BenchmarkHttpController,
         SeoController,
+        LlmsController,
     ],
     providers: [
         PageProcessor,

@@ -258,6 +258,7 @@ const performanceCharts = [
                 <h1>{{ texts.heroTitle | translate }}</h1>
                 <h3 class="text">{{ texts.heroText | translate }}</h3>
                 <div class="code-box">npm init &#64;deepkit/app&#64;latest my-app</div>
+                <p class="llm-hint">{{ texts.llmHint | translate }} <a href="/llms.txt">llms.txt</a></p>
             </div>
 
             <main>
@@ -395,6 +396,15 @@ const performanceCharts = [
             font-size: 16px;
             padding: 17px 30px;
             user-select: all;
+        }
+        .llm-hint {
+            margin: 22px 0 0;
+            font-size: 13px;
+            color: #7d838b;
+        }
+        .llm-hint a {
+            color: var(--color-link);
+            font-family: 'Source Code Pro', monospace;
         }
         main {
             position: relative;
