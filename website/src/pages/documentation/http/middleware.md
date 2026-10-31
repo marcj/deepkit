@@ -219,9 +219,31 @@ const ApiModule = new AppModule({}, {
 });
 ```
 
+## Calling next()
+
+A middleware either calls `next()` to continue with the next middleware and finally the controller, or ends the response itself, for example with `response.end()`. Then the controller is not executed and `next()` must not be called. `onResponse` listeners and the HTTP logger still run.
+
+```typescript
+function authentication(request: HttpRequest, response: HttpResponse, next: (err?: any) => void) {
+    if (!request.headers['authorization']) {
+        response.statusCode = 401;
+        response.end();
+        return;
+    }
+    next();
+}
+```
+
+Calling `next(error)` or throwing an error (also in an async middleware) fails the request:
+
+- An `HttpError` like `HttpUnauthorizedError` is answered with its status code and its message as JSON, like in a controller.
+- Any other error is logged and answered with 500 "Internal error".
+
+If the middleware already ended the response, the response stays as it is.
+
 ## Timeout
 
-All middleware needs to execute `next()` sooner or later. If a middleware does not execute `next()` withing a timeout, a warning is logged and the next middleware executed. To change the default of 4seconds to something else use timeout(milliseconds).
+By default, a middleware has no timeout. With `timeout(milliseconds)`, a middleware that neither calls `next()` nor ends the response within that time fails the request with `HttpGatewayTimeoutError` (504), and a warning is logged. A later call of `next()` is ignored.
 
 ```typescript
 const ApiModule = new AppModule({}, {
