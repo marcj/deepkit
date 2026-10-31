@@ -14,6 +14,7 @@ export async function migrate(database: Database) {
 
     // community questions were removed
     await database.raw(sql`
+DROP TABLE IF EXISTS community_message_vote;
 DROP TABLE IF EXISTS community_message;
 DROP FUNCTION IF EXISTS update_community_message_vectors();
 `).execute();
