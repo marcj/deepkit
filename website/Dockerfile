@@ -16,7 +16,7 @@ RUN apk add --no-cache \
 
 ADD .git /app/.git
 
-ADD package.json lerna.json tsconfig.json tsconfig.esm.json tsconfig.base.json sync-tsconfig-deps.js install-compiler.sh /app/
+ADD package.json lerna.json tsconfig.json tsconfig.esm.json tsconfig.base.json install-compiler.sh /app/
 ADD .yarnrc.yml yarn.lock /app/
 ADD .yarn /app/.yarn
 
@@ -28,7 +28,6 @@ RUN rm -rf /app/packages/api-console-gui
 ADD website/package.json /app/website/package.json
 ADD benchmarks/package.json /app/benchmarks/package.json
 
-RUN node sync-tsconfig-deps.js
 RUN --mount=type=cache,target=/root/.yarn YARN_CACHE_FOLDER=/root/.yarn yarn install --inline-builds
 
 ADD benchmarks/results /app/benchmarks/results
