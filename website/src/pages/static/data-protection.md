@@ -1,13 +1,13 @@
 # Data protection
 
 
-Deepkit UG is a German company in the EU with the highest data protection regularities in the world.
+Deepkit is a private project of Marc Schmidt, Germany. The EU has some of the strictest data protection regulations in the world.
 The following data privacy statement is in German and for German people.
 
 
 <h2>Datenschutzerklärung</h2>
 Wir freuen uns sehr über Ihr Interesse an unserem Unternehmen. Datenschutz hat einen besonders hohen
-Stellenwert für die Geschäftsleitung der DeepKit UG. Eine Nutzung der Internetseiten der DeepKit UG
+Stellenwert für Marc Schmidt. Eine Nutzung der Internetseiten von Marc Schmidt
 ist grundsätzlich ohne jede Angabe personenbezogener Daten möglich. Sofern eine betroffene Person
 besondere Services unseres Unternehmens über unsere Internetseite in Anspruch nehmen möchte, könnte
 jedoch eine Verarbeitung personenbezogener Daten erforderlich werden. Ist die Verarbeitung
@@ -16,19 +16,19 @@ Grundlage, holen wir generell eine Einwilligung der betroffenen Person ein.
 
 Die Verarbeitung personenbezogener Daten, beispielsweise des Namens, der Anschrift, E-Mail-Adresse
 oder Telefonnummer einer betroffenen Person, erfolgt stets im Einklang mit der
-Datenschutz-Grundverordnung und in Übereinstimmung mit den für die DeepKit UG geltenden
+Datenschutz-Grundverordnung und in Übereinstimmung mit den für Marc Schmidt geltenden
 landesspezifischen Datenschutzbestimmungen. Mittels dieser Datenschutzerklärung möchte unser
 Unternehmen die Öffentlichkeit über Art, Umfang und Zweck der von uns erhobenen, genutzten und
 verarbeiteten personenbezogenen Daten informieren. Ferner werden betroffene Personen mittels dieser
 Datenschutzerklärung über die ihnen zustehenden Rechte aufgeklärt.
-Die DeepKit UG hat als für die Verarbeitung Verantwortlicher zahlreiche technische und
+Marc Schmidt hat als für die Verarbeitung Verantwortlicher zahlreiche technische und
 organisatorische Maßnahmen umgesetzt, um einen möglichst lückenlosen Schutz der über diese
 Internetseite verarbeiteten personenbezogenen Daten sicherzustellen. Dennoch können Internetbasierte
 Datenübertragungen grundsätzlich Sicherheitslücken aufweisen, sodass ein absoluter Schutz nicht
 gewährleistet werden kann. Aus diesem Grund steht es jeder betroffenen Person frei, personenbezogene
 Daten auch auf alternativen Wegen, beispielsweise telefonisch, an uns zu übermitteln.
 <h2>1. Begriffsbestimmungen</h2>
-Die Datenschutzerklärung der DeepKit UG beruht auf den Begrifflichkeiten, die durch den Europäischen
+Die Datenschutzerklärung von Marc Schmidt beruht auf den Begrifflichkeiten, die durch den Europäischen
 Richtlinien- und Verordnungsgeber beim Erlass der Datenschutz-Grundverordnung (DS-GVO) verwendet
 wurden. Unsere Datenschutzerklärung soll sowohl für die Öffentlichkeit als auch für unsere Kunden
 und Geschäftspartner einfach lesbar und verständlich sein. Um dies zu gewährleisten, möchten wir
@@ -107,10 +107,9 @@ personenbezogenen Daten einverstanden ist.</li>
 Verantwortlicher im Sinne der Datenschutz-Grundverordnung, sonstiger in den Mitgliedstaaten der
 Europäischen Union geltenden Datenschutzgesetze und anderer Bestimmungen mit datenschutzrechtlichem
 Charakter ist die:
-DeepKit UG (haftungsbeschränkt)<br>Meridianstraße 16<br>20535 Hamburg<br>Deutschland<br>Tel.: +49 151
-54780985<br>E-Mail: info@deepkit.io<br>Website: deepkit.io<br>
+Marc Schmidt<br>Zittvitz 4<br>18528 Bergen auf Rügen<br>Deutschland<br>E-Mail: info@deepkit.io<br>Website: deepkit.io<br>
 <h2>3. Cookies</h2>
-Die Internetseiten der DeepKit UG verwenden Cookies. Cookies sind Textdateien, welche über einen
+Die Internetseiten von Marc Schmidt verwenden Cookies. Cookies sind Textdateien, welche über einen
 Internetbrowser auf einem Computersystem abgelegt und gespeichert werden.
 Zahlreiche Internetseiten und Server verwenden Cookies. Viele Cookies enthalten eine sogenannte
 Cookie-ID. Eine Cookie-ID ist eine eindeutige Kennung des Cookies. Sie besteht aus einer
@@ -119,7 +118,7 @@ können, in dem das Cookie gespeichert wurde. Dies ermöglicht es den besuchten 
 Servern, den individuellen Browser der betroffenen Person von anderen Internetbrowsern, die andere
 Cookies enthalten, zu unterscheiden. Ein bestimmter Internetbrowser kann über die eindeutige
 Cookie-ID wiedererkannt und identifiziert werden.
-Durch den Einsatz von Cookies kann die DeepKit UG den Nutzern dieser Internetseite
+Durch den Einsatz von Cookies kann Marc Schmidt den Nutzern dieser Internetseite
 nutzerfreundlichere Services bereitstellen, die ohne die Cookie-Setzung nicht möglich wären.
 Mittels eines Cookies können die Informationen und Angebote auf unserer Internetseite im Sinne des
 Benutzers optimiert werden. Cookies ermöglichen uns, wie bereits erwähnt, die Benutzer unserer
@@ -137,7 +136,7 @@ Internetbrowsern möglich. Deaktiviert die betroffene Person die Setzung von Coo
 Internetbrowser, sind unter Umständen nicht alle Funktionen unserer Internetseite vollumfänglich
 nutzbar.
 <h2>4. Erfassung von allgemeinen Daten und Informationen</h2>
-Die Internetseite der DeepKit UG erfasst mit jedem Aufruf der Internetseite durch eine betroffene
+Die Internetseite von Marc Schmidt erfasst mit jedem Aufruf der Internetseite durch eine betroffene
 Person oder ein automatisiertes System eine Reihe von allgemeinen Daten und Informationen. Diese
 allgemeinen Daten und Informationen werden in den Logfiles des Servers gespeichert. Erfasst werden
 können die (1) verwendeten Browsertypen und Versionen, (2) das vom zugreifenden System verwendete
@@ -147,13 +146,13 @@ unserer Internetseite angesteuert werden, (5) das Datum und die Uhrzeit eines Zu
 Internetseite, (6) eine Internet-Protokoll-Adresse (IP-Adresse), (7) der Internet-Service-Provider
 des zugreifenden Systems und (8) sonstige ähnliche Daten und Informationen, die der Gefahrenabwehr
 im Falle von Angriffen auf unsere informationstechnologischen Systeme dienen.
-Bei der Nutzung dieser allgemeinen Daten und Informationen zieht die DeepKit UG keine Rückschlüsse
+Bei der Nutzung dieser allgemeinen Daten und Informationen zieht Marc Schmidt keine Rückschlüsse
 auf die betroffene Person. Diese Informationen werden vielmehr benötigt, um (1) die Inhalte unserer
 Internetseite korrekt auszuliefern, (2) die Inhalte unserer Internetseite sowie die Werbung für
 diese zu optimieren, (3) die dauerhafte Funktionsfähigkeit unserer informationstechnologischen
 Systeme und der Technik unserer Internetseite zu gewährleisten sowie (4) um Strafverfolgungsbehörden
 im Falle eines Cyberangriffes die zur Strafverfolgung notwendigen Informationen bereitzustellen.
-Diese anonym erhobenen Daten und Informationen werden durch die DeepKit UG daher einerseits
+Diese anonym erhobenen Daten und Informationen werden durch Marc Schmidt daher einerseits
 statistisch und ferner mit dem Ziel ausgewertet, den Datenschutz und die Datensicherheit in unserem
 Unternehmen zu erhöhen, um letztlich ein optimales Schutzniveau für die von uns verarbeiteten
 personenbezogenen Daten sicherzustellen. Die anonymen Daten der Server-Logfiles werden getrennt von
@@ -174,9 +173,7 @@ gelöscht.
 Jede betroffene Person hat das vom Europäischen Richtlinien- und Verordnungsgeber eingeräumte
 Recht, von dem für die Verarbeitung Verantwortlichen eine Bestätigung darüber zu verlangen,
 ob sie betreffende personenbezogene Daten verarbeitet werden. Möchte eine betroffene Person
-dieses Bestätigungsrecht in Anspruch nehmen, kann sie sich hierzu jederzeit an unseren
-Datenschutzbeauftragten oder einen anderen Mitarbeiter des für die Verarbeitung
-Verantwortlichen wenden.</li>
+dieses Bestätigungsrecht in Anspruch nehmen, kann sie sich hierzu jederzeit an den für die Verarbeitung Verantwortlichen wenden.</li>
 <li><h2>b) Recht auf Auskunft</h2>
 Jede von der Verarbeitung personenbezogener Daten betroffene Person hat das vom Europäischen
 Richtlinien- und Verordnungsgeber gewährte Recht, jederzeit von dem für die Verarbeitung
@@ -214,8 +211,7 @@ an ein Drittland oder an eine internationale Organisation übermittelt wurden. S
 der Fall ist, so steht der betroffenen Person im Übrigen das Recht zu, Auskunft über die
 geeigneten Garantien im Zusammenhang mit der Übermittlung zu erhalten.
 Möchte eine betroffene Person dieses Auskunftsrecht in Anspruch nehmen, kann sie sich hierzu
-jederzeit an unseren Datenschutzbeauftragten oder einen anderen Mitarbeiter des für die
-Verarbeitung Verantwortlichen wenden.</li>
+jederzeit an den für die Verarbeitung Verantwortlichen wenden.</li>
 <li><h2>c) Recht auf Berichtigung</h2>
 Jede von der Verarbeitung personenbezogener Daten betroffene Person hat das vom Europäischen
 Richtlinien- und Verordnungsgeber gewährte Recht, die unverzügliche Berichtigung sie
@@ -224,8 +220,7 @@ Person das Recht zu, unter Berücksichtigung der Zwecke der Verarbeitung, die
 Vervollständigung unvollständiger personenbezogener Daten — auch mittels einer ergänzenden
 Erklärung — zu verlangen.
 Möchte eine betroffene Person dieses Berichtigungsrecht in Anspruch nehmen, kann sie sich
-hierzu jederzeit an unseren Datenschutzbeauftragten oder einen anderen Mitarbeiter des für
-die Verarbeitung Verantwortlichen wenden.</li>
+hierzu jederzeit an den für die Verarbeitung Verantwortlichen wenden.</li>
 <li><h2>d) Recht auf Löschung (Recht auf Vergessen werden)</h2>
 Jede von der Verarbeitung personenbezogener Daten betroffene Person hat das vom Europäischen
 Richtlinien- und Verordnungsgeber gewährte Recht, von dem Verantwortlichen zu verlangen,
@@ -254,21 +249,19 @@ Informationsgesellschaft gemäß Art. 8 Abs. 1 DS-GVO erhoben.
 </li>
 </ul>
 Sofern einer der oben genannten Gründe zutrifft und eine betroffene Person die Löschung von
-personenbezogenen Daten, die bei der DeepKit UG gespeichert sind, veranlassen möchte, kann
-sie sich hierzu jederzeit an unseren Datenschutzbeauftragten oder einen anderen Mitarbeiter
-des für die Verarbeitung Verantwortlichen wenden. Der Datenschutzbeauftragte der DeepKit UG
-oder ein anderer Mitarbeiter wird veranlassen, dass dem Löschverlangen unverzüglich
+personenbezogenen Daten, die bei Marc Schmidt gespeichert sind, veranlassen möchte, kann
+sie sich hierzu jederzeit an den für die Verarbeitung Verantwortlichen wenden. Der Verantwortliche wird veranlassen, dass dem Löschverlangen unverzüglich
 nachgekommen wird.
-Wurden die personenbezogenen Daten von der DeepKit UG öffentlich gemacht und ist unser
+Wurden die personenbezogenen Daten von Marc Schmidt öffentlich gemacht und ist unser
 Unternehmen als Verantwortlicher gemäß Art. 17 Abs. 1 DS-GVO zur Löschung der
-personenbezogenen Daten verpflichtet, so trifft die DeepKit UG unter Berücksichtigung der
+personenbezogenen Daten verpflichtet, so trifft Marc Schmidt unter Berücksichtigung der
 verfügbaren Technologie und der Implementierungskosten angemessene Maßnahmen, auch
 technischer Art, um andere für die Datenverarbeitung Verantwortliche, welche die
 veröffentlichten personenbezogenen Daten verarbeiten, darüber in Kenntnis zu setzen, dass
 die betroffene Person von diesen anderen für die Datenverarbeitung Verantwortlichen die
 Löschung sämtlicher Links zu diesen personenbezogenen Daten oder von Kopien oder
 Replikationen dieser personenbezogenen Daten verlangt hat, soweit die Verarbeitung nicht
-erforderlich ist. Der Datenschutzbeauftragte der DeepKit UG oder ein anderer Mitarbeiter
+erforderlich ist. Der Verantwortliche
 wird im Einzelfall das Notwendige veranlassen.</li>
 <li><h2>e) Recht auf Einschränkung der Verarbeitung</h2>
 Jede von der Verarbeitung personenbezogener Daten betroffene Person hat das vom Europäischen
@@ -293,10 +286,9 @@ gegenüber denen der betroffenen Person überwiegen.
 </li>
 </ul>
 Sofern eine der oben genannten Voraussetzungen gegeben ist und eine betroffene Person die
-Einschränkung von personenbezogenen Daten, die bei der DeepKit UG gespeichert sind,
-verlangen möchte, kann sie sich hierzu jederzeit an unseren Datenschutzbeauftragten oder
-einen anderen Mitarbeiter des für die Verarbeitung Verantwortlichen wenden. Der
-Datenschutzbeauftragte der DeepKit UG oder ein anderer Mitarbeiter wird die Einschränkung
+Einschränkung von personenbezogenen Daten, die bei Marc Schmidt gespeichert sind,
+verlangen möchte, kann sie sich hierzu jederzeit an den für die Verarbeitung Verantwortlichen wenden. Der
+Verantwortliche wird die Einschränkung
 der Verarbeitung veranlassen.</li>
 <li><h2>f) Recht auf Datenübertragbarkeit</h2>
 Jede von der Verarbeitung personenbezogener Daten betroffene Person hat das vom Europäischen
@@ -317,32 +309,31 @@ einem Verantwortlichen an einen anderen Verantwortlichen übermittelt werden, so
 technisch machbar ist und sofern hiervon nicht die Rechte und Freiheiten anderer Personen
 beeinträchtigt werden.
 Zur Geltendmachung des Rechts auf Datenübertragbarkeit kann sich die betroffene Person
-jederzeit an den von der DeepKit UG bestellten Datenschutzbeauftragten oder einen anderen
-Mitarbeiter wenden.</li>
+jederzeit an den Verantwortlichen wenden.</li>
 <li><h2>g) Recht auf Widerspruch</h2>
 Jede von der Verarbeitung personenbezogener Daten betroffene Person hat das vom Europäischen
 Richtlinien- und Verordnungsgeber gewährte Recht, aus Gründen, die sich aus ihrer besonderen
 Situation ergeben, jederzeit gegen die Verarbeitung sie betreffender personenbezogener
 Daten, die aufgrund von Art. 6 Abs. 1 Buchstaben e oder f DS-GVO erfolgt, Widerspruch
 einzulegen. Dies gilt auch für ein auf diese Bestimmungen gestütztes Profiling.
-Die DeepKit UG verarbeitet die personenbezogenen Daten im Falle des Widerspruchs nicht mehr,
+Marc Schmidt verarbeitet die personenbezogenen Daten im Falle des Widerspruchs nicht mehr,
 es sei denn, wir können zwingende schutzwürdige Gründe für die Verarbeitung nachweisen, die
 den Interessen, Rechten und Freiheiten der betroffenen Person überwiegen, oder die
 Verarbeitung dient der Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen.
-Verarbeitet die DeepKit UG personenbezogene Daten, um Direktwerbung zu betreiben, so hat die
+Verarbeitet Marc Schmidt personenbezogene Daten, um Direktwerbung zu betreiben, so hat die
 betroffene Person das Recht, jederzeit Widerspruch gegen die Verarbeitung der
 personenbezogenen Daten zum Zwecke derartiger Werbung einzulegen. Dies gilt auch für das
 Profiling, soweit es mit solcher Direktwerbung in Verbindung steht. Widerspricht die
-betroffene Person gegenüber der DeepKit UG der Verarbeitung für Zwecke der Direktwerbung, so
-wird die DeepKit UG die personenbezogenen Daten nicht mehr für diese Zwecke verarbeiten.
+betroffene Person gegenüber Marc Schmidt der Verarbeitung für Zwecke der Direktwerbung, so
+wird Marc Schmidt die personenbezogenen Daten nicht mehr für diese Zwecke verarbeiten.
 Zudem hat die betroffene Person das Recht, aus Gründen, die sich aus ihrer besonderen
 Situation ergeben, gegen die sie betreffende Verarbeitung personenbezogener Daten, die bei
-der DeepKit UG zu wissenschaftlichen oder historischen Forschungszwecken oder zu
+Marc Schmidt zu wissenschaftlichen oder historischen Forschungszwecken oder zu
 statistischen Zwecken gemäß Art. 89 Abs. 1 DS-GVO erfolgen, Widerspruch einzulegen, es sei
 denn, eine solche Verarbeitung ist zur Erfüllung einer im öffentlichen Interesse liegenden
 Aufgabe erforderlich.
 Zur Ausübung des Rechts auf Widerspruch kann sich die betroffene Person direkt an den
-Datenschutzbeauftragten der DeepKit UG oder einen anderen Mitarbeiter wenden. Der
+Verantwortlichen wenden. Der
 betroffenen Person steht es ferner frei, im Zusammenhang mit der Nutzung von Diensten der
 Informationsgesellschaft, ungeachtet der Richtlinie 2002/58/EG, ihr Widerspruchsrecht
 mittels automatisierter Verfahren auszuüben, bei denen technische Spezifikationen verwendet
@@ -361,21 +352,19 @@ berechtigten Interessen der betroffenen Person enthalten oder (3) mit ausdrückl
 Einwilligung der betroffenen Person erfolgt.
 Ist die Entscheidung (1) für den Abschluss oder die Erfüllung eines Vertrags zwischen der
 betroffenen Person und dem Verantwortlichen erforderlich oder (2) erfolgt sie mit
-ausdrücklicher Einwilligung der betroffenen Person, trifft die DeepKit UG angemessene
+ausdrücklicher Einwilligung der betroffenen Person, trifft Marc Schmidt angemessene
 Maßnahmen, um die Rechte und Freiheiten sowie die berechtigten Interessen der betroffenen
 Person zu wahren, wozu mindestens das Recht auf Erwirkung des Eingreifens einer Person
 seitens des Verantwortlichen, auf Darlegung des eigenen Standpunkts und auf Anfechtung der
 Entscheidung gehört.
 Möchte die betroffene Person Rechte mit Bezug auf automatisierte Entscheidungen geltend
-machen, kann sie sich hierzu jederzeit an unseren Datenschutzbeauftragten oder einen anderen
-Mitarbeiter des für die Verarbeitung Verantwortlichen wenden.</li>
+machen, kann sie sich hierzu jederzeit an den für die Verarbeitung Verantwortlichen wenden.</li>
 <li><h2>i) Recht auf Widerruf einer datenschutzrechtlichen Einwilligung</h2>
 Jede von der Verarbeitung personenbezogener Daten betroffene Person hat das vom Europäischen
 Richtlinien- und Verordnungsgeber gewährte Recht, eine Einwilligung zur Verarbeitung
 personenbezogener Daten jederzeit zu widerrufen.
 Möchte die betroffene Person ihr Recht auf Widerruf einer Einwilligung geltend machen, kann
-sie sich hierzu jederzeit an unseren Datenschutzbeauftragten oder einen anderen Mitarbeiter
-des für die Verarbeitung Verantwortlichen wenden.</li>
+sie sich hierzu jederzeit an den für die Verarbeitung Verantwortlichen wenden.</li>
 </ul>
 <h2>7. Datenschutz bei Bewerbungen und im Bewerbungsverfahren</h2>
 Der für die Verarbeitung Verantwortliche erhebt und verarbeitet die personenbezogenen Daten von
@@ -483,8 +472,7 @@ Kunde des Verantwortlichen ist (Erwägungsgrund 47 Satz 2 DS-GVO).
 <h2>10. Berechtigte Interessen an der Verarbeitung, die von dem Verantwortlichen oder einem Dritten
 verfolgt werden</h2>
 Basiert die Verarbeitung personenbezogener Daten auf Artikel 6 I lit. f DS-GVO ist unser berechtigtes
-Interesse die Durchführung unserer Geschäftstätigkeit zugunsten des Wohlergehens all unserer
-Mitarbeiter und unserer Anteilseigner.
+Interesse der Betrieb dieser Internetseite und des Open-Source-Projekts Deepkit.
 <h2>11. Dauer, für die die personenbezogenen Daten gespeichert werden</h2>
 Das Kriterium für die Dauer der Speicherung von personenbezogenen Daten ist die jeweilige gesetzliche
 Aufbewahrungsfrist. Nach Ablauf der Frist werden die entsprechenden Daten routinemäßig gelöscht,
@@ -500,8 +488,7 @@ durch uns verarbeitet werden müssen. Die betroffene Person ist beispielsweise v
 personenbezogene Daten bereitzustellen, wenn unser Unternehmen mit ihr einen Vertrag abschließt.
 Eine Nichtbereitstellung der personenbezogenen Daten hätte zur Folge, dass der Vertrag mit dem
 Betroffenen nicht geschlossen werden könnte. Vor einer Bereitstellung personenbezogener Daten durch
-den Betroffenen muss sich der Betroffene an unseren Datenschutzbeauftragten wenden. Unser
-Datenschutzbeauftragter klärt den Betroffenen einzelfallbezogen darüber auf, ob die Bereitstellung
+den Betroffenen kann sich der Betroffene an den Verantwortlichen wenden. Der Verantwortliche klärt den Betroffenen einzelfallbezogen darüber auf, ob die Bereitstellung
 der personenbezogenen Daten gesetzlich oder vertraglich vorgeschrieben oder für den
 Vertragsabschluss erforderlich ist, ob eine Verpflichtung besteht, die personenbezogenen Daten
 bereitzustellen, und welche Folgen die Nichtbereitstellung der personenbezogenen Daten hätte.

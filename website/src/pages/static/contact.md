@@ -2,23 +2,18 @@
 
 
 ```text
-DeepKit UG (haftungsbeschränkt)
-Geschäftsführer: Marc J. Schmidt
-Im Feriendorf 14
-78132 Hornberg, Germany
+Marc Schmidt
+Zittvitz 4
+18528 Bergen auf Rügen, Germany
 ```
 
 Deepkit is a registered trademark in USA and European Union.
 
 ```text
 Mail: info@deepkit.io
-Registergericht: Amtsgericht Freiburg
-Registernummer: HRB 728635
 ```
 
-Umsatzsteuer-Identifikationsnummer gem. § 27 a Umsatzsteuergesetz: DE 320 954 787
-
-Verantwortliche i.S.d. § 55 Abs. 2 RStV: Marc J. Schmidt
+Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV: Marc Schmidt
 
 ## Liability for Content
 

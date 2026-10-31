@@ -3,13 +3,11 @@
 This website and all services are provided by: 
 
 ```text
-Deepkit UG (haftungsbeschränkt)
-Im Feriendorf 14
-78132 Hornberg, Germany
+Marc Schmidt
+Zittvitz 4
+18528 Bergen auf Rügen, Germany
 
 info@deepkit.io
-
-Managing Director: Marc J. Schmidt
 ```
 
 
