@@ -174,6 +174,12 @@ function run(args: string[]) {
     }
 
     out ||= join(resultsDir, result.machine.hostname.replace(/\.local$/, ''), label + '.json');
+    //a filtered run updates its files in an existing result of the same label
+    if (filters.length && existsSync(out)) {
+        const existing: ResultFile = JSON.parse(readFileSync(out, 'utf8'));
+        result.files = { ...existing.files, ...result.files };
+        Object.assign(result, { label: existing.label, commit: existing.commit, date: existing.date });
+    }
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, JSON.stringify(result, null, 2) + '\n');
     console.log(`\nResults written to ${relative(process.cwd(), out)}`);
