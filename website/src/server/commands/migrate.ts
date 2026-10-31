@@ -12,6 +12,12 @@ export async function migrate(database: Database) {
 
     await database.migrate();
 
+    // community questions were removed
+    await database.raw(sql`
+DROP TABLE IF EXISTS community_message;
+DROP FUNCTION IF EXISTS update_community_message_vectors();
+`).execute();
+
     await database.raw(sql`
 CREATE OR REPLACE FUNCTION update_doc_content_vectors()
 RETURNS TRIGGER AS $$
