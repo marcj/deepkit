@@ -40,6 +40,7 @@ import {
     validate,
     ValidationError,
     ValidationErrorItem,
+    stringifyShortResolvedType,
 } from '@deepkit/type';
 import { seekElementSize } from './continuation.js';
 import { BSONType, digitByteSize, isSerializable } from './utils.js';
@@ -1137,5 +1138,5 @@ export function bsonTypeGuardLiteral(type: TypeLiteral, state: TemplateState) {
 export function bsonTypeGuardTemplateLiteral(type: TypeTemplateLiteral, state: TemplateState) {
     state.setContext({ extendTemplateLiteral: extendTemplateLiteral });
     const typeVar = state.setVariable('type', type);
-    state.addSetterAndReportErrorIfInvalid('type', 'Invalid literal', `state.elementType === ${BSONType.STRING} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: state.parser.read(state.elementType)}, ${typeVar})`);
+    state.addSetterAndReportErrorIfInvalid('type', 'Expected ' + stringifyShortResolvedType(type), `state.elementType === ${BSONType.STRING} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: state.parser.read(state.elementType)}, ${typeVar})`);
 }

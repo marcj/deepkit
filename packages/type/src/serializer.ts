@@ -42,7 +42,7 @@ import {
     referenceAnnotation,
     ReflectionKind,
     resolveTypeMembers,
-    stringifyResolvedType,
+    stringifyShortResolvedType,
     stringifyType,
     Type,
     TypeArray,
@@ -1729,7 +1729,7 @@ function serializeLiteral(type: TypeLiteral, state: TemplateState) {
 }
 
 function typeGuardLiteral(type: TypeLiteral, state: TemplateState) {
-    state.addSetterAndReportErrorIfInvalid('type', 'Invalid literal', `${state.setVariable('v', type.literal)} === ${state.accessor}`);
+    state.addSetterAndReportErrorIfInvalid('type', 'Expected ' + stringifyShortResolvedType(type), `${state.setVariable('v', type.literal)} === ${state.accessor}`);
 }
 
 function typeGuardLiteralLoose(type: TypeLiteral, state: TemplateState) {
@@ -1770,22 +1770,118 @@ function getGroupableLiteralGuard(type: Type, typeGuard: TemplateRegistry, state
     return guards[0];
 }
 
+type UnionMember = [type: Type, guard: Function];
+
+interface UnionErrorReporter {
+    members: UnionMember[];
+    discriminator?: { name: string; members: Map<any, UnionMember>; expected: string };
+    expected: string;
+}
+
 /**
- * Called when no union member matched. Reports the errors of the closest member instead of a generic union error:
- * the member with the fewest type errors, if unique. That is a member that failed only because of validation
- * constraints (e.g. `MinLength`), or for object values an object member. Returns false if there is no such member.
+ * Short description of the valid members for error messages: names instead of full definitions,
+ * and at most 10 members, since literal unions can be very large.
  */
-function reportUnionMemberErrors(members: [type: Type, guard: Function][], value: any, state: { errors?: ValidationErrorItem[] }, path: string): boolean {
+function describeUnionMembers(types: Type[]): string {
+    const max = 10;
+    const names = types.slice(0, max).map(v => stringifyShortResolvedType(v));
+    if (types.length > max) names.push(`... (${types.length - max} more)`);
+    return names.join(' | ');
+}
+
+function getObjectProperty(type: Type, name: string | number | symbol): Type | undefined {
+    if (type.kind !== ReflectionKind.objectLiteral && type.kind !== ReflectionKind.class) return;
+    for (const member of type.types) {
+        if ((member.kind === ReflectionKind.propertySignature || member.kind === ReflectionKind.property) && member.name === name) return member.type;
+    }
+    return;
+}
+
+function getLiterals(type: Type | undefined): any[] | undefined {
+    if (!type) return;
+    if (type.kind === ReflectionKind.literal) return [type.literal];
+    if (type.kind === ReflectionKind.union && type.types.every(v => v.kind === ReflectionKind.literal)) return type.types.map(v => (v as TypeLiteral).literal);
+    return;
+}
+
+/**
+ * A property that all object members of the union have with distinct literal types, e.g. `kind` in
+ * `{kind: 'circle', radius: number} | {kind: 'square', size: number}`.
+ */
+function getUnionDiscriminator(members: UnionMember[]): UnionErrorReporter['discriminator'] {
+    const objects = members.filter(([v]) => v.kind === ReflectionKind.objectLiteral || isCustomTypeClass(v));
+    if (objects.length < 2) return;
+    const [first] = objects[0];
+    if (first.kind !== ReflectionKind.objectLiteral && first.kind !== ReflectionKind.class) return;
+
+    candidates: for (const property of first.types) {
+        if (property.kind !== ReflectionKind.propertySignature && property.kind !== ReflectionKind.property) continue;
+        if ('string' !== typeof property.name) continue;
+        const byLiteral = new Map<any, UnionMember>();
+        const literalTypes: Type[] = [];
+        for (const member of objects) {
+            const literals = getLiterals(getObjectProperty(member[0], property.name));
+            if (!literals) continue candidates;
+            for (const literal of literals) {
+                if (byLiteral.has(literal)) continue candidates;
+                byLiteral.set(literal, member);
+                literalTypes.push({ kind: ReflectionKind.literal, literal });
+            }
+        }
+        return { name: property.name, members: byLiteral, expected: 'Expected ' + describeUnionMembers(literalTypes) };
+    }
+    return;
+}
+
+function joinPath(path: string, name: string): string {
+    return path ? path + '.' + name : name;
+}
+
+/**
+ * Called when no union member matched. Reports the most helpful errors instead of a generic union error:
+ *
+ * - discriminated unions: the errors of the member selected by the discriminator (e.g. `kind`),
+ *   or an error at the discriminator if its value selects no member.
+ * - otherwise the errors of the closest member, if unique: a member that failed only because of validation
+ *   constraints (e.g. `MinLength`), or a member of the same shape (object, array) as the value with the fewest type errors.
+ *
+ * Returns false if there is no such member, then the generic union error is reported.
+ */
+function reportUnionMemberErrors(reporter: UnionErrorReporter, value: any, state: { errors?: ValidationErrorItem[] }, path: string): boolean {
     if (!state.errors) return false;
+
+    if (reporter.discriminator && isObject(value)) {
+        const discriminator = reporter.discriminator;
+        const member = discriminator.members.get((value as any)[discriminator.name]);
+        if (!member) {
+            state.errors.push(new ValidationErrorItem(joinPath(path, discriminator.name), 'type', discriminator.expected, (value as any)[discriminator.name]));
+            return true;
+        }
+        const errors: ValidationErrorItem[] = [];
+        member[1](value, { errors }, path);
+        if (!errors.length) return false;
+        state.errors.push(...errors);
+        return true;
+    }
+
     let closest: ValidationErrorItem[] | undefined;
     let closestTypeErrors = Infinity;
     let ambiguous = false;
+    const isArrayValue = Array.isArray(value);
 
-    for (const [type, guard] of members) {
+    for (const [type, guard] of reporter.members) {
         const errors: ValidationErrorItem[] = [];
         guard(value, { errors }, path);
+        if (!errors.length) continue;
         const typeErrors = errors.filter(v => v.code === 'type').length;
-        if (!errors.length || (typeErrors && !(isObject(value) && (isCustomTypeClass(type) || type.kind === ReflectionKind.objectLiteral)))) continue;
+        //a member with type errors is only close if it has the shape of the value
+        if (typeErrors) {
+            const sameShape = isArrayValue
+                ? type.kind === ReflectionKind.array || type.kind === ReflectionKind.tuple
+                : isObject(value) && (isCustomTypeClass(type) || type.kind === ReflectionKind.objectLiteral);
+            //a type error at the value itself means the shape is wrong
+            if (!sameShape || errors.some(v => v.code === 'type' && v.path === path)) continue;
+        }
         if (typeErrors === closestTypeErrors) ambiguous = true;
         if (typeErrors < closestTypeErrors) {
             closest = errors;
@@ -1929,13 +2025,18 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
         }
     }
 
-    //strict guards of non-literal members, built on first use (error path only)
+    //strict guards of non-literal members and the messages, built on first use (error path only)
     const serializerToUse = state.registry.serializer;
-    let members: [Type, Function][] | undefined;
-    const reportMemberErrors = state.setVariable('reportUnionMemberErrors', (value: any, runtimeState: any, path: string) => reportUnionMemberErrors(
-        members ||= type.types.filter(v => v.kind !== ReflectionKind.literal).map(v => [v, createTypeGuardFunction(v, { validation: 'strict' }, serializerToUse) || (() => false)]),
-        value, runtimeState, path,
-    ));
+    let reporter: UnionErrorReporter | undefined;
+    const getReporter = (): UnionErrorReporter => {
+        if (reporter) return reporter;
+        const members: UnionMember[] = type.types.filter(v => v.kind !== ReflectionKind.literal).map(v => [v, createTypeGuardFunction(v, { validation: 'strict' }, serializerToUse) || (() => false)]);
+        return reporter = { members, discriminator: getUnionDiscriminator(members), expected: 'Expected ' + describeUnionMembers(type.types) };
+    };
+    const reportMemberErrors = state.setVariable('reportUnionMemberErrors', (value: any, runtimeState: any, path: string) => {
+        if (reportUnionMemberErrors(getReporter(), value, runtimeState, path)) return;
+        runtimeState.errors.push(new ValidationErrorItem(path, 'type', getReporter().expected, value));
+    });
     const handleErrors = state.setter ? `
         if (state.errors) {
             ${state.setter} = false;
@@ -1963,9 +2064,7 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
                         ${linesPrimitivesAlternatives.join(' ')}
                         else {
                             ${handleErrors}
-                            if (!${reportMemberErrors}(${state.originalAccessor}, state, ${collapsePath(state.path)})) {
-                                ${state.assignValidationError('type', 'No valid union member found. Valid: ' + stringifyResolvedType(type))}
-                            }
+                            if (state.errors) ${reportMemberErrors}(${state.originalAccessor}, state, ${collapsePath(state.path)});
                         }
                     }
                 }
@@ -2353,7 +2452,7 @@ export class Serializer {
         this.typeGuards.register(1, ReflectionKind.templateLiteral, (type, state) => {
             state.setContext({ extendTemplateLiteral: extendTemplateLiteral });
             const typeVar = state.setVariable('type', type);
-            state.addSetterAndReportErrorIfInvalid('type', 'Invalid literal', `'string' === typeof ${state.accessor} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: ${state.accessor}}, ${typeVar})`);
+            state.addSetterAndReportErrorIfInvalid('type', 'Expected ' + stringifyShortResolvedType(type), `'string' === typeof ${state.accessor} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: ${state.accessor}}, ${typeVar})`);
         });
 
         this.typeGuards.register(1, ReflectionKind.undefined, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not undefined', `'undefined' === typeof ${state.accessor}`));

@@ -399,7 +399,8 @@ test('basic two array union', () => {
     expect(deserializeBSON<{ v: MyType }>(serialize({ v: value }))).toEqual({ v: value });
     expect(deserializeBSON<{ v: MyType }>(serialize({ v: [1, 2] }))).toEqual({ v: [1, 2] });
     expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: 123 }))).toThrow('Cannot convert bson type INT to MyType');
-    expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: ['a', {}] }))).toThrow('Cannot convert bson type ARRAY to MyType');
+    //the closest member reports the wrong element
+    expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: ['a', {}] }))).toThrow('v.1(type): Expected string | boolean');
 });
 
 test('basic loosely array union', () => {
@@ -410,7 +411,8 @@ test('basic loosely array union', () => {
     expect(deserializeBSON<{ v: MyType }>(serialize({ v: [1, 2] }))).toEqual({ v: ['1', '2'] });
 
     expect(deserializeBSON<{ v: MyType }>(serialize({ v: 123 }))).toEqual({ v: 123 });
-    expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: ['a', {}] }))).toThrow('Cannot convert bson type ARRAY to MyType');
+    //the closest member reports the wrong element
+    expect(() => deserializeBSON<{ v: MyType }>(serialize({ v: ['a', {}] }))).toThrow('v.1(type): Expected string | boolean');
 });
 
 test('basic class array union', () => {
@@ -941,7 +943,7 @@ test('union mismatch reports errors of the closest member (#676)', () => {
     const deserialize = getBSONDeserializer<BusMessage>();
 
     expect(() => deserialize(serialize({ v: { channel: '1', type: 'message', message: undefined } }))).toThrow('v.message(type): Not an object');
-    //no closest member
+    //unknown discriminator
     expect(() => deserialize(serialize({ v: { channel: '1', type: 'unknown', message: { id: '1' } } })))
-        .toThrow('v(type): Cannot convert bson type OBJECT to MessageEvent | MessageUpdateEvent. invalid BSON type');
+        .toThrow(`v.type(type): Expected 'message' | 'message-update'`);
 });

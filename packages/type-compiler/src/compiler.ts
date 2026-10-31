@@ -140,6 +140,7 @@ const {
     isPropertyAccessExpression,
     isQualifiedName,
     isSourceFile,
+    isExportAssignment,
     isStringLiteral,
     isTypeAliasDeclaration,
     isTypeLiteralNode,
@@ -2322,7 +2323,10 @@ export class ReflectionTransformer implements CustomTransformer {
 
         if (importDeclaration) {
             if (importDeclaration.importClause && importDeclaration.importClause.isTypeOnly) typeOnly = true;
-            declaration = this.resolveImportSpecifier(getEscapedText(typeName), importDeclaration, this.sourceFile);
+            //the module exports the original name: `import { A as B }` exports A, `import B from` exports default
+            const importedName = declaration && isImportSpecifier(declaration) && declaration.propertyName ? getIdentifierName(declaration.propertyName)
+                : declaration && isImportClause(declaration) ? 'default' : getEscapedText(typeName);
+            declaration = this.resolveImportSpecifier(importedName, importDeclaration, this.sourceFile);
         }
 
         if (declaration && declaration.kind === SyntaxKind.TypeParameter && declaration.parent.kind === SyntaxKind.TypeAliasDeclaration) {
@@ -2852,6 +2856,22 @@ export class ReflectionTransformer implements CustomTransformer {
         return this.f.createPropertyAccessExpression(isIdentifier(e.left) ? e.left : this.createAccessorForEntityName(e.left), e.right);
     }
 
+    /**
+     * `export default class X {}`, `export default X;` or `export = X;` (default import with esModuleInterop).
+     * `export { X as default }` is handled by followExport.
+     */
+    protected findDefaultExport(sourceFile: SourceFile | ModuleDeclaration): Declaration | undefined {
+        if (!isSourceFile(sourceFile)) return;
+        for (const statement of sourceFile.statements) {
+            if (isExportAssignment(statement)) {
+                if (isIdentifier(statement.expression)) return this.findDeclarationInFile(sourceFile, getIdentifierName(statement.expression));
+            } else if ((isClassDeclaration(statement) || isFunctionDeclaration(statement)) && hasModifier(statement, SyntaxKind.DefaultKeyword)) {
+                return statement;
+            }
+        }
+        return;
+    }
+
     protected findDeclarationInFile(sourceFile: SourceFile | ModuleDeclaration, declarationName: string): Declaration | undefined {
         if (isNodeWithLocals(sourceFile) && sourceFile.locals) {
             const declarationSymbol = sourceFile.locals.get(declarationName as __String);
@@ -2875,7 +2895,7 @@ export class ReflectionTransformer implements CustomTransformer {
             return;
         }
 
-        const declaration = this.findDeclarationInFile(source, declarationName);
+        const declaration = declarationName === 'default' ? this.findDefaultExport(source) : this.findDeclarationInFile(source, declarationName);
         sourceFile = source;
 
         /**
@@ -2913,7 +2933,8 @@ export class ReflectionTransformer implements CustomTransformer {
                             if (!statement.moduleSpecifier || !isStringLiteral(statement.moduleSpecifier)) {
                                 // it's `export {Class};` and Class is either a Declaration or ImportSpecifier
                                 if (isNodeWithLocals(sourceFile) && sourceFile.locals) {
-                                    const found = sourceFile.locals.get(declarationName as __String);
+                                    //`export { A as B }`: the local is A
+                                    const found = sourceFile.locals.get((element.propertyName ? getEscapedText(element.propertyName) : declarationName) as __String);
                                     if (found && found.declarations && found.declarations[0]) {
                                         const declaration = found.declarations[0];
                                         if (declaration && isImportSpecifier(declaration)) {

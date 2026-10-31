@@ -140,7 +140,7 @@ test('executeCommand 2', async () => {
 
     expect(await app(['show-user2', 'Peter'])).toEqual({ code: 0, output: 'showUser2 Peter default' });
     expect(await app(['show-user2', 'Peter', '--view', 'json'])).toEqual({ code: 0, output: 'showUser2 Peter json' });
-    expect((await app(['show-user2', 'Peter', '--view', 'invalid'])).output).toContain(`Invalid value for option --view: invalid. No valid union member found. Valid: 'default' | 'json'`);
+    expect((await app(['show-user2', 'Peter', '--view', 'invalid'])).output).toContain(`Invalid value for option --view: invalid. Expected 'default' | 'json'`);
 
     expect(await app(['show-users', '--user', 'Peter'])).toEqual({ code: 0, output: 'showUsers Peter' });
     expect(await app(['show-users', '--user', 'Peter', '--user', 'John'])).toEqual({ code: 0, output: 'showUsers Peter,John' });

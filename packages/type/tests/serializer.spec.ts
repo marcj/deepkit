@@ -1435,7 +1435,7 @@ test('large literal union does not create a guard per member (#478)', () => {
     expect(deserialize<Clock>('01:01:59')).toBe('01:01:59');
     expect(is<Clock>('01:01:59')).toBe(true);
     expect(is<Clock>('25:01:59')).toBe(false);
-    expect(() => cast<{ v: Clock }>({ v: '24:00:00' })).toThrow('v(type): No valid union member found');
+    expect(() => cast<{ v: Clock }>({ v: '24:00:00' })).toThrow('v(type): Expected');
 
     //loose conversion of grouped number literals
     type Numbers = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;

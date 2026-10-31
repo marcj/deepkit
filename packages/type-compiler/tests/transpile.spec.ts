@@ -745,3 +745,55 @@ test('global types of the target lib files', () => {
     expect(reflects(ts.ScriptTarget.ES2024)).toBe(true);
     expect(reflects(ts.ScriptTarget.ESNext)).toBe(true);
 });
+
+test('types of third-party declaration files', () => {
+    // .d.ts files mark classes and enums with `declare`, they keep their runtime references (#601)
+    const res = transpile({
+        'app': `
+            import { Client, Options, Options as AliasedOptions } from 'built';
+            import OpenAIDefault, { OpenAI, OpenAI as AI, Settings } from 'plain';
+            import Reexported from 'reexported';
+            import DefaultClass from 'default-class';
+            import Cjs from 'cjs';
+            export class Service {
+                constructor(
+                    public client: Client, public options: Options, public aliasedOptions: AliasedOptions,
+                    public openai: OpenAI, public ai: AI, public def: OpenAIDefault, public settings: Settings,
+                    public reexported: Reexported, public defaultClass: DefaultClass, public cjs: Cjs,
+                ) {}
+            }
+        `,
+        // a library built with runtime types
+        'node_modules/built/index.d.ts': `
+            export declare class Client {}
+            export interface Options { key: string }
+            export declare const __ΩOptions: any[];
+        `,
+        // a library without runtime types
+        'node_modules/plain/index.d.ts': `
+            export declare class OpenAI {}
+            export declare interface Settings { apiKey: string }
+            export default OpenAI;
+        `,
+        'node_modules/reexported/index.d.ts': `
+            declare class Client {}
+            export { Client as default };
+        `,
+        'node_modules/default-class/index.d.ts': `export default class Client {}`,
+        'node_modules/cjs/index.d.ts': `
+            declare class Client {}
+            export = Client;
+        `,
+    });
+    expect(res.app).toContain('() => built_1.Client');
+    expect(res.app).toContain('() => __ΩOptions');
+    expect(res.app).not.toContain('__ΩAliasedOptions');
+    expect(res.app).toContain('() => plain_1.OpenAI');
+    expect(res.app).toContain(`'Settings'`);
+    // default and aliased imports of classes are class references too
+    expect(res.app).toContain('() => plain_1.default');
+    expect(res.app).toContain('() => reexported_1.default');
+    expect(res.app).toContain('() => default_class_1.default');
+    expect(res.app).toContain('() => cjs_1.default');
+    expect(res.app.match(/\(\) => plain_1\.OpenAI/g)).toHaveLength(2);
+});
