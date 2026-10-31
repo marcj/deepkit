@@ -96,7 +96,6 @@ import {
 import { SourceFile } from './ts-types.js';
 import { MappedModifier, ReflectionOp, TypeIntrinsic, TypeNumberBrand } from '@deepkit/type-spec';
 import { readNearestPackageJson, Resolver } from './resolver.js';
-import { knownLibFilesForCompilerOptions } from './lib-files.js';
 import { debug, debug2 } from './debug.js';
 import { ConfigResolver, getConfigResolver, MatchResult, ReflectionConfig, ReflectionConfigCache, reflectionModeMatcher, ResolvedConfig } from './config.js';
 
@@ -2238,20 +2237,21 @@ export class ReflectionTransformer implements CustomTransformer {
 
         //todo also read compiler options "types" + typeRoot
 
-        //currently knownLibFilesForCompilerOptions doesn't return correct lib files for esnext,
-        //so we switch here to es2022 if bigger than es2022.
-        const options = { ...this.compilerOptions };
-        if (options.target && (options.target === ScriptTarget.ESNext)) {
-            options.target = ScriptTarget.ES2022;
-        }
-        const libs = knownLibFilesForCompilerOptions(options);
-
-        for (const lib of libs) {
-            if (this.isExcluded(lib)) continue;
+        //the lib files TypeScript itself loads: the default lib of the target (e.g. lib.es2024.full.d.ts) and the
+        //configured lib entries, plus everything they reference via /// <reference lib="..." />.
+        //References are added first, so base declarations (e.g. Promise in lib.es5) come before later additions.
+        const libFileName = (name: string) => name.toLowerCase().endsWith('.d.ts') ? name.toLowerCase() : 'lib.' + name.toLowerCase() + '.d.ts';
+        const roots = [...(this.compilerOptions.lib || []).map(libFileName), ts.getDefaultLibFileName(this.compilerOptions)];
+        const visited = new Set<string>();
+        const visit = (lib: string) => {
+            if (visited.has(lib)) return;
+            visited.add(lib);
             const sourceFile = this.resolver.resolveSourceFile(this.sourceFile, this.f.createStringLiteral('typescript/lib/' + lib.replace('.d.ts', '')));
-            if (!sourceFile) continue;
-            this.cache.globalSourceFiles.push(sourceFile);
-        }
+            if (!sourceFile) return;
+            for (const reference of sourceFile.libReferenceDirectives) visit(libFileName(reference.fileName));
+            if (!this.isExcluded(lib)) this.cache.globalSourceFiles!.push(sourceFile);
+        };
+        for (const root of roots) visit(root);
         return this.cache.globalSourceFiles;
     }
 

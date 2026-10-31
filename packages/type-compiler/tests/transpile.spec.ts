@@ -737,3 +737,11 @@ test('optional chaining with type arguments', () => {
         expect(res).toEqual([[undefined, undefined, undefined], [true, true, true], [[1, '.!'], [2, '.!'], [3, '.!'], [4, '.!'], [5, '.!']]]);
     }
 });
+
+test('global types of the target lib files', () => {
+    // PromiseWithResolvers is declared in lib.es2024.promise.d.ts, the old static lib list ended at ES2023
+    const reflects = (target: ts.ScriptTarget) => transpile({ app: `type T = PromiseWithResolvers<string>;` }, { target }).app.includes('__ΩPromiseWithResolvers');
+    expect(reflects(ts.ScriptTarget.ES2022)).toBe(false);
+    expect(reflects(ts.ScriptTarget.ES2024)).toBe(true);
+    expect(reflects(ts.ScriptTarget.ESNext)).toBe(true);
+});
