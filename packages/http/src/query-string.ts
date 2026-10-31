@@ -28,13 +28,32 @@ const has = Object.prototype.hasOwnProperty;
 const isArray = Array.isArray;
 
 function decode(str: string): string {
-    const withoutPlus = str.replace(/\+/g, ' ');
+    if (str.indexOf('+') !== -1) str = str.replace(/\+/g, ' ');
+    if (str.indexOf('%') === -1) return str;
     try {
-        return decodeURIComponent(withoutPlus);
+        return decodeURIComponent(str);
     } catch {
-        return withoutPlus;
+        return str;
     }
 }
+
+/**
+ * Query strings without brackets, the common case: `a=1&b=2&a=3` → `{a: ['1', '3'], b: '2'}`.
+ * Same result as the general parser, without its nesting and compaction steps.
+ */
+function parseFlat(str: string): Record<string, any> {
+    const obj: Record<string, any> = {};
+    for (const part of str.split('&', parameterLimit)) {
+        const pos = part.indexOf('=');
+        const key = decode(pos === -1 ? part : part.slice(0, pos));
+        if (!key || has.call(Object.prototype, key)) continue;
+        const val = pos === -1 ? '' : decode(part.slice(pos + 1));
+        obj[key] = has.call(obj, key) ? ([] as any[]).concat(obj[key], val) : val;
+    }
+    return obj;
+}
+
+const nesting = /[[\]]|%5[bd]/i;
 
 function parseValues(str: string): Record<string, any> {
     const obj: Record<string, any> = Object.create(null);
@@ -197,6 +216,7 @@ function compact(value: Record<string, any>): Record<string, any> {
  */
 export function parseQueryString(str: string): Record<string, any> {
     if (!str) return {};
+    if (!nesting.test(str)) return parseFlat(str);
 
     const values = parseValues(str);
     let obj: Record<string, any> = {};

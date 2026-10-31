@@ -1456,3 +1456,30 @@ test('large literal union keeps user hooks (#478)', () => {
     expect(serialize<Numbers>(3, undefined, new HookSerializer())).toBe('hooked');
     expect(serialize<Numbers>(3)).toBe(3);
 });
+
+test('discriminated unions check only the member of the discriminator', () => {
+    interface Text { type: 'text'; content: string }
+    interface Image { type: 'image'; url: string; width: number }
+    type Message = Text | Image | null;
+
+    expect(is<Message>({ type: 'text', content: 'hi' })).toBe(true);
+    expect(is<Message>({ type: 'image', url: 'x', width: 1 })).toBe(true);
+    expect(is<Message>(null)).toBe(true);
+    //the discriminator selects a member whose other properties don't match
+    expect(is<Message>({ type: 'text', url: 'x', width: 1 })).toBe(false);
+    expect(is<Message>({ type: 'video', content: 'hi' })).toBe(false);
+    expect(is<Message>({ content: 'hi' })).toBe(false);
+    expect(deserialize<Message>({ type: 'image', url: 'x', width: '2' })).toEqual({ type: 'image', url: 'x', width: 2 });
+
+    //an optional discriminator is no discriminator: the member also matches without it
+    type Optional = { type?: 'a'; a: string } | { type: 'b'; b: string };
+    expect(is<Optional>({ a: 'x' })).toBe(true);
+
+    //number literals are converted from strings in loose deserialization
+    type Numbered = { kind: 1; a: string } | { kind: 2; b: string };
+    expect(deserialize<Numbered>({ kind: '2', b: 'x' })).toEqual({ kind: 2, b: 'x' });
+
+    //the discriminator is read with the naming strategy
+    type Named = { messageType: 'a'; firstValue: string } | { messageType: 'b'; secondValue: string };
+    expect(deserialize<Named>({ message_type: 'b', second_value: 'x' }, undefined, undefined, underscoreNamingStrategy)).toEqual({ messageType: 'b', secondValue: 'x' });
+});

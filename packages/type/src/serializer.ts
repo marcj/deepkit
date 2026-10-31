@@ -234,6 +234,7 @@ export function createTypeGuardFunction(type: Type, stateIn?: Partial<TemplateSt
     let state: TemplateState;
     if (stateIn instanceof TemplateState) {
         state = stateIn.fork('result');
+        state.scoreObject = stateIn.scoreObject;
         state.compilerContext = compiler;
         root = false;
     } else {
@@ -365,6 +366,12 @@ export class TemplateState {
     public validation?: 'strict' | 'loose';
 
     /**
+     * Object type guards return the number of matching properties instead of true, to pick the closest union member.
+     * Only set for the guards of union members (not inherited by forks), since the counting slows down validation.
+     */
+    public scoreObject?: boolean;
+
+    /**
      * When this is set all specificalities are used (used in union type guards to detect which member to pick).
      */
     public allSpecificalities?: TypeGuardRegistry;
@@ -393,6 +400,11 @@ export class TemplateState {
 
     isValidation(): boolean {
         return !!this.validation;
+    }
+
+    withScoreObject(): this {
+        this.scoreObject = true;
+        return this;
     }
 
     withValidation(validation: this['validation']): this {
@@ -733,12 +745,25 @@ export class TemplateRegistry {
     }
 }
 
+const scoreObjectStackKeys = new WeakMap<TemplateRegistry, TemplateRegistry>();
+
+/**
+ * Extracted functions of union members that return scores (see TemplateState.scoreObject) are cached separately
+ * from the regular ones, which return booleans.
+ */
+function getJitStackKey(state: TemplateState): TemplateRegistry {
+    if (!state.scoreObject) return state.registry;
+    let key = scoreObjectStackKeys.get(state.registry);
+    if (!key) scoreObjectStackKeys.set(state.registry, key = Object.create(state.registry) as TemplateRegistry);
+    return key;
+}
+
 /**
  * To avoid circular builds, class/object literal code is extract to its own function.
  * if this returns true, code is put into state to call an already existing function.
  */
 export function callExtractedFunctionIfAvailable(state: TemplateState, type: Type): boolean {
-    const jit = state.jitStack.get(state.registry, type);
+    const jit = state.jitStack.get(getJitStackKey(state), type);
     if (!jit) return false;
     const withSetter = !state.setterDisabled && state.setter;
     state.addCode(`
@@ -750,9 +775,11 @@ export function callExtractedFunctionIfAvailable(state: TemplateState, type: Typ
 }
 
 export function extractStateToFunctionAndCallIt(state: TemplateState, type: Type) {
-    const prepare = state.jitStack.prepare(state.registry, type);
+    const prepare = state.jitStack.prepare(getJitStackKey(state), type);
     callExtractedFunctionIfAvailable(state, type);
-    return { setFunction: prepare.prepare, id: prepare.id, state: state.fork('result', 'data', [new RuntimeCode('_path')]).forPropertyName(state.propertyName) };
+    const functionState = state.fork('result', 'data', [new RuntimeCode('_path')]).forPropertyName(state.propertyName);
+    functionState.scoreObject = state.scoreObject;
+    return { setFunction: prepare.prepare, id: prepare.id, state: functionState };
 }
 
 export function buildFunction(state: TemplateState, type: Type): Function {
@@ -1358,6 +1385,7 @@ export function typeGuardObjectLiteral(type: TypeObjectLiteral | TypeClass, stat
     const lines: string[] = [];
     const signatures: TypeIndexSignature[] = [];
     const existing: string[] = [];
+    const countMatch = state.scoreObject ? 'matching++;' : '';
 
     //to resolve inheritance in TypeClass, use ReflectionClass
     const reflection = ReflectionClass.from(type);
@@ -1420,7 +1448,7 @@ export function typeGuardObjectLiteral(type: TypeObjectLiteral | TypeClass, stat
                     let ${checkValid} = false;
                     ${checkTemplate || `// no template found for member ${String(member.name)}.type.kind=${forType.kind}`}
                     if (${checkValid}) {
-                        matching++;
+                        ${countMatch}
                     } else {
                         ${state.setter} = false;
                     }
@@ -1443,7 +1471,7 @@ export function typeGuardObjectLiteral(type: TypeObjectLiteral | TypeClass, stat
                 let ${checkValid} = false;
                 ${checkTemplate || `// no template found for signature.type.kind=${signature.type.kind}`}
                 if (${checkValid}) {
-                    matching++;
+                    ${countMatch}
                 } else {
                     ${state.setter} = false;
                 }
@@ -1487,7 +1515,7 @@ export function typeGuardObjectLiteral(type: TypeObjectLiteral | TypeClass, stat
 
     state.addCodeForSetter(`
     {
-        let matching = 0;
+        ${state.scoreObject ? 'let matching = 0;' : ''}
         ${state.setter} = true;
         if (${state.accessor} && isObjectLiteral(${state.accessor})) {
             ${lines.join('\n')}
@@ -1496,9 +1524,7 @@ export function typeGuardObjectLiteral(type: TypeObjectLiteral | TypeClass, stat
             if (${state.isValidation()}) ${state.assignValidationError('type', 'Not an object')}
             ${state.setter} = false;
         }
-        if (${state.setter}) {
-            ${state.setter} = matching || 1;
-        }
+        ${state.scoreObject ? `if (${state.setter}) ${state.setter} = matching || 1;` : ''}
     }
     `);
 }
@@ -1834,6 +1860,33 @@ function getLiterals(type: Type | undefined): any[] | undefined {
 }
 
 /**
+ * A required property that all object members of a union have with a distinct string literal type, e.g. `type` in
+ * `{type: 'text', content: string} | {type: 'image', url: string}`. Only string literals: loose deserialization accepts
+ * e.g. '1' for the literal 1, so other literals can't be compared directly.
+ */
+function getStringDiscriminator(types: Type[]): { property: TypeProperty | TypePropertySignature; literals: Map<Type, string> } | undefined {
+    const objects = types.filter(v => v.kind === ReflectionKind.objectLiteral || isCustomTypeClass(v)) as (TypeObjectLiteral | TypeClass)[];
+    if (objects.length < 2) return;
+
+    candidates: for (const property of objects[0].types) {
+        if (property.kind !== ReflectionKind.propertySignature && property.kind !== ReflectionKind.property) continue;
+        if ('string' !== typeof property.name) continue;
+        const literals = new Map<Type, string>();
+        const seen = new Set<string>();
+        for (const member of objects) {
+            const memberProperty = member.types.find(v => (v.kind === ReflectionKind.propertySignature || v.kind === ReflectionKind.property) && v.name === property.name) as TypeProperty | TypePropertySignature | undefined;
+            if (!memberProperty || memberProperty.optional || memberProperty.type.kind !== ReflectionKind.literal) continue candidates;
+            const literal = memberProperty.type.literal;
+            if ('string' !== typeof literal || seen.has(literal)) continue candidates;
+            seen.add(literal);
+            literals.set(member, literal);
+        }
+        return { property, literals };
+    }
+    return;
+}
+
+/**
  * A property that all object members of the union have with distinct literal types, e.g. `kind` in
  * `{kind: 'circle', radius: number} | {kind: 'square', size: number}`.
  */
@@ -1978,6 +2031,12 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
     //large unions of literals (e.g. expanded template literal types) would otherwise create one guard function per member (#478)
     const groupLiterals = type.types.filter(v => v.kind === ReflectionKind.literal).length >= 10;
 
+    //in discriminated unions, e.g. `{type: 'text', ...} | {type: 'image', ...}`, a member is only checked when the value has its
+    //discriminator, instead of scoring every object member
+    const discriminator = getStringDiscriminator(type.types);
+    const discriminatorKey = discriminator && JSON.stringify(state.isDeserialization ? state.namingStrategy.getPropertyName(discriminator.property, state.registry.serializer.name) : discriminator.property.name);
+    const value = state.accessor.toString();
+
     for (const [specificality, typeGuard] of sortedTypeGuards) {
         //loosely type guards are only used for deserialization
         if (state.target === 'serialize' && specificality < 1) continue;
@@ -2006,16 +2065,15 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
             //no guard for this type in this specificality
             if (!typeGuard.get(t).length) continue;
 
-            const fn = createTypeGuardFunction(
-                t,
-                state.fork(undefined, accessor)
-                    .forRegistry(typeGuard)
-                    //if validation is not set, we are in deserialize mode, so we need to activate validation
-                    //for this state.
-                    .withValidation(validation)
-                    .includeAllSpecificalities(typeGuards),
-                undefined, false,
-            );
+            const memberState = state.fork(undefined, accessor)
+                .forRegistry(typeGuard)
+                //if validation is not set, we are in deserialize mode, so we need to activate validation
+                //for this state.
+                .withValidation(validation)
+                .includeAllSpecificalities(typeGuards);
+            //members of a discriminated union can't compete, so only the others need a score
+            if (!discriminator?.literals.has(t)) memberState.withScoreObject();
+            const fn = createTypeGuardFunction(t, memberState, undefined, false);
             if (!fn) continue;
             const guard = state.setVariable('guard_' + ReflectionKind[t.kind], fn);
             const isAlternativeCheck = specificality > 1;
@@ -2026,9 +2084,11 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
             if (isCustomTypeClass(t) || t.kind === ReflectionKind.objectLiteral) {
                 const maxScore = t.types.length;
                 actions.push(action);
+                const literal = discriminator?.literals.get(t);
+                const discriminatorCheck = literal !== undefined ? `${value} && ${value}[${discriminatorKey}] === ${JSON.stringify(literal)} && ` : '';
                 linesObjects.push(`
                 //${debug}
-                if (${looseCheck} ${maxScore} > matching) {
+                if (${looseCheck} ${discriminatorCheck} ${maxScore} > matching) {
                     const score = ${guard}(${args});
                     if (score > matching) {
                         matching = score;

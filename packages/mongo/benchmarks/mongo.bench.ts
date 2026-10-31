@@ -1,9 +1,16 @@
 // MongoDB ORM operations against a real database (docker compose up -d mongo, or MONGO_URL),
 // and the query conversion without a database.
+import { createRequire } from 'module';
+
 import { BenchSuite } from '@deepkit/bench';
-import { Database } from '@deepkit/orm';
-import { entity, Index, MongoId, PrimaryKey } from '@deepkit/type';
-import { convertClassQueryToMongo, MongoDatabaseAdapter } from '@deepkit/mongo';
+// runtime type information of the annotations, the classes come from the CommonJS build below
+import { Index, MongoId, PrimaryKey } from '@deepkit/type';
+
+// The ESM build of @deepkit/mongo 1.0.19 can't be loaded, so the CommonJS builds are used for all versions.
+const require = createRequire(import.meta.url);
+const { Database } = require('@deepkit/orm') as typeof import('@deepkit/orm');
+const { entity } = require('@deepkit/type') as typeof import('@deepkit/type');
+const { convertClassQueryToMongo, MongoDatabaseAdapter } = require('@deepkit/mongo') as typeof import('@deepkit/mongo');
 
 @entity.name('bench_user')
 class User {
