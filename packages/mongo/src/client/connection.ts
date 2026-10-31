@@ -356,7 +356,12 @@ export class MongoConnectionPool {
             this.stats.heartbeatsFailed++;
             this.scopedLogger.error(`Mongo heartbeat error: ${formatError(error)}`);
         }).finally(() => {
-            this.heartbeatTimer = setTimeout(() => this.heartbeat(), this.config.options.heartbeatFrequencyMS);
+            if (this.closed) return;
+            // exactly one scheduled heartbeat, and it always runs: unforced, a timer that fires a millisecond
+            // early (setTimeout vs. Date.now()) would return without scheduling the next one, and the
+            // topology would never be explored again.
+            clearTimeout(this.heartbeatTimer);
+            this.heartbeatTimer = setTimeout(() => this.heartbeat(true), this.config.options.heartbeatFrequencyMS);
         });
     }
 
