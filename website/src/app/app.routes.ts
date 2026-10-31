@@ -7,6 +7,7 @@ import { NotFoundComponent } from '@app/app/pages/not-found.component';
 import { Injectable } from '@angular/core';
 import { BlogComponent, BlogListComponent, BlogPostDetailComponent } from '@app/app/pages/blog.component';
 import { BookComponent } from '@app/app/pages/documentation/book.component.js';
+import { BenchmarksComponent } from '@app/app/pages/benchmarks.component.js';
 
 @Injectable({ providedIn: 'root' })
 export class NotFoundGuard implements CanActivate {
@@ -16,10 +17,7 @@ export class NotFoundGuard implements CanActivate {
 }
 
 export const routes: Routes = [
-    // {
-    //     path: 'benchmarks',
-    //     loadChildren: () => import('./benchmarks/benchmarks.module').then(m => m.BenchmarksModule),
-    // },
+    { path: 'benchmarks', component: BenchmarksComponent },
 
     { path: '', pathMatch: 'full', component: StartpageComponent },
     { path: 'zh', pathMatch: 'full', component: StartpageComponent },

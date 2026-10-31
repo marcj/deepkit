@@ -11,6 +11,7 @@ export const texts = {
     viewOnGitHub: 'View on GitHub',
     docs: 'Docs',
     blog: 'Blog',
+    benchmarks: 'Benchmarks',
     chapters: 'Chapters',
 } as const;
 

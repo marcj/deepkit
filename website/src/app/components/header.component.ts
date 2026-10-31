@@ -93,6 +93,7 @@ export class HeaderLogoComponent {
                 texts.docs | translate
             }}</a>
             <a routerLinkActive="active" routerLink="/{{ translation.lang() }}/blog">{{ texts.blog | translate }}</a>
+            <a routerLinkActive="active" routerLink="/benchmarks">{{ texts.benchmarks | translate }}</a>
         </div>
     `,
     imports: [

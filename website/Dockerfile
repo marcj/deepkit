@@ -26,10 +26,12 @@ RUN rm -rf /app/packages/orm-browser-gui
 RUN rm -rf /app/packages/framework-debug-gui
 RUN rm -rf /app/packages/api-console-gui
 ADD website/package.json /app/website/package.json
+ADD benchmarks/package.json /app/benchmarks/package.json
 
 RUN node sync-tsconfig-deps.js
 RUN --mount=type=cache,target=/root/.yarn YARN_CACHE_FOLDER=/root/.yarn yarn install --inline-builds
 
+ADD benchmarks/results /app/benchmarks/results
 ADD website /app/website
 RUN npm run build
 
@@ -45,6 +47,7 @@ ADD package.json /app/package.json
 ADD .yarnrc.yml yarn.lock /app/
 ADD .yarn /app/.yarn
 ADD packages/ui-library/package.json /app/packages/ui-library/package.json
+ADD benchmarks/package.json /app/benchmarks/package.json
 ADD website/package.json /app/website/package.json
 RUN cd /app && yarn workspaces focus website --production
 

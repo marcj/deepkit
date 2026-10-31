@@ -3,3 +3,4 @@
 /dist
 api-docs.json
 /.desktop-ui-assets
+/src/app/benchmarks/benchmark-data.json
