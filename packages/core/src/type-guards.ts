@@ -120,10 +120,7 @@ export function isObject(obj: any): obj is { [key: string]: any } {
  * between them and all other object literals.
  */
 export function isObjectLiteral(obj: any): obj is { [key: string]: any } {
-    if ('object' !== typeof obj || obj === null) return false;
-    // fast path for plain objects, the instanceof checks below are expensive
-    if (obj.constructor === Object) return true;
-    return !isArray(obj) && !(obj instanceof Date) && !(obj instanceof Map) && !(obj instanceof Set);
+    return isObject(obj) && !(obj instanceof Date) && !(obj instanceof Map) && !(obj instanceof Set);
 }
 
 export const isArray: (obj: any) => obj is any[] = Array.isArray;

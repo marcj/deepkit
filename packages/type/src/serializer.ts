@@ -1539,7 +1539,7 @@ export function typeGuardObjectLiteral(type: TypeObjectLiteral | TypeClass, stat
     {
         ${state.scoreObject ? 'let matching = 0;' : ''}
         ${state.setter} = true;
-        if (${state.accessor} && isObjectLiteral(${state.accessor})) {
+        if (${state.accessor} && (${state.accessor}.constructor === Object || isObjectLiteral(${state.accessor}))) {
             ${lines.join('\n')}
             ${customValidatorCall}
         } else {
