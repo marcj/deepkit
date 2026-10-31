@@ -258,7 +258,7 @@ const performanceCharts = [
                 <h1>{{ texts.heroTitle | translate }}</h1>
                 <h3 class="text">{{ texts.heroText | translate }}</h3>
                 <div class="code-box">npm init &#64;deepkit/app&#64;latest my-app</div>
-                <p class="llm-hint">{{ texts.llmHint | translate }} <a href="/llms.txt">llms.txt</a></p>
+                <p class="llm-hint">{{ texts.llmHint | translate }} <a href="/llms.txt">llms.txt</a> (<a href="/llms-full.txt">llms-full.txt</a>)</p>
             </div>
 
             <main>

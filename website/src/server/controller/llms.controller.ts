@@ -21,6 +21,8 @@ const intro = `# Deepkit
 
 > Deepkit is a TypeScript framework with runtime types: its type compiler makes TypeScript types available at runtime, so one type is used for validation, serialization, the database (ORM), HTTP, RPC and dependency injection, without schemas, decorators for dependency injection or code generation.
 
+The complete documentation in one file: [llms-full.txt](${siteUrl}/llms-full.txt)
+
 Important for writing Deepkit code:
 
 - Runtime types need the type compiler in the build: \`"reflection": true\` in tsconfig.json, and \`npx deepkit-type-install\` to install it into TypeScript (or the Vite and Bun plugins). Without it, types are not available at runtime.
@@ -29,7 +31,7 @@ Important for writing Deepkit code:
 - HTTP routes and CLI commands take their parameters from the function signature: \`HttpBody<T>\`, \`HttpQuery<T>\`, \`Flag\`.
 - A new project: \`npm init @deepkit/app@latest my-app\`.
 
-Every documentation page is available as markdown by adding \`.md\` to its URL, package pages include their API reference. All guides in one file: ${siteUrl}/llms-full.txt
+Every documentation page is available as markdown by adding \`.md\` to its URL, package pages include their API reference.
 `;
 
 /** documentation pages that are markdown files (Desktop UI pages are Angular components) */
