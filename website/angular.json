@@ -55,7 +55,9 @@
               "entry": "src/server/app.angular.ts"
             },
             "externalDependencies": [
-              "argon2"
+              "argon2",
+              "@resvg/resvg-js",
+              "satori"
             ],
             "browser": "src/main.ts",
             "security": {

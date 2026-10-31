@@ -363,7 +363,8 @@ const performanceCharts = [
             /* the banner fades into the page background */
             background-image: linear-gradient(to bottom, rgba(9, 10, 11, 0) 480px, #090a0b 650px), url(/assets/images/startpage-banner.jpg);
             background-size: 100% 650px, auto 650px;
-            background-position: top center;
+            /* below the header, so its bright top does not shine through the header */
+            background-position: center 80px;
             background-repeat: no-repeat;
         }
         .wrapper,
@@ -380,7 +381,7 @@ const performanceCharts = [
         }
         .hero {
             text-align: center;
-            padding-top: 500px;
+            padding-top: 560px;
             max-width: 750px;
         }
         .code-box {
@@ -506,7 +507,7 @@ const performanceCharts = [
                 background-size: 100% 450px, auto 450px;
             }
             .hero {
-                padding-top: 330px;
+                padding-top: 390px;
             }
         }
         @media (max-width: 900px) {

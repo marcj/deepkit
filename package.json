@@ -113,5 +113,10 @@
   "resolutions": {
     "@typia/utils": "15.2.0",
     "@typia/interface": "15.2.0"
+  },
+  "dependenciesMeta": {
+    "prisma": {
+      "built": false
+    }
   }
 }

@@ -1,13 +1,15 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 
-import { BlogEntity } from '@app/common/models';
-import { docs } from '@app/common/docs';
-import { translationsDir } from '@app/server/translations';
-import { http, Response } from '@deepkit/http';
+import { BlogEntity, bodyToString, parseBody } from '@app/common/models';
+import { docs, texts } from '@app/common/docs';
+import { siteUrl } from '@app/common/seo';
+import { OgImageContent, renderOgImage } from '@app/server/og-image';
+import { PageProcessor } from '@app/server/page-processor';
+import { readTranslationsFile, translationsDir } from '@app/server/translations';
+import { http, HttpRegExp, Response } from '@deepkit/http';
 import { Database } from '@deepkit/orm';
 
-export const siteUrl = 'https://deepkit.io';
 export const languages = ['en', 'zh', 'ko', 'ja', 'de'];
 
 /** The package pages of the old website (/library/<id>) and their documentation. */
@@ -58,8 +60,106 @@ function isTranslated(lang: string, page: string): boolean {
     return existsSync(join(translationsDir, lang, 'documentation', (page || 'index') + '.md'));
 }
 
+const staticPages = ['about-us', 'contact', 'terms', 'data-protection'];
+
+/** text of the first paragraph of a blog post (tiptap JSON) */
+function firstParagraph(content: any[]): string {
+    for (const node of content) {
+        if (node.type !== 'paragraph' || !node.content) continue;
+        const text = node.content.map((v: any) => v.text || '').join('').trim();
+        if (text) return text;
+    }
+    return '';
+}
+
+/** rendered images by page path (~360 KB each), rendering takes ~250 ms */
+const ogImages = new Map<string, Promise<Uint8Array>>();
+
 export class SeoController {
-    constructor(protected database: Database) {}
+    constructor(
+        protected database: Database,
+        protected pages: PageProcessor,
+    ) {}
+
+    /** Section, title and description of the page at the given path, undefined if there is no such page. */
+    protected async ogContent(path: string): Promise<OgImageContent | undefined> {
+        const url = 'deepkit.io' + (path === '/' ? '' : path);
+        let match: RegExpMatchArray | null;
+
+        // start pages
+        if (path === '/' || languages.some(v => path === '/' + v)) {
+            const t = this.translator(path === '/' ? 'en' : path.substring(1));
+            const lang = path === '/' ? 'en' : path.substring(1);
+            return { section: '', title: t(texts.heroTitle), description: t(texts.heroText), url, lang };
+        }
+
+        if ((match = path.match(/^\/([a-z]{2})\/documentation(?:\/(.+))?$/)) && languages.includes(match[1])) {
+            const lang = match[1], pagePath = match[2] || '';
+            const t = this.translator(lang);
+            const category = docs.find(c => c.pages.some(p => p.path === pagePath));
+            if (!category) return;
+            const page = await this.pages.parse('documentation/' + (pagePath || 'index'), lang).catch(() => undefined);
+            if (!page) return;
+            const section = t(texts.docs) + (category.category ? ' · ' + t(category.category) : '');
+            return { section, title: page.title || t(texts.docs), description: bodyToString(parseBody(page.body).subline), url, lang: page.lang };
+        }
+
+        if ((match = path.match(/^\/([a-z]{2})\/blog(?:\/([a-z0-9-]+))?$/)) && languages.includes(match[1])) {
+            if (!match[2]) {
+                return { section: 'Blog', title: 'Deepkit Blog', description: 'Releases, background and articles about Deepkit and runtime types in TypeScript.', url };
+            }
+            const post = await this.database.query(BlogEntity).filter({ published: true, slug: match[2] }).findOneOrUndefined();
+            if (!post) return;
+            const date = post.publishedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            return { section: 'Blog · ' + date, title: post.title, description: firstParagraph(post.content), url };
+        }
+
+        if (path === '/benchmarks') {
+            return {
+                section: 'Benchmarks',
+                title: 'Deepkit performance, release by release',
+                description: 'Validation, serialization, database, HTTP and dependency injection, compared with other libraries and across releases on the same machine.',
+                url,
+            };
+        }
+
+        if (staticPages.includes(path.substring(1))) {
+            const page = await this.pages.parse('static/' + path.substring(1), 'en').catch(() => undefined);
+            if (!page) return;
+            return { section: '', title: page.title || '', description: bodyToString(parseBody(page.body).subline), url };
+        }
+        return;
+    }
+
+    protected translator(lang: string): (text: string) => string {
+        const translations = lang === 'en' ? {} : readTranslationsFile(lang, 'basics');
+        return text => translations[text] || text;
+    }
+
+    /** Social preview image (og:image) of a page, e.g. /og/en/documentation/orm.png for /en/documentation/orm. */
+    @http.GET('/og/:path')
+    async ogImage(path: HttpRegExp<string, '[a-z0-9_/-]+\\.png'>) {
+        let pagePath = '/' + path.substring(0, path.length - '.png'.length);
+        if (pagePath === '/index') pagePath = '/';
+
+        let image = ogImages.get(pagePath);
+        if (!image) {
+            // unknown pages get the image of the start page, without filling the cache with arbitrary paths
+            let content = await this.ogContent(pagePath);
+            if (!content) {
+                pagePath = '/';
+                image = ogImages.get(pagePath);
+                content = await this.ogContent(pagePath);
+            }
+            if (!image) {
+                image = renderOgImage(content!);
+                if (ogImages.size >= 300) ogImages.delete(ogImages.keys().next().value!);
+                ogImages.set(pagePath, image);
+                image.catch(() => ogImages.delete(pagePath));
+            }
+        }
+        return new Response(await image, 'image/png').header('cache-control', 'public, max-age=86400');
+    }
 
     @http.GET('/robots.txt')
     robots() {

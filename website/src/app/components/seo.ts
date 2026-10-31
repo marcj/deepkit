@@ -3,8 +3,8 @@ import { inject, Injectable, signal } from '@angular/core';
 import { Meta } from '@angular/platform-browser';
 import { NavigationEnd, Router } from '@angular/router';
 import { Translation } from '@app/app/components/translation.js';
+import { ogImagePath, siteUrl } from '@app/common/seo.js';
 
-export const siteUrl = 'https://deepkit.io';
 
 /**
  * Sets the tags search engines need to tell the languages of a page apart: `<html lang>`, the canonical URL and the
@@ -77,6 +77,14 @@ export class Seo {
 
         this.setLink('canonical', siteUrl + canonical);
         this.meta.updateTag({ property: 'og:url', content: siteUrl + canonical });
+
+        // generated from the content of the page, see SeoController.ogImage
+        const image = siteUrl + ogImagePath(canonical);
+        this.meta.updateTag({ property: 'og:image', content: image });
+        this.meta.updateTag({ property: 'og:image:width', content: '1200' });
+        this.meta.updateTag({ property: 'og:image:height', content: '630' });
+        this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
+        this.meta.updateTag({ name: 'twitter:image', content: image });
 
         for (const link of Array.from(this.document.head.querySelectorAll('link[rel="alternate"][hreflang]'))) link.remove();
         if (alternates && Object.keys(alternates).length > 1) {
