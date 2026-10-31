@@ -1,0 +1,27 @@
+// Prisma schema of the PostgreSQL benchmark. The client is generated with `npm run bench:prisma`.
+generator client {
+  provider = "prisma-client"
+  output   = "../prisma-generated/postgres"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  name     String
+  ready    Boolean
+  priority Int
+
+  @@map("bench_user")
+}
+
+model Inserted {
+  id       Int     @id @default(autoincrement())
+  name     String
+  ready    Boolean
+  priority Int
+
+  @@map("bench_insert")
+}

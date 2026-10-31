@@ -1,0 +1,27 @@
+// Prisma schema of the SQLite benchmark. The client is generated with `npm run bench:prisma`.
+generator client {
+  provider = "prisma-client"
+  output   = "../prisma-generated/sqlite"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  name     String
+  ready    Boolean
+  priority Int
+
+  @@map("bench_user")
+}
+
+model Inserted {
+  id       Int     @id @default(autoincrement())
+  name     String
+  ready    Boolean
+  priority Int
+
+  @@map("bench_insert")
+}

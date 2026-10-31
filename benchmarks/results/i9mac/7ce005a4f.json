@@ -2166,6 +2166,424 @@
           "iterations": 12670
         }
       }
+    },
+    "benchmarks/comparison/orm/mongo/deepkit.bench.ts": {
+      "comparison/orm-mongo": {
+        "Deepkit: findOne by id": {
+          "hz": 3342.71,
+          "rme": 29.15,
+          "mean": 0.2991585031408894,
+          "iterations": 3343
+        },
+        "Deepkit: find 10,000 rows": {
+          "hz": 32.55,
+          "rme": 20.79,
+          "mean": 30.718179303030258,
+          "iterations": 33
+        },
+        "Deepkit: insert 1,000 rows": {
+          "hz": 45.57,
+          "rme": 18.66,
+          "mean": 21.944289152173972,
+          "iterations": 46
+        }
+      }
+    },
+    "benchmarks/comparison/orm/mongo/mikro-orm.bench.ts": {
+      "comparison/orm-mongo": {
+        "MikroORM: findOne by id": {
+          "hz": 1568.55,
+          "rme": 17.46,
+          "mean": 0.637529852135117,
+          "iterations": 1569
+        },
+        "MikroORM: find 10,000 rows": {
+          "hz": 7.16,
+          "rme": 15.02,
+          "mean": 139.70792762500002,
+          "iterations": 8
+        },
+        "MikroORM: insert 1,000 rows": {
+          "hz": 32.57,
+          "rme": 11.95,
+          "mean": 30.703090181818247,
+          "iterations": 33
+        }
+      }
+    },
+    "benchmarks/comparison/orm/mongo/mongodb.bench.ts": {
+      "comparison/orm-mongo": {
+        "mongodb: findOne by id": {
+          "hz": 2337.7,
+          "rme": 16.86,
+          "mean": 0.4277710376390068,
+          "iterations": 2338
+        },
+        "mongodb: find 10,000 rows": {
+          "hz": 39.29,
+          "rme": 7.77,
+          "mean": 25.449448375000042,
+          "iterations": 40
+        },
+        "mongodb: insert 1,000 rows": {
+          "hz": 71.3,
+          "rme": 12.02,
+          "mean": 14.024547763888867,
+          "iterations": 72
+        }
+      }
+    },
+    "benchmarks/comparison/orm/mongo/mongoose.bench.ts": {
+      "comparison/orm-mongo": {
+        "Mongoose: findOne by id": {
+          "hz": 2030.71,
+          "rme": 19.22,
+          "mean": 0.4924382609551985,
+          "iterations": 2031
+        },
+        "Mongoose: find 10,000 rows": {
+          "hz": 12.68,
+          "rme": 18.7,
+          "mean": 78.87971138461545,
+          "iterations": 13
+        },
+        "Mongoose: insert 1,000 rows": {
+          "hz": 30.35,
+          "rme": 15.02,
+          "mean": 32.95319422580648,
+          "iterations": 31
+        }
+      }
+    },
+    "benchmarks/comparison/orm/postgres/deepkit.bench.ts": {
+      "comparison/orm-postgres": {
+        "Deepkit: findOne by id": {
+          "hz": 2654.44,
+          "rme": 21.32,
+          "mean": 0.3767277898305061,
+          "iterations": 2655
+        },
+        "Deepkit: find 10,000 rows": {
+          "hz": 58.82,
+          "rme": 24.34,
+          "mean": 17.000005254237255,
+          "iterations": 59
+        },
+        "Deepkit: insert 1,000 rows": {
+          "hz": 16.08,
+          "rme": 2.51,
+          "mean": 62.17103229411773,
+          "iterations": 17
+        }
+      }
+    },
+    "benchmarks/comparison/orm/postgres/drizzle.bench.ts": {
+      "comparison/orm-postgres": {
+        "Drizzle: findOne by id": {
+          "hz": 2322.82,
+          "rme": 13.94,
+          "mean": 0.4305110068876435,
+          "iterations": 2323
+        },
+        "Drizzle: find 10,000 rows": {
+          "hz": 55.19,
+          "rme": 10.6,
+          "mean": 18.119522267857104,
+          "iterations": 56
+        },
+        "Drizzle: insert 1,000 rows": {
+          "hz": 11.74,
+          "rme": 5.54,
+          "mean": 85.1649372500001,
+          "iterations": 12
+        }
+      }
+    },
+    "benchmarks/comparison/orm/postgres/mikro-orm.bench.ts": {
+      "comparison/orm-postgres": {
+        "MikroORM: findOne by id": {
+          "hz": 1659.29,
+          "rme": 20.37,
+          "mean": 0.6026683090361445,
+          "iterations": 1660
+        },
+        "MikroORM: find 10,000 rows": {
+          "hz": 7.46,
+          "rme": 18.27,
+          "mean": 134.00646362500015,
+          "iterations": 8
+        },
+        "MikroORM: insert 1,000 rows": {
+          "hz": 13.27,
+          "rme": 7.59,
+          "mean": 75.38331792857129,
+          "iterations": 14
+        }
+      }
+    },
+    "benchmarks/comparison/orm/postgres/pg.bench.ts": {
+      "comparison/orm-postgres": {
+        "pg: findOne by id": {
+          "hz": 8849.33,
+          "rme": 15,
+          "mean": 0.11300285898305122,
+          "iterations": 8850
+        },
+        "pg: find 10,000 rows": {
+          "hz": 81.84,
+          "rme": 5.78,
+          "mean": 12.21883645121951,
+          "iterations": 82
+        },
+        "pg: insert 1,000 rows": {
+          "hz": 20.93,
+          "rme": 7.13,
+          "mean": 47.78263052380953,
+          "iterations": 21
+        }
+      }
+    },
+    "benchmarks/comparison/orm/postgres/postgres-js.bench.ts": {
+      "comparison/orm-postgres": {
+        "postgres.js: findOne by id": {
+          "hz": 8978.31,
+          "rme": 15.01,
+          "mean": 0.11137949710467694,
+          "iterations": 8980
+        },
+        "postgres.js: find 10,000 rows": {
+          "hz": 72.14,
+          "rme": 24.14,
+          "mean": 13.862302424657528,
+          "iterations": 73
+        },
+        "postgres.js: insert 1,000 rows": {
+          "hz": 19.47,
+          "rme": 9.64,
+          "mean": 51.366994349999956,
+          "iterations": 20
+        }
+      }
+    },
+    "benchmarks/comparison/orm/postgres/prisma.bench.ts": {
+      "comparison/orm-postgres": {
+        "Prisma: findOne by id": {
+          "hz": 1877.04,
+          "rme": 15.55,
+          "mean": 0.5327533013844543,
+          "iterations": 1878
+        },
+        "Prisma: find 10,000 rows": {
+          "hz": 42.93,
+          "rme": 10.31,
+          "mean": 23.29122844186045,
+          "iterations": 43
+        },
+        "Prisma: insert 1,000 rows": {
+          "hz": 7.96,
+          "rme": 25.26,
+          "mean": 125.56798712499983,
+          "iterations": 8
+        }
+      }
+    },
+    "benchmarks/comparison/orm/postgres/sequelize.bench.ts": {
+      "comparison/orm-postgres": {
+        "Sequelize: findOne by id": {
+          "hz": 2360.41,
+          "rme": 15.71,
+          "mean": 0.4236555603557785,
+          "iterations": 2361
+        },
+        "Sequelize: find 10,000 rows": {
+          "hz": 23.73,
+          "rme": 13.13,
+          "mean": 42.14510704166671,
+          "iterations": 24
+        },
+        "Sequelize: insert 1,000 rows": {
+          "hz": 15.74,
+          "rme": 5.65,
+          "mean": 63.5362948125001,
+          "iterations": 16
+        }
+      }
+    },
+    "benchmarks/comparison/orm/postgres/typeorm.bench.ts": {
+      "comparison/orm-postgres": {
+        "TypeORM: findOne by id": {
+          "hz": 2240.62,
+          "rme": 18.33,
+          "mean": 0.44630492637215374,
+          "iterations": 2241
+        },
+        "TypeORM: find 10,000 rows": {
+          "hz": 42.1,
+          "rme": 18.61,
+          "mean": 23.754682790697654,
+          "iterations": 43
+        },
+        "TypeORM: insert 1,000 rows": {
+          "hz": 13.75,
+          "rme": 33.23,
+          "mean": 72.71040635714287,
+          "iterations": 14
+        }
+      }
+    },
+    "benchmarks/comparison/orm/sqlite/better-sqlite3.bench.ts": {
+      "comparison/orm-sqlite": {
+        "better-sqlite3: findOne by id": {
+          "hz": 65224.1,
+          "rme": 4.48,
+          "mean": 0.015331755589586573,
+          "iterations": 65300
+        },
+        "better-sqlite3: find 10,000 rows": {
+          "hz": 158.96,
+          "rme": 14.61,
+          "mean": 6.290758641509441,
+          "iterations": 159
+        },
+        "better-sqlite3: insert 1,000 rows": {
+          "hz": 465.02,
+          "rme": 1.96,
+          "mean": 2.150464457081559,
+          "iterations": 466
+        }
+      }
+    },
+    "benchmarks/comparison/orm/sqlite/deepkit.bench.ts": {
+      "comparison/orm-sqlite": {
+        "Deepkit: findOne by id": {
+          "hz": 11463.9,
+          "rme": 23.55,
+          "mean": 0.08723036643417614,
+          "iterations": 11470
+        },
+        "Deepkit: find 10,000 rows": {
+          "hz": 71.6,
+          "rme": 15.88,
+          "mean": 13.967211166666662,
+          "iterations": 72
+        },
+        "Deepkit: insert 1,000 rows": {
+          "hz": 167.33,
+          "rme": 23.5,
+          "mean": 5.976282654761901,
+          "iterations": 168
+        }
+      }
+    },
+    "benchmarks/comparison/orm/sqlite/drizzle.bench.ts": {
+      "comparison/orm-sqlite": {
+        "Drizzle: findOne by id": {
+          "hz": 8879.49,
+          "rme": 40.77,
+          "mean": 0.11261903265765903,
+          "iterations": 8880
+        },
+        "Drizzle: find 10,000 rows": {
+          "hz": 90.65,
+          "rme": 6.04,
+          "mean": 11.031535857142869,
+          "iterations": 91
+        },
+        "Drizzle: insert 1,000 rows": {
+          "hz": 63.41,
+          "rme": 15.25,
+          "mean": 15.770878140625044,
+          "iterations": 64
+        }
+      }
+    },
+    "benchmarks/comparison/orm/sqlite/mikro-orm.bench.ts": {
+      "comparison/orm-sqlite": {
+        "MikroORM: findOne by id": {
+          "hz": 3302.37,
+          "rme": 25.02,
+          "mean": 0.3028129167423524,
+          "iterations": 3303
+        },
+        "MikroORM: find 10,000 rows": {
+          "hz": 8.46,
+          "rme": 14.79,
+          "mean": 118.15847677777775,
+          "iterations": 9
+        },
+        "MikroORM: insert 1,000 rows": {
+          "hz": 61.23,
+          "rme": 17.1,
+          "mean": 16.331470032258025,
+          "iterations": 62
+        }
+      }
+    },
+    "benchmarks/comparison/orm/sqlite/prisma.bench.ts": {
+      "comparison/orm-sqlite": {
+        "Prisma: findOne by id": {
+          "hz": 5127.62,
+          "rme": 16.67,
+          "mean": 0.19502239785575115,
+          "iterations": 5130
+        },
+        "Prisma: find 10,000 rows": {
+          "hz": 53.95,
+          "rme": 12.13,
+          "mean": 18.536922000000082,
+          "iterations": 55
+        },
+        "Prisma: insert 1,000 rows": {
+          "hz": 15.93,
+          "rme": 4.25,
+          "mean": 62.77789975000019,
+          "iterations": 16
+        }
+      }
+    },
+    "benchmarks/comparison/orm/sqlite/sequelize.bench.ts": {
+      "comparison/orm-sqlite": {
+        "Sequelize: findOne by id": {
+          "hz": 1826.46,
+          "rme": 14.46,
+          "mean": 0.54750687794198,
+          "iterations": 1827
+        },
+        "Sequelize: find 10,000 rows": {
+          "hz": 12.61,
+          "rme": 7.48,
+          "mean": 79.31603438461539,
+          "iterations": 13
+        },
+        "Sequelize: insert 1,000 rows": {
+          "hz": 105.2,
+          "rme": 10.53,
+          "mean": 9.506023886792443,
+          "iterations": 106
+        }
+      }
+    },
+    "benchmarks/comparison/orm/sqlite/typeorm.bench.ts": {
+      "comparison/orm-sqlite": {
+        "TypeORM: findOne by id": {
+          "hz": 8471.49,
+          "rme": 13.76,
+          "mean": 0.11804295530660291,
+          "iterations": 8480
+        },
+        "TypeORM: find 10,000 rows": {
+          "hz": 58.51,
+          "rme": 17.53,
+          "mean": 17.09173037288142,
+          "iterations": 59
+        },
+        "TypeORM: insert 1,000 rows": {
+          "hz": 98.45,
+          "rme": 6.35,
+          "mean": 10.156992898989843,
+          "iterations": 99
+        }
+      }
     }
   }
 }

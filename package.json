@@ -24,7 +24,8 @@
     "check:circular": "madge --extensions ts --warning --circular",
     "publish-website": "heroku container:push web && heroku container:release web",
     "bench": "node --import @deepkit/run benchmarks/runner.ts",
-    "bench:typia": "cd benchmarks && ttsc -p comparison/typia/tsconfig.json"
+    "bench:typia": "cd benchmarks && ttsc -p comparison/typia/tsconfig.json",
+    "bench:prisma": "cd benchmarks && prisma generate --schema comparison/orm/prisma/sqlite.prisma && prisma generate --schema comparison/orm/prisma/postgres.prisma"
   },
   "workspaces": [
     "website",
