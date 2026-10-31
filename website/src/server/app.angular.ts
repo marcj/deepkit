@@ -3,7 +3,8 @@ import { app } from './app';
 
 app.appModule.addImport(new AngularModule({
     moduleUrl: import.meta.url,
-    serverBaseUrl: 'http://localhost:8080',
+    // SSR loads its data from this server, so it has to be the port the server listens on
+    serverBaseUrl: 'http://localhost:' + (process.env.APP_FRAMEWORK_PORT || process.env.app_framework_port || 8080),
 }));
 
 app.setup((module, config) => {

@@ -6,11 +6,10 @@ import { Search } from '@app/server/search';
 import { PageProcessor } from '@app/server/page-processor';
 import { MainDatabase } from '@app/server/database';
 import { Database } from '@deepkit/orm';
-import { Url } from '@app/server/url';
 import { MarkdownParser } from '@app/common/markdown';
 import { migrate } from '@app/server/commands/migrate';
-import { importExamples, importQuestions } from '@app/server/commands/import';
 import { BenchmarkController, BenchmarkHttpController } from '@app/server/controller/benchmark.controller';
+import { getPermanentRedirect, SeoController } from '@app/server/controller/seo.controller';
 import { AdminController } from '@app/server/controller/admin.controller';
 import { RpcKernelSecurity, SessionState } from '@deepkit/rpc';
 import { AppRpcKernelSecurity, AppSession } from '@app/server/rpc';
@@ -18,7 +17,7 @@ import { UserAuthentication } from '@app/server/user-authentication';
 import { AdminFilesController } from '@app/server/controller/admin-files.controller';
 import { Filesystem } from '@deepkit/filesystem';
 import { FilesystemDatabaseAdapter } from '@deepkit/filesystem-database';
-import { httpWorkflow } from '@deepkit/http';
+import { httpWorkflow, Redirect } from '@deepkit/http';
 
 (global as any).window = undefined;
 (global as any).document = undefined;
@@ -37,11 +36,11 @@ export const app = new App({
         MainController,
         BenchmarkController,
         BenchmarkHttpController,
+        SeoController,
     ],
     providers: [
         PageProcessor,
         Search,
-        Url,
         MarkdownParser,
         UserAuthentication,
         { provide: Database, useClass: MainDatabase },
@@ -67,24 +66,19 @@ app.setup((module, config) => {
     serveFilesystem<Filesystem>(module, { baseUrl: 'media/' });
 });
 
-app.listen(httpWorkflow.onRequest, (event) => {
-    const url = event.request.url || '';
-    if (url.startsWith('/documentation') || url.startsWith('/blog')) {
-        // move all /documentation/* to /en/documentation/*
-        const to = `/en${url}`;
-        event.response.setHeader('Location', to);
-        event.response.status(302);
-        event.response.end(`Redirecting to ${to}`);
-        event.send(event.response);
-    }
-});
+// before the router (order 100), so moved URLs don't end up in the Angular catch-all route.
+// Permanent, so search engines move their index and the ranking of the old URL to the new one.
+app.listen(httpWorkflow.onRoute, (event) => {
+    const to = getPermanentRedirect(event.request.url || '');
+    if (!to) return;
+    event.send(Redirect.toUrl(to, 301));
+    event.stopImmediatePropagation();
+}, 50);
 
 app.command('search:index', async (search: Search) => await search.index());
 app.command('search:find', async (query: string, search: Search) => {
     console.log(await search.find(query));
 });
-app.command('import:questions', importQuestions);
-app.command('import:examples', importExamples);
 app.command('migrate', migrate);
 
 app.listen(onServerMainBootstrap, (event, parser: MarkdownParser) => parser.load());

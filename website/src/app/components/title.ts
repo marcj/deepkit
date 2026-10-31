@@ -5,6 +5,8 @@ import { arrayRemoveItem } from '@deepkit/core';
 
 type Type = { type: string; value?: any };
 
+const defaultDescription = 'Deepkit is a TypeScript framework that makes TypeScript types available at runtime: one type for validation, serialization, database, HTTP, RPC and dependency injection.';
+
 @Injectable()
 export class AppMetaStack {
     stack: Type[] = [];
@@ -32,13 +34,15 @@ export class AppMetaStack {
             .map(v => v.value)
             .filter(v => v)
             .reverse();
+        // the description of the most specific page, not all of them joined
         const description = descriptions
             .map(v => v.value)
             .filter(v => v)
-            .reverse();
+            .pop() || defaultDescription;
         this.title.setTitle(title.join(' // '));
 
-        this.meta.updateTag({ property: 'og:description', content: description.join(' // ') });
+        this.meta.updateTag({ name: 'description', content: description });
+        this.meta.updateTag({ property: 'og:description', content: description });
         this.meta.updateTag({ property: 'og:title', content: title.join(' // ') });
     }
 }

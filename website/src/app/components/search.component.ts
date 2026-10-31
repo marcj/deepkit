@@ -4,8 +4,6 @@ import {
     Component,
     ElementRef,
     HostListener,
-    Input,
-    OnChanges,
     ViewChild,
 } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -13,48 +11,8 @@ import { Router, RouterLink } from '@angular/router';
 import { ControllerClient } from '@app/app/client';
 import { ContentRenderComponent } from '@app/app/components/content-render.component';
 import { LoadingComponent } from '@app/app/components/loading';
-import { CommunityQuestion, DocPageResult, bodyToString, link, parseBody } from '@app/common/models';
+import { DocPageResult } from '@app/common/models';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
-
-@Component({
-    selector: 'app-search-result-page',
-    imports: [ContentRenderComponent],
-    styles: [
-        `
-            .path {
-                color: #a2a2a2;
-                font-size: 12px;
-            }
-
-            .title {
-                margin: 5px 0;
-                color: white;
-            }
-
-            .content {
-                font-size: 14px;
-                max-height: 300px;
-                overflow: hidden;
-            }
-        `,
-    ],
-    changeDetection: ChangeDetectionStrategy.Eager,
-    template: `
-        <div class="path">{{ q.type === 'answer' ? 'Question & Answer' : 'Example' }}</div>
-        <h3 class="title">{{ q.title }}</h3>
-        <div class="content">
-            <app-render-content linkRelativeTo="/" [content]="q.content"></app-render-content>
-        </div>
-    `,
-})
-export class SearchResultQuestion implements OnChanges {
-    @Input() q!: CommunityQuestion;
-    subline: string = '';
-
-    ngOnChanges() {
-        this.subline = bodyToString(parseBody(this.q.content).subline);
-    }
-}
 
 @Component({
     selector: 'app-search',
@@ -63,7 +21,6 @@ export class SearchResultQuestion implements OnChanges {
         FormsModule,
         LoadingComponent,
         RouterLink,
-        SearchResultQuestion,
         ContentRenderComponent,
     ],
     styles: [
@@ -163,15 +120,6 @@ export class SearchResultQuestion implements OnChanges {
                         <div class="box-container scroll-small">
                             @if (results) {
                                 <div class="search-results">
-                                    @for (r of results.community; track r) {
-                                        <div
-                                            [routerLink]="link(r)"
-                                            (click)="visible = false"
-                                            class="app-search-result-item"
-                                        >
-                                            <app-search-result-page [q]="r"></app-search-result-page>
-                                        </div>
-                                    }
                                     @for (r of results.pages; track r) {
                                         <div
                                             [routerLink]="'/' + r.url"
@@ -196,12 +144,11 @@ export class SearchResultQuestion implements OnChanges {
 })
 export class SearchComponent {
     query: string = '';
-    results?: { pages: DocPageResult[]; community: CommunityQuestion[] };
+    results?: { pages: DocPageResult[] };
     loading = false;
 
     visible: boolean = false;
     modelChanged = new Subject<string>();
-    link = link;
 
     @ViewChild('input') input?: ElementRef<HTMLInputElement>;
 

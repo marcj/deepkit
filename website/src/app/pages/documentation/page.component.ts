@@ -12,6 +12,7 @@ import { TableOfContentService } from '@app/app/components/table-of-content.comp
 import { MoreLanguagesComponent } from '@app/app/components/more-languages.component.js';
 import { Translation } from '@app/app/components/translation.js';
 import { derivedAsync } from 'ngxtension/derived-async';
+import { Seo } from '@app/app/components/seo.js';
 import { pendingTask } from '@deepkit/desktop-ui';
 import { toSignal } from '@angular/core/rxjs-interop';
 
@@ -67,15 +68,16 @@ export class DocumentationPageComponent implements OnDestroy {
     activatedRoute = inject(ActivatedRoute);
     viewportScroller = inject(ViewportScroller);
     translation = inject(Translation);
+    seo = inject(Seo);
 
     page = derivedAsync<{ page: Page | undefined, error: string } | undefined>(pendingTask(async () => {
         const path = this.currentPath();
         const lang = this.translation.lang();
         try {
-            return {
-                error: '',
-                page: await this.client.main.getPage('documentation/' + path, lang),
-            };
+            const page = await this.client.main.getPage('documentation/' + path, lang);
+            // router.url is still the previous URL while the navigation is running (e.g. in SSR)
+            this.seo.setContentLanguage(page.lang, `/${lang}/documentation${path === 'index' ? '' : '/' + path}`, page.languages);
+            return { error: '', page };
         } catch (e) {
             this.pageResponse.notFound();
             return {

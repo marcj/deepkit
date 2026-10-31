@@ -1,5 +1,5 @@
 import { Database } from '@deepkit/orm';
-import { BlogEntity, CommunityMessage, DocPageContent } from '@app/common/models';
+import { BlogEntity, DocPageContent } from '@app/common/models';
 import { AppConfig } from '@app/server/config';
 import { PostgresDatabaseAdapter } from '@deepkit/postgres';
 import { BenchmarkRun } from '@app/common/benchmark';
@@ -46,7 +46,6 @@ export class MainDatabase extends Database {
                 port: config.databasePort,
                 user: config.databaseUser,
             }), [
-                CommunityMessage,
                 DocPageContent, BenchmarkRun,
                 BlogEntity, UserEntity, SessionEntity,
                 FileEntity, FileDataEntity

@@ -1,4 +1,4 @@
-import { AutoIncrement, DatabaseField, entity, Index, PrimaryKey, Reference, UUID, uuid } from '@deepkit/type';
+import { AutoIncrement, DatabaseField, entity, PrimaryKey } from '@deepkit/type';
 
 export interface Content {
     tag: string;
@@ -28,12 +28,6 @@ export const projectMap: { [name: string]: string } = {
     'filesystem': 'Deepkit Filesystem',
     'broker': 'Deepkit Broker',
 };
-
-export function link(q: CommunityQuestion) {
-    if (q.type === 'example') return `/documentation/${q.category}/examples/${q.slug}`;
-
-    return `/documentation/questions/post/${q.id}`;
-}
 
 export function bodyToString(body?: string | Content | (string | Content)[]): string {
     if (!body) return '';
@@ -95,6 +89,10 @@ export interface Page {
     url?: string;
     date?: Date;
     body: Content;
+    /** language of the content, English if there is no translation for the requested language */
+    lang?: string;
+    /** languages this page exists in, including English */
+    languages?: string[];
 }
 
 // export interface IndexEntry {
@@ -114,23 +112,6 @@ export interface Page {
 //             value?: string
 //         }
 //     };
-// }
-
-// @entity.collection('community_questions')
-// export class CommunityThread {
-//     id: UUID & PrimaryKey = uuid();
-//     created: Date = new Date;
-//     title: string = '';
-//
-//     discordChannelId?: string;
-//     discordMessageId?: string;
-//     discordThreadId?: string & Index;
-//
-//     constructor(
-//         public userId: string,
-//         public displayName: string,
-//     ) {
-//     }
 // }
 
 function slugify(text: string) {
@@ -167,124 +148,6 @@ export interface DocPageResult {
     tag: string;
     content: Content;
 }
-
-@entity.collection('community_message')
-export class CommunityMessage {
-    id: number & PrimaryKey & AutoIncrement = 0;
-    created: Date = new Date;
-    votes: number = 0;
-    order: number & Index = 0; //0 means first message, initial question, 1 means the first question
-    assistant: boolean = false;
-
-    source: ('markdown' | 'community') & DatabaseField<{ type: 'text' }> = 'community';
-
-    type: string & Index = 'question'; //question, answer, reject, edit, example
-    title: string = '';
-
-    category: string & Index = '';
-    slug: string & Index = '';
-
-    title_tsvector: string & DatabaseField<{ type: 'tsvector' }> = '';
-    content_tsvector: string & DatabaseField<{ type: 'tsvector' }> = '';
-
-    authId: UUID = uuid();
-
-    discordUserAvatarUrl: string = '';
-    discordUrl: string = '';
-    discordChannelId?: string;
-    discordMessageId?: string & Index;
-    discordThreadId?: string & Index;
-
-    meta: { [name: string]: any } = {};
-
-    constructor(
-        public userId: string,
-        public userDisplayName: string,
-        public content: string = '',
-        public thread?: CommunityMessage & Reference,
-    ) {
-    }
-
-    setTitle(title: string) {
-        this.title = title;
-        this.slug = slugify(title);
-    }
-}
-
-export interface CommunityQuestionListItem {
-    id: number;
-    slug: string;
-    created: Date;
-    discordUrl: string;
-    category: string;
-    votes: number;
-    title: string;
-    user: string;
-}
-
-export interface CommunityQuestionMessage {
-    id: number,
-    user: string,
-    userAvatar: string,
-    content: Content
-}
-
-export interface CommunityQuestion {
-    id: number;
-    created: Date;
-    discordUrl: string;
-    answerDiscordUrl: string;
-    category: string;
-    type: string; //answer|example
-
-    slug: string;
-
-    authId?: string; //returned on initially creating a question, which is stored on client side
-    allowEdit: boolean; //if the authId matches, the user is allowed to edit the question
-
-    votes: number;
-    title: string;
-    user: string;
-    userAvatar: string;
-    content: Content;
-    messages: CommunityQuestionMessage[];
-}
-
-export interface QuestionAnswer {
-    title: string;
-    answer: Content;
-}
-
-// @entity.collection('code_example')
-// export class CodeExample {
-//     id: number & PrimaryKey & AutoIncrement = 0;
-//     created: Date = new Date;
-//
-//     source: ('markdown' | 'community') & DatabaseField<{type: 'text'}> = 'community';
-//     votes: number = 0;
-//     category: string & Index = '';
-//     slug: string & Index = '';
-//
-//     //external URL, e.g. github gist or github repo
-//     url: string = '';
-//
-//     constructor(
-//         public title: string,
-//         public content: string
-//     ) {
-//     }
-// }
-
-export interface UiCodeExample {
-    title: string;
-    category: string;
-    slug: string;
-    url: string;
-    content?: Content;
-}
-
-
-export const magicSeparator = '##-------------------------------------------------##';
 
 /**
  * Loosely describes a JSON representation of a Prosemirror document or node

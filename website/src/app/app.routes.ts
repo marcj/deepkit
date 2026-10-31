@@ -26,10 +26,7 @@ export const routes: Routes = [
     { path: 'de', pathMatch: 'full', component: StartpageComponent },
 
     { path: 'admin', loadComponent: () => import('./pages/admin/admin.component').then(v => v.AdminComponent) },
-    // { path: 'library', component: LibrariesComponent },
-    // { path: 'library/:id', component: LibraryComponent },
     // { path: 'enterprise', component: EnterpriseComponent },
-    // { path: 'community', component: CommunityComponent },
     { path: 'terms', component: StaticPageComponent, data: { page: 'terms' } },
     { path: 'about-us', component: StaticPageComponent, data: { page: 'about-us' } },
     { path: 'contact', component: StaticPageComponent, data: { page: 'contact' } },
@@ -46,17 +43,7 @@ export const routes: Routes = [
         component: DocumentationComponent,
         data: { search: true, footer: false, hideLogo: true },
         children: [
-            // {
-            //     path: 'questions', component: EmptyComponent, children: [
-            //         { path: 'post/:slug', component: CommunityQuestionComponent },
-            //         { path: '**', component: CommunityQuestionsComponent },
-            //     ],
-            // },
-            // { path: 'search', component: DocuSearchComponent },
-            // { path: 'examples', component: ExamplesComponent },
             { path: 'desktop-ui', loadChildren: () => import('./pages/documentation/desktop-ui/desktop-ui.module').then(v => v.DocDesktopUIModule) },
-            // { path: ':category/examples/:slug', component: ExampleComponent },
-            // { path: ':category/examples', component: ExamplesComponent },
             { path: '**', component: DocumentationPageComponent },
         ],
     },

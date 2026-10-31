@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { ContentTextService } from '@app/app/components/content-text.component.js';
 import { AppTitle } from '@app/app/components/title';
+import { Seo } from '@app/app/components/seo.js';
 import { Translation } from '@app/app/components/translation.js';
 
 import { DuiApp, DuiStyleComponent } from '@deepkit/desktop-ui';
@@ -44,6 +45,7 @@ export class AppComponent {
         public contentTextService: ContentTextService,
         public translation: Translation,
         private duiApp: DuiApp,
+        seo: Seo,
     ) {
         // viewportScroller.setOffset([0, 84]);
         // duiApp.disableThemeDetection();

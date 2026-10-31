@@ -2,7 +2,7 @@
 // import { AppConfig } from "@app/server/config";
 import { findParentPath } from '@deepkit/app';
 import glob from 'tiny-glob';
-import { bodyToString, CommunityMessage, DocPageContent, Page, projectMap } from '@app/common/models';
+import { bodyToString, DocPageContent, Page, projectMap } from '@app/common/models';
 import { PageProcessor } from '@app/server/page-processor';
 import { Database } from '@deepkit/orm';
 import { sql } from '@deepkit/sql';
@@ -62,7 +62,7 @@ export class Search {
         // this.client = algoliasearch(algoliaAppId, algoliaApiKey);
     }
 
-    async find(query: string): Promise<{ pages: DocPageContent[], community: CommunityMessage[] }> {
+    async find(query: string): Promise<DocPageContent[]> {
         //replace user query to fulltext search query in postgres format
         const search = query.trim().replace(/ +/g, ' & ');
 
@@ -82,23 +82,7 @@ ORDER BY rank DESC;
             doc.content = doc.content.replace(new RegExp(`(${query.split(' ').join('|')})`, 'gi'), '<span class="highlight">$1</span>');
         }
 
-        const communityResult = await this.database.raw<CommunityMessage>(sql`
-SELECT *,
-       ts_rank(title_tsvector, to_tsquery('english', ${search})) AS title_rank,
-       ts_rank(content_tsvector, to_tsquery('english', ${search})) AS content_rank,
-       ((ts_rank(title_tsvector, to_tsquery('english', ${search})) * 4.5) +
-                ts_rank(content_tsvector, to_tsquery('english', ${search}))) as rank
-FROM community_message
-WHERE (type = 'example') AND (content_tsvector || title_tsvector @@ to_tsquery('english', ${search}))
-ORDER BY rank DESC;
-`).find();
-
-        //highlight keywords in the content
-        for (const doc of communityResult) {
-            doc.content = doc.content.replace(new RegExp(`(${query.split(' ').join('|')})`, 'gi'), '<span class="highlight">$1</span>');
-        }
-
-        return { pages: docResult, community: communityResult };
+        return docResult;
     }
 
     async index() {
