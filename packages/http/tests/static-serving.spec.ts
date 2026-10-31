@@ -207,10 +207,12 @@ test('serveStaticListener', async () => {
     expect((await httpKernel.request(HttpRequest.HEAD('/public/a.txt'))).bodyString).toBe('');
     expect((await httpKernel.request(HttpRequest.GET('/public/a.txt').header('if-none-match', etag))).statusCode).toBe(304);
 
-    // the listener checks the file exists, so traversal to an existing file outside root must be rejected
+    // traversal outside of root is not served, and existing and missing files outside of root get the same
+    // answer, so it can't be used to find out which files exist on the server
     const traversal = await httpKernel.request(HttpRequest.GET('/public/../outside.txt'));
-    expect(traversal.statusCode).toBe(403);
     expect(traversal.bodyString).not.toContain('outside');
+    const missing = await httpKernel.request(HttpRequest.GET('/public/../does-not-exist.txt'));
+    expect(traversal.statusCode).toBe(missing.statusCode);
 
     const dotfile = await httpKernel.request(HttpRequest.GET('/public/.env'));
     expect(dotfile.statusCode).toBe(404);

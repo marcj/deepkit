@@ -253,7 +253,11 @@ export async function staticOnRoute(
     if (!event.request.url?.startsWith(path)) return;
 
     const relativePath = urlJoin('/', event.url.substr(path.length));
-    const finalLocalPath = join(localPath, relativePath);
+    const root = resolve(localPath);
+    const finalLocalPath = join(root, relativePath);
+    // paths outside of the root (e.g. /../../etc/passwd) are not checked at all, otherwise 403 (exists) and
+    // 404 (doesn't exist) would tell whether a file exists anywhere on the server
+    if (finalLocalPath !== root && !finalLocalPath.startsWith(root + sep)) return;
 
     return new Promise(resolve => {
         stat(finalLocalPath, (err, stat) => {
