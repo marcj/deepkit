@@ -7,7 +7,7 @@
 // built with `tsc --build` (incremental), since the tests run against dist.
 const { spawnSync } = require('child_process');
 const { existsSync, readFileSync, rmSync, writeFileSync } = require('fs');
-const { join } = require('path');
+const { isAbsolute, join } = require('path');
 const { tmpdir } = require('os');
 const { changedPaths, distHash, headFingerprint, root, stagedFingerprint, workingTreeFingerprint } = require('./fingerprint.js');
 
@@ -44,7 +44,9 @@ function run(args) {
     const tsc = spawnSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--build', 'tsconfig.json', 'tsconfig.esm.json'], { cwd: root, stdio: 'inherit' });
     if (tsc.status !== 0) return tsc.status ?? 1;
 
-    const expectedSuites = new Set(spawnSync(jest[0], [...jest.slice(1), '--listTests'], { cwd: root, encoding: 'utf8' }).stdout.split('\n').filter(Boolean));
+    // only real file paths: jest can print warnings to stdout too (e.g. a haste naming collision in CI)
+    const listed = spawnSync(jest[0], [...jest.slice(1), '--listTests'], { cwd: root, encoding: 'utf8' }).stdout.split('\n');
+    const expectedSuites = new Set(listed.filter(v => isAbsolute(v) && existsSync(v)));
     const resultFile = join(tmpdir(), `deepkit-test-result-${process.pid}.json`);
     const status = spawnSync(jest[0], [...jest.slice(1), '--forceExit', '--no-cache', ...args, '--json', `--outputFile=${resultFile}`], { cwd: root, stdio: 'inherit' }).status ?? 1;
     const result = existsSync(resultFile) ? JSON.parse(readFileSync(resultFile, 'utf8')) : undefined;
