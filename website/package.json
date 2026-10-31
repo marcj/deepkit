@@ -54,7 +54,6 @@
     "@deepkit/type-compiler": "^1.0.1",
     "@deepkit/ui-library": "^1.0.1",
     "@deepkit/workflow": "^1.0.1",
-    "@resvg/resvg-js": "^2.6.2",
     "@tiptap/core": "^3.0.1",
     "@tiptap/extension-blockquote": "^3.0.1",
     "@tiptap/extension-bold": "^3.0.1",
@@ -94,7 +93,6 @@
     "remark-rehype": "^11.0.0",
     "rxjs": "~7.8.0",
     "rxjs-for-await": "^1.0.0",
-    "satori": "^0.63.2",
     "tiny-glob": "^0.2.9",
     "ts-jest": "^29.4.15",
     "ts-node": "^10.9.2",
@@ -107,8 +105,10 @@
     "zone.js": "~0.16.3"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "argon2": "^0.43.0",
     "buffer": "^5.2.1",
-    "openai": "^7.45.1"
+    "openai": "^7.45.1",
+    "satori": "^0.63.2"
   }
 }
