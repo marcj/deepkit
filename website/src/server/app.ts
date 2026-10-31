@@ -8,13 +8,13 @@ import { MainDatabase } from '@app/server/database';
 import { Database } from '@deepkit/orm';
 import { MarkdownParser } from '@app/common/markdown';
 import { migrate } from '@app/server/commands/migrate';
-import { BenchmarkController, BenchmarkHttpController } from '@app/server/controller/benchmark.controller';
 import { getPermanentRedirect, SeoController } from '@app/server/controller/seo.controller';
 import { LlmsController } from '@app/server/controller/llms.controller';
 import { AdminController } from '@app/server/controller/admin.controller';
 import { RpcKernelSecurity, SessionState } from '@deepkit/rpc';
 import { AppRpcKernelSecurity, AppSession } from '@app/server/rpc';
 import { UserAuthentication } from '@app/server/user-authentication';
+import { MinLength } from '@deepkit/type';
 import { AdminFilesController } from '@app/server/controller/admin-files.controller';
 import { Filesystem } from '@deepkit/filesystem';
 import { FilesystemDatabaseAdapter } from '@deepkit/filesystem-database';
@@ -35,8 +35,6 @@ export const app = new App({
         AdminController,
         AdminFilesController,
         MainController,
-        BenchmarkController,
-        BenchmarkHttpController,
         SeoController,
         LlmsController,
     ],
@@ -82,6 +80,9 @@ app.command('search:find', async (query: string, search: Search) => {
     console.log(await search.find(query));
 });
 app.command('migrate', migrate);
+app.command('user:create-admin', async (email: string, password: string & MinLength<12>, auth: UserAuthentication) => {
+    await auth.createAdmin(email, password);
+});
 
 app.listen(onServerMainBootstrap, (event, parser: MarkdownParser) => parser.load());
 

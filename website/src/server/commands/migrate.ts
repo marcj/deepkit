@@ -12,8 +12,9 @@ export async function migrate(database: Database) {
 
     await database.migrate();
 
-    // community questions were removed
+    // community questions and the benchmark runs posted from CI were removed
     await database.raw(sql`
+DROP TABLE IF EXISTS "benchmarkRun";
 DROP TABLE IF EXISTS community_message_vote;
 DROP TABLE IF EXISTS community_message;
 DROP FUNCTION IF EXISTS update_community_message_vectors();

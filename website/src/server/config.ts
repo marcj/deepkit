@@ -7,8 +7,6 @@ export class AppConfig {
     databaseUser: string = 'postgres';
     databasePassword: string = '';
 
-    benchmarkSecret: string = 'notSet';
-
     baseUrl: string = '';
 
     /** For `npm run translate <lang>`, see https://platform.openai.com/api-keys */

@@ -2,7 +2,6 @@ import { Database } from '@deepkit/orm';
 import { BlogEntity, DocPageContent } from '@app/common/models';
 import { AppConfig } from '@app/server/config';
 import { PostgresDatabaseAdapter } from '@deepkit/postgres';
-import { BenchmarkRun } from '@app/common/benchmark';
 import { AutoIncrement, entity, Index, PrimaryKey, Reference, Unique } from '@deepkit/type';
 import { FileDataEntity, FileEntity } from '@deepkit/filesystem-database';
 
@@ -46,7 +45,7 @@ export class MainDatabase extends Database {
                 port: config.databasePort,
                 user: config.databaseUser,
             }), [
-                DocPageContent, BenchmarkRun,
+                DocPageContent,
                 BlogEntity, UserEntity, SessionEntity,
                 FileEntity, FileDataEntity
             ]);

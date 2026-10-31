@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto';
+
 import { SessionEntity, UserEntity } from '@app/server/database';
 import { Database } from '@deepkit/orm';
 
@@ -28,24 +30,22 @@ export class UserAuthentication {
             .filter({ email })
             .findOneOrUndefined();
 
-        if (!user) {
-            const count = await this.database.query(UserEntity).count();
-            if (count) {
-                throw new Error('Credentials invalid');
-            }
-            // No users exist, create the first user
-            user = new UserEntity(email);
-            user.hash = await argon2.hash(password);
-            user.role = 'admin'; // First user is admin
-            await this.database.persist(user);
-        }
+        if (!user) throw new Error('Credentials invalid');
 
         const validPassword = await argon2.verify(user.hash, password);
         if (!validPassword) throw new Error('Credentials invalid');
 
-        const token = Math.random().toString(36).substring(2, 15);
+        const token = randomBytes(32).toString('base64url');
         const session = new SessionEntity(user, token);
         await this.database.persist(session);
         return token;
+    }
+
+    /** Admins are only created on the command line (user:create-admin), never by a login. */
+    async createAdmin(email: string, password: string): Promise<void> {
+        const user = new UserEntity(email);
+        user.hash = await argon2.hash(password);
+        user.role = 'admin';
+        await this.database.persist(user);
     }
 }

@@ -35,7 +35,6 @@ export class AppRpcKernelSecurity extends RpcKernelSecurity {
     override async authenticate(token: any, connection: RpcKernelBaseConnection): Promise<Session> {
         if (typeof token !== 'string' || !token) return new Session('anon', undefined);
 
-        console.log('Authenticating token:', token);
         const user = await this.userAuthentication.getUserForToken(token);
         if (user) return new AppSession(user);
 
