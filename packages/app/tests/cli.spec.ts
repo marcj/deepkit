@@ -146,6 +146,52 @@ test('executeCommand 2', async () => {
     expect(await app(['show-users', '--user', 'Peter', '--user', 'John'])).toEqual({ code: 0, output: 'showUsers Peter,John' });
 });
 
+test('array argument takes all remaining positional arguments', async () => {
+    const app = simpleApp([
+        function tag(labels: string[], logger: Logger) {
+            logger.log(`tag ${JSON.stringify(labels)}`);
+        },
+        function del(ids: number[], logger: Logger) {
+            logger.log(`del ${JSON.stringify(ids)}`);
+        },
+        function label(name: string, labels: string[], logger: Logger) {
+            logger.log(`label ${name} ${JSON.stringify(labels)}`);
+        },
+        function copy(files: string[], target: string, logger: Logger) {
+            logger.log(`copy ${JSON.stringify(files)} ${target}`);
+        },
+        function check(languages: string[] = ['en'], verbose: boolean & Flag = false, logger: Logger) {
+            logger.log(`check ${JSON.stringify(languages)} ${verbose}`);
+        },
+    ]);
+
+    expect(await app(['tag', 'a'])).toEqual({ code: 0, output: 'tag ["a"]' });
+    expect(await app(['tag', 'a', 'b', 'c'])).toEqual({ code: 0, output: 'tag ["a","b","c"]' });
+    expect((await app(['tag'])).code).toBe(1);
+
+    expect(await app(['del', '1', '2', '3'])).toEqual({ code: 0, output: 'del [1,2,3]' });
+    const invalid = await app(['del', '1', 'two']);
+    expect(invalid.code).toBe(1);
+    expect(invalid.output).toContain('Invalid value for argument ids');
+
+    // arguments before the array take their value first
+    expect(await app(['label', 'Peter', 'a', 'b'])).toEqual({ code: 0, output: 'label Peter ["a","b"]' });
+    expect(await app(['label', 'Peter', 'a'])).toEqual({ code: 0, output: 'label Peter ["a"]' });
+
+    // arguments after the array keep their value, like cp <files...> <target>
+    expect(await app(['copy', 'a', 'b', 'c', 'dest'])).toEqual({ code: 0, output: 'copy ["a","b","c"] dest' });
+    expect(await app(['copy', 'a', 'dest'])).toEqual({ code: 0, output: 'copy ["a"] dest' });
+    expect((await app(['copy', 'dest'])).code).toBe(1);
+
+    // optional with default, flags in between
+    expect(await app(['check'])).toEqual({ code: 0, output: 'check ["en"] false' });
+    expect(await app(['check', 'de', 'ja'])).toEqual({ code: 0, output: 'check ["de","ja"] false' });
+    expect(await app(['check', 'de', 'ja', '--verbose'])).toEqual({ code: 0, output: 'check ["de","ja"] true' });
+    expect(await app(['check', '--verbose', 'true', 'de', 'ja'])).toEqual({ code: 0, output: 'check ["de","ja"] true' });
+
+    expect((await app(['copy', '--help'])).output).toContain('[files...] [target]');
+});
+
 test('executeCommand 3', async () => {
     const app = simpleApp([
         function showUser(name: string & Flag<{ char: 'n' }>, logger: Logger) {

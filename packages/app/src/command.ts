@@ -322,7 +322,9 @@ function printHelp(script: string, command: ParsedCliControllerConfig, writer: C
     const commandParameters = collectCommandParameter(command);
     const args = commandParameters.filter(v => v.kind === 'argument');
 
-    writer(`<yellow>Usage:</yellow> ${script} ${command.name} [OPTIONS] ${args.map(v => `[${v.name}]`).join(' ')}`);
+    writer(
+        `<yellow>Usage:</yellow> ${script} ${command.name} [OPTIONS] ${args.map(v => `[${v.name}${v.type.kind === ReflectionKind.array ? '...' : ''}]`).join(' ')}`,
+    );
     writer('');
 
     if (command.description) {
@@ -633,7 +635,8 @@ async function runCommand(
     const positionalArguments: any[] = Array.isArray(parsedArgs['@']) ? parsedArgs['@'] : [];
     const commandParameters = collectCommandParameter(config);
 
-    for (const parameter of commandParameters) {
+    for (let i = 0; i < commandParameters.length; i++) {
+        const parameter = commandParameters[i];
         if (parameter.kind === 'service') {
             const injectToken = getInjectOptions(parameter.type);
             try {
@@ -648,10 +651,21 @@ async function runCommand(
             continue;
         }
         const id = getActualCliParameterName(parameter);
-        let raw = parsedArgs[id];
+        let raw: string | boolean | string[] | undefined = parsedArgs[id];
         if (parameter.kind === 'argument') {
-            raw = positionalArguments[positionalIndex];
-            positionalIndex++;
+            if (parameter.type.kind === ReflectionKind.array) {
+                // takes all remaining positional arguments, except those the following arguments need,
+                // e.g. copy(files: string[], target: string) with `a b c dest`
+                const following = commandParameters
+                    .slice(i + 1)
+                    .filter(v => v.kind === 'argument' && v.type.kind !== ReflectionKind.array).length;
+                const count = Math.max(0, positionalArguments.length - positionalIndex - following);
+                raw = count ? positionalArguments.slice(positionalIndex, positionalIndex + count) : undefined;
+                positionalIndex += count;
+            } else {
+                raw = positionalArguments[positionalIndex];
+                positionalIndex++;
+            }
         }
 
         try {
