@@ -1675,3 +1675,51 @@ test('array of object literals with MongoId (#444)', () => {
     const back = deserializeBSON<Doc>(getBSONSerializer<Doc>()(doc));
     expect(back.references).toEqual([{ cls: 'User', id: '5be340cb2ffb5e901a9b62e4' }]);
 });
+
+test('non-ASCII property names are written and read as UTF-8', () => {
+    interface T {
+        héllo: string;
+        名前: number;
+        '😀': boolean;
+        plain: string;
+    }
+
+    const value: T = { héllo: 'a', 名前: 1, '😀': true, plain: 'b' };
+    const bytes = getBSONSerializer<T>()(value);
+
+    // identical to the official bson package, i.e. what MongoDB reads and writes
+    expect(Buffer.from(bytes).toString('hex')).toBe(Buffer.from(bson.serialize(value)).toString('hex'));
+    expect(getBSONSizer<T>()(value)).toBe(bytes.byteLength);
+    expect(deserializeBSONWithoutOptimiser(bytes)).toEqual(value);
+
+    // typed deserializer, also for documents written by the official bson package
+    expect(getBSONDeserializer<T>()(bytes)).toEqual(value);
+    expect(getBSONDeserializer<T>()(bson.serialize(value))).toEqual(value);
+});
+
+test('non-ASCII property names of classes', () => {
+    class Model {
+        größe: number = 0;
+        描述: string = '';
+    }
+
+    const value = Object.assign(new Model(), { größe: 180, 描述: 'text' });
+    const bytes = getBSONSerializer<Model>()(value);
+    expect(Buffer.from(bytes).toString('hex')).toBe(Buffer.from(bson.serialize({ größe: 180, 描述: 'text' })).toString('hex'));
+    const back = getBSONDeserializer<Model>()(bytes);
+    expect(back).toBeInstanceOf(Model);
+    expect(back).toEqual(value);
+});
+
+test('property names with line breaks do not break the generated code', () => {
+    interface T {
+        'a\nb': string;
+        'c\u2028d': string;
+        'e*/f': string;
+    }
+
+    const value: T = { 'a\nb': 'x', 'c\u2028d': 'y', 'e*/f': 'z' };
+    const bytes = getBSONSerializer<T>()(value);
+    expect(Buffer.from(bytes).toString('hex')).toBe(Buffer.from(bson.serialize(value)).toString('hex'));
+    expect(getBSONDeserializer<T>()(bytes)).toEqual(value);
+});

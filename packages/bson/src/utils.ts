@@ -113,3 +113,19 @@ export function getEmbeddedAccessor(type: TypeClass, autoPrefix: boolean, access
 export function isSerializable(type: Type): boolean {
     return type.kind !== ReflectionKind.methodSignature && type.kind !== ReflectionKind.method && type.kind !== ReflectionKind.function;
 }
+
+const utf8Encoder = new TextEncoder();
+
+/**
+ * UTF-8 bytes of a property name. BSON keys are UTF-8; generated code writes and compares them byte by byte.
+ */
+export function utf8Bytes(value: string): Uint8Array {
+    return utf8Encoder.encode(value);
+}
+
+/**
+ * A value for a `//` comment in generated code: without line terminators, which would end the comment.
+ */
+export function commentSafe(value: string): string {
+    return value.replace(/[\r\n\u2028\u2029]/g, ' ');
+}

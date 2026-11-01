@@ -43,16 +43,16 @@ import {
     stringifyShortResolvedType,
 } from '@deepkit/type';
 import { seekElementSize } from './continuation.js';
-import { BSONType, digitByteSize, isSerializable } from './utils.js';
+import { BSONType, commentSafe, digitByteSize, isSerializable, utf8Bytes } from './utils.js';
 import { BaseParser } from './bson-parser.js';
 
 function getNameComparator(name: string): string {
-    //todo: support utf8 names
+    const bytes = utf8Bytes(name);
     const bufferCompare: string[] = [];
-    for (let i = 0; i < name.length; i++) {
-        bufferCompare.push(`state.parser.buffer[state.parser.offset + ${i}] === ${name.charCodeAt(i)}`);
+    for (let i = 0; i < bytes.length; i++) {
+        bufferCompare.push(`state.parser.buffer[state.parser.offset + ${i}] === ${bytes[i]}`);
     }
-    bufferCompare.push(`state.parser.buffer[state.parser.offset + ${name.length}] === 0`);
+    bufferCompare.push(`state.parser.buffer[state.parser.offset + ${bytes.length}] === 0`);
 
     return bufferCompare.join(' && ');
 }
@@ -841,9 +841,9 @@ export function deserializeObjectLiteral(type: TypeClass | TypeObjectLiteral, st
         const setterTemplate = executeTemplates(state.fork(setter, '').extendPath(member.name), member.type);
 
         lines.push(`
-            //property ${String(member.name)} (${member.type.kind})
+            //property ${commentSafe(String(member.name))} (${member.type.kind})
             else if (!${valueSetVar} && ${getNameComparator(nameInBson)}) {
-                state.parser.offset += ${nameInBson.length} + 1;
+                state.parser.offset += ${utf8Bytes(nameInBson).length} + 1;
                 ${valueSetVar} = true;
 
                 ${seekOnExplicitUndefined}
@@ -1012,9 +1012,9 @@ export function bsonTypeGuardObjectLiteral(type: TypeClass | TypeObjectLiteral, 
         const template = executeTemplates(state.fork(valid).extendPath(member.name), member.type);
 
         lines.push(`
-            //property ${String(member.name)} (${member.type.kind})
+            //property ${commentSafe(String(member.name))} (${member.type.kind})
             else if (!${valueSetVar} && ${getNameComparator(nameInBson)}) {
-                state.parser.offset += ${nameInBson.length} + 1;
+                state.parser.offset += ${utf8Bytes(nameInBson).length} + 1;
                 ${valueSetVar} = true;
 
                 ${seekOnExplicitUndefined}

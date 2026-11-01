@@ -91,7 +91,7 @@ import {
     deserializeUnion,
 } from './bson-deserializer-templates.js';
 import { seekElementSize } from './continuation.js';
-import { BSON_BINARY_SUBTYPE_DEFAULT, BSON_BINARY_SUBTYPE_UUID, BSONType, digitByteSize, isSerializable, TWO_PWR_32_DBL_N } from './utils.js';
+import { BSON_BINARY_SUBTYPE_DEFAULT, BSON_BINARY_SUBTYPE_UUID, BSONType, commentSafe, digitByteSize, isSerializable, TWO_PWR_32_DBL_N, utf8Bytes } from './utils.js';
 
 // BSON MAX VALUES
 const BSON_INT32_MAX = 0x7fffffff;
@@ -708,12 +708,11 @@ export class Writer {
 
 function getNameWriterCode(name: string): string {
     const nameSetter: string[] = [];
-    //todo: support utf8 names
-    for (let i = 0; i < name.length; i++) {
-        nameSetter.push(`state.writer.buffer[state.writer.offset++] = ${name.charCodeAt(i)};`);
+    for (const byte of utf8Bytes(name)) {
+        nameSetter.push(`state.writer.buffer[state.writer.offset++] = ${byte};`);
     }
     return `
-        //write name: '${name}'
+        //write name: '${commentSafe(name)}'
         ${nameSetter.join('\n')}
         state.writer.writeByte(0); //null
     `;
@@ -922,7 +921,7 @@ function handleObjectLiteral(
     }
 
     state.addCode(`
-        //handle objectLiteral via propertyName="${getPropertyNameString(propertyName)}"
+        //handle objectLiteral via propertyName="${commentSafe(getPropertyNameString(propertyName))}"
         ${before}
         ${lines.join('\n')}
         ${after}
@@ -961,7 +960,7 @@ function propertyNameWrite(propertyName?: string | RuntimeCode) {
 
 function serializePropertyNameAware(type: Type, state: TemplateState, bsonType: BSONType, typeChecker: string, code: string): void {
     state.template = `
-        //serializer for ${type.kind}, via propertyName="${getPropertyNameString(state.propertyName)}"
+        //serializer for ${type.kind}, via propertyName="${commentSafe(getPropertyNameString(state.propertyName))}"
         ${typeChecker ? `if (!(${typeChecker})) ${state.throwCode(type)}` : ''}
         state.writer.writeType(${bsonType}); //BSON type = ${BSONType[bsonType]}
         ${code}
