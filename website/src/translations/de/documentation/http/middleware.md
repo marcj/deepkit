@@ -1,8 +1,8 @@
 # Middleware
 
-HTTP-Middlewares ermöglichen es, sich als Alternative zu HTTP-Events in den Request/Response-Zyklus einzuklinken. Die API erlaubt die Nutzung aller Middlewares aus dem Express/Connect-Framework.
+HTTP-Middlewares ermöglichen es dir, dich als Alternative zu HTTP-Events in den Request/Response-Zyklus einzuklinken. Die API erlaubt es dir, alle Middlewares aus dem Express/Connect-Framework zu verwenden.
 
-Eine Middleware kann entweder eine Class (die vom Dependency-Injection-Container instanziiert wird) oder eine einfache Function sein.
+Eine Middleware kann entweder eine Klasse (die vom Dependency Injection Container instanziiert wird) oder eine einfache Funktion sein.
 
 ```typescript
 import { HttpMiddleware, httpMiddleware, HttpRequest, HttpResponse } from '@deepkit/http';
@@ -32,7 +32,7 @@ new App({
 
 ## Global
 
-Mit httpMiddleware.for(MyMiddleware) wird eine Middleware global für alle Routes registriert.
+Mit httpMiddleware.for(MyMiddleware) wird eine Middleware global für alle Routen registriert.
 
 ```typescript
 import { httpMiddleware } from '@deepkit/http';
@@ -48,7 +48,7 @@ new App({
 
 ## Pro Controller
 
-Sie können Middlewares auf einen oder mehrere Controller auf zwei Arten beschränken: Entweder mit `@http.controller` oder `httpMiddleware.for(T).forControllers()`. `excludeControllers` erlaubt es, Controller auszuschließen.
+Du kannst Middlewares auf zwei Arten auf einen oder mehrere Controller beschränken. Entweder mit `@http.controller` oder mit `httpMiddleware.for(T).forControllers()`. Mit `excludeControllers` kannst du Controller ausschließen.
 
 ```typescript
 @http.middleware(MyMiddleware)
@@ -65,9 +65,9 @@ new App({
 }).run();
 ```
 
-## Pro Route-Name
+## Pro Routenname
 
-`forRouteNames` zusammen mit dem Gegenstück `excludeRouteNames` ermöglicht es, die Ausführung einer Middleware pro Route-Namen zu filtern.
+Mit `forRouteNames` und dem Gegenstück `excludeRouteNames` kannst du die Ausführung einer Middleware nach Routennamen filtern.
 
 ```typescript
 class MyFirstController {
@@ -89,10 +89,11 @@ new App({
 }).run();
 ```
 
+
 ## Pro Action/Route
 
-Um eine Middleware nur für eine bestimmte Route auszuführen, können Sie entweder `@http.GET().middleware()` oder
-`httpMiddleware.for(T).forRoute()` verwenden, wobei forRoute mehrere Optionen bietet, um Routes zu filtern.
+Um eine Middleware nur für eine bestimmte Route auszuführen, kannst du entweder `@http.GET().middleware()` oder
+`httpMiddleware.for(T).forRoute()` verwenden, wobei forRoute mehrere Optionen zum Filtern von Routen bietet.
 
 ```typescript
 class MyFirstController {
@@ -112,7 +113,7 @@ new App({
 }).run();
 ```
 
-`forRoutes()` erlaubt als erstes Argument mehrere Möglichkeiten, nach Routes zu filtern.
+`forRoutes()` erlaubt als erstes Argument mehrere Möglichkeiten, Routen zu filtern.
 
 ```typescript
 {
@@ -126,9 +127,9 @@ new App({
 }
 ```
 
-## Pfad-Muster
+## Pfadmuster
 
-`path` unterstützt Wildcard *.
+`path` unterstützt die Wildcard *.
 
 ```typescript
 httpMiddleware.for(MyMiddleware).forRoutes({
@@ -146,7 +147,7 @@ httpMiddleware.for(MyMiddleware).forRoutes({
 
 ## HTTP-Methode
 
-Alle Routes nach einer HTTP-Methode filtern.
+Filtere alle Routen nach einer HTTP-Methode.
 
 ```typescript
 httpMiddleware.for(MyMiddleware).forRoutes({
@@ -156,7 +157,7 @@ httpMiddleware.for(MyMiddleware).forRoutes({
 
 ## Kategorie
 
-`category` zusammen mit dem Gegenstück `excludeCategory` ermöglicht das Filtern nach Route-Kategorie.
+Mit `category` und dem Gegenstück `excludeCategory` kannst du nach Routenkategorie filtern.
 
 ```typescript
 @http.category('myCategory')
@@ -176,7 +177,7 @@ httpMiddleware.for(MyMiddleware).forRoutes({
 
 ## Gruppe
 
-`group` zusammen mit dem Gegenstück `excludeGroup` ermöglicht das Filtern nach Route-Gruppe.
+Mit `group` und dem Gegenstück `excludeGroup` kannst du nach Routengruppe filtern.
 
 ```typescript
 @http.group('myGroup')
@@ -194,39 +195,62 @@ httpMiddleware.for(MyMiddleware).forRoutes({
 })
 ```
 
-## Pro Module
+## Pro Modul
 
-Sie können die Ausführung einer Middleware auf ein ganzes Modul begrenzen.
+Du kannst die Ausführung einer Middleware auf ein ganzes Modul beschränken.
 
 ```typescript
 httpMiddleware.for(MyMiddleware).forModule(ApiModule)
 ```
 
-## Für eigene Module
 
-Um eine Middleware für alle Controller/Routes eines Moduls auszuführen, in dem die Middleware registriert wurde, verwenden Sie `forSelfModules()`.
+## Pro eigenem Modul
+
+Um eine Middleware für alle Controller/Routen des Moduls auszuführen, in dem die Middleware registriert wurde, verwende `forSelfModules()`.
 
 ```typescript
 const ApiModule = new AppModule({}, {
     controllers: [MainController, UsersCommand],
     providers: [MyMiddleware],
     middlewares: [
-        //für alle im selben Modul registrierten Controller
+        //für alle registrierten Controller desselben Moduls
         httpMiddleware.for(MyMiddleware).forSelfModules(),
     ],
 });
 ```
 
+## next() aufrufen
+
+Eine Middleware ruft entweder `next()` auf, um mit der nächsten Middleware und schließlich dem Controller fortzufahren, oder sie beendet die Response selbst, zum Beispiel mit `response.end()`. Dann wird der Controller nicht ausgeführt und `next()` darf nicht aufgerufen werden. `onResponse`-Listener und der HTTP-Logger laufen trotzdem.
+
+```typescript
+function authentication(request: HttpRequest, response: HttpResponse, next: (err?: any) => void) {
+    if (!request.headers['authorization']) {
+        response.statusCode = 401;
+        response.end();
+        return;
+    }
+    next();
+}
+```
+
+Der Aufruf von `next(error)` oder das Werfen eines Errors (auch in einer asynchronen Middleware) lässt den Request fehlschlagen:
+
+- Ein `HttpError` wie `HttpUnauthorizedError` wird, wie in einem Controller, mit seinem Statuscode und seiner Nachricht als JSON beantwortet.
+- Jeder andere Error wird geloggt und mit 500 "Internal error" beantwortet.
+
+Hat die Middleware die Response bereits beendet, bleibt die Response unverändert.
+
 ## Timeout
 
-Alle Middlewares müssen früher oder später `next()` ausführen. Wenn eine Middleware `next()` innerhalb eines Timeouts nicht ausführt, wird eine Warnung geloggt und die nächste Middleware ausgeführt. Um den Standard von 4 Sekunden zu ändern, verwenden Sie `timeout(milliseconds)`.
+Standardmäßig hat eine Middleware kein Timeout. Mit `timeout(milliseconds)` lässt eine Middleware, die innerhalb dieser Zeit weder `next()` aufruft noch die Response beendet, den Request mit `HttpGatewayTimeoutError` (504) fehlschlagen, und es wird eine Warnung geloggt. Ein späterer Aufruf von `next()` wird ignoriert.
 
 ```typescript
 const ApiModule = new AppModule({}, {
     controllers: [MainController, UsersCommand],
     providers: [MyMiddleware],
     middlewares: [
-        //für alle im selben Modul registrierten Controller
+        //für alle registrierten Controller desselben Moduls
         httpMiddleware.for(MyMiddleware).timeout(15_000),
     ],
 });
@@ -234,7 +258,7 @@ const ApiModule = new AppModule({}, {
 
 ## Mehrere Regeln
 
-Um mehrere Filter zu kombinieren, können Sie Methodenaufrufe verketten.
+Um mehrere Filter zu kombinieren, kannst du Methodenaufrufe verketten.
 
 ```typescript
 const ApiModule = new AppModule({}, {

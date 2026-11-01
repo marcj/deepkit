@@ -1,47 +1,72 @@
 # Deepkit App
 
-Deepkit App の抽象は Deepkit アプリケーションの最も基本的な構成要素です。ライブラリを単体で使用しない場合、通常はここからアプリケーションの構築を始めます。
-これは Node.js のようなランタイムで実行する通常の TypeScript ファイルです。アプリケーションのエントリポイントであり、CLI コマンド、サービス、
-設定、イベントなどを定義する方法を提供します。
+Deepkit App の抽象化は、Deepkit アプリケーションの最も基本的な構成要素です。ライブラリを単体で使用しない場合、通常はここからアプリケーションの構築を始めます。
+これは Node.js などのランタイムで実行する通常の TypeScript ファイルです。アプリケーションのエントリーポイントであり、CLI コマンド、サービス、設定、イベントなどを定義する手段を提供します。
 
-Command-line Interface (CLI) プログラムは、テキスト入力とテキスト出力の形でターミナル経由で対話するプログラムです。この形態でアプリケーションと対話する利点は、
-ローカルまたは SSH 接続経由のいずれかでターミナルさえあればよい点です。
+コマンドラインインターフェース (CLI) プログラムは、テキスト入力とテキスト出力の形でターミナルを介して対話するプログラムです。この方式でアプリケーションと対話する利点は、ローカルまたは SSH 接続経由でターミナルさえあればよいという点です。
 
-提供するもの:
+以下の機能を提供します:
 
 - CLI コマンド
 - モジュールシステム
 - サービスコンテナ
 - 依存性注入
 - イベントシステム
-- ロガー
-- 設定ローダー（env, dotenv, json）
+- Logger
+- 設定ローダー (env、dotenv、json)
 
-Deepkit のコマンドは DI コンテナへ完全にアクセスできるため、すべてのプロバイダや設定オプションにアクセスできます。CLI コマンドの引数とオプションは
-TypeScript の型によるパラメータ宣言で制御され、自動的にシリアライズおよび検証されます。
+Deepkit のコマンドは DI コンテナに完全にアクセスできるため、すべてのプロバイダーと設定オプションにアクセスできます。CLI コマンドの引数とオプションは TypeScript の型によるパラメーター宣言で制御され、自動的にシリアライズおよびバリデーションされます。
 
-[Deepkit フレームワーク](./framework.md) の `@deepkit/framework` はこれをさらに拡張し、HTTP/RPC 用のアプリケーションサーバ、デバッガ/プロファイラなどを提供します。
+`@deepkit/framework` を使用する [Deepkit Framework](./framework.md) は、HTTP/RPC 用のアプリケーションサーバー、デバッガー/プロファイラーなどでこれをさらに拡張します。
+
+例:
+
+```typescript
+import { App, Flag } from '@deepkit/app';
+import { Database } from './database';
+
+const app = new App({
+    providers: [Database]
+});
+
+async function testCommand(
+    name: string, // CLI argument
+    age: number & Flag, // CLI flag
+    database: Database, // Dependency Injection
+) {
+    console.log(`Hello ${name}!`);
+    const users = await database.query<User>().find();
+}
+
+app.command('test', testCommand);
+
+void app.run();
+```
+
+```sh
+ts-node app.ts test John --age 42
+```
 
 ## 簡単なインストール
 
-最も簡単な始め方は、NPM init を使って新しい Deepkit プロジェクトを作成することです。
+最も簡単に始める方法は、NPM init を使用して新しい Deepkit プロジェクトを作成することです。
 
 ```shell
 npm init @deepkit/app@latest my-deepkit-app
 ````
 
-これにより、新しいフォルダー `my-deepkit-app` が作成され、すべての依存関係と基本的な `app.ts` ファイルが含まれます。
+これにより、すべての依存関係と基本的な `app.ts` ファイルを含む新しいフォルダー `my-deepkit-app` が作成されます。
 
 ```sh
 cd my-deepkit-app
 npm run app
 ````
 
-これにより `ts-node` で `app.ts` ファイルが実行され、利用可能なコマンドが表示されます。ここから開始して、独自のコマンド、コントローラなどを追加できます。
+これにより `app.ts` ファイルが `ts-node` で実行され、利用可能なコマンドが表示されます。ここから始めて、独自のコマンドやコントローラーなどを追加できます。
 
-## 手動インストール
+## 手動でのインストール
 
-Deepkit App は [Deepkit ランタイム型](./runtime-types.md) を基盤としているため、すべての依存関係をインストールします:
+Deepkit App は [Deepkit Runtime Types](./runtime-types.md) に基づいているため、すべての依存関係をインストールしましょう:
 
 ```bash
 mkdir my-project && cd my-project
@@ -50,26 +75,23 @@ npm install typescript ts-node
 npm install @deepkit/app @deepkit/type @deepkit/type-compiler
 ```
 
-次に、以下のコマンドを実行して、Deepkit の型コンパイラが `node_modules/typescript` にあるインストール済みの TypeScript パッケージへ導入されていることを確認します:
+次に、以下のコマンドを実行して、Deepkit の型コンパイラが `node_modules/typescript` にインストールされた TypeScript パッケージに組み込まれるようにします:
 
 ```sh
 ./node_modules/.bin/deepkit-type-install
 ```
 
-すべての peer 依存関係がインストールされていることを確認してください。デフォルトでは NPM 7+ が自動的にインストールします。
+すべての peer dependencies がインストールされていることを確認してください。デフォルトでは、NPM 7 以降はそれらを自動的にインストールします。
 
-アプリケーションをコンパイルするには TypeScript コンパイラが必要で、アプリを容易に実行するために `ts-node` の使用を推奨します。
+アプリケーションをコンパイルするには TypeScript コンパイラが必要で、アプリを簡単に実行するために `ts-node` を推奨します。
 
-`ts-node` を使用しない代替としては、TypeScript コンパイラでソースコードをコンパイルし、生成された JavaScript を直接実行する方法があります。これは短いコマンドの
-実行速度を劇的に向上させる利点があります。ただし、コンパイラを手動で実行するかウォッチャーを設定するかのいずれかで、ワークフローに追加のオーバーヘッドが生じます。
-このため、本ドキュメントのすべての例では `ts-node` を使用しています。
+`ts-node` を使用する代わりに、TypeScript コンパイラでソースコードをコンパイルし、JavaScript のソースコードを直接実行する方法もあります。これには、短いコマンドの実行速度が劇的に向上するという利点があります。しかし、コンパイラを手動で実行するか、ウォッチャーを設定する必要があるため、ワークフローに追加のオーバーヘッドが生じます。このため、本ドキュメントのすべての例では `ts-node` を使用しています。
 
 ## 最初のアプリケーション
 
-Deepkit フレームワークは設定ファイルや特別なフォルダ構成を使用しないため、プロジェクトは自由に構成できます。開始するのに必要なのは、TypeScript の app.ts ファイルと
-TypeScript の設定 tsconfig.json の2つだけです。
+Deepkit フレームワークは設定ファイルや特別なフォルダー構造を使用しないため、プロジェクトは自由に構成できます。始めるのに必要なファイルは、TypeScript の app.ts ファイルと TypeScript の設定ファイル tsconfig.json の 2 つだけです。
 
-プロジェクトフォルダには次のファイルがある状態を目指します:
+目標は、プロジェクトフォルダーに以下のファイルを用意することです:
 
 ```
 .
@@ -79,7 +101,7 @@ TypeScript の設定 tsconfig.json の2つだけです。
 └── tsconfig.json
 ```
 
-基本的な tsconfig を設定し、`reflection` を `true` に設定して Deepkit の型コンパイラを有効にします。
+基本的な tsconfig ファイルを用意し、`reflection` を `true` に設定して Deepkit の型コンパイラを有効にします。
 これは依存性注入コンテナやその他の機能を使用するために必要です。
 
 ```json title=tsconfig.json
@@ -113,9 +135,9 @@ app.command('test', (logger: Logger) => {
 app.run();
 ```
 
-このコードでは、test コマンドを定義し、`run()` を使って直接実行する新しいアプリを作成しています。このスクリプトを実行するとアプリが起動します。
+このコードでは、test コマンドを定義し、新しいアプリを作成して `run()` で直接実行していることがわかります。このスクリプトを実行することで、アプリが起動します。
 
-そしてそのまま実行します。
+そして直接実行します。
 
 ```sh
 $ ./node_modules/.bin/ts-node app.ts
@@ -125,49 +147,43 @@ VERSION
 USAGE
   $ ts-node app.ts [COMMAND]
 
-TOPICS
-  debug
-  migration  Executes pending migration files. Use migration:pending to see which are pending.
-  server     Starts the HTTP server
-
 COMMANDS
   test
 ```
 
-次に、test コマンドを実行するには次のコマンドを実行します。
+次に、test コマンドを実行するには、以下のコマンドを実行します。
 
 ```sh
 $ ./node_modules/.bin/ts-node app.ts test
 Hello World
 ```
 
-Deepkit では、以降の操作はすべてこの `app.ts` 経由で行います。ファイル名は自由に変更したり、複数作成したりできます。カスタム CLI コマンド、HTTP/RPC サーバ、
-マイグレーションコマンドなどはすべてこのエントリポイントから起動されます。
+Deepkit では、すべてがこの `app.ts` を介して行われます。ファイル名は自由に変更でき、さらにファイルを作成することもできます。カスタム CLI コマンド、HTTP/RPC サーバー、マイグレーションコマンドなどは、すべてこのエントリーポイントから起動されます。
 
 ## 引数とフラグ
 
-Deepkit App は関数のパラメータを自動的に CLI の引数とフラグに変換します。パラメータの順序が CLI 引数の順序を決定します。
+Deepkit App は関数のパラメーターを自動的に CLI の引数とフラグに変換します。パラメーターの順序が CLI 引数の順序を決定します。
 
-パラメータは任意の TypeScript の型にでき、自動的に検証およびデシリアライズされます。
+パラメーターには任意の TypeScript の型を使用でき、自動的にバリデーションおよびデシリアライズされます。
 
-詳しくは章 [引数とフラグ](./app/arguments.md) を参照してください。
+詳細については、[引数とフラグ](./app/arguments.md) の章を参照してください。
 
 ## 依存性注入
 
-Deepkit App はサービスコンテナを設定し、インポートされた各モジュールに対して親から継承する独自の依存性注入コンテナを用意します。
-これには標準で次のプロバイダが含まれており、サービス、コントローラ、イベントリスナに自動的に注入できます:
+Deepkit App はサービスコンテナを構築し、インポートされた各モジュールに対して、親から継承する独自の依存性注入コンテナを用意します。
+サービス、コントローラー、イベントリスナーに自動的に注入できる以下のプロバイダーが標準で用意されています:
 
-- `Logger` ログ出力用
-- `EventDispatcher` イベント処理用
-- `CliControllerRegistry` 登録済み CLI コマンド用
-- `MiddlewareRegistry` 登録済みミドルウェア用
-- `InjectorContext` 現在のインジェクタコンテキスト用
+- ロギング用の `Logger`
+- イベント処理用の `EventDispatcher`
+- 登録された CLI コマンド用の `CliControllerRegistry`
+- 登録されたミドルウェア用の `MiddlewareRegistry`
+- 現在のインジェクターコンテキスト用の `InjectorContext`
 
-Deepkit フレームワークをインポートすると、さらに多くのプロバイダが利用可能になります。詳細は [Deepkit フレームワーク](./framework.md) を参照してください。
+Deepkit Framework をインポートすると、追加のプロバイダーが利用可能になります。詳細は [Deepkit Framework](./framework.md) を参照してください。
 
 ## 終了コード
 
-終了コードはデフォルトで 0 で、これはコマンドが正常に実行されたことを意味します。終了コードを変更するには、execute メソッドまたはコマンドのコールバックで 0 以外の数値を返します。
+終了コードはデフォルトで 0 であり、コマンドが正常に実行されたことを意味します。終了コードを変更するには、execute メソッドまたはコマンドのコールバックで 0 以外の数値を返す必要があります。
 
 ```typescript
 

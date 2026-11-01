@@ -1,8 +1,8 @@
 # ミドルウェア
 
-HTTP ミドルウェアは、HTTP events の代替として request/response サイクルにフックすることを可能にします。その API により、Express/Connect フレームワークのあらゆるミドルウェアを利用できます。
+HTTP ミドルウェアを使用すると、HTTP イベントの代わりにリクエスト/レスポンスサイクルにフックできます。その API により、Express/Connect フレームワークのすべてのミドルウェアを使用できます。
 
-ミドルウェアは、依存性注入コンテナによってインスタンス化される Class か、単純な Function のいずれかです。
+ミドルウェアは、クラス（依存性注入コンテナによってインスタンス化されます）または単純な関数のいずれかです。
 
 ```typescript
 import { HttpMiddleware, httpMiddleware, HttpRequest, HttpResponse } from '@deepkit/http';
@@ -32,7 +32,7 @@ new App({
 
 ## グローバル
 
-httpMiddleware.for(MyMiddleware) を使用すると、ミドルウェアは全ての Route に対してグローバルに登録されます。
+httpMiddleware.for(MyMiddleware) を使用すると、ミドルウェアはすべてのルートに対してグローバルに登録されます。
 
 ```typescript
 import { httpMiddleware } from '@deepkit/http';
@@ -46,9 +46,9 @@ new App({
 }).run();
 ```
 
-## Controller ごと
+## コントローラーごと
 
-1 つまたは複数の Controller にミドルウェアを制限する方法は 2 つあります。`@http.controller` を使うか、`httpMiddleware.for(T).forControllers()` を使います。`excludeControllers` を使うと Controller を除外できます。
+ミドルウェアを 1 つまたは複数のコントローラーに限定する方法は 2 つあります。`@http.controller` を使用するか、`httpMiddleware.for(T).forControllers()` を使用します。`excludeControllers` を使用すると、コントローラーを除外できます。
 
 ```typescript
 @http.middleware(MyMiddleware)
@@ -65,9 +65,9 @@ new App({
 }).run();
 ```
 
-## Route 名ごと
+## ルート名ごと
 
-`forRouteNames` と、その対になる `excludeRouteNames` により、Route 名ごとにミドルウェアの実行をフィルタできます。
+`forRouteNames` とその対となる `excludeRouteNames` を使用すると、ルート名ごとにミドルウェアの実行をフィルタリングできます。
 
 ```typescript
 class MyFirstController {
@@ -89,10 +89,11 @@ new App({
 }).run();
 ```
 
-## Action/Route ごと
 
-特定の Route のみにミドルウェアを適用するには、`@http.GET().middleware()` を使うか、
-`httpMiddleware.for(T).forRoute()` を使います。forRoute には Route をフィルタするための複数のオプションがあります。
+## アクション/ルートごと
+
+特定のルートに対してのみミドルウェアを実行するには、`@http.GET().middleware()` または
+`httpMiddleware.for(T).forRoute()` を使用できます。forRoute にはルートをフィルタリングするための複数のオプションがあります。
 
 ```typescript
 class MyFirstController {
@@ -112,7 +113,7 @@ new App({
 }).run();
 ```
 
-`forRoutes()` は、最初の引数で Route をフィルタするための複数の方法を指定できます。
+`forRoutes()` は、最初の Argument としてルートをフィルタリングするためのいくつかの方法を受け付けます。
 
 ```typescript
 {
@@ -128,7 +129,7 @@ new App({
 
 ## パスパターン
 
-`path` はワイルドカード * をサポートします。
+`path` はワイルドカード * をサポートしています。
 
 ```typescript
 httpMiddleware.for(MyMiddleware).forRoutes({
@@ -144,9 +145,9 @@ httpMiddleware.for(MyMiddleware).forRoutes({
 })
 ```
 
-## HTTP Method
+## HTTP メソッド
 
-HTTP Method で全ての Route をフィルタします。
+HTTP メソッドですべてのルートをフィルタリングします。
 
 ```typescript
 httpMiddleware.for(MyMiddleware).forRoutes({
@@ -154,9 +155,9 @@ httpMiddleware.for(MyMiddleware).forRoutes({
 })
 ```
 
-## カテゴリ
+## カテゴリー
 
-`category` と、その対になる `excludeCategory` により、Route のカテゴリごとにフィルタできます。
+`category` とその対となる `excludeCategory` を使用すると、ルートのカテゴリーごとにフィルタリングできます。
 
 ```typescript
 @http.category('myCategory')
@@ -176,7 +177,7 @@ httpMiddleware.for(MyMiddleware).forRoutes({
 
 ## グループ
 
-`group` と、その対になる `excludeGroup` により、Route のグループごとにフィルタできます。
+`group` とその対となる `excludeGroup` を使用すると、ルートのグループごとにフィルタリングできます。
 
 ```typescript
 @http.group('myGroup')
@@ -194,39 +195,62 @@ httpMiddleware.for(MyMiddleware).forRoutes({
 })
 ```
 
-## Module ごと
+## モジュールごと
 
-ミドルウェアの実行を特定の Module 全体に限定できます。
+モジュール全体に対してミドルウェアの実行を限定できます。
 
 ```typescript
 httpMiddleware.for(MyMiddleware).forModule(ApiModule)
 ```
 
-## 自身の Module ごと
 
-ミドルウェアが登録された Module 内のすべての Controller/Route に対してミドルウェアを実行するには、`forSelfModules()` を使用します。
+## 自身のモジュールごと
+
+ミドルウェアが登録されたモジュールのすべてのコントローラー/ルートに対してミドルウェアを実行するには、`forSelfModules()` を使用します。
 
 ```typescript
 const ApiModule = new AppModule({}, {
     controllers: [MainController, UsersCommand],
     providers: [MyMiddleware],
     middlewares: [
-        //同じ Module に登録されたすべての Controller に対して
+        //同じモジュールに登録されたすべてのコントローラーに対して
         httpMiddleware.for(MyMiddleware).forSelfModules(),
     ],
 });
 ```
 
+## next() の呼び出し
+
+ミドルウェアは、`next()` を呼び出して次のミドルウェア、そして最終的にコントローラーへと処理を続けるか、例えば `response.end()` を使って自らレスポンスを終了します。後者の場合、コントローラーは実行されず、`next()` を呼び出してはいけません。`onResponse` リスナーと HTTP ロガーは引き続き実行されます。
+
+```typescript
+function authentication(request: HttpRequest, response: HttpResponse, next: (err?: any) => void) {
+    if (!request.headers['authorization']) {
+        response.statusCode = 401;
+        response.end();
+        return;
+    }
+    next();
+}
+```
+
+`next(error)` を呼び出すか、Error をスローする（非同期ミドルウェアでも同様）と、リクエストは失敗します:
+
+- `HttpUnauthorizedError` のような `HttpError` は、コントローラーの場合と同様に、そのステータスコードとメッセージを JSON として返します。
+- その他の Error はログに記録され、500 "Internal error" が返されます。
+
+ミドルウェアがすでにレスポンスを終了している場合、レスポンスはそのまま維持されます。
+
 ## タイムアウト
 
-すべてのミドルウェアは遅かれ早かれ `next()` を実行する必要があります。タイムアウト内にミドルウェアが `next()` を実行しない場合、警告がログに記録され、次のミドルウェアが実行されます。デフォルトの 4 秒を変更するには、`timeout(milliseconds)` を使用します。
+デフォルトでは、ミドルウェアにタイムアウトはありません。`timeout(milliseconds)` を使用すると、その時間内に `next()` を呼び出さず、レスポンスも終了しないミドルウェアは、`HttpGatewayTimeoutError`（504）でリクエストを失敗させ、警告がログに記録されます。その後の `next()` の呼び出しは無視されます。
 
 ```typescript
 const ApiModule = new AppModule({}, {
     controllers: [MainController, UsersCommand],
     providers: [MyMiddleware],
     middlewares: [
-        //同じ Module に登録されたすべての Controller に対して
+        //同じモジュールに登録されたすべてのコントローラーに対して
         httpMiddleware.for(MyMiddleware).timeout(15_000),
     ],
 });
@@ -234,7 +258,7 @@ const ApiModule = new AppModule({}, {
 
 ## 複数のルール
 
-複数のフィルタを組み合わせるには、Method 呼び出しをチェーンできます。
+複数のフィルターを組み合わせるには、メソッド呼び出しをチェーンできます。
 
 ```typescript
 const ApiModule = new AppModule({}, {
@@ -248,7 +272,7 @@ const ApiModule = new AppModule({}, {
 
 ## Express ミドルウェア
 
-ほとんどの Express ミドルウェアはサポートされています。Express の特定の request メソッドにアクセスするものは、まだサポートされていません。
+ほぼすべての Express ミドルウェアがサポートされています。Express 固有のリクエストメソッドにアクセスするものは、まだサポートされていません。
 
 ```typescript
 import * as compression from 'compression';

@@ -4,9 +4,10 @@
 npm install @deepkit/orm-browser
 ```
 
-Deepkit ORM Browser ist eine Webanwendung, die es ermöglicht, das Database ORM Schema zu durchsuchen, Inhalte zu bearbeiten, Migrationsänderungen einzusehen und die Datenbank zu seeden.
+Deepkit ORM Browser ist eine Webanwendung, mit der man das Datenbank-ORM-Schema durchsuchen, Inhalte bearbeiten
+und Migrationsänderungen einsehen kann.
 
-Dies ist Teil des [Framework-Debuggers](../framework.md), kann aber auch eigenständig verwendet werden.
+Dies ist Teil des [Framework Debugger](../framework.md), kann aber auch eigenständig verwendet werden.
 
 <app-images>
     <app-image src="/assets/screenshots-orm-browser/content-editing.png"></app-image>
