@@ -18,9 +18,33 @@ export const texts = {
     startTitle: 'Deepkit: the TypeScript framework with runtime types',
     startDescription:
         'Deepkit is a high-performance TypeScript framework with runtime types: one TypeScript type for validation, serialization, database, HTTP, RPC and dependency injection. No schemas, no decorators for DI, no code generation.',
-    heroTitle: 'The TypeScript Framework with Runtime Types',
+    heroTitle: 'Your TypeScript Types, Enforced at Runtime',
     heroText:
-        'One TypeScript type for validation, serialization, database, HTTP, RPC and dependency injection. No schemas to keep in sync, no code generator, and faster than the libraries you would otherwise combine.',
+        'One TypeScript type validates and serializes every boundary of your application: HTTP, RPC, database, configuration and CLI. When code gets a type subtly wrong, whether you or an agent wrote it, it fails with an exact error at the boundary instead of passing bad data through.',
+    pillarOneTypeTitle: 'One type, the whole stack',
+    pillarOneTypeText:
+        'The type is the validator, the JSON format, the database schema and the API documentation. No Zod schema, class-validator DTO or Prisma model to keep in sync.',
+    pillarStrictTitle: 'Strict at every boundary',
+    pillarStrictText:
+        'Every HTTP request, RPC call, database row, config value and CLI argument is checked against its type at runtime, with the exact path of what is wrong.',
+    pillarJitTitle: 'JIT-compiled',
+    pillarJitText:
+        'Validators, serializers and database mappers are compiled into plain JavaScript functions for your types. Strict checking without paying for it.',
+    pillarPlainTitle: 'Just TypeScript',
+    pillarPlainText:
+        'No schema DSL, no decorators for dependency injection, no code generation. The TypeScript you already write, and the language models write best.',
+    agentsTitle: 'The safety net for agent-written TypeScript',
+    agentsText:
+        'Runtime types put Deepkit in a unique position for code written by agents. Every boundary of an application validates and serializes against the TypeScript types at runtime, so generated code is checked in the places where mistakes are expensive.',
+    agentsBoundaryTitle: 'Mistakes fail loudly, where they happen',
+    agentsBoundaryText:
+        'A wrong field name or a string where a number belongs is rejected at the boundary with its exact path, not stored in the database and discovered weeks later.',
+    agentsPlainTitle: 'Nothing new to get wrong',
+    agentsPlainText:
+        'There is no second schema language next to your types for a model to get subtly out of sync. If the TypeScript is right, validation, database and API are right.',
+    agentsStackTitle: 'One stack, one set of conventions',
+    agentsStackText:
+        'HTTP, RPC, ORM, DI, configuration and CLI come from one framework instead of five libraries glued together, so generated code stays consistent across the whole application.',
     llmHint: 'Are you an LLM? Skip the pixels, we wrote markdown just for you:',
     oneTypeTitle: 'One type for the whole backend',
     oneTypeText:
@@ -29,6 +53,10 @@ export const texts = {
     performanceText:
         'Deepkit compiles validators, serializers and database mappers for your types at runtime into plain JavaScript functions. Time per operation, lower is better, measured against the most used libraries.',
     allBenchmarks: 'All benchmarks',
+    chartValidation: 'Validation with error messages',
+    chartMongoFindOne: 'MongoDB: find one document by id',
+    chartPostgresFindOne: 'PostgreSQL: find one row by id',
+    chartPostgresInsert: 'PostgreSQL: insert 1,000 rows',
     runtimeTypesTitle: 'Runtime types: validation and serialization without schemas',
     runtimeTypesText:
         'The type compiler makes the types of your TypeScript code available at runtime, including interfaces, generics, unions and mapped types like Omit. Validate, type guard, cast and serialize with the types you already have, instead of a Zod schema or class-validator decorators next to them.',

@@ -52,10 +52,10 @@ app.run();`;
 const oneTypeResponse = `$ curl -X POST localhost:8080/users -d '{"username": "pe", "email": "nope"}'
 HTTP/1.1 400 Bad Request
 {
-  "message": "Validation error",
+  "message": "Validation error:\\nusername(minLength): Min length is 3 caused by value \\"pe\\",\\nemail(pattern): Pattern ^\\\\S+@\\\\S+$ does not match caused by value \\"nope\\"",
   "errors": [
-    { "path": "username", "code": "minLength", "message": "Min length is 3" },
-    { "path": "email", "code": "pattern", "message": "Pattern ^\\S+@\\S+$ does not match" }
+    { "path": "username", "code": "minLength", "message": "Min length is 3", "value": "pe" },
+    { "path": "email", "code": "pattern", "message": "Pattern ^\\\\S+@\\\\S+$ does not match", "value": "nope" }
   ]
 }`;
 
@@ -189,9 +189,22 @@ const features = [
     { title: texts.appTitle, text: texts.appText, link: 'documentation/app', code: appCode },
 ];
 
+const pillars = [
+    { title: texts.pillarOneTypeTitle, text: texts.pillarOneTypeText },
+    { title: texts.pillarStrictTitle, text: texts.pillarStrictText },
+    { title: texts.pillarJitTitle, text: texts.pillarJitText },
+    { title: texts.pillarPlainTitle, text: texts.pillarPlainText },
+];
+
+const agentPoints = [
+    { title: texts.agentsBoundaryTitle, text: texts.agentsBoundaryText },
+    { title: texts.agentsPlainTitle, text: texts.agentsPlainText },
+    { title: texts.agentsStackTitle, text: texts.agentsStackText },
+];
+
 const performanceCharts = [
     {
-        title: 'Validation with error messages',
+        title: texts.chartValidation,
         entries: latestChartEntries('comparison/validation', {
             'deepkit validate (invalid)': 'Deepkit',
             'typia validate (invalid)': 'typia',
@@ -203,7 +216,7 @@ const performanceCharts = [
         }),
     },
     {
-        title: 'MongoDB: find one document by id',
+        title: texts.chartMongoFindOne,
         entries: latestChartEntries('comparison/orm-mongo', {
             'Deepkit: findOne by id': 'Deepkit',
             'mongodb: findOne by id': 'mongodb (driver)',
@@ -212,7 +225,7 @@ const performanceCharts = [
         }),
     },
     {
-        title: 'PostgreSQL: find one row by id',
+        title: texts.chartPostgresFindOne,
         entries: latestChartEntries('comparison/orm-postgres', {
             'Deepkit: findOne by id': 'Deepkit',
             'Sequelize: findOne by id': 'Sequelize',
@@ -223,7 +236,7 @@ const performanceCharts = [
         }),
     },
     {
-        title: 'PostgreSQL: insert 1,000 rows',
+        title: texts.chartPostgresInsert,
         entries: latestChartEntries('comparison/orm-postgres', {
             'Deepkit: insert 1,000 rows': 'Deepkit',
             'Sequelize: insert 1,000 rows': 'Sequelize',
@@ -266,6 +279,15 @@ const performanceCharts = [
             </div>
 
             <main>
+                <div class="pillars">
+                    @for (pillar of pillars; track pillar.title) {
+                        <div class="pillar">
+                            <h4>{{ pillar.title | translate }}</h4>
+                            <p>{{ pillar.text | translate }}</p>
+                        </div>
+                    }
+                </div>
+
                 <div class="separator1"></div>
 
                 <div class="feature-center">
@@ -278,6 +300,19 @@ const performanceCharts = [
                     <p class="actions">
                         <a class="button big" [routerLink]="'documentation/app' | i18nRoute">{{ texts.gettingStarted | translate }}</a>
                     </p>
+                </div>
+
+                <div class="feature-center agents">
+                    <h2>{{ texts.agentsTitle | translate }}</h2>
+                    <p class="feature-text">{{ texts.agentsText | translate }}</p>
+                    <div class="pillars three">
+                        @for (point of agentPoints; track point.title) {
+                            <div class="pillar">
+                                <h4>{{ point.title | translate }}</h4>
+                                <p>{{ point.text | translate }}</p>
+                            </div>
+                        }
+                    </div>
                 </div>
             </main>
 
@@ -410,6 +445,47 @@ const performanceCharts = [
             font-size: 16px;
             padding: 17px 30px;
             user-select: all;
+        }
+        .pillars {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 16px;
+            margin: 70px auto 0;
+            text-align: left;
+        }
+        .pillars.three {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            margin-top: 40px;
+        }
+        .pillar {
+            padding: 22px 20px;
+            border-radius: 4px;
+            border-top: 1px solid rgba(255, 102, 42, 0.48);
+            background: rgba(24, 28, 35, 0.6);
+        }
+        .pillar h4 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            font-weight: 500;
+            color: #f9eddf;
+        }
+        .pillar p {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #a9adb3;
+        }
+        @media (max-width: 900px) {
+            .pillars,
+            .pillars.three {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 560px) {
+            .pillars,
+            .pillars.three {
+                grid-template-columns: minmax(0, 1fr);
+            }
         }
         .llm-hint {
             margin: 22px 0 0;
@@ -566,6 +642,8 @@ const performanceCharts = [
 export class StartpageComponent {
     protected readonly texts = texts;
     protected readonly features = features;
+    protected readonly pillars = pillars;
+    protected readonly agentPoints = agentPoints;
     protected readonly performanceCharts = performanceCharts;
     protected readonly oneTypeCode = oneTypeCode;
     protected readonly oneTypeResponse = oneTypeResponse;
