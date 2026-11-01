@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, forwardRef, signal } from '@angular/core';
 
 import { ImageComponent } from './image.component';
 
@@ -22,7 +22,8 @@ import { ImageComponent } from './image.component';
             </div>
         }
     `,
-    imports: [ImageComponent],
+    // forwardRef: image.component imports this file back, so ImageComponent can be undefined at load time (NG0919)
+    imports: [forwardRef(() => ImageComponent)],
     changeDetection: ChangeDetectionStrategy.Eager,
     styles: [
         `
