@@ -20,7 +20,7 @@ import { HttpMiddlewareConfig, HttpMiddlewareFn } from './middleware.js';
 //@ts-ignore
 import { parseQueryString } from './query-string.js';
 import { HtmlResponse, JSONResponse, Redirect, Response } from './http.js';
-import { getRequestParserCodeForParameters, ParameterForRequestParser, parseRoutePathToRegex } from './request-parser.js';
+import { getPathParameterName, getRequestParserCodeForParameters, ParameterForRequestParser, parseRoutePathToRegex } from './request-parser.js';
 import { HttpConfig } from './module.config.js';
 
 export type RouteParameterResolverForInjector = ((injector: InjectorContext) => HttpRequestPositionedParameters | Promise<HttpRequestPositionedParameters>);
@@ -196,7 +196,7 @@ export function parseRouteControllerAction(routeConfig: RouteConfig): ParsedRout
 
     for (const property of parameters) {
         const parsedParameter = parsedRoute.addParameter(property);
-        parsedParameter.regexPosition = parsedPath.parameterNames[property.name];
+        parsedParameter.regexPosition = parsedPath.parameterNames[getPathParameterName(property)];
     }
 
     return parsedRoute;

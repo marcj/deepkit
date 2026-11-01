@@ -1950,3 +1950,35 @@ test('handleRequest', async () => {
         expect(called).toBe(true);
     }
 });
+
+test('HttpPath name option maps a parameter to a differently named path parameter', async () => {
+    class Controller {
+        @http.GET('/user/:userId')
+        user(id: HttpPath<number, { name: 'userId' }>) {
+            return id;
+        }
+
+        @http.GET('/pair/:left/:right')
+        pair(r: HttpPath<string, { name: 'right' }>, l: HttpPath<string, { name: 'left' }>) {
+            return [l, r];
+        }
+
+        @http.GET('/files/:filePath')
+        file(path: HttpRegExp<HttpPath<string, { name: 'filePath' }>, '.*'>) {
+            return path;
+        }
+    }
+
+    const httpKernel = createHttpKernel([Controller]);
+    expect((await httpKernel.request(HttpRequest.GET('/user/5'))).json).toBe(5);
+
+    const invalid = await httpKernel.request(HttpRequest.GET('/user/abc'));
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json.message).toContain('userId(type): Cannot convert abc');
+
+    // matched by name, not by position
+    expect((await httpKernel.request(HttpRequest.GET('/pair/x/y'))).json).toEqual(['x', 'y']);
+
+    // the type-specific regex of the parameter applies to the renamed path parameter
+    expect((await httpKernel.request(HttpRequest.GET('/files/a/b/c.txt'))).json).toBe('a/b/c.txt');
+});

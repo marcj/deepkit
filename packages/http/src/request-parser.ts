@@ -180,6 +180,18 @@ export class ParameterForRequestParser {
     }
 }
 
+/**
+ * The route path parameter a function parameter receives: the name of `HttpPath<T, {name}>`, otherwise the parameter name.
+ */
+export function getPathParameterName(parameter: ReflectionParameter): string {
+    const typeOptions = typeAnnotation.getType(parameter.type, 'httpPath');
+    if (typeOptions) {
+        const options = typeToObject(typeOptions);
+        if (isObject(options) && 'string' === typeof options.name) return options.name;
+    }
+    return parameter.name;
+}
+
 export function parseRoutePathToRegex(path: string, params: ReflectionParameter[]): { regex: string, parameterNames: { [name: string]: number } } {
     const parameterNames: { [name: string]: number } = {};
 
@@ -187,7 +199,7 @@ export function parseRoutePathToRegex(path: string, params: ReflectionParameter[
     path = path.replace(/:(\w+)/g, (a, name) => {
         parameterNames[name] = argumentIndex;
         argumentIndex++;
-        const parameter = params.find(v => v.name === name);
+        const parameter = params.find(v => getPathParameterName(v) === name);
         if (parameter) {
             const regExp = getRegExp(parameter.type);
             if (regExp instanceof RegExp) {
@@ -222,7 +234,7 @@ export function buildRequestParser(parseOptions: HttpParserOptions, parameters: 
         pathParameterNames = parsedPath.parameterNames;
 
         for (const param of params) {
-            param.regexPosition = parsedPath.parameterNames[param.parameter.name];
+            param.regexPosition = parsedPath.parameterNames[getPathParameterName(param.parameter)];
         }
     }
 
@@ -346,13 +358,14 @@ export function getRequestParserCodeForParameters(
 
             if (parameter.isPartOfPath()) {
                 if (parameter.parameter.type.kind !== ReflectionKind.class) {
-                    const converted = getSerializeFunction(parameter.parameter.parameter, serializer.deserializeRegistry, undefined, parameter.getName());
+                    const pathName = getPathParameterName(parameter.parameter);
+                    const converted = getSerializeFunction(parameter.parameter.parameter, serializer.deserializeRegistry, undefined, pathName);
                     const converterVar = compiler.reserveVariable('argumentConverter', converted);
                     setParameters.push(`parameters.${parameter.parameter.name} = ${converterVar}(_match[${1 + (parameter.regexPosition || 0)}], {loosely: true});`);
 
                     const validator = getValidatorFunction(undefined, parameter.parameter.parameter);
                     const validatorVar = compiler.reserveVariable('argumentValidator', validator);
-                    parameterValidator.push(`${validatorVar}(parameters.${parameter.parameter.name}, {errors: validationErrors}, ${JSON.stringify(parameter.getName())});`);
+                    parameterValidator.push(`${validatorVar}(parameters.${parameter.parameter.name}, {errors: validationErrors}, ${JSON.stringify(pathName)});`);
                 } else {
                     setParameters.push(`parameters.${parameter.parameter.name} = _match[${1 + (parameter.regexPosition || 0)}];`);
                 }
