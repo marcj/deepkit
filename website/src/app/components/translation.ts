@@ -54,7 +54,8 @@ export class Translation {
     url = signal(inject(DOCUMENT).location?.pathname || '/');
 
     lang = computed(() => {
-        const lang = this.url().replace(/^\//, '').split('/')[0] || 'en';
+        // without query string and fragment: /de?ref=x is German too
+        const lang = this.url().split(/[?#]/)[0].replace(/^\//, '').split('/')[0] || 'en';
         return this.labels()[lang] ? lang : 'en';
     });
 
