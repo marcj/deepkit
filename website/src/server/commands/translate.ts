@@ -1,14 +1,17 @@
 import { docs, libraries, texts } from '@app/common/docs';
 import { AppConfig } from '@app/server/config';
 import { readTranslationsFile, translationsDir } from '@app/server/translations';
+import { spawn } from 'child_process';
 import { createHash } from 'crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { OpenAI } from 'openai';
+import { tmpdir } from 'os';
 import path from 'path';
 
+import { Flag } from '@deepkit/app';
 import { Logger } from '@deepkit/logger';
 
-const languages: Record<string, string> = {
+const languagesMap: Record<string, string> = {
     zh: '中文 (Chinese)',
     ko: '한국어 (Korean)',
     ja: '日本語 (Japanese)',
@@ -25,7 +28,7 @@ Make sure to keep technical terms in English if possible. If it would sound weir
 
 function systemPrompt(lang: string, task: string): string {
     return `
-You are a helpful assistant that translates technical documentation and code comments into ${lang} ${languages[lang]}.
+You are a helpful assistant that translates technical documentation and code comments into ${lang} ${languagesMap[lang]}.
 Please ensure the translation is accurate and maintains the original meaning.
 You get from the user either just markdown or TypeScript code. Keep the structure and formatting of the original text
 as much as possible, and do not add any additional explanations or comments.
@@ -36,17 +39,86 @@ ${task}
 `.trim();
 }
 
-export class Translator {
+/**
+ * The language model behind the Translator: one instruction (system prompt) plus one input, returns the text output.
+ */
+export abstract class TranslationModel {
+    abstract readonly name: string;
+
+    abstract complete(instructions: string, input: string): Promise<string>;
+}
+
+/**
+ * Runs the Claude Code CLI (`claude -p`), so it uses whatever Claude Code is logged in with, e.g. a Claude subscription.
+ */
+export class ClaudeCodeModel extends TranslationModel {
+    constructor(public model: string = '') {
+        super();
+    }
+
+    get name() {
+        return `Claude Code${this.model ? ` (${this.model})` : ''}`;
+    }
+
+    complete(instructions: string, input: string): Promise<string> {
+        const args = [
+            '-p',
+            '--output-format',
+            'text',
+            '--system-prompt',
+            instructions,
+            // a pure text task: no tools, MCP servers, skills or saved sessions
+            '--tools',
+            '',
+            '--strict-mcp-config',
+            '--disable-slash-commands',
+            '--no-session-persistence',
+        ];
+        if (this.model) args.push('--model', this.model);
+
+        return new Promise((resolve, reject) => {
+            // outside the repository, so no CLAUDE.md ends up in the prompt
+            const child = spawn('claude', args, { cwd: tmpdir(), stdio: ['pipe', 'pipe', 'pipe'] });
+            let stdout = '';
+            let stderr = '';
+            child.stdout.setEncoding('utf8').on('data', chunk => (stdout += chunk));
+            child.stderr.setEncoding('utf8').on('data', chunk => (stderr += chunk));
+            child.on('error', error => reject(new Error(`Could not run the claude CLI, is Claude Code installed? ${error.message}`)));
+            child.on('close', code => {
+                if (code === 0) return resolve(stdout);
+                reject(new Error(`claude exited with code ${code}: ${(stderr || stdout).trim()}`));
+            });
+            // the input goes through stdin, documentation pages are too long for an argument
+            child.stdin.end(input);
+        });
+    }
+}
+
+export class OpenAiModel extends TranslationModel {
     constructor(
         protected openAi: OpenAI,
-        public model: AppConfig['openaiTranslationModel'],
-    ) {}
+        public model: string,
+    ) {
+        super();
+    }
+
+    get name() {
+        return `OpenAI (${this.model})`;
+    }
+
+    async complete(instructions: string, input: string): Promise<string> {
+        const response = await this.openAi.responses.create({ model: this.model, instructions, input });
+        return response.output_text;
+    }
+}
+
+export class Translator {
+    constructor(public model: TranslationModel) {}
 
     async translateLabels(lang: string, labels: string[]): Promise<Record<string, string>> {
         if (!labels.length) return {};
-        const response = await this.openAi.responses.create({
-            model: this.model,
-            instructions: systemPrompt(
+        const output = await this.model.complete(
+            systemPrompt(
                 lang,
                 `
 Return a map of translations for the provided labels.
@@ -55,13 +127,13 @@ Example output: {
     "Hello World": "你好，世界",
     "This is a test": "这是一个测试"
 }
-Make sure to use the language: ${lang} ${languages[lang]} and return the translations in a JSON format only (no markdown).
+Make sure to use the language: ${lang} ${languagesMap[lang]} and return the translations in a JSON format only (no markdown).
 `.trim(),
             ),
-            input: `Translate the following text into ${lang} ${languages[lang]}: ${JSON.stringify(labels)}`,
-        });
+            `Translate the following text into ${lang} ${languagesMap[lang]}: ${JSON.stringify(labels)}`,
+        );
 
-        let text = response.output_text.trim();
+        let text = output.trim();
         if (!text) return {};
         if (text.startsWith('```')) text = text.replace(/^```(json)?\s*/, '').replace(/\s*```$/, '');
         try {
@@ -72,21 +144,19 @@ Make sure to use the language: ${lang} ${languages[lang]} and return the transla
     }
 
     async translateMarkdown(lang: string, source: string): Promise<string> {
-        const response = await this.openAi.responses.create({
-            model: this.model,
-            instructions: systemPrompt(
+        return await this.model.complete(
+            systemPrompt(
                 lang,
                 `
-Return markdown in the same format as the input, but translated to ${lang} ${languages[lang]}.
+Return markdown in the same format as the input, but translated to ${lang} ${languagesMap[lang]}.
 Do not return any additional text or explanations.
 ${instruction}
 
 Make sure to also translate link titles, headings, and any other text that is not code.
 `.trim(),
             ),
-            input: `Translate the following text into ${lang} ${languages[lang]}: ${source}`,
-        });
-        return response.output_text;
+            `Translate the following text into ${lang} ${languagesMap[lang]}: ${source}`,
+        );
     }
 }
 
@@ -95,8 +165,10 @@ function writeTranslationsFile(lang: string, name: string, translations: Record<
     writeFileSync(filePath, JSON.stringify(translations, null, 2) + '\n', 'utf8');
 }
 
-// navigation, startpage, etc. All in one big mapping file that is loaded at once.
-async function translateBasics(translator: Translator, lang: string) {
+/**
+ * All labels of the navigation, start page, etc. They are translated into one big mapping file (basics.json) that is loaded at once.
+ */
+export function collectBasicsLabels(): string[] {
     const labels: string[] = Object.values(texts);
 
     for (const category of docs) {
@@ -115,9 +187,12 @@ async function translateBasics(translator: Translator, lang: string) {
             labels.push(item.description);
         }
     }
+    return [...new Set(labels)];
+}
 
+async function translateBasics(translator: Translator, lang: string) {
     const translations = readTranslationsFile(lang, 'basics');
-    const missing = labels.filter(label => !translations[label]);
+    const missing = collectBasicsLabels().filter(label => !translations[label]);
     if (!missing.length) return;
     Object.assign(translations, await translator.translateLabels(lang, missing));
     writeTranslationsFile(lang, 'basics', translations);
@@ -139,6 +214,26 @@ function writeState(lang: string, state: TranslationState) {
     writeFileSync(path.join(translationsDir, lang, 'state.json'), JSON.stringify(state, null, 2) + '\n', 'utf8');
 }
 
+/**
+ * Documentation pages (relative to src/pages/documentation) that are translated.
+ */
+export function translatablePages(): string[] {
+    const pages: string[] = [];
+    for (const category of docs) {
+        for (const page of category.pages) {
+            const pagePath = (page.path || 'index') + '.md';
+            if (pagePath.startsWith('desktop-ui/')) continue;
+            pages.push(pagePath);
+        }
+    }
+    return pages;
+}
+
+function pageHash(page: string): Hash {
+    const content = readFileSync(path.join(translationsDir, '../pages/documentation', page), 'utf8');
+    return createHash('sha256').update(content).digest('hex');
+}
+
 async function translateDocumentationPage(
     translator: Translator,
     logger: Logger,
@@ -148,7 +243,7 @@ async function translateDocumentationPage(
 ) {
     const content = readFileSync(path.join(translationsDir, '../pages/documentation', page), 'utf8');
     // pages that did not change since the last translation are skipped
-    const hash = createHash('sha256').update(content).digest('hex');
+    const hash = pageHash(page);
     if (state[page] === hash) return;
 
     logger.log(`Translating ${page} to ${lang} ...`);
@@ -165,22 +260,65 @@ async function translateDocumentationPage(
  * Only new or changed pages are translated.
  */
 export async function translateCommand(lang: string, logger: Logger, translator: Translator) {
-    if (!languages[lang]) {
-        throw new Error(`Unsupported language: ${lang}. Supported: ${Object.keys(languages).join(', ')}`);
+    if (!languagesMap[lang]) {
+        throw new Error(`Unsupported language: ${lang}. Supported: ${Object.keys(languagesMap).join(', ')}`);
     }
 
-    logger.log(`Translating to ${lang} with ${translator.model} ...`);
+    logger.log(`Translating to ${lang} with ${translator.model.name} ...`);
     mkdirSync(path.join(translationsDir, lang), { recursive: true });
 
     await translateBasics(translator, lang);
     const state = readState(lang);
 
-    for (const category of docs) {
-        for (const page of category.pages) {
-            const pagePath = (page.path || 'index') + '.md';
-            if (pagePath.startsWith('desktop-ui/')) continue;
-            await translateDocumentationPage(translator, logger, state, lang, pagePath);
-        }
+    for (const page of translatablePages()) {
+        await translateDocumentationPage(translator, logger, state, lang, page);
     }
     logger.log(`Done translating to ${lang}.`);
+}
+
+/**
+ * Lists what `translate` would still translate: labels missing in basics.json and documentation pages
+ * that are new or changed since their last translation. Exits with 1 if anything is missing.
+ *
+ * @param lang language to check, e.g. `de`. Without it, every language that was translated before (has a folder in src/translations).
+ * @param verbose list every missing label and page instead of the first few
+ */
+export function translateCheckCommand(logger: Logger, lang?: string, verbose: boolean & Flag = false): number {
+    if (lang && !languagesMap[lang]) {
+        logger.error(`Unsupported language: ${lang}. Supported: ${Object.keys(languagesMap).join(', ')}`);
+        return 1;
+    }
+    const languages = lang ? [lang] : Object.keys(languagesMap).filter(lang => existsSync(path.join(translationsDir, lang)));
+
+    const labels = collectBasicsLabels();
+    const labelSet = new Set(labels);
+    const pages = translatablePages();
+    const hashes = new Map(pages.map(page => [page, pageHash(page)]));
+    const list = (title: string, items: string[]) => {
+        const shown = verbose ? items : items.slice(0, 5);
+        const lines = shown.map(v => `    ${v.length > 100 ? v.slice(0, 100) + '...' : v}`);
+        if (shown.length < items.length) lines.push(`    ... and ${items.length - shown.length} more (--verbose lists all)`);
+        logger.log(`  ${title}:\n${lines.join('\n')}`);
+    };
+    let incomplete = false;
+
+    for (const lang of languages) {
+        const translations = readTranslationsFile(lang, 'basics');
+        const state = readState(lang);
+        const missingLabels = labels.filter(label => !translations[label]);
+        const outdatedPages = pages.filter(page => state[page] !== hashes.get(page));
+        const unused = Object.keys(translations).filter(label => !labelSet.has(label));
+
+        const ok = !missingLabels.length && !outdatedPages.length;
+        if (!ok) incomplete = true;
+        logger.log(
+            `${lang}: ${ok ? 'complete' : 'incomplete'}, ${missingLabels.length} of ${labels.length} labels missing, ` +
+                `${outdatedPages.length} of ${pages.length} pages new or changed, ${unused.length} unused labels`,
+        );
+        if (missingLabels.length) list('missing labels', missingLabels);
+        if (outdatedPages.length) list('new or changed pages', outdatedPages);
+    }
+
+    if (incomplete) logger.log(`Run \`npm run translate <lang>\` to translate what is missing.`);
+    return incomplete ? 1 : 0;
 }

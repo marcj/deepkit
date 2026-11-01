@@ -14,15 +14,36 @@ npm run dev
 
 ## Translate
 
-Translates the navigation, start page and documentation with OpenAI into one of `de`, `ja`, `ko`, `pl`, `zh`.
+Translates the navigation, start page and documentation into one of `de`, `ja`, `ko`, `pl`, `zh`.
 Only new or changed pages are translated (tracked in `src/translations/<lang>/state.json`).
 
+By default it runs the [Claude Code](https://claude.com/claude-code) CLI (`claude -p`), so it uses whatever
+Claude Code is logged in with, e.g. a Claude subscription. Log in once with `claude` and `/login`, then:
+
 ```sh
+npm run translate de
+```
+
+`APP_CLAUDE_TRANSLATION_MODEL` picks a model (default: the Claude Code default).
+
+To see what is not translated yet (missing labels, new or changed pages), without calling any model:
+
+```sh
+npm run translate:check      # every language that has translations
+npm run translate:check de   # one language, add --verbose to list everything
+```
+
+It exits with 1 when something is missing, so it can run in CI.
+
+To use the OpenAI API instead:
+
+```sh
+export APP_TRANSLATION_PROVIDER=openai
 export APP_OPENAI_API_KEY=your_openai_api_key
 npm run translate de
 ```
 
-The model can be changed with `APP_OPENAI_TRANSLATION_MODEL` (default `gpt-6.1-sol`).
+The OpenAI model can be changed with `APP_OPENAI_TRANSLATION_MODEL` (default `gpt-6.1-sol`).
 
 ## Build Docker image
 

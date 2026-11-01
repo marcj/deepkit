@@ -15,12 +15,3 @@ export function readTranslationsFile(lang: string, name: string): Record<string,
         return {};
     }
 }
-
-export function readTranslationDocumentationPage(lang: string, page: string): string {
-    const filePath = path.join(translationsDir, 'documentation', lang, page);
-    try {
-        return readFileSync(filePath, 'utf8');
-    } catch (error) {
-        return '';
-    }
-}
