@@ -4,3 +4,4 @@
 api-docs.json
 /.desktop-ui-assets
 /src/app/benchmarks/benchmark-data.json
+/deploy.env
