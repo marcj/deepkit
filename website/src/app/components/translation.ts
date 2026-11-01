@@ -1,6 +1,7 @@
 import { computed, inject, Injectable, Pipe, PipeTransform, Signal, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ControllerClient } from '@app/app/client';
+import { TranslatableText } from '@app/common/docs.js';
 import { languages } from '@app/common/languages.js';
 import { derivedAsync } from 'ngxtension/derived-async';
 import { pendingTask } from '@deepkit/desktop-ui';
@@ -76,7 +77,7 @@ export class Translation {
         }));
     }
 
-    translate(key: string): string {
+    translate(key: TranslatableText): string {
         const translations = this.basics() || {};
         return translations[key] || key;
     }
@@ -86,7 +87,7 @@ export class Translation {
 export class TranslatePipe implements PipeTransform {
     translation = inject(Translation);
 
-    transform(key: string): string {
+    transform(key: TranslatableText): string {
         return this.translation.translate(key);
     }
 }

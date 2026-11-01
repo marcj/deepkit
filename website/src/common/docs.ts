@@ -1,7 +1,22 @@
-export type DocCategory = {
+declare const labelBrand: unique symbol;
+
+/**
+ * A text of `docs` or `libraries` that `npm run translate` collects and translates.
+ * The translate pipe accepts only these and the values of `texts` (see TranslatableText), so a text
+ * that would never be translated fails to compile instead of staying English in every language.
+ */
+export type Label = string & { readonly [labelBrand]: true };
+
+type DocCategorySource = {
     category: string | null;
     book?: boolean;
     pages: { path: string; title: string, book?: boolean }[];
+}
+
+export type DocCategory = {
+    category: Label | null;
+    book?: boolean;
+    pages: { path: string; title: Label, book?: boolean }[];
 }
 
 export const texts = {
@@ -82,7 +97,10 @@ export const texts = {
     startNowText: 'Create a new Deepkit app with HTTP, database and CLI in one command.',
 } as const;
 
-export const docs: DocCategory[] = [
+/** Everything the translate pipe accepts: the values of `texts` and the labels of `docs` and `libraries`. */
+export type TranslatableText = (typeof texts)[keyof typeof texts] | Label;
+
+export const docs = [
     {
         category: null,
         pages: [
@@ -281,9 +299,14 @@ export const docs: DocCategory[] = [
             { path: 'package/workflow', title: 'workflow' },
         ],
     },
-];
+] satisfies DocCategorySource[] as DocCategory[];
 
-export type LibraryCategory = {
+/** The page titles of the API reference are package names, they are not translated. */
+export function translatesPageTitles(category: DocCategory): boolean {
+    return category.category !== 'API';
+}
+
+type LibraryCategorySource = {
     category: string;
     /** what the libraries of the category have in common and why that helps */
     description: string;
@@ -296,7 +319,19 @@ export type LibraryCategory = {
     }[]
 }
 
-export const libraries: LibraryCategory[] = [
+export type LibraryCategory = {
+    category: Label;
+    description: Label;
+    items: {
+        title: Label;
+        path: string;
+        package: string;
+        description: Label;
+        class?: string;
+    }[]
+}
+
+export const libraries = [
     {
         category: 'Composition',
         description:
@@ -583,4 +618,4 @@ export const libraries: LibraryCategory[] = [
             },
         ],
     },
-];
+] satisfies LibraryCategorySource[] as LibraryCategory[];

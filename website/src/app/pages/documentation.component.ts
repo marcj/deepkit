@@ -7,7 +7,7 @@ import { HeaderLogoComponent, HeaderNavComponent } from '@app/app/components/hea
 import { TableOfContentComponent } from '@app/app/components/table-of-content.component.js';
 import { ContentTextService } from '@app/app/components/content-text.component.js';
 import { DuiApp } from '@deepkit/desktop-ui';
-import { docs, texts } from '@app/common/docs';
+import { docs, texts, translatesPageTitles } from '@app/common/docs';
 import { TranslatePipe, Translation } from '@app/app/components/translation.js';
 
 @Component({
@@ -37,7 +37,7 @@ import { TranslatePipe, Translation } from '@app/app/components/translation.js';
                 }
                 @for (page of doc.pages; track $index) {
                   <a routerLinkActive="active" [routerLinkActiveOptions]="pathMatchOnly"
-                     routerLink="/{{translation.lang()}}/documentation/{{ page.path }}">{{ page.title|translate }}</a>
+                     routerLink="/{{translation.lang()}}/documentation/{{ page.path }}">{{ translatesPageTitles(doc) ? (page.title | translate) : page.title }}</a>
                 }
               </div>
             }
@@ -63,6 +63,7 @@ export class DocumentationComponent implements AfterViewInit, OnDestroy {
     breakpoint = mediaWatch('(max-width: 860px)');
 
     docs = docs;
+    protected readonly translatesPageTitles = translatesPageTitles;
     pathMatchOnly: IsActiveMatchOptions = {
         fragment: 'ignored',
         matrixParams: 'ignored',

@@ -1,4 +1,4 @@
-import { docs, libraries, texts } from '@app/common/docs';
+import { docs, libraries, texts, translatesPageTitles } from '@app/common/docs';
 import { translatedLanguages } from '@app/common/languages';
 import { AppConfig } from '@app/server/config';
 import { readTranslationsFile, translationsDir } from '@app/server/translations';
@@ -168,7 +168,7 @@ export function collectBasicsLabels(): string[] {
 
     for (const category of docs) {
         if (category.category) labels.push(category.category);
-        if (category.category === 'API') continue;
+        if (!translatesPageTitles(category)) continue;
         for (const page of category.pages) {
             labels.push(page.title);
         }

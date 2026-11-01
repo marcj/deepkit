@@ -113,7 +113,7 @@ export class LlmsController {
             for (const page of category.pages) {
                 const markdown = await this.pages.read('documentation/' + (page.path || 'index')).catch(() => '');
                 if (!markdown) continue;
-                let title = page.title, description = summary(markdown);
+                let title: string = page.title, description = summary(markdown);
                 if (page.path.startsWith('package/')) {
                     // package pages are mostly their API reference, the description comes from the library catalog
                     const name = '@deepkit/' + page.path.substring('package/'.length);
