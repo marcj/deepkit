@@ -51,6 +51,34 @@ and are automatically validated and deserialized. The order of the parameters di
 As soon as a complex object (interface, class, object literal) is defined, it is treated as a service dependency
 and the Dependency Injection Container tries to resolve it. See the chapter [Dependency Injection](dependency-injection.md) for more information.
 
+### Multiple Values
+
+An argument typed as array takes all remaining positional arguments. Each value is deserialized and validated against the element type.
+Arguments after the array keep their value, so a command like `cp <files...> <target>` works as expected.
+
+```typescript
+new App().command('copy', (files: string[], target: string) => {
+    console.log('copy', files, 'to', target);
+});
+
+new App().command('delete', (ids: number[]) => {
+    console.log('delete', ids);
+});
+```
+
+```sh
+$ ts-node app.ts copy a.txt b.txt backup/
+copy [ 'a.txt', 'b.txt' ] to backup/
+
+$ ts-node app.ts delete 1 2 3
+delete [ 1, 2, 3 ]
+
+$ ts-node app.ts delete 1 two
+Invalid value for argument ids: 1,two. Cannot convert two to number [type]
+```
+
+A required array argument needs at least one value. With a default value, e.g. `ids: number[] = []`, it is optional.
+
 ## Flags
 
 Flags are another way to pass values to your command. Mostly these are optional, but they don't have to be. Parameters decorated with the `Flag` type can be passed via `--name value` or `--name=value`.

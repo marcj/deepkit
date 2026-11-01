@@ -275,15 +275,16 @@ export async function translateCommand(lang: string, logger: Logger, translator:
  * Lists what `translate` would still translate: labels missing in basics.json and documentation pages
  * that are new or changed since their last translation. Exits with 1 if anything is missing.
  *
- * @param lang language to check, e.g. `de`. Without it, every language that was translated before (has a folder in src/translations).
+ * @param languages languages to check, e.g. `de ja`. Without, every language that was translated before (has a folder in src/translations).
  * @param verbose list every missing label and page instead of the first few
  */
-export function translateCheckCommand(logger: Logger, lang?: string, verbose: boolean & Flag = false): number {
-    if (lang && !languagesMap[lang]) {
-        logger.error(`Unsupported language: ${lang}. Supported: ${Object.keys(languagesMap).join(', ')}`);
+export function translateCheckCommand(logger: Logger, languages: string[] = [], verbose: boolean & Flag = false): number {
+    const unsupported = languages.filter(lang => !languagesMap[lang]);
+    if (unsupported.length) {
+        logger.error(`Unsupported language: ${unsupported.join(', ')}. Supported: ${Object.keys(languagesMap).join(', ')}`);
         return 1;
     }
-    const languages = lang ? [lang] : Object.keys(languagesMap).filter(lang => existsSync(path.join(translationsDir, lang)));
+    if (!languages.length) languages = Object.keys(languagesMap).filter(lang => existsSync(path.join(translationsDir, lang)));
 
     const labels = collectBasicsLabels();
     const labelSet = new Set(labels);

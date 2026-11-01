@@ -30,7 +30,7 @@ To see what is not translated yet (missing labels, new or changed pages), withou
 
 ```sh
 npm run translate:check      # every language that has translations
-npm run translate:check de   # one language, add --verbose to list everything
+npm run translate:check de ja   # only these, add --verbose to list everything
 ```
 
 It exits with 1 when something is missing, so it can run in CI.
