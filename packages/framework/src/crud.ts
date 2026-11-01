@@ -1,6 +1,6 @@
 import { ClassType, getObjectKeysSize, isArray } from '@deepkit/core';
 import { AppModule } from '@deepkit/app';
-import { http, HttpBody, httpClass, HttpQueries, JSONResponse } from '@deepkit/http';
+import { http, HttpBody, httpClass, HttpPath, HttpQueries, JSONResponse } from '@deepkit/http';
 import { Database, DatabaseRegistry, Query, UniqueConstraintFailure } from '@deepkit/orm';
 import {
     InlineRuntimeType,
@@ -8,6 +8,7 @@ import {
     Positive,
     ReflectionClass,
     ReflectionKind,
+    Type,
     TypeUnion,
     ValidationError,
 } from '@deepkit/type';
@@ -123,6 +124,9 @@ function createController(schema: ReflectionClass<any>, options: AutoCrudOptions
     const identifier = options.identifier ? schema.getProperty(options.identifier) : schema.getPrimary();
     const identifierType = identifier.type;
     type IdentifierType = InlineRuntimeType<typeof identifierType>
+    // the route has the identifier's name (:username), the method parameter is called id
+    const identifierName: Type = { kind: ReflectionKind.literal, literal: identifier.name };
+    type IdentifierPath = HttpPath<IdentifierType, { name: InlineRuntimeType<typeof identifierName> }>;
 
     const maxLimit = options.maxLimit || 1000;
 
@@ -214,7 +218,7 @@ function createController(schema: ReflectionClass<any>, options: AutoCrudOptions
             .description(`Delete a single ${schema.name}.`)
             .response<ValidationError>(400, `When parameter validation failed`)
             .response<{ deleted: number }>(200, `When deletion was successful`))
-        async delete(id: IdentifierType) {
+        async delete(id: IdentifierPath) {
             const result = await this.getDatabase().query(schema).filter({ [identifier.name]: id }).deleteOne();
             return { deleted: result.modified };
         }
@@ -225,7 +229,7 @@ function createController(schema: ReflectionClass<any>, options: AutoCrudOptions
             .response<ValidationError>(400, `When parameter validation failed`)
             .response<ErrorMessage>(404, `When ${schema.name} was not found.`))
         async read(
-            id: IdentifierType,
+            id: IdentifierPath,
             options: HttpQueries<GetQuery>
         ) {
             let query = this.getDatabase().query(schema).filter({ [identifier.name]: id });
@@ -244,7 +248,7 @@ function createController(schema: ReflectionClass<any>, options: AutoCrudOptions
             .response<ValidationError>(400, `When parameter validation failed`)
             .response<ErrorMessage>(404, `When ${schema.name} was not found.`))
         async update(
-            id: IdentifierType,
+            id: IdentifierPath,
             body: HttpBody<Partial<SchemaType>>,
         ) {
             let query = this.getDatabase().query(schema).filter({ [identifier.name]: id });
