@@ -1,4 +1,5 @@
 import { docs, libraries, texts } from '@app/common/docs';
+import { translatedLanguages } from '@app/common/languages';
 import { AppConfig } from '@app/server/config';
 import { readTranslationsFile, translationsDir } from '@app/server/translations';
 import { spawn } from 'child_process';
@@ -11,13 +12,7 @@ import path from 'path';
 import { Flag } from '@deepkit/app';
 import { Logger } from '@deepkit/logger';
 
-const languagesMap: Record<string, string> = {
-    zh: '中文 (Chinese)',
-    ko: '한국어 (Korean)',
-    ja: '日本語 (Japanese)',
-    de: 'Deutsch (German)',
-    pl: 'Polski (Polish)',
-};
+const languagesMap: Record<string, string> = Object.fromEntries(translatedLanguages.map(v => [v.code, v.label]));
 
 const instruction = `
 Words like Error, Class, Function, Variable, Type, Interface, Method, Property, Parameter, Argument, Return Value, refer to TypeScript technical terms.

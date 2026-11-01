@@ -14,7 +14,7 @@ npm run dev
 
 ## Translate
 
-Translates the navigation, start page and documentation into one of `de`, `ja`, `ko`, `pl`, `zh`.
+Translates the navigation, start page and documentation into the languages of `src/common/languages.ts`.
 Only new or changed pages are translated (tracked in `src/translations/<lang>/state.json`).
 
 By default it runs the [Claude Code](https://claude.com/claude-code) CLI (`claude -p`), so it uses whatever

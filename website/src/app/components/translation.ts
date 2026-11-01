@@ -1,19 +1,14 @@
 import { computed, inject, Injectable, Pipe, PipeTransform, Signal, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ControllerClient } from '@app/app/client';
+import { languages } from '@app/common/languages.js';
 import { derivedAsync } from 'ngxtension/derived-async';
 import { pendingTask } from '@deepkit/desktop-ui';
 
 
 @Injectable({ providedIn: 'root' })
 export class Translation {
-    languages = [
-        { code: 'en', label: 'English' },
-        { code: 'zh', label: '中文 (Chinese)' },
-        { code: 'ko', label: '한국어 (Korean)' },
-        { code: 'ja', label: '日本語 (Japanese)' },
-        { code: 'de', label: 'Deutsch (German)' },
-    ];
+    languages = languages;
 
     routes = computed(() => {
         const routes: Record<string, string> = {};

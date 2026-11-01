@@ -4,7 +4,7 @@
 import { docs, libraries } from '@app/common/docs';
 import { siteUrl } from '@app/common/seo';
 import { PageProcessor } from '@app/server/page-processor';
-import { languages } from '@app/server/controller/seo.controller';
+import { languageCodes } from '@app/common/languages';
 import { http, HttpNotFoundError, HttpRegExp, Response } from '@deepkit/http';
 
 interface ApiDoc {
@@ -148,7 +148,7 @@ export class LlmsController {
     /** /en/documentation.md and /de/documentation/orm/getting-started.md: the page as markdown, translated if available */
     @http.GET('/:lang/documentation:path')
     async page(lang: HttpRegExp<string, '[a-z]{2}'>, path: HttpRegExp<string, '(?:/[a-z0-9_/-]+)?\\.md'>) {
-        if (!languages.includes(lang)) throw new HttpNotFoundError();
+        if (!languageCodes.includes(lang)) throw new HttpNotFoundError();
         const pagePath = path.replace(/\.md$/, '').replace(/^\//, '');
         // the pattern of path allows no "..", so only files of the documentation are reachable
         if (pagePath.startsWith('desktop-ui')) throw new HttpNotFoundError();

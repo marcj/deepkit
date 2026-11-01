@@ -2,12 +2,12 @@ import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { Page } from '@app/common/models';
+import { translatedLanguages } from '@app/common/languages';
 import { MarkdownParser } from '@app/common/markdown';
 import { getCurrentDirName } from '@deepkit/core';
 import { findParentPath } from '@deepkit/app';
 
 const pagesDir = findParentPath('src/pages', getCurrentDirName()) || '';
-const translationLanguages = ['zh', 'ko', 'ja', 'de'];
 
 export class PageProcessor {
     constructor(protected parser: MarkdownParser) {
@@ -37,7 +37,7 @@ export class PageProcessor {
         const page = this.parser.parse(content);
         page.url = url;
         page.lang = contentLang;
-        page.languages = ['en', ...translationLanguages.filter(v => existsSync(join(pagesDir, '../translations', v, url.replace(/[^a-zA-Z0-9\-_\/]/g, '') + '.md')))];
+        page.languages = ['en', ...translatedLanguages.map(v => v.code).filter(v => existsSync(join(pagesDir, '../translations', v, url.replace(/[^a-zA-Z0-9\-_\/]/g, '') + '.md')))];
         return page;
     }
 }

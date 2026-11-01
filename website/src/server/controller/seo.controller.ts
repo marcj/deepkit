@@ -3,14 +3,13 @@ import { join } from 'path';
 
 import { BlogEntity, bodyToString, parseBody } from '@app/common/models';
 import { docs, texts } from '@app/common/docs';
+import { getLanguage, languageCodes as languages } from '@app/common/languages';
 import { siteUrl } from '@app/common/seo';
 import { OgImageContent, renderOgImage } from '@app/server/og-image';
 import { PageProcessor } from '@app/server/page-processor';
 import { readTranslationsFile, translationsDir } from '@app/server/translations';
 import { http, HttpRegExp, Response } from '@deepkit/http';
 import { Database } from '@deepkit/orm';
-
-export const languages = ['en', 'zh', 'ko', 'ja', 'de'];
 
 /** The package pages of the old website (/library/<id>) and their documentation. */
 const libraryDocs: Record<string, string> = {
@@ -199,7 +198,7 @@ export class SeoController {
             let entry = `<url><loc>${xmlEscape(siteUrl + path)}</loc>`;
             if (alternates) {
                 for (const [lang, alternate] of Object.entries(alternates)) {
-                    entry += `<xhtml:link rel="alternate" hreflang="${lang}" href="${xmlEscape(siteUrl + alternate)}"/>`;
+                    entry += `<xhtml:link rel="alternate" hreflang="${getLanguage(lang)?.tag || lang}" href="${xmlEscape(siteUrl + alternate)}"/>`;
                 }
                 entry += `<xhtml:link rel="alternate" hreflang="x-default" href="${xmlEscape(siteUrl + alternates.en)}"/>`;
             }

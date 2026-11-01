@@ -5,6 +5,7 @@ import { NavigationEnd, Router } from '@angular/router';
 import { Translation } from '@app/app/components/translation.js';
 import { ogImagePath, siteUrl } from '@app/common/seo.js';
 import { docs } from '@app/common/docs.js';
+import { getLanguage } from '@app/common/languages.js';
 
 
 /**
@@ -57,13 +58,14 @@ export class Seo {
         const content = this.contentLanguage();
         const routes = this.translationRoutes(path);
 
-        // Desktop UI pages exist in English only, under every language prefix
-        const englishOnly = /^\/[a-z]{2}\/documentation\/desktop-ui(\/|$)/.test(path);
-        this.document.documentElement.lang = englishOnly ? 'en' : content || lang;
+        // the blog and the Desktop UI pages exist in English only, under every language prefix
+        const englishOnly = /^\/[a-z]{2}\/(documentation\/desktop-ui|blog)(\/|$)/.test(path);
+        const pageLanguage = getLanguage(englishOnly ? 'en' : content || lang) || getLanguage('en')!;
+        this.document.documentElement.lang = pageLanguage.tag;
 
         let canonical = path;
         let alternates: Record<string, string> | undefined;
-        if (englishOnly || /^\/[a-z]{2}\/blog(\/|$)/.test(path)) {
+        if (englishOnly) {
             canonical = routes.en;
         } else if (this.isTranslated(path)) {
             if (content && content !== lang) {
@@ -79,6 +81,14 @@ export class Seo {
         }
 
         this.setLink('canonical', siteUrl + canonical);
+        this.meta.updateTag({ property: 'og:locale', content: pageLanguage.ogLocale });
+        for (const tag of this.meta.getTags('property="og:locale:alternate"')) this.meta.removeTagElement(tag);
+        if (alternates) {
+            for (const code of Object.keys(alternates)) {
+                const alternate = getLanguage(code);
+                if (alternate && alternate !== pageLanguage) this.meta.addTag({ property: 'og:locale:alternate', content: alternate.ogLocale });
+            }
+        }
         this.meta.updateTag({ property: 'og:url', content: siteUrl + canonical });
 
         // generated from the content of the page, see SeoController.ogImage
@@ -101,7 +111,7 @@ export class Seo {
             this.document.head.appendChild(link);
         }
         if (alternates && Object.keys(alternates).length > 1) {
-            for (const [code, route] of Object.entries(alternates)) this.addAlternate(code, siteUrl + route);
+            for (const [code, route] of Object.entries(alternates)) this.addAlternate(getLanguage(code)?.tag || code, siteUrl + route);
             this.addAlternate('x-default', siteUrl + alternates.en);
         }
     }
