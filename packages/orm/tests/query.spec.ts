@@ -5,6 +5,7 @@ import { Database } from '../src/database.js';
 import { MemoryDatabaseAdapter, MemoryQuery } from '../src/memory-db.js';
 import { AnyQuery, BaseQuery, Query } from '../src/query.js';
 import { OrmEntity } from '../src/type.js';
+import { getInstanceStateFromItem } from '../src/identity-map.js';
 
 test('types do not interfere with type check', () => {
     class Books {
@@ -354,4 +355,25 @@ test('optional join', () => {
         .useInnerJoinWith('userAuth')
         .filter({ type: 'bar' })
         .end();
+});
+
+test('disableChangeDetection survives further query calls', async () => {
+    class Item {
+        id: number & PrimaryKey & AutoIncrement = 0;
+        constructor(public name: string) {}
+    }
+
+    const database = new Database(new MemoryDatabaseAdapter(), [Item]);
+    await database.persist(new Item('a'), new Item('b'));
+
+    const query = database.query(Item).disableChangeDetection();
+    expect(query.model.withChangeDetection).toBe(false);
+    // every call clones the query model
+    expect(query.filter({ name: 'a' }).limit(10).orderBy('id').model.withChangeDetection).toBe(false);
+
+    const [item] = await query.filter({ name: 'a' }).find();
+    expect(getInstanceStateFromItem(item).isKnownInDatabase()).toBe(false);
+
+    const [tracked] = await database.query(Item).filter({ name: 'a' }).find();
+    expect(getInstanceStateFromItem(tracked).isKnownInDatabase()).toBe(true);
 });

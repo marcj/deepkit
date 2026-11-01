@@ -140,6 +140,7 @@ export class DatabaseQueryModel<T extends OrmEntity, FILTER extends FilterQuery<
         m.filter = this.filter && { ...this.filter };
         m.having = this.having && { ...this.having };
         m.withIdentityMap = this.withIdentityMap;
+        m.withChangeDetection = this.withChangeDetection;
         m.select = new Set(this.select);
         m.groupBy = new Set(this.groupBy);
         m.lazyLoad = new Set(this.lazyLoad);
