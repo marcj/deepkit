@@ -14,7 +14,10 @@ pre-commit:
       glob: '[*.{json,yml,yaml,html,ts,tsx,js,jsx},!./package-lock.json]'
       priority: 1
       run: ./node_modules/.bin/prettier --write {staged_files} && git add {staged_files}
-    # the staged sources must have passed the complete `npm run test` (see scripts/test.js)
+    # the staged sources must have passed the complete `npm run test` (see scripts/test.js),
+    # skipped when only the website changed
     test-certificate:
       priority: 2
+      exclude:
+        - 'website/**'
       run: node scripts/test.js check
