@@ -162,6 +162,7 @@ export class MemoryQueryFactory extends DatabaseAdapterQueryFactory {
                 for (const item of items) {
                     deleteResult.primaryKeys.push(item);
                 }
+                deleteResult.modified = items.length;
                 remove(adapter, schema, items);
             }
 

@@ -377,3 +377,23 @@ test('disableChangeDetection survives further query calls', async () => {
     const [tracked] = await database.query(Item).filter({ name: 'a' }).find();
     expect(getInstanceStateFromItem(tracked).isKnownInDatabase()).toBe(true);
 });
+
+test('memory adapter reports deleted items as modified', async () => {
+    class Item {
+        id: number & PrimaryKey & AutoIncrement = 0;
+        constructor(public name: string) {}
+    }
+
+    const database = new Database(new MemoryDatabaseAdapter(), [Item]);
+    await database.persist(new Item('a'), new Item('b'), new Item('c'));
+
+    const many = await database.query(Item).filter({ name: { $in: ['a', 'b'] } }).deleteMany();
+    expect(many.modified).toBe(2);
+    expect(many.primaryKeys.length).toBe(2);
+
+    const one = await database.query(Item).deleteOne();
+    expect(one.modified).toBe(1);
+
+    const none = await database.query(Item).filter({ name: 'x' }).deleteMany();
+    expect(none.modified).toBe(0);
+});
