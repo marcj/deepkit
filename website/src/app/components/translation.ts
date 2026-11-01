@@ -1,5 +1,6 @@
+import { DOCUMENT } from '@angular/common';
 import { computed, inject, Injectable, Pipe, PipeTransform, Signal, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 import { ControllerClient } from '@app/app/client';
 import { TranslatableText } from '@app/common/docs.js';
 import { languages } from '@app/common/languages.js';
@@ -49,7 +50,8 @@ export class Translation {
 
     router = inject(Router);
 
-    url = signal(typeof window !== 'undefined' ? window.location.pathname : '/');
+    // the requested URL from the start, also in SSR, so the first translation request is already for the right language
+    url = signal(inject(DOCUMENT).location?.pathname || '/');
 
     lang = computed(() => {
         const lang = this.url().replace(/^\//, '').split('/')[0] || 'en';
@@ -62,13 +64,17 @@ export class Translation {
     ready = computed(() => this.basics() !== undefined);
 
     constructor() {
-        this.router.events.subscribe(() => {
-            this.url.set(this.router.url);
+        // only the finished navigation: during one, router.url is still the previous URL
+        this.router.events.subscribe(event => {
+            if (event instanceof NavigationEnd) this.url.set(event.urlAfterRedirects);
         });
     }
 
     async getTranslation(name: string): Promise<Record<string, string>> {
-        return await this.client.main.getTranslation(this.lang(), name);
+        const lang = this.lang();
+        // English is the original, there is nothing to load
+        if (lang === 'en') return {};
+        return await this.client.main.getTranslation(lang, name);
     }
 
     translations(name: string): Signal<Record<string, string> | undefined> {
