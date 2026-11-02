@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { AbstractClassType, arrayRemoveItem, ClassType, getClassName, getInheritanceChain, getParentClass, indent, isArray, isClass, isGlobalClass, TypeAnnotation } from '@deepkit/core';
+import { AbstractClassType, arrayRemoveItem, capitalize, ClassType, getClassName, getInheritanceChain, getParentClass, indent, isArray, isClass, isGlobalClass, TypeAnnotation } from '@deepkit/core';
 import { TypeNumberBrand } from '@deepkit/type-spec';
 import { getProperty, ReceiveType, reflect, ReflectionClass, resolveReceiveType, toSignature } from './reflection.js';
 import { isExtendable } from './extends.js';
@@ -2208,6 +2208,66 @@ export const typeDecorators: TypeDecorator[] = [
     },
 ];
 
+export function stringifyAnnotationAsType(symbol: Symbol, type: Type): string | [string, Type[]][] {
+    switch (symbol) {
+        case primaryKeyAnnotation.symbol:
+            return 'PrimaryKey';
+        case autoIncrementAnnotation.symbol:
+            return 'AutoIncrement';
+        case uuidAnnotation.symbol:
+            return 'UUID';
+        case mongoIdAnnotation.symbol:
+            return 'MongoId';
+        case binaryBigIntAnnotation.symbol: {
+            return binaryBigIntAnnotation.getFirst(type) === BinaryBigIntType.signed ? 'SignedBinaryBigInt' : 'BinaryBigInt';
+        }
+        case referenceAnnotation.symbol:
+            return 'Reference';
+        case backReferenceAnnotation.symbol:
+            return 'BackReference';
+        case embeddedAnnotation.symbol:
+            return 'Embedded';
+        case groupAnnotation.symbol:
+            return 'Group';
+        case excludedAnnotation.symbol:
+            return 'Excluded';
+        case indexAnnotation.symbol:
+            return 'Index';
+        case databaseAnnotation.symbol:
+            return 'DatabaseField';
+        case validationAnnotation.symbol: {
+            const validations = validationAnnotation.getAnnotations(type);
+            const defaultArgsMapping: Record<string, any[]> = {
+                'decimal': [1, 100],
+                // todo: implement all defaults, or find a better way
+            };
+            return validations.map(v => {
+                const defaults = defaultArgsMapping[v.name];
+                const argValues = v.args.map(v => typeToObject(v));
+                let args = v.args;
+                if (defaults) {
+                    args = v.args.filter((arg, index) => {
+                        const def = defaults[index];
+                        const argValue = argValues[index];
+                        return argValue !== def;
+                    });
+                }
+
+                switch (v.name) {
+                    case 'positive': {
+                        return [argValues[0] === true ? 'Positive' : 'PositiveNoZero', []];
+                    }
+                    // todo implement more normalization, see validator.ts
+                }
+
+                return [v.name, args];
+            });
+        }
+        default:
+            return '';
+    }
+}
+
 export function typeToObject(type?: Type, state: { stack: Type[] } = { stack: [] }): any {
     if (!type) return;
 
@@ -2462,6 +2522,31 @@ export function stringifyType(type: Type, stateIn: Partial<StringifyTypeOptions>
                 }
                 result.push(type.typeName);
                 continue;
+            }
+
+            if (type.annotations) {
+                for (const symbol of Object.getOwnPropertySymbols(type.annotations)) {
+                    const annotationString = stringifyAnnotationAsType(symbol, type);
+                    if ('string' === typeof annotationString && annotationString) {
+                        stack.push({ before: annotationString });
+                        stack.push({ before: ' & ' });
+                    } else if (isArray(annotationString)) {
+                        for (let i = annotationString.length - 1; i >= 0; i--) {
+                            const [name, args] = annotationString[i];
+                            if (args && args.length) {
+                                stack.push({ after: '>' });
+                                for (let j = args.length - 1; j >= 0; j--) {
+                                    stack.push({ type: args[j] });
+                                    if (j !== 0) {
+                                        stack.push({ after: ', ' });
+                                    }
+                                }
+                                stack.push({ after: '<' });
+                            }
+                            stack.push({ after: ' & ' + capitalize(name) });
+                        }
+                    }
+                }
             }
 
             switch (type.kind) {

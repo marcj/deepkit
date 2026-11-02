@@ -1,7 +1,8 @@
 import { expect, test } from '@jest/globals';
-import { stringifyResolvedType, stringifyShortResolvedType, stringifyType, Type } from '../src/reflection/type.js';
+import { PrimaryKey, stringifyResolvedType, stringifyShortResolvedType, stringifyType, Type } from '../src/reflection/type.js';
 import { reflect, typeOf } from '../src/reflection/reflection.js';
 import { deserializeType, serializeType } from '../src/type-serialization.js';
+import { Decimal, MaxLength, MinLength, Positive, PositiveNoZero } from '../src/validator.js';
 
 test('stringifyType basic', () => {
     expect(stringifyResolvedType(typeOf<string>())).toBe('string');
@@ -309,7 +310,31 @@ test('stringifyType object literal inline', () => {
 
 test('stringifyType type', () => {
     const type = typeOf<Type>();
-    const s = stringifyType(type, {showFullDefinition: true});
+    const s = stringifyType(type, { showFullDefinition: true });
+});
+
+test('serialized stringifyType contains annotations', () => {
+    type A = string & PrimaryKey;
+    const serialized = serializeType(typeOf<A>());
+    const deserialized = deserializeType(serialized);
+    expect(stringifyResolvedType(deserialized)).toBe(`string & PrimaryKey`);
+});
+
+test('stringifyType contains annotations with Parameter 1', () => {
+    type A = string & MinLength<5> & MaxLength<15>;
+    expect(stringifyResolvedType(typeOf<A>())).toBe(`string & MinLength<5> & MaxLength<15>`);
+});
+
+test('stringifyType contains annotations with Parameter 2', () => {
+    type A = string & Decimal<5> & Positive;
+    expect(stringifyResolvedType(typeOf<A>())).toBe(`string & Decimal<5> & Positive`);
+});
+
+test('stringifyType contains annotations with Parameter 3', () => {
+    type A1 = string & PositiveNoZero;
+    expect(stringifyResolvedType(typeOf<A1>())).toBe(`string & PositiveNoZero`);
+    type A2 = string & Positive;
+    expect(stringifyResolvedType(typeOf<A2>())).toBe(`string & Positive`);
 });
 
 test('generic', () => {
@@ -319,4 +344,4 @@ test('generic', () => {
 
     expect(stringifyResolvedType(reflect(Gen))).toBe('Gen {id: T}');
     expect(stringifyResolvedType(reflect(Gen, typeOf<number>()))).toBe('Gen {id: number}');
-})
+});
