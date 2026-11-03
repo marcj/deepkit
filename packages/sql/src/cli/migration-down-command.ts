@@ -48,33 +48,29 @@ export class MigrationDownCommand extends BaseCommand {
             if (database.adapter instanceof SQLDatabaseAdapter) {
                 const migrationHandler = new SqlMigrationHandler(database);
 
-                try {
-                    const latestVersion = await migrationHandler.getLatestMigrationVersion();
-                    const migration = migrations.find(v => v.version === latestVersion);
-                    if (!migration) {
-                        this.logger.log('<red>No migration found to execute</red>');
-                        return;
-                    }
+                const latestVersion = await migrationHandler.getLatestMigrationVersion();
+                const migration = migrations.find(v => v.version === latestVersion);
+                if (!migration) {
+                    this.logger.log('<red>No migration found to execute</red>');
+                    continue;
+                }
 
-                    const connection = await database.adapter.connectionPool.getConnection();
-                    try {
-                        this.logger.log(`    Migration down <yellow>${migration.name}</yellow>`);
-                        if (fake) {
-                            this.logger.log(`       Faking migration.`);
-                        } else {
-                            let i = 1;
-                            for (const sql of migration.down()) {
-                                this.logger.log(`<yellow>    ${i++}. ${indent(4)(sql)}</yellow>`);
-                                await connection.run(sql);
-                            }
+                const connection = await database.adapter.connectionPool.getConnection();
+                try {
+                    this.logger.log(`    Migration down <yellow>${migration.name}</yellow>`);
+                    if (fake) {
+                        this.logger.log(`       Faking migration.`);
+                    } else {
+                        let i = 1;
+                        for (const sql of migration.down()) {
+                            this.logger.log(`<yellow>    ${i++}. ${indent(4)(sql)}</yellow>`);
+                            await connection.run(sql);
                         }
-                        await migrationHandler.removeMigrationVersion(migration.version);
-                        this.logger.log(`<green>Successfully migrated down to version ${migration.version}</green>`);
-                    } finally {
-                        connection.release();
                     }
+                    await migrationHandler.removeMigrationVersion(migration.version);
+                    this.logger.log(`<green>Successfully migrated down to version ${migration.version}</green>`);
                 } finally {
-                    database.disconnect();
+                    connection.release();
                 }
             }
         }

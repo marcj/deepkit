@@ -1,4 +1,4 @@
-import { AppModule } from '@deepkit/app';
+import { AppModule, onAppShutdown } from '@deepkit/app';
 import { ConsoleTransport, Logger } from '@deepkit/logger';
 import { InjectorContext } from '@deepkit/injector';
 import { DatabaseRegistry } from '@deepkit/orm';
@@ -19,5 +19,8 @@ export const appModule = new AppModule({}, {
         MigrationDownCommand,
         MigrationUpCommand,
         MigrationPendingCommand,
-    ]
+    ],
+    listeners: [
+        onAppShutdown.listen((event, databases: DatabaseRegistry) => databases.onShutDown()),
+    ],
 });
