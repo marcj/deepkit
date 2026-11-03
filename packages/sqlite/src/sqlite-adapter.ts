@@ -53,13 +53,10 @@ import { Logger } from '@deepkit/logger';
 function handleSpecificError(session: DatabaseSession, error: DatabaseError): Error {
     let cause: any = error;
     while (cause) {
-        if (cause instanceof Error) {
-            if (cause.message.includes('UNIQUE constraint failed')
-            ) {
-                return new UniqueConstraintFailure(`${cause.message}`, { cause: error });
-            }
-            cause = cause.cause;
+        if (cause instanceof Error && cause.message.includes('UNIQUE constraint failed')) {
+            return new UniqueConstraintFailure(`${cause.message}`, { cause: error });
         }
+        cause = cause.cause;
     }
 
     return error;
