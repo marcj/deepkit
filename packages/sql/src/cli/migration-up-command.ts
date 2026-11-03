@@ -58,7 +58,7 @@ export class MigrationUpCommand extends BaseCommand {
 
                 if (!migrationToApply.length) {
                     this.logger.log('<green>All migrations executed</green>');
-                    return;
+                    continue;
                 }
 
                 if (all) {
@@ -79,29 +79,25 @@ export class MigrationUpCommand extends BaseCommand {
     }
 
     async executeNextMigration(database: Database<SQLDatabaseAdapter>, migrationHandler: SqlMigrationHandler, fake: boolean, migrationToApply: Migration[]) {
-        try {
-            const migration = migrationToApply.shift();
-            if (!migration) return;
+        const migration = migrationToApply.shift();
+        if (!migration) return;
 
-            const connection = await database.adapter.connectionPool.getConnection();
-            try {
-                this.logger.log(`    Migration up <yellow>${migration.name}</yellow>`);
-                if (fake) {
-                    this.logger.log(`       Faking migration.`);
-                } else {
-                    let i = 1;
-                    for (const sql of migration.up()) {
-                        this.logger.log(`<yellow>    ${i++}. ${indent(4)(sql)}</yellow>`);
-                        await connection.run(sql);
-                    }
+        const connection = await database.adapter.connectionPool.getConnection();
+        try {
+            this.logger.log(`    Migration up <yellow>${migration.name}</yellow>`);
+            if (fake) {
+                this.logger.log(`       Faking migration.`);
+            } else {
+                let i = 1;
+                for (const sql of migration.up()) {
+                    this.logger.log(`<yellow>    ${i++}. ${indent(4)(sql)}</yellow>`);
+                    await connection.run(sql);
                 }
-                await migrationHandler.setLatestMigrationVersion(migration.version);
-                this.logger.log(`<green>Successfully migrated up to version ${migration.version}</green>`);
-            } finally {
-                connection.release();
             }
+            await migrationHandler.setLatestMigrationVersion(migration.version);
+            this.logger.log(`<green>Successfully migrated up to version ${migration.version}</green>`);
         } finally {
-            database.disconnect();
+            connection.release();
         }
     }
 }
