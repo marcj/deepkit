@@ -13,8 +13,12 @@ import { Database, DatabaseError, DatabaseRegistry } from '@deepkit/orm';
 import { createRequire } from 'module';
 import { existsSync } from 'fs';
 import { readdir } from 'fs/promises';
-import { basename, isAbsolute, join, sep } from 'path';
+import { basename, isAbsolute, join, resolve, sep } from 'path';
 import { Migration } from './migration.js';
+
+const migrationFileExtension = /\.[cm]?[jt]s$/;
+const declarationFileExtension = /\.d\.[cm]?ts$/;
+const typeScriptFileExtension = /\.[cm]?ts$/;
 
 export class MigrationProvider {
     protected databaseMap = new Map<string, Database<any>>();
@@ -94,16 +98,10 @@ export class MigrationProvider {
     async getMigrations(migrationDir: string): Promise<Migration[]> {
         let migrations: Migration[] = [];
 
-        // all .ts files in migrationDir and its subfolders, without hidden files and folders
-        const files = existsSync(migrationDir)
-            ? (await readdir(migrationDir, { recursive: true }))
-                  .filter(file => file.endsWith('.ts') && !file.split(sep).some(v => v.startsWith('.')))
-                  .sort()
-            : [];
-
-        for (const file of files) {
-            const path = join(process.cwd(), migrationDir, file);
-            const name = basename(file.replace('.ts', ''));
+        const directory = resolve(migrationDir);
+        for (const file of await this.findMigrationFiles(directory)) {
+            const path = join(directory, file);
+            const name = basename(file.replace(migrationFileExtension, ''));
             const migration = await import(path);
             if (migration && migration.SchemaMigration) {
                 const jo = new class extends (migration.SchemaMigration as ClassType<Migration>) {
@@ -123,5 +121,21 @@ export class MigrationProvider {
         });
 
         return migrations;
+    }
+
+    protected async findMigrationFiles(migrationDir: string): Promise<string[]> {
+        if (!existsSync(migrationDir)) return [];
+
+        const files = (await readdir(migrationDir, { recursive: true }))
+            .filter(file => migrationFileExtension.test(file) && !declarationFileExtension.test(file))
+            .filter(file => !file.split(sep).some(v => v.startsWith('.')))
+            .sort();
+
+        const filesByStem = new Map<string, string>();
+        for (const file of files) {
+            const stem = file.replace(migrationFileExtension, '');
+            if (!filesByStem.has(stem) || typeScriptFileExtension.test(file)) filesByStem.set(stem, file);
+        }
+        return [...filesByStem.values()];
     }
 }
