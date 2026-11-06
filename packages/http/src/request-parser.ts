@@ -44,6 +44,16 @@ function extractValues(form: IncomingForm, fields: Fields): Record<string, unkno
     );
 }
 
+function trackTemporaryFiles(form: IncomingForm, request: HttpRequest) {
+    form.on('fileBegin', (name, file) => {
+        (request.temporaryFilePaths ||= []).push(file.filepath);
+        if ((form as any).error)
+            Promise.resolve()
+                .then(() => (file as any).destroy())
+                .catch(() => undefined);
+    });
+}
+
 function parseBody(
     options: HttpParserOptions,
     req: HttpRequest, foundFiles: { [name: string]: UploadedFile }) {
@@ -52,6 +62,7 @@ function parseBody(
         allowEmptyFiles: true,
         minFileSize: 0,
     }, formidableOptions as Options));
+    trackTemporaryFiles(form, req);
     return asyncOperation(async (resolve, reject) => {
         function parseData(fields: Fields, files: Files) {
             const fileEntries = Object.entries(files);

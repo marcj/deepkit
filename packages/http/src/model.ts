@@ -400,6 +400,8 @@ export class HttpRequest extends IncomingMessage {
 
     public uploadedFiles: { [name: string]: UploadedFile } = {};
 
+    public temporaryFilePaths?: string[];
+
     public throwErrorOnNotFound: boolean = false;
 
     /**
