@@ -135,8 +135,8 @@ export class HttpKernel {
 
             this.logger.error('HTTP kernel request failed', error);
         } finally {
-            for (const file of Object.values(req.uploadedFiles || [])) {
-                unlink(file.path, () => {
+            for (const path of req.temporaryFilePaths || []) {
+                unlink(path, () => {
                 });
             }
 

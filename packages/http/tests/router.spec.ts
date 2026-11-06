@@ -11,7 +11,7 @@ import {
     JSONResponse,
     Response,
 } from '../src/http.js';
-import { eventDispatcher } from '@deepkit/event';
+import { eventDispatcher, EventListener } from '@deepkit/event';
 import {
     HttpBody,
     HttpBodyValidation,
@@ -26,6 +26,7 @@ import {
 } from '../src/model.js';
 import { getClassName, isObject, sleep, TypeAnnotation } from '@deepkit/core';
 import { createHttpKernel } from './utils.js';
+import { HttpConfig, HttpParserOptions } from '../src/module.config.js';
 import { SeparateFileBodyController } from './fixtures/body-controller.js';
 import {
     Excluded,
@@ -43,6 +44,9 @@ import {
     typeSettings,
     UnpopulatedCheck,
 } from '@deepkit/type';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { Readable } from 'stream';
 import { provide } from '@deepkit/injector';
 
@@ -1549,6 +1553,77 @@ test('upload security', async () => {
             fileName: 'test.txt',
         },
     ]))).json).toMatchObject({ uploadedSize: 19 });
+});
+
+async function uploadAndExpectNoTemporaryFiles(parts: { name: string, file: Uint8Array }[], parser: HttpParserOptions = {}, listeners: EventListener[] = []) {
+    class UploadBody {
+        someFile?: UploadedFile;
+    }
+
+    class Controller {
+        @http.POST('/upload')
+        upload(body: HttpBody<UploadBody>): any {
+            const path = body.someFile?.path;
+            return { size: body.someFile?.size, exists: path ? existsSync(path) : false };
+        }
+    }
+
+    const uploadDir = mkdtempSync(join(tmpdir(), 'deepkit-http-upload-'));
+    const config = new HttpConfig();
+    config.parser = { ...parser, uploadDir };
+
+    try {
+        const httpKernel = createHttpKernel([Controller], [], listeners, [], [], config);
+        const response = await httpKernel.request(HttpRequest.POST('/upload').multiPart(parts));
+        for (let attempt = 0; attempt < 50 && readdirSync(uploadDir).length; attempt++) await sleep(0.01);
+        await sleep(0.02);
+        expect(readdirSync(uploadDir)).toEqual([]);
+        return response;
+    } finally {
+        rmSync(uploadDir, { recursive: true, force: true });
+    }
+}
+
+test('upload removes all temporary files of a repeated field name', async () => {
+    const response = await uploadAndExpectNoTemporaryFiles([
+        { name: 'someFile', file: Buffer.from('first') },
+        { name: 'someFile', file: Buffer.from('other') },
+        { name: 'someFile', file: Buffer.from('third') },
+    ]);
+
+    expect(response.json).toEqual({ size: 5, exists: true });
+});
+
+test('upload removes the temporary file of an empty file', async () => {
+    const response = await uploadAndExpectNoTemporaryFiles([{ name: 'someFile', file: Buffer.alloc(0) }]);
+
+    expect(response.json).toEqual({ exists: false });
+});
+
+test('upload removes the temporary file of a field name formidable cannot store', async () => {
+    const response = await uploadAndExpectNoTemporaryFiles([{ name: '__proto__', file: Buffer.from('first') }]);
+
+    expect(response.json).toEqual({ exists: false });
+});
+
+test('upload removes the temporary files of a rejected request', async () => {
+    const response = await uploadAndExpectNoTemporaryFiles([
+        { name: 'first', file: Buffer.from('first') },
+        { name: 'second', file: Buffer.from('second') },
+        { name: 'third', file: Buffer.from('third') },
+    ], { maxFiles: 1 });
+
+    expect(response.statusCode).toBeGreaterThanOrEqual(400);
+});
+
+test('upload removes the temporary files parsed in an event listener', async () => {
+    const response = await uploadAndExpectNoTemporaryFiles([{ name: 'someFile', file: Buffer.from('first') }], {}, [
+        httpWorkflow.onController.listen(async (event, parser: HttpRequestParser<{ someFile?: UploadedFile }>) => {
+            await parser();
+        }),
+    ]);
+
+    expect(response.json).toEqual({ size: 5, exists: true });
 });
 
 test('any http body', async () => {
