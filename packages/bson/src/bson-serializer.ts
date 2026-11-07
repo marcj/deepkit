@@ -1243,15 +1243,29 @@ function serializeTuple(type: TypeTuple, state: TemplateState) {
                 ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type.type)}
             }
             `);
-        } else {
-            const optionalCheck = member.optional ? `${state.accessor}[${i}] !== undefined` : 'true';
+        } else if (member.optional) {
+            //an optional element in the array is written even when undefined (as null), since elements are read by position:
+            //skipping it would shift the following elements, e.g. [1, undefined, 'e'] to [1, 'e'] (#722).
+            //A missing optional element at the end stays missing.
             lines.push(`
-            if (${optionalCheck}) {
+            if (${i} < ${state.accessor}.length) {
                 state.writer.prepareWriteType();
                 state.writer.writeAsciiString(${i} + '');
                 state.writer.writeByte(0);
-                ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type)}
+                if (${state.accessor}[${i}] === undefined) {
+                    state.writer.writeType(${BSONType.NULL});
+                } else {
+                    ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type)}
+                }
             }
+            ${i}++;
+            `);
+        } else {
+            lines.push(`
+            state.writer.prepareWriteType();
+            state.writer.writeAsciiString(${i} + '');
+            state.writer.writeByte(0);
+            ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type)}
             ${i}++;
             `);
         }
@@ -1298,13 +1312,21 @@ function sizerTuple(type: TypeTuple, state: TemplateState) {
                 ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type.type)}
             }
             `);
-        } else {
-            const optionalCheck = member.optional ? `${state.accessor}[${i}] !== undefined` : 'true';
+        } else if (member.optional) {
+            //see serializeTuple: an undefined optional element in the array is written as null (type and name, no content)
             lines.push(`
-            if (${optionalCheck}) {
+            if (${i} < ${state.accessor}.length) {
                 state.size += 1 + digitByteSize(${i});
-                ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type)}
+                if (${state.accessor}[${i}] !== undefined) {
+                    ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type)}
+                }
             }
+            ${i}++;
+            `);
+        } else {
+            lines.push(`
+            state.size += 1 + digitByteSize(${i});
+            ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type)}
             ${i}++;
             `);
         }

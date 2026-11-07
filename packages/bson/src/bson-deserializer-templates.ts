@@ -554,8 +554,8 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
             //tuple item ${j}
             else if (${check}) {
                 ${member.optional ? `
-                //BSON has no undefined in arrays, so an optional element that is undefined is stored as null
-                if (elementType === ${BSONType.NULL} || elementType === ${BSONType.UNDEFINED}) {
+                //BSON has no undefined in arrays, so the writer stores an optional element that is undefined as null (see serializeTuple)
+                if (${isNullable(member.type) ? `elementType === ${BSONType.UNDEFINED}` : `elementType === ${BSONType.NULL} || elementType === ${BSONType.UNDEFINED}`}) {
                     ${v} = undefined;
                 } else {
                     ${elementTemplate}
@@ -675,10 +675,17 @@ export function bsonTypeGuardTuple(type: TypeTuple, state: TemplateState) {
         } else {
             const offsetRight = type.types.length - j;
             const check = hasRest && j >= restStart ? `${length} - ${i} === ${offsetRight}` : `${i} === ${j}`;
+            const elementGuard = executeTemplates(state.fork(valid).extendPath(new RuntimeCode(i)), member.type);
             lines.push(`
             //tuple item ${j}
             else if (${check}) {
-                ${executeTemplates(state.fork(valid).extendPath(new RuntimeCode(i)), member.type)}
+                ${member.optional ? `
+                //an undefined optional element is stored as null, see serializeTuple
+                if (${isNullable(member.type) ? `elementType === ${BSONType.UNDEFINED}` : `elementType === ${BSONType.NULL} || elementType === ${BSONType.UNDEFINED}`}) {
+                    ${valid} = true;
+                } else {
+                    ${elementGuard}
+                }` : elementGuard}
                 if (!${valid}) {
                     break;
                 }

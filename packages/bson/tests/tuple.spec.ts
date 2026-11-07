@@ -1,7 +1,7 @@
 import { expect, test } from '@jest/globals';
 
 import { deserializeBSON } from '../src/bson-deserializer.js';
-import { serializeBSON } from '../src/bson-serializer.js';
+import { getBSONSizer, serializeBSON } from '../src/bson-serializer.js';
 
 //#718: see packages/type/tests/tuple.spec.ts, the same rules apply to BSON deserialization.
 
@@ -95,4 +95,36 @@ test('tuple with optional elements', () => {
     expect(deserializeBSON<C>(bson([1])).v).toEqual([1, undefined]);
     expect(deserializeBSON<C>(bson([1, null])).v).toEqual([1, undefined]);
     expect(deserializeBSON<C>(bson([1, 'a'])).v).toEqual([1, 'a']);
+});
+
+test('undefined optional element keeps the position of the following elements (#722)', () => {
+    //like the arguments of an RPC action: updateUser(1, undefined, 'peter@example.com')
+    type A = { args: [id: number, name?: string, email?: string] };
+    const roundTrip = (args: A['args']) => deserializeBSON<A>(serializeBSON<A>({ args })).args;
+
+    expect(roundTrip([1, undefined, 'peter@example.com'])).toStrictEqual([1, undefined, 'peter@example.com']);
+    expect(roundTrip([1, 'Peter', 'peter@example.com'])).toStrictEqual([1, 'Peter', 'peter@example.com']);
+    expect(roundTrip([1, undefined, undefined])).toStrictEqual([1, undefined, undefined]);
+    expect(roundTrip([1, undefined])).toStrictEqual([1, undefined]);
+    //a missing optional element at the end stays missing
+    expect(roundTrip([1])).toStrictEqual([1]);
+    expect(roundTrip([1, 'Peter'])).toStrictEqual([1, 'Peter']);
+
+    //the sizer matches the written size
+    for (const args of [[1, undefined, 'e'], [1, undefined], [1], [1, 'n', 'e']] as A['args'][]) {
+        expect(getBSONSizer<A>()({ args })).toBe(serializeBSON<A>({ args }).byteLength);
+    }
+
+    //in unions the tuple with the undefined optional element is still picked
+    type U = { args: [id: number, name?: string, email?: string] | string };
+    expect(deserializeBSON<U>(serializeBSON<A>({ args: [1, undefined, 'e'] })).args).toStrictEqual([1, undefined, 'e']);
+
+    //a required element that accepts undefined was already written as null
+    type R = { args: [id: number, name: string | undefined, email?: string] };
+    expect(deserializeBSON<R>(serializeBSON<R>({ args: [1, undefined, 'e'] })).args).toStrictEqual([1, undefined, 'e']);
+});
+
+test('nullable optional element keeps null (#722)', () => {
+    type N = { args: [id: number, name?: string | null] };
+    expect(deserializeBSON<N>(serializeBSON<N>({ args: [1, null] })).args).toStrictEqual([1, null]);
 });

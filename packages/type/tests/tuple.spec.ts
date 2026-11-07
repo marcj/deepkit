@@ -152,3 +152,17 @@ test('tuple with optional elements', () => {
     expect(cast<[number, string | undefined]>([1])).toEqual([1, undefined]);
     expect(cast<[number, string | undefined]>([1, 'a'])).toEqual([1, 'a']);
 });
+
+test('undefined optional element keeps the position of the following elements (#722)', () => {
+    type A = [id: number, name?: string, email?: string];
+    //JSON has no undefined in arrays, the serialized undefined is null
+    const wire = JSON.parse(JSON.stringify(serialize<A>([1, undefined, 'e'])));
+    expect(wire).toEqual([1, null, 'e']);
+    expect(cast<A>(wire)).toStrictEqual([1, undefined, 'e']);
+    expect(cast<A>([1, null, 'e'])).toStrictEqual([1, undefined, 'e']);
+
+    //a nullable optional element keeps null
+    type N = [id: number, name?: string | null];
+    expect(cast<N>([1, null])).toStrictEqual([1, null]);
+    expect(cast<N>([1, undefined])).toStrictEqual([1, undefined]);
+});

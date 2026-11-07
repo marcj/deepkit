@@ -1673,10 +1673,12 @@ function serializeTuple(type: TypeTuple, state: TemplateState) {
         } else if (member.optional) {
             //an optional element is only in the result when it's in the value, e.g. [1] for [number, string?] stays [1].
             //In contrast, a required element that accepts undefined is always set, e.g. [1] for [number, string | undefined] is [1, undefined].
+            //JSON has no undefined in arrays, so null is undefined for an optional element that is not nullable, like for optional properties (#722).
+            const isUnset = isNullable(member.type) ? `${state.accessor}[${i}] === undefined` : `${state.accessor}[${i}] === undefined || ${state.accessor}[${i}] === null`;
             lines.push(`
             if (${i} < ${state.accessor}.length) {
                 ${_} = undefined;
-                if (${state.accessor}[${i}] !== undefined) {
+                if (!(${isUnset})) {
                     ${executeTemplates(state.fork(_, new ContainerAccessor(state.accessor, i)).extendPath(member.name || new RuntimeCode(i)), member.type)}
                 }
                 ${state.setter}.push(${_});
