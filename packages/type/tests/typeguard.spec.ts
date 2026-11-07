@@ -515,3 +515,18 @@ test('Record with template literal key (#720)', () => {
     expect(is<{ [k: `x${string}`]: string }>({ x1: 's' })).toBe(true);
     expect(is<Record<`x${string}` | 'id', string>>({ id: 'a', x1: 's' })).toBe(true);
 });
+
+test('unknown and symbol (#721)', () => {
+    expect(is<unknown>(1)).toBe(true);
+    expect(is<unknown>(undefined)).toBe(true);
+    expect(is<{ a: unknown }>({ a: 1 })).toBe(true);
+    expect(is<unknown[]>([1, 'a'])).toBe(true);
+    expect(is<{ a: unknown, b: string }>({ a: 1, b: 2 })).toBe(false);
+
+    expect(is<symbol>(Symbol())).toBe(true);
+    expect(is<symbol>('a')).toBe(false);
+    expect(is<{ s: symbol }>({ s: Symbol() })).toBe(true);
+    expect(is<symbol | string>(Symbol())).toBe(true);
+    expect(is<symbol | string>('a')).toBe(true);
+    expect(is<symbol | string>(1)).toBe(false);
+});

@@ -2706,6 +2706,15 @@ export class Serializer {
         //if nothing else matches in a union, any matches anything
         this.typeGuards.register(20, ReflectionKind.any, (type, state) => state.addSetter('true'));
 
+        //unknown accepts any value, like any (#721)
+        this.typeGuards.register(1, ReflectionKind.unknown, (type, state) => {
+            if (type.parent && type.parent.kind === ReflectionKind.union) return;
+            state.addSetter('true');
+        });
+        this.typeGuards.register(20, ReflectionKind.unknown, (type, state) => state.addSetter('true'));
+
+        this.typeGuards.register(1, ReflectionKind.symbol, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not a symbol', `'symbol' === typeof ${state.accessor}`));
+
         this.typeGuards.register(1, ReflectionKind.object, (type, state) => {
             state.setContext({ isObject });
             state.addSetter(`isObject(${state.accessor})`);

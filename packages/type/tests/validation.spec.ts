@@ -551,3 +551,10 @@ test('enum with values that are not strings or numbers (#719)', () => {
     expect(() => cast<E>(Object.create(null))).toThrow(ValidationError);
     expect(() => cast<E>(Object.create(null))).toThrow('Cannot convert [object Object] to enum');
 });
+
+test('unknown and symbol (#721)', () => {
+    expect(validate<{ a: unknown }>({ a: 1 })).toEqual([]);
+    expect(validate<symbol>(Symbol.for('a'))).toEqual([]);
+    expect(validate<symbol>(1)).toEqual([{ code: 'type', message: 'Not a symbol', path: '', value: 1 }]);
+    expect(validate<{ s: symbol }>({ s: 1 })).toEqual([{ code: 'type', message: 'Not a symbol', path: 's', value: 1 }]);
+});
