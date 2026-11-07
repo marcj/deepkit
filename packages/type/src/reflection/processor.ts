@@ -1575,6 +1575,8 @@ export class Processor {
 
         function isSimpleIndex(index: Type): boolean {
             if (index.kind === ReflectionKind.string || index.kind === ReflectionKind.number || index.kind === ReflectionKind.symbol) return true;
+            //a template literal key with a placeholder is a pattern like an index signature, e.g. Record<`x${string}`, V> is {[k: `x${string}`]: V}
+            if (index.kind === ReflectionKind.templateLiteral) return true;
             if (index.kind === ReflectionKind.union) {
                 const types = index.types.filter(v => isSimpleIndex(v));
                 return types.length === 0;

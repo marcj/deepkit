@@ -1738,3 +1738,25 @@ test('used type does not leak parent to original', () => {
 
     expect(userGroup.parent).toBe(undefined);
 });
+
+test('isSameType of template literals (#720)', () => {
+    //the loop over the template literal spans had no bound and never returned
+    expect(isSameType(typeOf<`x${string}`>(), typeOf<`x${string}`>())).toBe(true);
+    expect(isSameType(typeOf<`x${string}`>(), typeOf<`y${string}`>())).toBe(false);
+    expect(isSameType(typeOf<`x${string}`>(), typeOf<`x${number}`>())).toBe(false);
+    expect(isSameType(typeOf<`a${string}b${number}`>(), typeOf<`a${string}b${number}`>())).toBe(true);
+
+    //reflecting the same template literal keyed Record twice compares them with isSameType
+    const type = typeOf<{ a: Record<`x${string}`, string>; [k: string]: Record<`x${string}`, string> }>();
+    assertType(type, ReflectionKind.objectLiteral);
+    expect(type.types).toHaveLength(2);
+});
+
+test('mapped type with a template literal key is an index signature (#720)', () => {
+    const type = typeOf<Record<`x${string}`, string>>();
+    assertType(type, ReflectionKind.objectLiteral);
+    expect(type.types).toHaveLength(1);
+    assertType(type.types[0], ReflectionKind.indexSignature);
+    expect(stringifyType(type.types[0].index)).toBe('`x${string}`');
+    expect(type.types[0].type.kind).toBe(ReflectionKind.string);
+});

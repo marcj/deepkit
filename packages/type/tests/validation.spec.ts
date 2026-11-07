@@ -514,3 +514,8 @@ test('union of tuples picks the tuple with the matching length', () => {
     expect(validate<B>({ v: ['a', 1, 2] })).toHaveLength(1);
     expect(is<B>({ v: ['a', 1, 2] })).toBe(false);
 });
+
+test('Record with template literal key (#720)', () => {
+    expect(validate<Record<`x${string}`, string>>({ x1: 's' })).toEqual([]);
+    expect(validate<Record<`x${string}`, string>>({ x1: 1 })).toEqual([{ code: 'type', message: 'Not a string', path: 'x1', value: 1 }]);
+});

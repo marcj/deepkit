@@ -691,7 +691,7 @@ export function isSameType(a: Type, b: Type, stack: StackEntry[] = []): boolean 
         if (a.kind === ReflectionKind.templateLiteral && b.kind === ReflectionKind.templateLiteral) {
             if (a.types.length !== b.types.length) return false;
 
-            for (let i = 0; a.types.length; i++) {
+            for (let i = 0; i < a.types.length; i++) {
                 if (!isSameType(a.types[i], b.types[i], stack)) return false;
             }
             return true;

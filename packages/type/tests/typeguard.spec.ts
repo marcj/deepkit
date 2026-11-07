@@ -505,3 +505,13 @@ test('union classes with generic', () => {
         //do something with this instance and fully load it
     }
 });
+
+test('Record with template literal key (#720)', () => {
+    expect(is<Record<`x${string}`, string>>({})).toBe(true);
+    expect(is<Record<`x${string}`, string>>({ x1: 's' })).toBe(true);
+    expect(is<Record<`x${string}`, string>>({ x1: 1 })).toBe(false);
+    expect(is<Record<`x${string}`, number>>({ x1: 1, x2: 2 })).toBe(true);
+    //the same as the index signature
+    expect(is<{ [k: `x${string}`]: string }>({ x1: 's' })).toBe(true);
+    expect(is<Record<`x${string}` | 'id', string>>({ id: 'a', x1: 's' })).toBe(true);
+});
