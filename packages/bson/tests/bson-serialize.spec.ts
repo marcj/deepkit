@@ -1723,3 +1723,23 @@ test('property names with line breaks do not break the generated code', () => {
     expect(Buffer.from(bytes).toString('hex')).toBe(Buffer.from(bson.serialize(value)).toString('hex'));
     expect(getBSONDeserializer<T>()(bytes)).toEqual(value);
 });
+
+test('union of tuples picks the tuple with the matching length', () => {
+    //#718, the bson type guard of the first tuple accepted the longer array and dropped its additional elements
+    type A = { v: [number] | [number, number] };
+    expect(deserializeBSON<A>(getBSONSerializer<{ v: number[] }>()({ v: [1, 2] }))).toEqual({ v: [1, 2] });
+    expect(deserializeBSON<A>(getBSONSerializer<{ v: number[] }>()({ v: [1] }))).toEqual({ v: [1] });
+
+    type B = { v: [string, string] | string };
+    expect(deserializeBSON<B>(getBSONSerializer<{ v: string[] }>()({ v: ['a', 'b'] }))).toEqual({ v: ['a', 'b'] });
+
+    //too few elements: the tuple doesn't match, the array falls through to the next union member
+    type C = { v: [string, string] | string[] };
+    expect(deserializeBSON<C>(getBSONSerializer<{ v: string[] }>()({ v: ['a'] }))).toEqual({ v: ['a'] });
+});
+
+test('template literal bigint in union', () => {
+    //#718
+    type A = { v: `${bigint}` | Date };
+    expect(deserializeBSON<A>(getBSONSerializer<{ v: string }>()({ v: '12' }))).toEqual({ v: '12' });
+});

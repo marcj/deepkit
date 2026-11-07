@@ -23,6 +23,8 @@ import {
     getConstructorProperties,
     getDeepConstructorProperties,
     getEnumValueIndexMatcher,
+    getTupleLengthMessage,
+    getTupleLengthRange,
     getTypeJitContainer,
     getTypeObjectLiteralFromTypeClass,
     groupAnnotation,
@@ -378,6 +380,12 @@ export class TemplateState {
     public scoreObject?: boolean;
 
     /**
+     * Tuple type guards accept arrays with more or fewer elements than the tuple, e.g. [1, 2] for [number].
+     * Set for the fallback pass of union deserialization, when no member matched exactly. Inherited by forks.
+     */
+    public looseTupleLength?: boolean;
+
+    /**
      * Set for the code of type guard functions. Their `_path` is only used for the messages in `state.errors`.
      */
     public typeGuard?: boolean;
@@ -443,6 +451,7 @@ export class TemplateState {
         state.target = this.target;
         state.parentTypes = this.parentTypes;
         state.allSpecificalities = this.allSpecificalities;
+        state.looseTupleLength = this.looseTupleLength;
         state.handledAnnotations = this.handledAnnotations.slice();
         return state;
     }
@@ -762,17 +771,18 @@ export class TemplateRegistry {
     }
 }
 
-const scoreObjectStackKeys = new WeakMap<TemplateRegistry, TemplateRegistry>();
+const jitStackKeyVariants = new WeakMap<TemplateRegistry, TemplateRegistry[]>();
 
 /**
- * Extracted functions of union members that return scores (see TemplateState.scoreObject) are cached separately
- * from the regular ones, which return booleans.
+ * Extracted functions of union members that return scores (see TemplateState.scoreObject) or accept tuples
+ * of any length (see TemplateState.looseTupleLength) are cached separately from the regular ones.
  */
 function getJitStackKey(state: TemplateState): TemplateRegistry {
-    if (!state.scoreObject) return state.registry;
-    let key = scoreObjectStackKeys.get(state.registry);
-    if (!key) scoreObjectStackKeys.set(state.registry, key = Object.create(state.registry) as TemplateRegistry);
-    return key;
+    const variant = (state.scoreObject ? 1 : 0) + (state.looseTupleLength ? 2 : 0);
+    if (!variant) return state.registry;
+    let keys = jitStackKeyVariants.get(state.registry);
+    if (!keys) jitStackKeyVariants.set(state.registry, keys = []);
+    return keys[variant] ||= Object.create(state.registry) as TemplateRegistry;
 }
 
 /**
@@ -798,6 +808,7 @@ export function extractStateToFunctionAndCallIt(state: TemplateState, type: Type
     callExtractedFunctionIfAvailable(state, type);
     const functionState = state.fork('result', 'data', [new RuntimeCode('_path')]).forPropertyName(state.propertyName);
     functionState.scoreObject = state.scoreObject;
+    functionState.looseTupleLength = state.looseTupleLength;
     return { setFunction: prepare.prepare, id: prepare.id, state: functionState };
 }
 
@@ -1647,13 +1658,26 @@ function serializeTuple(type: TypeTuple, state: TemplateState) {
                 }
             }
             `);
+        } else if (member.optional) {
+            //an optional element is only in the result when it's in the value, e.g. [1] for [number, string?] stays [1].
+            //In contrast, a required element that accepts undefined is always set, e.g. [1] for [number, string | undefined] is [1, undefined].
+            lines.push(`
+            if (${i} < ${state.accessor}.length) {
+                ${_} = undefined;
+                if (${state.accessor}[${i}] !== undefined) {
+                    ${executeTemplates(state.fork(_, new ContainerAccessor(state.accessor, i)).extendPath(member.name || new RuntimeCode(i)), member.type)}
+                }
+                ${state.setter}.push(${_});
+            }
+            ${i}++;
+            `);
         } else {
             lines.push(`
             ${_} = undefined;
             ${executeTemplates(state.fork(_, new ContainerAccessor(state.accessor, i)).extendPath(member.name || new RuntimeCode(i)), member.type)}
             if (${_} !== undefined) {
                 ${state.setter}.push(${_});
-            } else if (${member.optional || isOptional(member.type)}) {
+            } else if (${isOptional(member.type)}) {
                 ${state.setter}.push(undefined);
             }
             ${i}++;
@@ -1707,11 +1731,24 @@ function typeGuardTuple(type: TypeTuple, state: TemplateState) {
         }
     }
 
+    //an array with too many or too few elements is not the tuple, e.g. [1, 2] is not a [number].
+    //Only in the fallback pass of union deserialization (looseTupleLength) the length is ignored, see handleUnion.
+    const range = getTupleLengthRange(type);
+    const lengthChecks: string[] = [];
+    if (range.min > 0) lengthChecks.push(`${state.accessor}.length < ${range.min}`);
+    if (range.max !== Infinity) lengthChecks.push(`${state.accessor}.length > ${range.max}`);
+    const lengthCheck = !state.looseTupleLength && lengthChecks.length ? `
+            if (${lengthChecks.join(' || ')}) {
+                ${v} = false;
+                if (${state.isValidation()}) ${state.assignValidationError('type', getTupleLengthMessage(range))}
+            }` : '';
+
     state.setContext({ isArray: isArray });
     state.addCodeForSetter(`
         if (isArray(${state.accessor})) {
             let ${v} = true;
             let ${i} = 0;
+            ${lengthCheck}
             ${lines.join('\n')}
             ${state.setter} = ${v};
         } else {
@@ -2021,6 +2058,45 @@ function reportUnionMemberErrors(reporter: UnionErrorReporter, value: any, state
     return true;
 }
 
+/**
+ * Whether a tuple is somewhere in the type, e.g. in a property of an object literal or class, or in an array.
+ * Those union members need the fallback pass of handleUnion with looseTupleLength.
+ */
+export function containsTuple(type: Type): boolean {
+    const jit = getTypeJitContainer(type);
+    if (jit.containsTuple !== undefined) return jit.containsTuple;
+    jit.containsTuple = false; //for circular types
+    return jit.containsTuple = containsTupleIn(type);
+}
+
+function containsTupleIn(type: Type): boolean {
+    switch (type.kind) {
+        case ReflectionKind.tuple:
+            return true;
+        case ReflectionKind.class:
+            if (type.arguments?.some(containsTuple)) return true;
+            if (isCustomTypeClass(type)) return containsTupleInMembers(ReflectionClass.from(type).type.types);
+            return false;
+        case ReflectionKind.objectLiteral:
+            return containsTupleInMembers(type.types);
+        case ReflectionKind.union:
+        case ReflectionKind.intersection:
+            return type.types.some(containsTuple);
+        case ReflectionKind.array:
+        case ReflectionKind.promise:
+            return containsTuple(type.type);
+    }
+    return false;
+}
+
+function containsTupleInMembers(members: Type[]): boolean {
+    for (const member of members) {
+        if ((member.kind === ReflectionKind.property || member.kind === ReflectionKind.propertySignature || member.kind === ReflectionKind.indexSignature)
+            && containsTuple(member.type)) return true;
+    }
+    return false;
+}
+
 export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: TypeGuardRegistry) {
     //detecting which serializer to use in union is a complex topic and allows a key feature: deserializing an encoding that is entirely based on strings (e.g. URL query string)
     //to support for example numeric string, we need to have multiple guards being able to detect their 'loosely type' equivalence, for example
@@ -2158,6 +2234,54 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
         }
     }
 
+    //fallback pass: when no member matched exactly, the members containing a tuple are checked again with looseTupleLength,
+    //so a tuple matches an array with a different length, e.g. [1, 2, 3] for `[number] | string` is deserialized as [1],
+    //like plain tuple deserialization drops additional elements. Exact matches always win, e.g. [1, 2] for `[number] | [number, number]`.
+    //Not for is()/validate() (strict), and not in type guards, since unions in type guards of members inherit looseTupleLength from this pass.
+    const linesLooseTuples: string[] = [];
+    const linesLooseObjects: string[] = [];
+    const looseActions: string[] = [];
+    if (state.validation !== 'strict' && !state.typeGuard && !state.looseTupleLength) {
+        const typeGuard = typeGuards.getRegistry(1);
+        const validation = !state.validation ? state.target === 'serialize' ? 'strict' : 'loose' : state.validation;
+        for (const t of type.types) {
+            if (!containsTuple(t) || !typeGuard.get(t).length) continue;
+            const memberState = state.fork(undefined, accessor)
+                .forRegistry(typeGuard)
+                .withValidation(validation)
+                .includeAllSpecificalities(typeGuards);
+            memberState.looseTupleLength = true;
+            if (!discriminator?.literals.has(t)) memberState.withScoreObject();
+            const fn = createTypeGuardFunction(t, memberState, undefined, false);
+            if (!fn) continue;
+            const guard = state.setVariable('guard_loose_' + ReflectionKind[t.kind], fn);
+            const action = state.isValidation() ? `${state.setter} = true;` : executeTemplates(state.fullFork(), t);
+            const debug = `type = ${ReflectionKind[t.kind]} ${t.typeName}, looseTupleLength`;
+
+            if (isCustomTypeClass(t) || t.kind === ReflectionKind.objectLiteral) {
+                const maxScore = t.types.length;
+                looseActions.push(action);
+                const literal = discriminator?.literals.get(t);
+                const discriminatorCheck = literal !== undefined ? `${value} && ${value}[${discriminatorKey}] === ${JSON.stringify(literal)} && ` : '';
+                linesLooseObjects.push(`
+                //${debug}
+                if (${discriminatorCheck} ${maxScore} > matching) {
+                    const score = ${guard}(${args});
+                    if (score > matching) {
+                        matching = score;
+                        matchingIndex = ${looseActions.length - 1};
+                    }
+                }`);
+            } else {
+                linesLooseTuples.push(`
+                //${debug}
+                else if (${guard}(${args})) {
+                   ${action}
+                }`);
+            }
+        }
+    }
+
     //strict guards of non-literal members and the messages, built on first use (error path only)
     const serializerToUse = state.registry.serializer;
     let reporter: UnionErrorReporter | undefined;
@@ -2194,10 +2318,20 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
                     ${actions.map((v, i) => `case ${i}: {${v} break;}`).join('\n')}
                     default: {
                         if (false) {}
-                        ${linesPrimitivesAlternatives.join(' ')}
+                        ${linesLooseTuples.join(' ')}
                         else {
-                            ${handleErrors}
-                            if (state.errors) ${reportMemberErrors}(${state.originalAccessor}, state, ${collapsePath(state.path)});
+                            ${linesLooseObjects.join(' ')}
+                            switch (matchingIndex) {
+                                ${looseActions.map((v, i) => `case ${i}: {${v} break;}`).join('\n')}
+                                default: {
+                                    if (false) {}
+                                    ${linesPrimitivesAlternatives.join(' ')}
+                                    else {
+                                        ${handleErrors}
+                                        if (state.errors) ${reportMemberErrors}(${state.originalAccessor}, state, ${collapsePath(state.path)});
+                                    }
+                                }
+                            }
                         }
                     }
                 }

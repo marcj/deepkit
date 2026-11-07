@@ -30,6 +30,7 @@ import {
     TypeLiteral,
     TypeMethod,
     TypeMethodSignature,
+    TypeBigInt,
     TypeNumber,
     TypeObjectLiteral,
     TypeParameter,
@@ -432,14 +433,20 @@ function isFunctionParameterExtendable(left: { parameters: TypeParameter[] }, ri
     return valid;
 }
 
+/**
+ * Whether a string is accepted by a `${bigint}` template literal span, like TypeScript does:
+ * an optionally negative integer literal, decimal, hex, octal or binary, without separators or whitespace.
+ */
+const bigIntString = /^-?(?:0[xX][0-9a-fA-F]+|0[oO][0-7]+|0[bB][01]+|0|[1-9][0-9]*)$/;
+
 export function extendTemplateLiteral(left: TypeLiteral | TypeTemplateLiteral, right: TypeTemplateLiteral): boolean {
     interface ReadQueueItem {
-        type: TypeString | TypeNumber | TypeLiteral | TypeAny;
+        type: TypeString | TypeNumber | TypeBigInt | TypeLiteral | TypeAny;
         position: number;
         next?: ReadQueueItem;
     }
 
-    let matchQueue: (TypeInfer | TypeNumber | TypeString | TypeAny)[] = [];
+    let matchQueue: (TypeInfer | TypeNumber | TypeBigInt | TypeString | TypeAny)[] = [];
 
     let current = (left.kind === ReflectionKind.literal ? { type: left as (TypeLiteral & { literal: string }), position: 0 } : {
         type: left.types[0],
@@ -495,11 +502,13 @@ export function extendTemplateLiteral(left: TypeLiteral | TypeTemplateLiteral, r
                         const char = value[current.position++];
                         if (item.kind === ReflectionKind.number) {
                             if (value === '' || isNaN(+char)) return false;
+                        } else if (item.kind === ReflectionKind.bigint) {
+                            if (char < '0' || char > '9') return false;
                         } else if (item.kind === ReflectionKind.infer) {
                             item.set({ kind: ReflectionKind.literal, literal: char });
                         }
                     } else if (current.type.kind === ReflectionKind.string) {
-                        if (item.kind === ReflectionKind.number) {
+                        if (item.kind === ReflectionKind.number || item.kind === ReflectionKind.bigint) {
                             return false;
                         } else if (item.kind === ReflectionKind.infer) {
                             item.set(current.type);
@@ -509,7 +518,15 @@ export function extendTemplateLiteral(left: TypeLiteral | TypeTemplateLiteral, r
                             item.set(current.type);
                         }
                     } else if (current.type.kind === ReflectionKind.number) {
-                        if (item.kind === ReflectionKind.infer) {
+                        if (item.kind === ReflectionKind.bigint) {
+                            return false;
+                        } else if (item.kind === ReflectionKind.infer) {
+                            item.set(current.type);
+                        }
+                    } else if (current.type.kind === ReflectionKind.bigint) {
+                        if (item.kind === ReflectionKind.number) {
+                            return false;
+                        } else if (item.kind === ReflectionKind.infer) {
                             item.set(current.type);
                         }
                     }
@@ -562,6 +579,26 @@ export function extendTemplateLiteral(left: TypeLiteral | TypeTemplateLiteral, r
                         current = current.next;
                     }
                     if (value === '' || isNaN(+value)) return false;
+                } else if (item.kind === ReflectionKind.bigint) {
+                    //read until the end, the value has to be an integer
+                    let value = '';
+                    let hasAny = false;
+                    while (current) {
+                        if (current.type.kind === ReflectionKind.literal) {
+                            value += (current.type.literal as string).slice(current.position, end ? end.position : undefined);
+                        } else if (current.type.kind === ReflectionKind.bigint) {
+                            //a placeholder stands for a valid integer, so take one
+                            value += '0';
+                        } else if (current.type.kind === ReflectionKind.any) {
+                            hasAny = true;
+                        } else {
+                            //string or number can contain characters that are not an integer
+                            return false;
+                        }
+                        if (end && current.type === end.type) break;
+                        current = current.next;
+                    }
+                    if (!hasAny && !bigIntString.test(value)) return false;
                 }
             }
         }
@@ -580,6 +617,8 @@ export function extendTemplateLiteral(left: TypeLiteral | TypeTemplateLiteral, r
         } else if (span.kind === ReflectionKind.string) {
             matchQueue.push(span);
         } else if (span.kind === ReflectionKind.number) {
+            matchQueue.push(span);
+        } else if (span.kind === ReflectionKind.bigint) {
             matchQueue.push(span);
         }
     }

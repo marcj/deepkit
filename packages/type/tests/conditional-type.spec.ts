@@ -82,3 +82,23 @@ test('tuple extends array', () => {
     expect(typeOf<IsStrings<[boolean]>>()).toMatchObject({ kind: ReflectionKind.literal, literal: false });
     expect(typeOf<IsStrings<['a', 'b']>>()).toMatchObject({ kind: ReflectionKind.literal, literal: true });
 });
+
+test('template literal bigint', () => {
+    //#718, conditional types evaluated at runtime use the same template literal matching
+    type IsBigInt<T> = T extends `${bigint}` ? true : false;
+    expect(typeOf<IsBigInt<'12'>>()).toMatchObject({ kind: ReflectionKind.literal, literal: true });
+    expect(typeOf<IsBigInt<'abc'>>()).toMatchObject({ kind: ReflectionKind.literal, literal: false });
+    expect(typeOf<IsBigInt<'1.5'>>()).toMatchObject({ kind: ReflectionKind.literal, literal: false });
+
+    type IsPx<T> = T extends `${bigint}px` ? true : false;
+    expect(typeOf<IsPx<'10px'>>()).toMatchObject({ kind: ReflectionKind.literal, literal: true });
+    expect(typeOf<IsPx<'1.5px'>>()).toMatchObject({ kind: ReflectionKind.literal, literal: false });
+
+    //a bigint placeholder is not a number placeholder and vice versa
+    expect(isExtendable(typeOf<`${bigint}`>(), typeOf<`${bigint}`>())).toBe(true);
+    expect(isExtendable(typeOf<`a${bigint}`>(), typeOf<`a${bigint}`>())).toBe(true);
+    expect(isExtendable(typeOf<`${bigint}`>(), typeOf<`${number}`>())).toBe(false);
+    expect(isExtendable(typeOf<`${number}`>(), typeOf<`${bigint}`>())).toBe(false);
+    expect(isExtendable(typeOf<`${bigint}`>(), typeOf<`${string}`>())).toBe(true);
+    expect(isExtendable(typeOf<`${string}`>(), typeOf<`${bigint}`>())).toBe(false);
+});

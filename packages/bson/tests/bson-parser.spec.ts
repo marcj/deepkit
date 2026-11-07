@@ -569,7 +569,8 @@ test('tuple on union', () => {
         expect(deserializeBSON<t>(serialize({ v: ['abc', 34] }))).toEqual({ v: ['abc', 34] });
         expect(deserializeBSON<t>(serialize({ v: [{ d: true }] }))).toEqual({ v: [{ d: true }] });
         expect(deserializeBSON<t>(serialize({ v: ['abc', 34, 55] }))).toEqual({ v: ['abc', 34] });
-        expect(() => deserializeBSON<t>(serialize({ v: ['abc', '44'] }))).toThrow('v(type): Expected [string, number] | [C]'); //union type guard are strict
+        //union type guard are strict. [C] has a different length, so the errors of the closest member [string, number] are reported
+        expect(() => deserializeBSON<t>(serialize({ v: ['abc', '44'] }))).toThrow('v.1(type): Not a number');
     }
     {
         type t = { v: [number] | [C] };
@@ -581,7 +582,8 @@ test('tuple on union', () => {
         expect(deserializeBSON<t>(serialize({ v: [34] }))).toEqual({ v: [34] });
         expect(() => deserializeBSON<t>(serialize({ v: ['44'] }))).toThrow('v(type): Expected [...number[]] | [C]');
         expect(deserializeBSON<t>(serialize({ v: [34, 55] }))).toEqual({ v: [34, 55] });
-        expect(() => deserializeBSON<t>(serialize({ v: ['44', 55] }))).toThrow('v(type): Expected [...number[]] | [C]');
+        //[C] has a different length, so the errors of the closest member [...number[]] are reported
+        expect(() => deserializeBSON<t>(serialize({ v: ['44', 55] }))).toThrow('v.0(type): Not a number');
     }
     {
         type t = { v: [string, ...number[]] | [C] };
@@ -899,6 +901,23 @@ test('createParserLookup from invalid object', () => {
     expect(deserializeBSON<{ v: number }>(bson).v).toEqual(0);
     expect(deserializeBSON<{ v: bigint }>(bson).v).toEqual(BigInt(0));
     expect(deserializeBSON<{ v: boolean }>(bson).v).toEqual(false);
+});
+
+test('boolean from string', () => {
+    const bson = (v: any) => serializeBSONWithoutOptimiser({ v });
+    expect(deserializeBSON<{ v: boolean }>(bson('true')).v).toBe(true);
+    expect(deserializeBSON<{ v: boolean }>(bson('1')).v).toBe(true);
+    expect(deserializeBSON<{ v: boolean }>(bson('false')).v).toBe(false);
+    expect(deserializeBSON<{ v: boolean }>(bson('0')).v).toBe(false);
+    expect(deserializeBSON<{ v: boolean }>(bson('123')).v).toBe(true);
+    expect(() => deserializeBSON<{ v: boolean }>(bson('abc'))).toThrow('Cannot convert abc to boolean');
+    expect(() => deserializeBSON<{ v: boolean }>(bson(''))).toThrow('to boolean');
+    expect(() => deserializeBSON<{ v: boolean }>(bson(' '))).toThrow('to boolean');
+    expect(deserializeBSON<{ v: boolean }>(bson(null)).v).toBe(false);
+
+    //in unions only the boolean strings are a candidate for boolean
+    expect(deserializeBSON<{ v: boolean | Date }>(bson('true')).v).toBe(true);
+    expect(() => deserializeBSON<{ v: `${bigint}` | boolean }>(bson('abc'))).toThrow('Expected `${bigint}` | boolean');
 });
 
 test('union almost same member', () => {

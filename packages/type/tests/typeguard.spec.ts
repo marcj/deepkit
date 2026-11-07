@@ -137,6 +137,32 @@ test('tuple', () => {
     expect(is<[string, ...number[]]>([3, 3, 4, 5])).toEqual(false);
 });
 
+test('tuple length', () => {
+    //#718, an array with more elements is not the tuple
+    expect(is<[]>([])).toEqual(true);
+    expect(is<[]>([1])).toEqual(false);
+    expect(is<[number]>([1, 2])).toEqual(false);
+    expect(is<[string, number]>(['a', 3, 4])).toEqual(false);
+
+    //optional elements
+    expect(is<[number, string?]>([1])).toEqual(true);
+    expect(is<[number, string?]>([1, 'a'])).toEqual(true);
+    expect(is<[number, string?]>([1, 'a', 3])).toEqual(false);
+    expect(is<[number?]>([])).toEqual(true);
+
+    //elements with a type that accepts undefined are still required
+    expect(is<[any]>([])).toEqual(false);
+    expect(is<[unknown, any]>([1])).toEqual(false);
+
+    //rest elements
+    expect(is<[...number[]]>([])).toEqual(true);
+    expect(is<[string, ...number[]]>(['a'])).toEqual(true);
+    expect(is<[string, ...number[]]>([])).toEqual(false);
+    expect(is<[string, ...number[], boolean]>(['a', true])).toEqual(true);
+    expect(is<[string, ...number[], boolean]>(['a', 1, 2, true])).toEqual(true);
+    expect(is<[string, ...number[], boolean]>(['a'])).toEqual(false);
+});
+
 test('set', () => {
     expect(is<Set<string>>(new Set(['a']))).toEqual(true);
     expect(is<Set<string>>(new Set(['a', 'b']))).toEqual(true);
@@ -386,6 +412,38 @@ test('template literal', () => {
     expect(is<`ab${number}`>('ab')).toBe(false);
     expect(is<`ab${number}`>('a')).toBe(false);
     expect(is<`ab${number}`>('abc')).toBe(false);
+});
+
+test('template literal bigint', () => {
+    //#718, a bigint span only accepts integers, like in TypeScript
+    expect(is<`${bigint}`>('1')).toBe(true);
+    expect(is<`${bigint}`>('-12')).toBe(true);
+    expect(is<`${bigint}`>('0x1f')).toBe(true);
+    expect(is<`${bigint}`>('0b101')).toBe(true);
+    expect(is<`${bigint}`>('0o17')).toBe(true);
+    expect(is<`${bigint}`>('abc')).toBe(false);
+    expect(is<`${bigint}`>('1.5')).toBe(false);
+    expect(is<`${bigint}`>('1e3')).toBe(false);
+    expect(is<`${bigint}`>('')).toBe(false);
+    expect(is<`${bigint}`>(' 1')).toBe(false);
+    expect(is<`${bigint}`>('1_000')).toBe(false);
+    expect(is<`${bigint}`>(1)).toBe(false);
+
+    expect(is<`a${bigint}`>('a1')).toBe(true);
+    expect(is<`a${bigint}`>('ax')).toBe(false);
+    expect(is<`a${bigint}`>('a')).toBe(false);
+    expect(is<`${bigint}px`>('10px')).toBe(true);
+    expect(is<`${bigint}px`>('1.5px')).toBe(false);
+    expect(is<`${bigint}-${bigint}`>('1-2')).toBe(true);
+    expect(is<`${bigint}-${bigint}`>('1-x')).toBe(false);
+    expect(is<`${bigint}${string}`>('1x')).toBe(true);
+    expect(is<`${bigint}${string}`>('x')).toBe(false);
+    expect(is<`${string}${bigint}`>('x1')).toBe(true);
+    expect(is<`${string}${bigint}`>('x')).toBe(false);
+
+    //unchanged
+    expect(is<`${number}`>('1.5')).toBe(true);
+    expect(is<`${number}`>('x')).toBe(false);
 });
 
 test('union template literal', () => {

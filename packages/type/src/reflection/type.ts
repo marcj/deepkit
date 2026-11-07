@@ -235,7 +235,7 @@ export interface TypeLiteral extends TypeAnnotations {
 
 export interface TypeTemplateLiteral extends TypeAnnotations {
     kind: ReflectionKind.templateLiteral,
-    types: (TypeString | TypeAny | TypeNumber | TypeLiteral | TypeInfer)[]
+    types: (TypeString | TypeAny | TypeNumber | TypeBigInt | TypeLiteral | TypeInfer)[]
     parent?: Type;
 }
 
@@ -465,6 +465,33 @@ export interface TypeTuple extends TypeAnnotations {
     kind: ReflectionKind.tuple,
     parent?: Type;
     types: TypeTupleMember[]
+}
+
+/**
+ * The number of elements an array needs to have to match the tuple.
+ * `max` is Infinity when the tuple has a rest element, e.g. `[string, ...number[]]`.
+ */
+export function getTupleLengthRange(type: TypeTuple): { min: number, max: number } {
+    let min = 0;
+    let max = 0;
+    for (const member of type.types) {
+        if (member.type.kind === ReflectionKind.rest) {
+            max = Infinity;
+        } else {
+            max++;
+            if (!member.optional) min++;
+        }
+    }
+    return { min, max };
+}
+
+/**
+ * Validation message for an array whose length doesn't match the tuple.
+ */
+export function getTupleLengthMessage(range: { min: number, max: number }): string {
+    if (range.max === Infinity) return `Expected at least ${range.min} ${range.min === 1 ? 'element' : 'elements'}`;
+    if (range.min === range.max) return `Expected ${range.min} ${range.min === 1 ? 'element' : 'elements'}`;
+    return `Expected ${range.min} to ${range.max} elements`;
 }
 
 export interface TypeRest extends TypeAnnotations {

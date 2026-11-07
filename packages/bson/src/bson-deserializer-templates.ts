@@ -2,6 +2,7 @@ import {
     binaryBigIntAnnotation,
     BinaryBigIntType,
     collapsePath,
+    containsTuple,
     ContainerAccessor,
     createTypeGuardFunction,
     embeddedAnnotation,
@@ -13,6 +14,7 @@ import {
     getIndexCheck,
     getNameExpression,
     getStaticDefaultCodeForProperty,
+    getTupleLengthRange,
     hasDefaultValue,
     isCustomTypeClass,
     isNullable,
@@ -252,22 +254,55 @@ function createParserLookup(defaultReturn: () => any, parsers: [elementType: BSO
     return result;
 }
 
+/**
+ * The strings accepted as boolean: 'true', 'false' and numbers, which are true when not 0 (like BSON numbers).
+ * Any other string, e.g. 'abc' or '', is not a boolean.
+ */
+function parseBooleanString(value: string): boolean | undefined {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    if (value.trim() === '') return undefined;
+    const number = Number(value);
+    return isNaN(number) ? undefined : number !== 0;
+}
+
+export function isBooleanString(value: unknown): boolean {
+    return 'string' === typeof value && parseBooleanString(value) !== undefined;
+}
+
 const booleanParsers = createParserLookup(() => false, [
     [BSONType.BOOLEAN, parser => parser.parseBoolean()],
-    [BSONType.NULL, parser => 0],
-    [BSONType.UNDEFINED, parser => 0],
+    [BSONType.NULL, parser => false],
+    [BSONType.UNDEFINED, parser => false],
     [BSONType.INT, parser => !!parser.parseInt()],
     [BSONType.NUMBER, parser => !!parser.parseNumber()],
     [BSONType.LONG, parser => !!parser.parseLong()],
     [BSONType.TIMESTAMP, parser => !!parser.parseLong()],
-    [BSONType.STRING, parser => !!Number(parser.parseString())],
 ]);
 
 export function deserializeBoolean(type: Type, state: TemplateState) {
-    state.setContext({ booleanParsers });
+    state.setContext({ booleanParsers, parseBooleanString });
+    const value = state.compilerContext.reserveName('value');
     state.addCode(`
-        ${state.setter} = booleanParsers[state.elementType](state.parser, state.elementType);
+        if (state.elementType === ${BSONType.STRING}) {
+            const ${value} = state.parser.parseString();
+            ${state.setter} = parseBooleanString(${value});
+            if (${state.setter} === undefined) {
+                ${state.throwCode(type, '', value)}
+            }
+        } else {
+            ${state.setter} = booleanParsers[state.elementType](state.parser, state.elementType);
+        }
     `);
+}
+
+/**
+ * Loose boolean type guard for unions: a string is only a boolean candidate when it's 'true', 'false' or a number.
+ */
+export function bsonTypeGuardBooleanLoose(type: Type, state: TemplateState) {
+    state.setContext({ isBooleanString });
+    state.addSetter(`state.elementType === ${BSONType.TIMESTAMP} || state.elementType === ${BSONType.NULL} || state.elementType === ${BSONType.UNDEFINED}
+        || (state.elementType === ${BSONType.STRING} && isBooleanString(state.parser.read(${BSONType.STRING})))`);
 }
 
 export function deserializeDate(type: Type, state: TemplateState) {
@@ -350,6 +385,48 @@ export function deserializeUnion(typeGuards: TypeGuardRegistry, type: TypeUnion,
         }
     }
 
+    //fallback pass: when no member matched exactly, the members containing a tuple are checked again with looseTupleLength,
+    //so a tuple matches an array with a different length, like plain tuple deserialization drops additional elements.
+    //See handleUnion of @deepkit/type.
+    const linesLooseTuples: string[] = [];
+    const linesLooseObjects: string[] = [];
+    const looseActions: string[] = [];
+    if (state.validation !== 'strict' && !state.typeGuard && !state.looseTupleLength) {
+        const typeGuard = typeGuards.getRegistry(1);
+        const validation = !state.validation ? 'loose' : state.validation;
+        for (const t of type.types) {
+            if (!containsTuple(t)) continue;
+            const memberState = state.fork().forRegistry(typeGuard).withValidation(validation);
+            memberState.looseTupleLength = true;
+            const fn = createTypeGuardFunction(t, memberState);
+            if (!fn) continue;
+            const guard = state.setVariable('guardLoose' + t.kind, fn);
+            const args = state.isValidation() ? `${state.accessor || 'undefined'}, state` : `${state.accessor || 'undefined'}, state, ${collapsePath(state.path)}`;
+            const action = state.isValidation() ? `${state.setter} = true;` : executeTemplates(state.fork(state.setter, state.accessor).forPropertyName(state.propertyName), t);
+            const debug = `type = ${ReflectionKind[t.kind]} ${t.typeName}, looseTupleLength`;
+
+            if (isCustomTypeClass(t) || t.kind === ReflectionKind.objectLiteral) {
+                const maxScore = t.types.length;
+                looseActions.push(action);
+                linesLooseObjects.push(`
+                //${debug}
+                if (${maxScore} > matching) {
+                    const score = ${guard}(${args});
+                    if (score > matching) {
+                        matching = score;
+                        matchingIndex = ${looseActions.length - 1};
+                    }
+                }`);
+            } else {
+                linesLooseTuples.push(`
+                //${debug}
+                else if (${guard}(${args})) {
+                   ${action}
+                }`);
+            }
+        }
+    }
+
     const init = state.isValidation() ? `${state.setter} = false;` : '';
     const invalidValue = state.isValidation() ? '' : throwInvalidUnion(type, state);
 
@@ -373,9 +450,19 @@ export function deserializeUnion(typeGuards: TypeGuardRegistry, type: TypeUnion,
                 ${actions.map((v, i) => `case ${i}: {${v} break;}`).join('\n')}
                 default: {
                     if (false) {}
-                    ${linesPrimitivesAlternatives.join(' ')}
+                    ${linesLooseTuples.join(' ')}
                     else {
-                        ${invalidValue}
+                        ${linesLooseObjects.join(' ')}
+                        switch (matchingIndex) {
+                            ${looseActions.map((v, i) => `case ${i}: {${v} break;}`).join('\n')}
+                            default: {
+                                if (false) {}
+                                ${linesPrimitivesAlternatives.join(' ')}
+                                else {
+                                    ${invalidValue}
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -462,10 +549,17 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
         } else {
             const offsetRight = type.types.length - j;
             const check = hasRest && j >= restStart ? `${length} - ${i} === ${offsetRight}` : `${i} === ${j}`;
+            const elementTemplate = executeTemplates(state.fork(v).extendPath(member.name || new RuntimeCode(i)), member.type);
             lines.push(`
             //tuple item ${j}
             else if (${check}) {
-                ${executeTemplates(state.fork(v).extendPath(member.name || new RuntimeCode(i)), member.type)}
+                ${member.optional ? `
+                //BSON has no undefined in arrays, so an optional element that is undefined is stored as null
+                if (elementType === ${BSONType.NULL} || elementType === ${BSONType.UNDEFINED}) {
+                    ${v} = undefined;
+                } else {
+                    ${elementTemplate}
+                }` : elementTemplate}
                 if (${v} !== undefined || ${isOptional(member)}) {
                     ${result}.push(${v});
                 }
@@ -496,6 +590,17 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
         `;
     }
 
+    //a missing required element that accepts undefined is set, e.g. [1] for [number, string | undefined] is [1, undefined].
+    //In contrast, a missing optional element stays missing, e.g. [1] for [number, string?] stays [1].
+    const paddingLines: string[] = [];
+    if (!hasRest) {
+        for (let k = 0; k < type.types.length; k++) {
+            const member = type.types[k];
+            if (!member.optional && isOptional(member.type)) paddingLines.push(`if (${i} <= ${k}) ${result}.push(undefined);`);
+        }
+    }
+    const padding = paddingLines.join('\n');
+
     state.addCode(`
         // deserializeTuple
         if (state.elementType && state.elementType !== ${BSONType.ARRAY}) ${throwInvalidBsonType({ kind: ReflectionKind.array, type: type }, state)}
@@ -521,6 +626,7 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
                 //if no type match, seek
                 seekElementSize(elementType, state.parser);
             }
+            ${padding}
             ${state.setter} = ${result};
             state.elementType = oldElementType;
         }
@@ -604,6 +710,14 @@ export function bsonTypeGuardTuple(type: TypeTuple, state: TemplateState) {
         `;
     }
 
+    //after the loop, i is the number of elements. An array with too many or too few elements is not the tuple.
+    //Only in the fallback pass of union deserialization (looseTupleLength) the length is ignored, see deserializeUnion.
+    const range = getTupleLengthRange(type);
+    const lengthChecks: string[] = [];
+    if (range.min > 0) lengthChecks.push(`${i} < ${range.min}`);
+    if (range.max !== Infinity) lengthChecks.push(`${i} > ${range.max}`);
+    const lengthCheck = !state.looseTupleLength && lengthChecks.length ? `if (${valid} && (${lengthChecks.join(' || ')})) ${valid} = false;` : '';
+
     state.addCode(`
         // bsonTypeGuardTuple
         let ${valid} = state.elementType && state.elementType === ${BSONType.ARRAY};
@@ -628,6 +742,7 @@ export function bsonTypeGuardTuple(type: TypeTuple, state: TemplateState) {
                 ${i}++;
                 seekElementSize(elementType, state.parser);
             }
+            ${lengthCheck}
             state.elementType = oldElementType;
             state.parser.offset = start;
         }

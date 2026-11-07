@@ -72,6 +72,7 @@ import {
     bsonTypeGuardLiteral,
     bsonTypeGuardObjectLiteral,
     bsonTypeGuardTemplateLiteral,
+    bsonTypeGuardBooleanLoose,
     bsonTypeGuardTuple,
     deserializeAny,
     deserializeArray,
@@ -1456,7 +1457,7 @@ export class BSONBinarySerializer extends Serializer {
         this.bsonTypeGuards.register(2, ReflectionKind.string, bsonTypeGuardForBsonTypes([BSONType.TIMESTAMP, BSONType.STRING, BSONType.NULL, BSONType.UNDEFINED, BSONType.BOOLEAN, BSONType.OID, ...numberTypes]));
         this.bsonTypeGuards.register(2, ReflectionKind.number, bsonTypeGuardForBsonTypes([BSONType.TIMESTAMP, BSONType.STRING, BSONType.NULL, BSONType.UNDEFINED, BSONType.BOOLEAN, BSONType.BINARY]));
         this.bsonTypeGuards.register(2, ReflectionKind.bigint, bsonTypeGuardForBsonTypes([BSONType.TIMESTAMP, BSONType.STRING, BSONType.NULL, BSONType.UNDEFINED, BSONType.BOOLEAN]));
-        this.bsonTypeGuards.register(2, ReflectionKind.boolean, bsonTypeGuardForBsonTypes([BSONType.TIMESTAMP, BSONType.STRING, BSONType.NULL, BSONType.UNDEFINED]));
+        this.bsonTypeGuards.register(2, ReflectionKind.boolean, bsonTypeGuardBooleanLoose);
         this.bsonTypeGuards.register(2, ReflectionKind.literal, bsonTypeGuardForBsonTypes([BSONType.NULL, BSONType.UNDEFINED]));
         this.bsonTypeGuards.registerClass(2, Date, bsonTypeGuardForBsonTypes([...numberTypes]));
 

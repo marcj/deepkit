@@ -483,3 +483,34 @@ test('array type guard checks every item', () => {
     expect(is<Map<string, number>>(new Map<string, any>([['a', 'x'], ['b', 2]]))).toBe(false);
     expect(validate<string[]>([1, 'a', 2]).map(v => v.path)).toEqual(['0', '2']);
 });
+
+test('tuple length', () => {
+    //#718
+    expect(validate<[number]>([1])).toEqual([]);
+    expect(validate<[number]>([1, 2])).toEqual([{ code: 'type', message: 'Expected 1 element', path: '', value: [1, 2] }]);
+    expect(validate<[number]>([])).toEqual([{ code: 'type', message: 'Expected 1 element', path: '', value: [] }]);
+    expect(validate<[number, string?]>([1, 'a', 3])).toEqual([{ code: 'type', message: 'Expected 1 to 2 elements', path: '', value: [1, 'a', 3] }]);
+    expect(validate<[number, ...string[]]>([])).toEqual([{ code: 'type', message: 'Expected at least 1 element', path: '', value: [] }]);
+    expect(validate<{ v: [number, number] }>({ v: [1, 2, 3] })).toEqual([{ code: 'type', message: 'Expected 2 elements', path: 'v', value: [1, 2, 3] }]);
+    expect(validate<{ v: [number, number] }>({ v: [1, 'a'] })).toEqual([{ code: 'type', message: 'Not a number', path: 'v.1', value: 'a' }]);
+});
+
+test('template literal bigint', () => {
+    //#718
+    expect(validate<`${bigint}`>('12')).toEqual([]);
+    expect(validate<`${bigint}`>('abc')).toEqual([{ code: 'type', message: 'Expected `${bigint}`, got string', path: '', value: 'abc' }]);
+});
+
+test('union of tuples picks the tuple with the matching length', () => {
+    //#718, the first tuple accepted the longer array and dropped its additional elements
+    type A = { v: [number] | [number, number] };
+    expect(cast<A>({ v: [1, 2] })).toEqual({ v: [1, 2] });
+    expect(cast<A>({ v: [1] })).toEqual({ v: [1] });
+    expect(deserialize<A>({ v: [1, 2] })).toEqual({ v: [1, 2] });
+
+    //when no tuple matches strictly, deserialization falls back to a tuple with a different length, like plain tuple deserialization
+    type B = { v: [string, number] | [boolean] };
+    expect(cast<B>({ v: ['a', 1, 2] })).toEqual({ v: ['a', 1] });
+    expect(validate<B>({ v: ['a', 1, 2] })).toHaveLength(1);
+    expect(is<B>({ v: ['a', 1, 2] })).toBe(false);
+});
