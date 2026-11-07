@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { ClassType, CompilerContext, CustomError, getClassName, getObjectKeysSize, hasProperty, isArray, isFunction, isInteger, isIterable, isNumeric, isObject, isObjectLiteral, stringifyValueWithType, toFastProperties } from '@deepkit/core';
+import { ClassType, CompilerContext, CustomError, getClassName, getObjectKeysSize, hasProperty, isArray, isFunction, isInteger, isIterable, isNumeric, isObject, isObjectLiteral, toFastProperties } from '@deepkit/core';
 import {
     AnnotationDefinition,
     assertType,
@@ -230,6 +230,18 @@ export function createSerializeFunction(type: Type, registry: TemplateRegistry, 
 }
 
 export type Guard<T> = (data: any, state?: { errors?: ValidationErrorItem[] }) => data is T;
+
+/**
+ * The value as string for error messages, like `'' + value`. Values that can't be converted to a string,
+ * e.g. Object.create(null) or symbols, would throw a TypeError instead of the validation error.
+ */
+export function valueToMessageString(value: unknown): string {
+    try {
+        return String(value);
+    } catch {
+        return Object.prototype.toString.call(value);
+    }
+}
 
 export function createTypeGuardFunction(type: Type, stateIn?: Partial<TemplateState>, serializerToUse?: Serializer, withLoose = true): undefined | Guard<any> {
     const compiler = new CompilerContext();
@@ -520,9 +532,9 @@ export class TemplateState {
     }
 
     throwCode(type: Type | string, error?: string, accessor: string | ContainerAccessor = this.originalAccessor) {
-        this.setContext({ ValidationError, stringifyValueWithType });
+        this.setContext({ ValidationError, valueToMessageString });
         const to = JSON.stringify(('string' === typeof type ? type : stringifyType(type)).replace(/\n/g, '').replace(/\s+/g, ' ').trim());
-        return `throw ValidationError.from([{code: 'type', path: ${collapsePath(this.path)}, message: 'Cannot convert ' + ${accessor} + ' to ' + ${to} ${error ? ` + '. ' + ${error}` : ''} }])`;
+        return `throw ValidationError.from([{code: 'type', path: ${collapsePath(this.path)}, message: 'Cannot convert ' + valueToMessageString(${accessor}) + ' to ' + ${to} ${error ? ` + '. ' + ${error}` : ''} }])`;
     }
 
     /**
@@ -2725,6 +2737,9 @@ export class Serializer {
 
         this.typeGuards.register(1, ReflectionKind.undefined, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not undefined', `'undefined' === typeof ${state.accessor}`));
         this.typeGuards.register(2, ReflectionKind.undefined, (type, state) => state.addSetter(`null === ${state.accessor}`));
+        //void as value type is like undefined
+        this.typeGuards.register(1, ReflectionKind.void, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not undefined', `'undefined' === typeof ${state.accessor}`));
+        this.typeGuards.register(2, ReflectionKind.void, (type, state) => state.addSetter(`null === ${state.accessor}`));
 
         this.typeGuards.register(1, ReflectionKind.null, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not null', `null === ${state.accessor}`));
         this.typeGuards.register(2, ReflectionKind.null, (type, state) => state.addSetter(`'undefined' === typeof ${state.accessor}`));
@@ -2894,7 +2909,8 @@ export class Serializer {
 
         this.typeGuards.register(1, ReflectionKind.union, handleUnion);
         this.typeGuards.registerBinary(1, (type, state) => {
-            state.addSetter(`${state.accessor} instanceof ${state.setVariable('classType', type.classType)}`);
+            const name = type.classType.name;
+            state.addSetterAndReportErrorIfInvalid('type', `Not ${/^[AEIO]/.test(name) ? 'an' : 'a'} ${name}`, `${state.accessor} instanceof ${state.setVariable('classType', type.classType)}`);
         });
         this.typeGuards.registerBinary(10, (type, state) => {
             state.addSetter(`'string' === typeof ${state.accessor}`);

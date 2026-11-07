@@ -2390,6 +2390,8 @@ export function getEnumValueIndexMatcher(type: TypeEnum): (value: string | numbe
     return (value): number => {
         const exactMatch = type.values.indexOf(value);
         if (exactMatch !== -1) return exactMatch;
+        //only strings and numbers are matched case-insensitive, String() throws for e.g. Object.create(null)
+        if ('string' !== typeof value && 'number' !== typeof value) return -1;
         const lowerCaseMatch = lowerCaseValues.indexOf(String(value).toLowerCase());
         if (lowerCaseMatch !== -1) return lowerCaseMatch;
 

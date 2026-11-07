@@ -519,3 +519,35 @@ test('Record with template literal key (#720)', () => {
     expect(validate<Record<`x${string}`, string>>({ x1: 's' })).toEqual([]);
     expect(validate<Record<`x${string}`, string>>({ x1: 1 })).toEqual([{ code: 'type', message: 'Not a string', path: 'x1', value: 1 }]);
 });
+
+test('binary types (#719)', () => {
+    expect(validate<Uint8Array>(new Uint8Array(2))).toEqual([]);
+    expect(validate<Uint8Array>('a')).toEqual([{ code: 'type', message: 'Not a Uint8Array', path: '', value: 'a' }]);
+    expect(validate<{ k: Uint8Array }>({ k: 'a' })).toEqual([{ code: 'type', message: 'Not a Uint8Array', path: 'k', value: 'a' }]);
+    expect(validate<{ k: Uint8Array }>({})).toEqual([{ code: 'type', message: 'Not a Uint8Array', path: 'k', value: undefined }]);
+    expect(validate<ArrayBuffer>('a')).toEqual([{ code: 'type', message: 'Not an ArrayBuffer', path: '', value: 'a' }]);
+    expect(validate<Float32Array>([1])).toEqual([{ code: 'type', message: 'Not a Float32Array', path: '', value: [1] }]);
+    expect(validate<Int8Array>(new Uint8Array(1))).toEqual([{ code: 'type', message: 'Not an Int8Array', path: '', value: new Uint8Array(1) }]);
+});
+
+test('void (#719)', () => {
+    expect(is<void>(undefined)).toBe(true);
+    expect(is<void>({})).toBe(false);
+    expect(validate<void>(undefined)).toEqual([]);
+    expect(validate<void>({})).toEqual([{ code: 'type', message: 'Not undefined', path: '', value: {} }]);
+    expect(validate<{ k: void }>({ k: 1 })).toEqual([{ code: 'type', message: 'Not undefined', path: 'k', value: 1 }]);
+    expect(validate<{ k: void }>({})).toEqual([]);
+});
+
+test('enum with values that are not strings or numbers (#719)', () => {
+    enum E { A = '0', B = 'x' }
+
+    expect(is<E>('0')).toBe(true);
+    expect(is<E>({})).toBe(false);
+    expect(is<E>(Object.create(null))).toBe(false);
+    expect(is<E>(Symbol())).toBe(false);
+    expect(validate<E>(Object.create(null))).toEqual([{ code: 'type', message: 'Invalid enum member', path: '', value: {} }]);
+    //a value that can't be converted to a string is a validation error, not a TypeError
+    expect(() => cast<E>(Object.create(null))).toThrow(ValidationError);
+    expect(() => cast<E>(Object.create(null))).toThrow('Cannot convert [object Object] to enum');
+});
