@@ -1844,7 +1844,7 @@ export class ReflectionTransformer implements CustomTransformer {
 
                 let modifier = 0;
                 if (narrowed.questionToken) {
-                    if (narrowed.questionToken.kind === SyntaxKind.QuestionToken) {
+                    if (narrowed.questionToken.kind === SyntaxKind.QuestionToken || narrowed.questionToken.kind === SyntaxKind.PlusToken) {
                         modifier |= MappedModifier.optional;
                     }
                     if (narrowed.questionToken.kind === SyntaxKind.MinusToken) {
@@ -1852,7 +1852,7 @@ export class ReflectionTransformer implements CustomTransformer {
                     }
                 }
                 if (narrowed.readonlyToken) {
-                    if (narrowed.readonlyToken.kind === SyntaxKind.ReadonlyKeyword) {
+                    if (narrowed.readonlyToken.kind === SyntaxKind.ReadonlyKeyword || narrowed.readonlyToken.kind === SyntaxKind.PlusToken) {
                         modifier |= MappedModifier.readonly;
                     }
                     if (narrowed.readonlyToken.kind === SyntaxKind.MinusToken) {
