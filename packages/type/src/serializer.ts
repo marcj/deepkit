@@ -244,6 +244,18 @@ export function valueToMessageString(value: unknown): string {
     }
 }
 
+function isPrimitiveConvertible(value: any): boolean {
+    return 'function' === typeof value[Symbol.toPrimitive] || 'function' === typeof value.toString || 'function' === typeof value.valueOf;
+}
+
+/**
+ * Conversions to a primitive throw a raw TypeError for values without any conversion, e.g. Object.create(null).
+ */
+function rejectValueWithoutPrimitiveConversion(type: Type, state: TemplateState): void {
+    state.setContext({ isPrimitiveConvertible });
+    state.addCode(`if ('object' === typeof ${state.accessor} && null !== ${state.accessor} && !isPrimitiveConvertible(${state.accessor})) ${state.throwCode(type)}`);
+}
+
 function assertResolvedTypeParameter(type: Type): void {
     // never accepts or drops everything, which would hide that a validator checks nothing
     if (type.kind === ReflectionKind.never && type.unresolvedTypeParameter) throw new UnresolvedTypeParameter(type.unresolvedTypeParameter);
@@ -2525,14 +2537,19 @@ export class Serializer {
         this.deserializeRegistry.register(ReflectionKind.property, serializePropertyOrParameter);
         this.deserializeRegistry.register(ReflectionKind.parameter, serializePropertyOrParameter);
 
-        this.deserializeRegistry.registerClass(Date, (type, state) => state.addSetter(`new Date(${state.accessor})`));
+        this.deserializeRegistry.registerClass(Date, (type, state) => {
+            rejectValueWithoutPrimitiveConversion(type, state);
+            state.addSetter(`new Date(${state.accessor})`);
+        });
         this.serializeRegistry.registerClass(Date, (type, state) => state.addSetter(`${state.accessor}.toJSON()`));
 
         this.serializeRegistry.register(ReflectionKind.string, (type, state) => {
+            rejectValueWithoutPrimitiveConversion(type, state);
             state.addSetter(`'string' === typeof ${state.accessor} ? ${state.accessor} : ''+ ${state.accessor}`);
         });
 
         this.deserializeRegistry.register(ReflectionKind.string, (type, state) => {
+            rejectValueWithoutPrimitiveConversion(type, state);
             state.addSetter(`'string' !== typeof ${state.accessor} && state.loosely !== false && undefined !== ${state.accessor} && null !== ${state.accessor} ? ${state.accessor}+'' : ${state.accessor}`);
         });
 
@@ -2558,6 +2575,7 @@ export class Serializer {
 
         this.serializeRegistry.register(ReflectionKind.boolean, (type, state) => state.addSetter(state.accessor));
         this.deserializeRegistry.register(ReflectionKind.boolean, (type, state) => {
+            rejectValueWithoutPrimitiveConversion(type, state);
             state.addSetter(`'boolean' !== typeof ${state.accessor} && state.loosely !== false ? ${state.accessor} == 1 || ${state.accessor} == 'true' : ${state.accessor}`);
         });
 
@@ -2572,6 +2590,7 @@ export class Serializer {
             }
         });
         this.deserializeRegistry.register(ReflectionKind.bigint, (type, state) => {
+            rejectValueWithoutPrimitiveConversion(type, state);
             state.setContext({ BigInt });
             if (binaryBigIntAnnotation.getFirst(type) === BinaryBigIntType.unsigned) {
                 state.addSetter(`'bigint' !== typeof ${state.accessor} ? BigInt(${state.accessor}) : ${state.accessor}`);
@@ -2610,6 +2629,7 @@ export class Serializer {
 
         this.serializeRegistry.register(ReflectionKind.number, (type, state) => state.addSetter(state.accessor));
         this.deserializeRegistry.register(ReflectionKind.number, (type, state) => {
+            rejectValueWithoutPrimitiveConversion(type, state);
             if (type.brand !== undefined && type.brand < TypeNumberBrand.float) {
                 state.addSetter(`Math.trunc(${state.accessor})`);
                 if (type.brand === TypeNumberBrand.uint8) {
