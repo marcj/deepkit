@@ -45,7 +45,7 @@ import { MigrateOptions } from '@deepkit/orm';
 export function isJsonLike(type: Type): boolean {
     if (isSetType(type) || isMapType(type) || isDateType(type)) return false;
 
-    return type.kind === ReflectionKind.any || type.kind === ReflectionKind.class || type.kind === ReflectionKind.objectLiteral
+    return type.kind === ReflectionKind.any || type.kind === ReflectionKind.unknown || type.kind === ReflectionKind.class || type.kind === ReflectionKind.objectLiteral
         || type.kind === ReflectionKind.union;
 }
 

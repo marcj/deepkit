@@ -227,6 +227,8 @@ export class SqlSerializer extends Serializer {
 
         this.serializeRegistry.register(ReflectionKind.any, serializeSqlAny);
         this.deserializeRegistry.register(ReflectionKind.any, deserializeSqlAny);
+        this.serializeRegistry.register(ReflectionKind.unknown, serializeSqlAny);
+        this.deserializeRegistry.register(ReflectionKind.unknown, deserializeSqlAny);
 
         this.deserializeRegistry.register(ReflectionKind.string, (type, state) => {
             //remove string enforcement, since UUID/MongoId are string but received as binary

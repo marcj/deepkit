@@ -2478,6 +2478,8 @@ export class Serializer {
     protected registerSerializers() {
         this.deserializeRegistry.register(ReflectionKind.any, (type, state) => state.addSetter(state.accessor));
         this.serializeRegistry.register(ReflectionKind.any, (type, state) => state.addSetter(state.accessor));
+        this.deserializeRegistry.register(ReflectionKind.unknown, (type, state) => state.addSetter(state.accessor));
+        this.serializeRegistry.register(ReflectionKind.unknown, (type, state) => state.addSetter(state.accessor));
 
         this.deserializeRegistry.register(ReflectionKind.object, (type, state) => {
             state.setContext({ isObject });
