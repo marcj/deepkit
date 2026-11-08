@@ -164,6 +164,11 @@ export function clearTypeJitContainer(type: Type): void {
 
 export interface TypeNever extends TypeAnnotations {
     kind: ReflectionKind.never,
+    /**
+     * Set if this is not a declared never, but a type parameter without type at runtime,
+     * like `T` in `function fn<T>() { validate<T>(v) }`, where `type?: ReceiveType<T>` is missing.
+     */
+    unresolvedTypeParameter?: string;
     parent?: Type;
 }
 

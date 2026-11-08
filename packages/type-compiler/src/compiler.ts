@@ -220,6 +220,7 @@ const OPs: { [op in ReflectionOp]?: { params: number } } = {
     [ReflectionOp.distribute]: { params: 1 },
     [ReflectionOp.jumpCondition]: { params: 2 },
     [ReflectionOp.typeName]: { params: 1 },
+    [ReflectionOp.unresolvedTypeParameter]: { params: 1 },
     [ReflectionOp.implements]: { params: 1 },
 };
 
@@ -2571,6 +2572,15 @@ export class ReflectionTransformer implements CustomTransformer {
                 }
             }
 
+            //type parameters of a class are not in its locals
+            if ((isClassDeclaration(current) || isClassExpression(current)) && current.typeParameters) {
+                const typeParameter = current.typeParameters.find(v => v.name.escapedText === typeName.escapedText);
+                if (typeParameter) {
+                    declaration = typeParameter;
+                    break;
+                }
+            }
+
             if (current.kind === SyntaxKind.SourceFile) break;
             current = current.parent;
         }
@@ -3066,6 +3076,14 @@ export class ReflectionTransformer implements CustomTransformer {
      * ```
      */
     protected needsToBeInferred(declaration: TypeParameterDeclaration, type: Identifier | TypeReferenceNode | ExpressionWithTypeArguments): boolean {
+        //`<T>() => validate<T>(v)`: without a block, getTypeUser can't tell the signature from the body
+        const fn = declaration.parent;
+        if (isArrowFunction(fn) && !isBlock(fn.body)) {
+            for (let current: Node | undefined = type; current; current = current.parent) {
+                if (current === fn.body) return true;
+            }
+        }
+
         const declarationUser = this.getTypeUser(declaration);
         const typeUser = this.getTypeUser(type);
 
@@ -3198,7 +3216,8 @@ export class ReflectionTransformer implements CustomTransformer {
                 }
                 if (isUsedInFunction) program.resolveFunctionParametersDecrease(declaration.parent);
             } else {
-                program.pushOp(ReflectionOp.never);
+                //never for reflection, but serializers and validators refuse it: they would silently accept anything
+                program.pushOp(ReflectionOp.unresolvedTypeParameter, program.findOrAddStackEntry(getIdentifierName(declaration.name)));
             }
         } else {
             program.pushOp(ReflectionOp.any);

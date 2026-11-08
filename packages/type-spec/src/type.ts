@@ -249,4 +249,6 @@ export enum ReflectionOp {
     nominal, //marks the last type on the stack as nominal. (used at the end of class/interface/type alias programs).
 
     intrinsic, //has one parameter, the kind of the intrinsic type, and pulls a type from the stack.
+
+    unresolvedTypeParameter, //has one parameter, the index of the stack entry with the name of a type parameter that has no type at runtime. Pushes never.
 }

@@ -8,6 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
+import { UnresolvedTypeParameter } from './utils.js';
 import { ClassType, CompilerContext, CustomError, getClassName, getObjectKeysSize, hasProperty, isArray, isFunction, isInteger, isIterable, isNumeric, isObject, isObjectLiteral, toFastProperties } from '@deepkit/core';
 import {
     AnnotationDefinition,
@@ -243,6 +244,11 @@ export function valueToMessageString(value: unknown): string {
     }
 }
 
+function assertResolvedTypeParameter(type: Type): void {
+    // never accepts or drops everything, which would hide that a validator checks nothing
+    if (type.kind === ReflectionKind.never && type.unresolvedTypeParameter) throw new UnresolvedTypeParameter(type.unresolvedTypeParameter);
+}
+
 export function createTypeGuardFunction(type: Type, stateIn?: Partial<TemplateState>, serializerToUse?: Serializer, withLoose = true): undefined | Guard<any> {
     const compiler = new CompilerContext();
     let root = true;
@@ -261,6 +267,7 @@ export function createTypeGuardFunction(type: Type, stateIn?: Partial<TemplateSt
     state.setterDisabled = false;
     state.typeGuard = true;
 
+    assertResolvedTypeParameter(type);
     const templates = state.registry.get(type);
     if (!templates.length) return undefined;
 
@@ -871,6 +878,7 @@ export function executeTemplates(
     withLoose: boolean = true,
     withCache: boolean = true,
 ): string {
+    assertResolvedTypeParameter(type);
     state.parentTypes.push(type);
 
     let originalState = state;

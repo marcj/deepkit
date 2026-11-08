@@ -15,6 +15,12 @@ export class NoTypeReceived extends Error {
     }
 }
 
+export class UnresolvedTypeParameter extends NoTypeReceived {
+    constructor(public typeParameter: string) {
+        super(`Type parameter ${typeParameter} has no runtime type. Add \`type?: ReceiveType<${typeParameter}>\` to the signature of the function declaring it.`);
+    }
+}
+
 const hex: string[] = [];
 for (let i = 0; i < 256; i++) hex.push((i + 0x100).toString(16).slice(1));
 
