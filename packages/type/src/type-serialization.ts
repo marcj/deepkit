@@ -163,6 +163,7 @@ interface SerializedTypeIndexSignature extends SerializedTypeAnnotations {
     kind: ReflectionKind.indexSignature,
     index: SerializedTypeReference;
     type: SerializedTypeReference;
+    readonly?: true;
 }
 
 interface SerializedTypePropertySignature extends SerializedTypeAnnotations {
@@ -540,6 +541,7 @@ function serialize(type: Type, state: SerializerState): SerializedTypeReference 
                 kind: ReflectionKind.indexSignature,
                 index: serialize(type.index, state),
                 type: serialize(type.type, state),
+                readonly: type.readonly,
             } as SerializedTypeIndexSignature);
             break;
         }
@@ -782,7 +784,8 @@ function deserialize(type: SerializedType | SerializedTypeReference, state: Dese
         case ReflectionKind.indexSignature: {
             Object.assign(result, {
                 index: deserialize(type.index, state, result),
-                type: deserialize(type.type, state, result)
+                type: deserialize(type.type, state, result),
+                readonly: type.readonly,
             } as TypeIndexSignature);
             break;
         }

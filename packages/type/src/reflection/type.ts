@@ -449,6 +449,7 @@ export interface TypeIndexSignature extends TypeAnnotations {
     parent: TypeClass | TypeObjectLiteral;
     index: Type;
     type: Type;
+    readonly?: true;
 }
 
 export interface TypeInfer extends TypeAnnotations {
@@ -1195,6 +1196,11 @@ export function indexAccess(container: Type, index: Type): Type {
                 }
             }
             return unboxUnion(union);
+        } else if (index.kind === ReflectionKind.string || index.kind === ReflectionKind.number || index.kind === ReflectionKind.symbol) {
+            for (const member of container.types) {
+                if (member.kind === ReflectionKind.indexSignature && (member.index.kind === index.kind || (index.kind === ReflectionKind.number && member.index.kind === ReflectionKind.string))) return member.type;
+            }
+            return { kind: ReflectionKind.never };
         } else {
             return { kind: ReflectionKind.never };
         }
@@ -2808,7 +2814,7 @@ export function stringifyType(type: Type, stateIn: Partial<StringifyTypeOptions>
                     stack.push({ type: type.type, depth: depth + 1 });
                     stack.push({ before: ']: ' });
                     stack.push({ type: type.index, depth: depth + 1 });
-                    stack.push({ before: '[index: ' });
+                    stack.push({ before: type.readonly ? 'readonly [index: ' : '[index: ' });
                     // name = `{[index: ${stringifyType(type.index, state)}]: ${stringifyType(type.type, state)}`;
                     break;
                 case ReflectionKind.propertySignature:

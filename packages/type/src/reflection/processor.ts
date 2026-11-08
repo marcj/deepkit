@@ -1575,6 +1575,8 @@ export class Processor {
                     union.types.push({ kind: ReflectionKind.literal, literal: member.name, parent: union, origin: member } as TypeLiteral);
                 } else if ((member.kind === ReflectionKind.methodSignature || member.kind === ReflectionKind.method) && member.name !== 'constructor') {
                     union.types.push({ kind: ReflectionKind.literal, literal: member.name, parent: union, origin: member } as TypeLiteral);
+                } else if (member.kind === ReflectionKind.indexSignature) {
+                    union.types.push({ ...member.index, parent: union, origin: member } as Type);
                 }
             }
             this.push(union);
@@ -1624,6 +1626,16 @@ export class Processor {
                 //ignore
             } else if (index.kind === ReflectionKind.any || isSimpleIndex(index)) {
                 const t: TypeIndexSignature = { kind: ReflectionKind.indexSignature, type, index, parent: undefined as any };
+                if (index.origin?.kind === ReflectionKind.indexSignature && index.origin.readonly) t.readonly = true;
+                if (modifier & MappedModifier.readonly) t.readonly = true;
+                if (modifier & MappedModifier.removeReadonly) t.readonly = undefined;
+                // an index signature can't be optional, the values can be undefined instead
+                //any and unknown already include undefined
+                if (modifier & MappedModifier.optional && t.type.kind !== ReflectionKind.any && t.type.kind !== ReflectionKind.unknown) t.type = unboxUnion({ kind: ReflectionKind.union, types: flattenUnionTypes([t.type, { kind: ReflectionKind.undefined }]) });
+                if (modifier & MappedModifier.removeOptional && t.type.kind === ReflectionKind.union) {
+                    t.type = unboxUnion({ kind: ReflectionKind.union, types: t.type.types.filter(v => v.kind !== ReflectionKind.undefined) });
+                }
+                if (t.type.kind === ReflectionKind.union) for (const member of t.type.types) member.parent = t.type;
                 t.type.parent = t;
                 t.index.parent = t;
                 this.push(t);

@@ -2384,6 +2384,7 @@ export class ReflectionTransformer implements CustomTransformer {
                 //node.type = first item is {[name: string]: number} => 'number'
                 this.extractPackStructOfType(narrowed.type, program);
                 program.pushOp(ReflectionOp.indexSignature);
+                if (hasModifier(narrowed, SyntaxKind.ReadonlyKeyword)) program.pushOp(ReflectionOp.readonly);
                 break;
             }
             case SyntaxKind.TypeQuery: {
