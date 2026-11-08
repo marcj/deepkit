@@ -14,7 +14,7 @@ import { createConnection, Socket } from 'net';
 import { connect as createTLSConnection, TLSSocket } from 'tls';
 import { Command, TransactionalMessage } from './command/command.js';
 import { stringifyType, Type, uuid } from '@deepkit/type';
-import { BSONBinarySerializer, BsonStreamReader, getBSONSerializer, getBSONSizer, Writer } from '@deepkit/bson';
+import { AutoBuffer, BSONBinarySerializer, BsonStreamReader, getBSONSerializer } from '@deepkit/bson';
 import { HandshakeCommand } from './command/handshake.js';
 import { detectTopology, MongoClientConfig, updateKnownHosts, updateStaleness } from './config.js';
 import { MongoConnectionError, MongoError } from './error.js';
@@ -693,6 +693,16 @@ export class MongoDatabaseTransaction extends DatabaseTransaction {
     }
 }
 
+/** The header of an OP_MSG: messageLength, requestID, responseTo, opCode, flags and the section kind. */
+const messageHeaderSize = 16 + 4 + 1;
+
+/** A connection does not hold on to the memory of an unusually large message. */
+const maxRetainedMessageBuffer = 16 * 1024 * 1024;
+
+function createMessageBuffer(): AutoBuffer {
+    return new AutoBuffer(messageHeaderSize, 16 * 1024);
+}
+
 export class MongoConnection {
     protected messageId: number = 0;
     status: MongoConnectionStatus = MongoConnectionStatus.pending;
@@ -718,6 +728,8 @@ export class MongoConnection {
     closed: boolean = false;
 
     protected boundSendMessage = this.sendMessage.bind(this);
+
+    protected messageBuffer = createMessageBuffer();
 
     constructor(
         public id: number,
@@ -925,47 +937,32 @@ export class MongoConnection {
     }
 
     protected sendMessage<T>(type: Type, message: T) {
-        //todo: check if we can just reuse an older buffer, or maybe we cache the buffer to commands
-        const messageSerializer = getBSONSerializer(this.serializer, type);
-        const messageSizer = getBSONSizer(this.serializer, type);
-
-        const buffer = Buffer.allocUnsafe(16 + 4 + 1 + messageSizer(message));
-        // const buffer = Buffer.alloc(16 + 4 + 10 + 1 + 4 + 4 + calculateObjectSize(message));
-
-        const writer = new Writer(buffer);
-
-        //header, 16 bytes
-        const messageId = ++this.messageId;
-        writer.writeInt32(10); //messageLength, 4
-        writer.writeInt32(messageId); //requestID, 4
-        writer.writeInt32(0); //responseTo, 4
-        writer.writeInt32(2013); //OP_MSG, 4
-        // writer.writeInt32(2004); //OP_QUERY, 4
-
-        //OP_MSG, 5 bytes
-        writer.writeUint32(0); //message flags, 4
-        writer.writeByte(0); //kind 0, 1
-
-        // //OP_QUERY, 5 bytes
-        // writer.writeUint32(0); //message flags, 4
-        // writer.writeAsciiString('admin.$cmd'); //collection name, 10
-        // writer.writeByte(0); //null, 1
-        // writer.writeInt32(0); //skip, 4
-        // writer.writeInt32(1); //return, 4
+        const messageBuffer = this.messageBuffer;
 
         try {
-            const section = messageSerializer(message);
-            // console.log('send', this.id, message);
-            writer.writeBuffer(section);
+            messageBuffer.apply(getBSONSerializer(this.serializer, type), message);
+            const buffer = messageBuffer.buffer;
 
-            const messageLength = writer.offset;
+            //header, 16 bytes + OP_MSG, 5 bytes
+            const writer = messageBuffer.state.writer;
             writer.offset = 0;
-            writer.writeInt32(messageLength);
+            writer.writeInt32(buffer.byteLength); //messageLength, 4
+            writer.writeInt32(++this.messageId); //requestID, 4
+            writer.writeInt32(0); //responseTo, 4
+            writer.writeInt32(2013); //OP_MSG, 4
+            writer.writeUint32(0); //message flags, 4
+            writer.writeByte(0); //kind 0, 1
 
             //detect backPressure
             this.bytesSent += buffer.byteLength;
             this.onSent(buffer.byteLength);
             this.socket.write(buffer);
+
+            // The kernel copies what it accepts during write(), so the buffer can be used for the next message.
+            // Only what it did not accept stays queued, and then node still needs this memory.
+            if (this.socket.writableLength > 0 || buffer.byteLength > maxRetainedMessageBuffer) {
+                this.messageBuffer = createMessageBuffer();
+            }
         } catch (error) {
             console.log('failed sending message', message, 'for type', stringifyType(type));
             throw error;
