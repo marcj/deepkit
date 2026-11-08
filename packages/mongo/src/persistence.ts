@@ -121,6 +121,9 @@ export class MongoPersistence extends DatabasePersistence {
             autoIncrementValue = res.value['value'] - items.length;
         }
 
+        const adapterName = this.session.adapter.getName();
+        const propertyNames = classSchema.getProperties().filter(v => !v.isDatabaseSkipped(adapterName)).map(v => v.getName());
+
         for (const item of items) {
             if (autoIncrement) item[autoIncrement.name] = ++autoIncrementValue;
             if (has_Id && !item['_id']) {
@@ -128,10 +131,7 @@ export class MongoPersistence extends DatabasePersistence {
             }
 
             const filteredItem = {};
-            for (const property of classSchema.getProperties()) {
-                if (property.isDatabaseSkipped(this.session.adapter.getName())) continue;
-                filteredItem[property.getName()] = item[property.getName()];
-            }
+            for (const name of propertyNames) filteredItem[name] = item[name];
             insert.push(filteredItem);
         }
 
