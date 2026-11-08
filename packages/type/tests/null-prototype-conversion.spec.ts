@@ -22,16 +22,16 @@ test.each([
 
 test.each([
     ['string', () => deserialize<string>(noPrototype())],
-    ['number', () => deserialize<number>(noPrototype())],
     ['bigint', () => deserialize<bigint>(noPrototype())],
     ['boolean', () => deserialize<boolean>(noPrototype())],
     ['Date', () => deserialize<Date>(noPrototype())],
-])('deserialize to %s reports a validation error instead of a TypeError', (name, fn) => {
-    expect(fn).toThrow(ValidationError);
+    ['serialize to string', () => serialize<string>(noPrototype() as any)],
+])('%s leaves the value unconverted instead of a TypeError', (name, fn) => {
+    expect(fn()).toEqual(noPrototype());
 });
 
-test('serialize to string reports a validation error instead of a TypeError', () => {
-    expect(() => serialize<string>(noPrototype() as any)).toThrow(ValidationError);
+test('deserialize to number reports a validation error instead of a TypeError', () => {
+    expect(() => deserialize<number>(noPrototype())).toThrow(ValidationError);
 });
 
 test('control: an object with a null prototype is still a valid object', () => {

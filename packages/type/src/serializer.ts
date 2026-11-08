@@ -245,15 +245,31 @@ export function valueToMessageString(value: unknown): string {
 }
 
 function isPrimitiveConvertible(value: any): boolean {
-    return 'function' === typeof value[Symbol.toPrimitive] || 'function' === typeof value.toString || 'function' === typeof value.valueOf;
+    return 'object' !== typeof value || null === value
+        || 'function' === typeof value[Symbol.toPrimitive] || 'function' === typeof value.toString || 'function' === typeof value.valueOf;
 }
 
-/**
- * Conversions to a primitive throw a raw TypeError for values without any conversion, e.g. Object.create(null).
- */
-function rejectValueWithoutPrimitiveConversion(type: Type, state: TemplateState): void {
-    state.setContext({ isPrimitiveConvertible });
-    state.addCode(`if ('object' === typeof ${state.accessor} && null !== ${state.accessor} && !isPrimitiveConvertible(${state.accessor})) ${state.throwCode(type)}`);
+// The conversions throw a raw TypeError for values without any conversion, e.g. Object.create(null).
+// These run only on the slow path of values having the wrong type, the generated code has to stay small and inlinable.
+// An unconverted value is rejected by the validation of the wrong type afterwards.
+function toStringLoosely(value: any): any {
+    return isPrimitiveConvertible(value) ? value + '' : value;
+}
+
+function toNumberLoosely(value: any): number {
+    return isPrimitiveConvertible(value) ? Number(value) : NaN;
+}
+
+function toBigIntLoosely(value: any): any {
+    return isPrimitiveConvertible(value) ? BigInt(value) : value;
+}
+
+function toBooleanLoosely(value: any): any {
+    return isPrimitiveConvertible(value) ? value == 1 || value == 'true' : value;
+}
+
+function toDateLoosely(value: any): any {
+    return isPrimitiveConvertible(value) ? new Date(value) : value;
 }
 
 function assertResolvedTypeParameter(type: Type): void {
@@ -2538,19 +2554,19 @@ export class Serializer {
         this.deserializeRegistry.register(ReflectionKind.parameter, serializePropertyOrParameter);
 
         this.deserializeRegistry.registerClass(Date, (type, state) => {
-            rejectValueWithoutPrimitiveConversion(type, state);
-            state.addSetter(`new Date(${state.accessor})`);
+            state.setContext({ toDateLoosely });
+            state.addSetter(`toDateLoosely(${state.accessor})`);
         });
         this.serializeRegistry.registerClass(Date, (type, state) => state.addSetter(`${state.accessor}.toJSON()`));
 
         this.serializeRegistry.register(ReflectionKind.string, (type, state) => {
-            rejectValueWithoutPrimitiveConversion(type, state);
-            state.addSetter(`'string' === typeof ${state.accessor} ? ${state.accessor} : ''+ ${state.accessor}`);
+            state.setContext({ toStringLoosely });
+            state.addSetter(`'string' === typeof ${state.accessor} ? ${state.accessor} : toStringLoosely(${state.accessor})`);
         });
 
         this.deserializeRegistry.register(ReflectionKind.string, (type, state) => {
-            rejectValueWithoutPrimitiveConversion(type, state);
-            state.addSetter(`'string' !== typeof ${state.accessor} && state.loosely !== false && undefined !== ${state.accessor} && null !== ${state.accessor} ? ${state.accessor}+'' : ${state.accessor}`);
+            state.setContext({ toStringLoosely });
+            state.addSetter(`'string' !== typeof ${state.accessor} && state.loosely !== false && undefined !== ${state.accessor} && null !== ${state.accessor} ? toStringLoosely(${state.accessor}) : ${state.accessor}`);
         });
 
         this.deserializeRegistry.addDecorator(isUUIDType, (type, state) => {
@@ -2575,8 +2591,8 @@ export class Serializer {
 
         this.serializeRegistry.register(ReflectionKind.boolean, (type, state) => state.addSetter(state.accessor));
         this.deserializeRegistry.register(ReflectionKind.boolean, (type, state) => {
-            rejectValueWithoutPrimitiveConversion(type, state);
-            state.addSetter(`'boolean' !== typeof ${state.accessor} && state.loosely !== false ? ${state.accessor} == 1 || ${state.accessor} == 'true' : ${state.accessor}`);
+            state.setContext({ toBooleanLoosely });
+            state.addSetter(`'boolean' !== typeof ${state.accessor} && state.loosely !== false ? toBooleanLoosely(${state.accessor}) : ${state.accessor}`);
         });
 
         this.serializeRegistry.register(ReflectionKind.promise, (type, state) => executeTemplates(state, type.type));
@@ -2590,13 +2606,12 @@ export class Serializer {
             }
         });
         this.deserializeRegistry.register(ReflectionKind.bigint, (type, state) => {
-            rejectValueWithoutPrimitiveConversion(type, state);
-            state.setContext({ BigInt });
+            state.setContext({ toBigIntLoosely });
             if (binaryBigIntAnnotation.getFirst(type) === BinaryBigIntType.unsigned) {
-                state.addSetter(`'bigint' !== typeof ${state.accessor} ? BigInt(${state.accessor}) : ${state.accessor}`);
-                state.addSetter(`${state.accessor} < 0 ? BigInt(0) : ${state.accessor}`);
+                state.addSetter(`'bigint' !== typeof ${state.accessor} ? toBigIntLoosely(${state.accessor}) : ${state.accessor}`);
+                state.addSetter(`'bigint' === typeof ${state.accessor} && ${state.accessor} < 0 ? 0n : ${state.accessor}`);
             } else {
-                state.addSetter(`'bigint' !== typeof ${state.accessor} ? BigInt(${state.accessor}) : ${state.accessor}`);
+                state.addSetter(`'bigint' !== typeof ${state.accessor} ? toBigIntLoosely(${state.accessor}) : ${state.accessor}`);
             }
         });
 
@@ -2629,9 +2644,9 @@ export class Serializer {
 
         this.serializeRegistry.register(ReflectionKind.number, (type, state) => state.addSetter(state.accessor));
         this.deserializeRegistry.register(ReflectionKind.number, (type, state) => {
-            rejectValueWithoutPrimitiveConversion(type, state);
             if (type.brand !== undefined && type.brand < TypeNumberBrand.float) {
-                state.addSetter(`Math.trunc(${state.accessor})`);
+                state.setContext({ toNumberLoosely });
+                state.addSetter(`Math.trunc('number' === typeof ${state.accessor} ? ${state.accessor} : toNumberLoosely(${state.accessor}))`);
                 if (type.brand === TypeNumberBrand.uint8) {
                     state.addSetter(`${state.accessor} > 255 ? 255 : ${state.accessor} < 0 ? 0 : ${state.accessor}`);
                 } else if (type.brand === TypeNumberBrand.uint16) {
@@ -2646,8 +2661,8 @@ export class Serializer {
                     state.addSetter(`${state.accessor} > 2147483647 ? 2147483647 : ${state.accessor} < -2147483648 ? -2147483648 : ${state.accessor}`);
                 }
             } else {
-                state.setContext({ Number });
-                state.addSetter(`'number' !== typeof ${state.accessor} && state.loosely !== false ? Number(${state.accessor}) : ${state.accessor}`);
+                state.setContext({ toNumberLoosely });
+                state.addSetter(`'number' !== typeof ${state.accessor} && state.loosely !== false ? toNumberLoosely(${state.accessor}) : ${state.accessor}`);
                 if (type.brand === TypeNumberBrand.float32) {
                     state.addSetter(`${state.accessor} > 3.40282347e+38 ? 3.40282347e+38 : ${state.accessor} < -3.40282347e+38 ? -3.40282347e+38 : ${state.accessor}`);
                 }
