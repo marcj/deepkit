@@ -44,7 +44,7 @@ import {
     typeSettings,
     UnpopulatedCheck,
 } from '@deepkit/type';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs';
+import fs, { existsSync, mkdtempSync, readdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { Readable } from 'stream';
@@ -1575,8 +1575,14 @@ async function uploadAndExpectNoTemporaryFiles(parts: { name: string, file: Uint
     try {
         const httpKernel = createHttpKernel([Controller], [], listeners, [], [], config);
         const response = await httpKernel.request(HttpRequest.POST('/upload').multiPart(parts));
-        for (let attempt = 0; attempt < 50 && readdirSync(uploadDir).length; attempt++) await sleep(0.01);
-        await sleep(0.02);
+        //the cleanup is asynchronous and slower under load: wait until the folder stays empty, a real leak still fails after 10s
+        const deadline = Date.now() + 10_000;
+        let emptySince = 0;
+        while (Date.now() < deadline && (!emptySince || Date.now() - emptySince < 300)) {
+            if (readdirSync(uploadDir).length) emptySince = 0;
+            else emptySince ||= Date.now();
+            await sleep(0.01);
+        }
         expect(readdirSync(uploadDir)).toEqual([]);
         return response;
     } finally {
@@ -1614,6 +1620,23 @@ test('upload removes the temporary files of a rejected request', async () => {
     ], { maxFiles: 1 });
 
     expect(response.statusCode).toBeGreaterThanOrEqual(400);
+});
+
+test('upload removes a temporary file that is created after the cleanup of its request', async () => {
+    //the write stream opens its file asynchronously: delayed, the cleanup of the rejected request runs first
+    const open = fs.open;
+    (fs as any).open = function (path: any, ...args: any[]) {
+        if (String(path).includes('deepkit-http-upload-')) return void setTimeout(() => (open as any).call(fs, path, ...args), 20);
+        return (open as any).call(fs, path, ...args);
+    };
+    try {
+        await uploadAndExpectNoTemporaryFiles([
+            { name: 'first', file: Buffer.from('first') },
+            { name: 'second', file: Buffer.from('second') },
+        ], { maxFiles: 1 });
+    } finally {
+        fs.open = open;
+    }
 });
 
 test('upload removes the temporary files parsed in an event listener', async () => {

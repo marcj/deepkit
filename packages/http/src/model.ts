@@ -402,6 +402,9 @@ export class HttpRequest extends IncomingMessage {
 
     public temporaryFilePaths?: string[];
 
+    /** The temporary files were removed, a file that appears after that is removed once its stream is done. */
+    public temporaryFilesRemoved?: boolean;
+
     public throwErrorOnNotFound: boolean = false;
 
     /**

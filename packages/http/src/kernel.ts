@@ -135,6 +135,7 @@ export class HttpKernel {
 
             this.logger.error('HTTP kernel request failed', error);
         } finally {
+            req.temporaryFilesRemoved = true;
             for (const path of req.temporaryFilePaths || []) {
                 unlink(path, () => {
                 });

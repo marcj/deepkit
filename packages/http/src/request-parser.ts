@@ -21,6 +21,7 @@ import { BodyValidationError, createRequestWithCachedBody, getRegExp, HttpReques
 import { getRouteActionLabel, RouteConfig, UploadedFile, UploadedFileSymbol } from './router.js';
 import { parseQueryString } from './query-string.js';
 import formidable, { Fields, Files, Options } from 'formidable';
+import { unlink } from 'fs';
 import { HttpParserOptions } from './module.config.js';
 import type IncomingForm from 'formidable/Formidable.js';
 
@@ -46,7 +47,23 @@ function extractValues(form: IncomingForm, fields: Fields): Record<string, unkno
 
 function trackTemporaryFiles(form: IncomingForm, request: HttpRequest) {
     form.on('fileBegin', (name, file) => {
-        (request.temporaryFilePaths ||= []).push(file.filepath);
+        const path = file.filepath;
+        (request.temporaryFilePaths ||= []).push(path);
+        // The write stream creates its file asynchronously. If the cleanup of the request runs before that, it finds
+        // nothing and the file would stay, so it's checked again once the file exists. The stream of a rejected request
+        // may never be ended, so it's also closed here.
+        const open = (file as any).open;
+        (file as any).open = function (this: any) {
+            open.call(this);
+            const stream = this._writeStream;
+            const removeIfRequestDone = () => {
+                if (!request.temporaryFilesRemoved) return;
+                stream.destroy();
+                unlink(path, () => undefined);
+            };
+            stream?.once('open', removeIfRequestDone);
+            stream?.once('close', removeIfRequestDone);
+        };
         if ((form as any).error)
             Promise.resolve()
                 .then(() => (file as any).destroy())
