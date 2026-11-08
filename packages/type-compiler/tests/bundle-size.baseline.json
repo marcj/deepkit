@@ -31,7 +31,7 @@
     },
     "type-only re-export of a class": {
       "plain": 167,
-      "reflected": 240
+      "reflected": 302
     },
     "DOM types in a signature": {
       "plain": 179,
