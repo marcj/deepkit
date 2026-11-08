@@ -316,6 +316,10 @@ export interface ReflectOptions {
 /**
  * @reflection never
  */
+function isUnresolvedTypeParameter(type: Type): boolean {
+    return type.kind === ReflectionKind.never && !!type.unresolvedTypeParameter;
+}
+
 export class Processor {
     static typeProcessor?: Processor;
 
@@ -1370,6 +1374,11 @@ export class Processor {
 
     private handleIntersection() {
         const types = this.popFrame() as Type[];
+        const unresolved = types.find(isUnresolvedTypeParameter);
+        if (unresolved) {
+            this.pushType(unresolved);
+            return;
+        }
         let result: Type | undefined = { kind: ReflectionKind.unknown };
         if (!types.length) {
             this.pushType({ kind: ReflectionKind.never });
@@ -1515,6 +1524,11 @@ export class Processor {
         } else {
             //start loop
             const distributeOver = this.pop() as Type;
+            if (isUnresolvedTypeParameter(distributeOver)) {
+                this.popFrame();
+                this.push(distributeOver);
+                return;
+            }
             program.frame.distributiveLoop = new Loop(distributeOver);
         }
 
@@ -1536,7 +1550,10 @@ export class Processor {
         const right = this.pop() as Type;
         const left = this.pop() as Type;
 
-        if (!isType(left)) {
+        const unresolved = [left, right].find(isUnresolvedTypeParameter);
+        if (unresolved) {
+            this.push(unresolved);
+        } else if (!isType(left)) {
             this.push({ kind: ReflectionKind.never });
         } else {
             const t: Type = indexAccess(left, right);
@@ -1549,7 +1566,9 @@ export class Processor {
 
     private handleKeyOf() {
         const type = this.pop() as Type;
-        if (type.kind === ReflectionKind.objectLiteral || type.kind === ReflectionKind.class) {
+        if (isUnresolvedTypeParameter(type)) {
+            this.push(type);
+        } else if (type.kind === ReflectionKind.objectLiteral || type.kind === ReflectionKind.class) {
             const union = { kind: ReflectionKind.union, origin: type, types: [] } as TypeUnion;
             for (const member of type.types) {
                 if ((member.kind === ReflectionKind.propertySignature || member.kind === ReflectionKind.property) && member.name !== 'new') {
@@ -1636,7 +1655,7 @@ export class Processor {
                 if (readonly && property.kind !== ReflectionKind.tupleMember) property.readonly = true;
 
                 if (property !== type) type.parent = property;
-                if (property.type.kind !== ReflectionKind.never) {
+                if (property.type.kind !== ReflectionKind.never || isUnresolvedTypeParameter(property.type)) {
                     //never is filtered out
                     if (modifier !== 0) {
                         if (modifier & MappedModifier.optional) {
@@ -1668,7 +1687,9 @@ export class Processor {
             const members = this.popFrame() as Type[];
             let t: Type;
 
-            if (fromType.origin && fromType.origin.kind === ReflectionKind.tuple) {
+            if (isUnresolvedTypeParameter(fromType)) {
+                t = fromType;
+            } else if (fromType.origin && fromType.origin.kind === ReflectionKind.tuple) {
                 t = { kind: ReflectionKind.tuple, types: members as any[] };
             } else {
                 t = { kind: ReflectionKind.objectLiteral, id: state.nominalId++, types: members as any[] };
@@ -1978,7 +1999,7 @@ function pushObjectLiteralTypes(
 
     outer:
         for (const member of types) {
-            if (member.kind === ReflectionKind.propertySignature && member.type.kind === ReflectionKind.never && !member.type.unresolvedTypeParameter) continue;
+            if (member.kind === ReflectionKind.propertySignature && member.type.kind === ReflectionKind.never && !isUnresolvedTypeParameter(member.type)) continue;
 
             if (member.kind === ReflectionKind.objectLiteral) {
                 //all `extends T` expression land at the beginning of the stack frame, and are always an objectLiteral.

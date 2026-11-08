@@ -39,6 +39,18 @@ test.each([
     ['serialize', <T>() => serialize<T>(rows as any)],
     ['nested in an object', <T>() => validate<{ a: T }>({ a: 1 })],
     ['nested in an array of objects', <T>() => validate<{ a: T }[]>([{ a: 1 }])],
+    ['in a union', <T>() => validate<T | string>(1)],
+    ['in an intersection', <T>() => validate<T & { x?: string }>({})],
+    ['Partial', <T>() => validate<Partial<T>>({})],
+    ['Required', <T>() => validate<Required<T>>({})],
+    ['Readonly', <T>() => validate<Readonly<T>>({})],
+    ['Pick', <T>() => validate<Pick<T, keyof T>>({})],
+    ['Omit', <T>() => validate<Omit<T, 'a'>>({})],
+    ['keyof', <T>() => validate<keyof T>('a')],
+    ['index access', <T>() => validate<T[keyof T]>(1)],
+    ['conditional type', <T>() => validate<T extends string ? number : boolean>(1)],
+    ['Exclude', <T>() => validate<Exclude<T, string>>(1)],
+    ['Record value', <T>() => validate<Record<string, T>>({ a: 1 })],
 ])('%s throws', (name, fn) => {
     expect(() => (fn as any)()).toThrow(UnresolvedTypeParameter);
 });
