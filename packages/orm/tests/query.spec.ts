@@ -387,7 +387,7 @@ test('memory adapter reports deleted items as modified', async () => {
     const database = new Database(new MemoryDatabaseAdapter(), [Item]);
     await database.persist(new Item('a'), new Item('b'), new Item('c'));
 
-    const many = await database.query(Item).filter({ name: { $in: ['a', 'b'] } }).deleteMany();
+    const many = await database.query(Item).filter({ name: { $in: ['a', 'b'] } }).returnPrimaryKeys().deleteMany();
     expect(many.modified).toBe(2);
     expect(many.primaryKeys.length).toBe(2);
 

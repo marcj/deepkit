@@ -85,6 +85,9 @@ function setupVirtualForeignKey(database: Database, virtualForeignKeyConstraint:
     database.listen(Query.onPatchPost, async (event) => {
         await virtualForeignKeyConstraint.onQueryPatch(event);
     });
+    database.listen(Query.onDeletePre, (event) => {
+        virtualForeignKeyConstraint.onQueryDeletePre(event);
+    });
     database.listen(Query.onDeletePost, async (event) => {
         await virtualForeignKeyConstraint.onQueryDelete(event);
     });

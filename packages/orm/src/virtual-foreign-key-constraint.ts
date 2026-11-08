@@ -44,13 +44,20 @@ export class VirtualForeignKeyConstraint {
         return res;
     }
 
+    /**
+     * The listener is registered for every entity, but only referenced entities need the keys.
+     */
+    onQueryDeletePre(event: QueryDatabaseDeleteEvent<any>) {
+        if (this.resolveReferencesTo(event.classSchema).length) event.deleteResult.loadPrimaryKeys();
+    }
+
     async onQueryDelete(event: QueryDatabaseDeleteEvent<any>) {
         const references = this.resolveReferencesTo(event.classSchema);
         if (!references.length) return;
-        if (!event.deleteResult.primaryKeys.length) return;
+        if (!event.deleteResult.loadedPrimaryKeys.length) return;
 
         for (const { classSchema, property } of references) {
-            const query = event.databaseSession.query(classSchema).filter({ [property.name]: { $in: event.deleteResult.primaryKeys } });
+            const query = event.databaseSession.query(classSchema).filter({ [property.name]: { $in: event.deleteResult.loadedPrimaryKeys } });
             const options = property.getReference()!;
             if (options.onDelete === undefined || options.onDelete === 'CASCADE') {
                 await query.deleteMany();

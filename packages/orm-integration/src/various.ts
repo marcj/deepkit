@@ -14,12 +14,103 @@ import {
 } from '@deepkit/type';
 import { identifier, sql, SQLDatabaseAdapter } from '@deepkit/sql';
 import { DatabaseFactory } from './test.js';
-import { DatabaseSession, hydrateEntity, isDatabaseOf, UniqueConstraintFailure } from '@deepkit/orm';
+import { DatabaseSession, hydrateEntity, isDatabaseOf, PrimaryKeysNotReturnedError, Query, UniqueConstraintFailure } from '@deepkit/orm';
 import { randomBytes } from 'crypto';
 
 Error.stackTraceLimit = 20;
 
 export const variousTests = {
+    async deletePrimaryKeysAreOptIn(databaseFactory: DatabaseFactory) {
+        @entity.name('test_delete_primary_keys')
+        class Item {
+            constructor(
+                public id: number & PrimaryKey,
+                public name: string = '',
+            ) {}
+        }
+
+        const database = await databaseFactory([Item]);
+        await database.persist(new Item(1), new Item(2), new Item(3), new Item(4), new Item(5), new Item(6), new Item(7));
+        const left = async () => (await database.query(Item).orderBy('id').find()).map(v => v.id);
+
+        // plain: counts, keys are not readable
+        const plain = await database.query(Item).filter({ id: 1 }).deleteMany();
+        expect(plain.modified).toBe(1);
+        expect(() => plain.primaryKeys).toThrow(PrimaryKeysNotReturnedError);
+        expect(() => JSON.stringify(plain)).toThrow(PrimaryKeysNotReturnedError);
+        expect(await left()).toEqual([2, 3, 4, 5, 6, 7]);
+
+        // opt-in
+        const returned = await database.query(Item).filter({ id: 2 }).returnPrimaryKeys().deleteMany();
+        expect(returned.modified).toBe(1);
+        expect(returned.primaryKeys).toEqual([{ id: 2 }]);
+
+        const one = await database.query(Item).filter({ id: 3 }).returnPrimaryKeys().deleteOne();
+        expect(one.primaryKeys).toEqual([{ id: 3 }]);
+
+        const none = await database.query(Item).filter({ id: 3 }).returnPrimaryKeys().deleteMany();
+        expect(none.modified).toBe(0);
+        expect(none.primaryKeys).toEqual([]);
+        expect((await database.query(Item).filter({ id: 3 }).deleteMany()).modified).toBe(0);
+
+        // a limit is respected with and without keys
+        expect((await database.query(Item).orderBy('id').limit(1).returnPrimaryKeys().deleteMany()).primaryKeys).toEqual([{ id: 4 }]);
+        expect((await database.query(Item).orderBy('id').limit(1).deleteMany()).modified).toBe(1);
+        expect(await left()).toEqual([6, 7]);
+    },
+
+    async deletePrimaryKeysInListeners(databaseFactory: DatabaseFactory) {
+        @entity.name('test_delete_primary_keys_listener')
+        class Item {
+            constructor(public id: number & PrimaryKey) {}
+        }
+
+        const database = await databaseFactory([Item]);
+        await database.persist(new Item(1), new Item(2), new Item(3));
+
+        const seen: any[] = [];
+        database.listen(Query.onDeletePost, event => {
+            if (!event.isSchemaOf(Item)) return;
+            try {
+                seen.push(event.deleteResult.primaryKeys);
+            } catch (error) {
+                seen.push(error);
+            }
+        });
+
+        // the post event is dispatched without keys, as long as something was deleted
+        await database.query(Item).filter({ id: 1 }).deleteMany();
+        expect(seen).toHaveLength(1);
+        expect(seen[0]).toBeInstanceOf(PrimaryKeysNotReturnedError);
+
+        await database.query(Item).filter({ id: 1 }).deleteMany();
+        expect(seen).toHaveLength(1);
+
+        await database.query(Item).filter({ id: 2 }).returnPrimaryKeys().deleteMany();
+        expect(seen).toHaveLength(2);
+        expect(seen[1]).toEqual([{ id: 2 }]);
+    },
+
+    async deleteManyUpdatesIdentityMap(databaseFactory: DatabaseFactory) {
+        @entity.name('test_delete_identity_map')
+        class Item {
+            constructor(public id: number & PrimaryKey) {}
+        }
+
+        const database = await databaseFactory([Item]);
+        await database.persist(new Item(1), new Item(2));
+
+        const session = database.createSession();
+        const [first, second] = await session.query(Item).orderBy('id').find();
+        expect(session.identityMap.isKnown(first)).toBe(true);
+
+        const result = await session.query(Item).filter({ id: 1 }).deleteMany();
+        expect(session.identityMap.isKnown(first)).toBe(false);
+        expect(session.identityMap.isKnown(second)).toBe(true);
+        // the session needing the keys does not make them readable
+        expect(() => result.primaryKeys).toThrow(PrimaryKeysNotReturnedError);
+    },
+
     async testFilterUndefinedIsNotEmptyFilter(databaseFactory: DatabaseFactory) {
         // { name: undefined } means "name is not set", it must never become {} which matches everything (#692)
         @entity.name('test_filter_undefined')

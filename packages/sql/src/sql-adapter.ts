@@ -31,6 +31,7 @@ import {
     MigrateOptions,
     OrmEntity,
     PatchResult,
+    primaryKeyObjectConverter,
     Query,
     RawFactory,
     Replace,
@@ -270,9 +271,17 @@ export class SQLQueryResolver<T extends OrmEntity> extends GenericQueryResolver<
         if (connectionFrame) connectionFrame.end();
 
         try {
+            if (deleteResult.shouldLoadPrimaryKeys) {
+                const primaryKey = this.classSchema.getPrimary();
+                const converted = primaryKeyObjectConverter(this.classSchema, this.platform.serializer.deserializeRegistry);
+                const select = new SqlBuilder(this.adapter).select(this.classSchema, model, { select: [this.platform.quoteIdentifier(primaryKey.name)] });
+                // not atomic with the delete outside a transaction, adapters with RETURNING or similar override this
+                const rows = await connection.execAndReturnAll(select.sql, select.params);
+                for (const row of rows) deleteResult.addPrimaryKey(converted(row[primaryKey.name]));
+            }
+
             await connection.run(sql.sql, sql.params);
             deleteResult.modified = await connection.getChanges();
-            //todo, implement deleteResult.primaryKeys
         } catch (error: any) {
             error = new DatabaseDeleteError(this.classSchema, `Could not delete ${this.classSchema.getClassName()} in database`, { cause: error });
             error.query = model;

@@ -17,9 +17,80 @@ export interface OrmEntity {
 }
 
 export type PatchResult<T> = { modified: number, returning: { [name in keyof T & string]?: T[name][] }, primaryKeys: PrimaryKeyType<T>[] };
-export type DeleteResult<T> = { modified: number, primaryKeys: PrimaryKeyFields<T>[] };
-
 export class DatabaseError extends CustomError {
+}
+
+/**
+ * Thrown when DeleteResult.primaryKeys is read without the query having called returnPrimaryKeys().
+ */
+export class PrimaryKeysNotReturnedError extends DatabaseError {
+}
+
+/**
+ * The result of a delete query. It is also what a database adapter fills in its delete().
+ */
+export class DeleteResult<T> {
+    /**
+     * How many items were deleted.
+     */
+    modified: number = 0;
+
+    /**
+     * The primary keys of the deleted items. Reading this throws PrimaryKeysNotReturnedError
+     * if the query did not call returnPrimaryKeys().
+     */
+    declare readonly primaryKeys: PrimaryKeyFields<T>[];
+
+    #load: boolean = false;
+    #keys: PrimaryKeyFields<T>[] = [];
+
+    constructor(entityName: string) {
+        // own and enumerable, so that spreading or serializing the result can't silently lose the keys
+        Object.defineProperty(this, 'primaryKeys', {
+            enumerable: true,
+            configurable: true,
+            get(): never {
+                throw new PrimaryKeysNotReturnedError(`The primary keys of the deleted ${entityName} items are not available. Call returnPrimaryKeys() on the query.`);
+            },
+        });
+    }
+
+    /**
+     * Loads the primary keys and makes them readable in `primaryKeys`.
+     * Called for queries with returnPrimaryKeys().
+     */
+    returnPrimaryKeys(): void {
+        this.#load = true;
+        Object.defineProperty(this, 'primaryKeys', { value: this.#keys, enumerable: true, configurable: true });
+    }
+
+    /**
+     * Loads the primary keys for internal use without making `primaryKeys` readable, so that whether
+     * user code may read them does not depend on the session state or the registered plugins.
+     * A listener of Query.onDeletePre calls this to get them in `loadedPrimaryKeys` in Query.onDeletePost.
+     */
+    loadPrimaryKeys(): void {
+        this.#load = true;
+    }
+
+    /**
+     * Whether the database adapter has to report the deleted primary keys with addPrimaryKey().
+     * When false, it should not read them at all.
+     */
+    get shouldLoadPrimaryKeys(): boolean {
+        return this.#load;
+    }
+
+    addPrimaryKey(primaryKey: PrimaryKeyFields<T>): void {
+        this.#keys.push(primaryKey);
+    }
+
+    /**
+     * The keys loaded so far. Empty when nothing requested them. Never throws.
+     */
+    get loadedPrimaryKeys(): PrimaryKeyFields<T>[] {
+        return this.#keys;
+    }
 }
 
 /**

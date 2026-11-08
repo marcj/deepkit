@@ -107,26 +107,41 @@ export class MongoQueryResolver<T extends OrmEntity> extends GenericQueryResolve
             return await connection.execute(command);
         } else {
             const mongoFilter = getMongoFilter(this.classSchema, queryModel);
-            const command = new FindCommand(this.classSchema, mongoFilter, projection, undefined, limit || queryModel.limit, queryModel.skip);
+            const command = new FindCommand(this.classSchema, mongoFilter, projection, this.getSortFromModel(queryModel.sort), limit || queryModel.limit, queryModel.skip);
             command.options = queryModel.getCommandOptions();
             return await connection.execute(command);
         }
+    }
+
+    /**
+     * The delete command only has a filter and a limit of 0 or 1. Everything else needs the keys first.
+     */
+    protected isDeletableByFilter(queryModel: MongoQueryModel<T>): boolean {
+        if (queryModel.hasJoins() || queryModel.skip) return false;
+        if (!queryModel.limit) return true;
+        return queryModel.limit === 1 && !queryModel.hasSort();
     }
 
     public async delete(queryModel: MongoQueryModel<T>, deleteResult: DeleteResult<T>): Promise<void> {
         const connection = await this.client.getConnection(queryModel.getCommandOptions(), this.session.assignedTransaction);
 
         try {
-            // todo rework this to one query using aggregates
-            // todo make deleteResult.primaryKeys not default anymore as too expensive (add options to Query returnPrimaryKeys)
+            if (!deleteResult.shouldLoadPrimaryKeys && this.isDeletableByFilter(queryModel)) {
+                const command = new DeleteCommand(this.classSchema, getMongoFilter(this.classSchema, queryModel) || {}, queryModel.limit);
+                command.options = queryModel.getCommandOptions();
+                deleteResult.modified = await connection.execute(command);
+                return;
+            }
+
             const primaryKeys = await this.fetchIds(queryModel, queryModel.limit, connection);
             if (primaryKeys.length === 0) return;
             deleteResult.modified = primaryKeys.length;
-            deleteResult.primaryKeys = primaryKeys;
+            for (const primaryKey of primaryKeys) deleteResult.addPrimaryKey(primaryKey);
             const primaryKeyName = this.classSchema.getPrimary().name;
 
             const query = convertClassQueryToMongo(this.classSchema, { [primaryKeyName]: { $in: primaryKeys.map(v => v[primaryKeyName]) } } as FilterQuery<T>);
-            const command = new DeleteCommand(this.classSchema, query, queryModel.limit);
+            // no limit: the filter matches exactly the fetched items, and MongoDB only accepts a limit of 0 or 1
+            const command = new DeleteCommand(this.classSchema, query);
             command.options = queryModel.getCommandOptions();
             await connection.execute(command);
         } catch (error: any) {

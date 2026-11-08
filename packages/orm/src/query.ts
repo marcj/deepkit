@@ -103,6 +103,7 @@ export class DatabaseQueryModel<T extends OrmEntity, FILTER extends FilterQuery<
     public readonly change = new EventEmitter();
     public returning: (keyof T & string)[] = [];
     public batchSize?: number;
+    public returnPrimaryKeys: boolean = false;
 
     /**
      * The adapter name is set by the database adapter when the query is created.
@@ -164,6 +165,7 @@ export class DatabaseQueryModel<T extends OrmEntity, FILTER extends FilterQuery<
         m.skip = this.skip;
         m.limit = this.limit;
         m.returning = this.returning.slice(0);
+        m.returnPrimaryKeys = this.returnPrimaryKeys;
         m.itemsPerPage = this.itemsPerPage;
         m.sort = this.sort ? { ...this.sort } : undefined;
 
@@ -357,6 +359,16 @@ export class BaseQuery<T extends OrmEntity> {
     returning(...fields: FieldName<T>[]): this {
         const c = this.clone();
         c.model.returning.push(...fields);
+        return c;
+    }
+
+    /**
+     * Makes deleteMany() and deleteOne() return the primary keys of the deleted items in `primaryKeys`.
+     * Without it reading `primaryKeys` throws, and most deletes don't need to read the items first.
+     */
+    returnPrimaryKeys(): this {
+        const c = this.clone();
+        c.model.returnPrimaryKeys = true;
         return c;
     }
 
@@ -932,10 +944,8 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
         await this.explainLogIfNeeded('delete');
         const hasEvents = this.session.eventDispatcher.hasListeners(Query.onDeletePre) || this.session.eventDispatcher.hasListeners(Query.onDeletePost);
 
-        const deleteResult: DeleteResult<T> = {
-            modified: 0,
-            primaryKeys: [],
-        };
+        const deleteResult = new DeleteResult<T>(this.classSchema.getClassName());
+        if (query.model.returnPrimaryKeys) deleteResult.returnPrimaryKeys();
 
         const frame = this.session.stopwatch?.start('Delete:' + this.classSchema.getClassName(), FrameCategory.database);
         if (frame) frame.data({ collection: this.classSchema.getCollectionName(), className: this.classSchema.getClassName() });
@@ -943,8 +953,9 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
         try {
             if (!hasEvents) {
                 query = this.onQueryResolve(query);
+                this.prepareDeleteResult(query, deleteResult);
                 await this.resolver.delete(query.model, deleteResult);
-                this.session.identityMap.deleteManyBySimplePK(this.classSchema, deleteResult.primaryKeys);
+                this.session.identityMap.deleteManyBySimplePK(this.classSchema, deleteResult.loadedPrimaryKeys);
                 return deleteResult;
             }
 
@@ -959,10 +970,12 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
 
             //we need to use event.query in case someone overwrite it
             event.query = this.onQueryResolve(event.query as this);
+            this.prepareDeleteResult(event.query, deleteResult);
             await event.query.resolver.delete(event.query.model, deleteResult);
-            this.session.identityMap.deleteManyBySimplePK(this.classSchema, deleteResult.primaryKeys);
+            this.session.identityMap.deleteManyBySimplePK(this.classSchema, deleteResult.loadedPrimaryKeys);
 
-            if (deleteResult.primaryKeys.length && this.session.eventDispatcher.hasListeners(Query.onDeletePost)) {
+            // modified and not the keys: they are only there when something asked for them
+            if (deleteResult.modified && this.session.eventDispatcher.hasListeners(Query.onDeletePost)) {
                 const eventFrame = this.session.stopwatch ? this.session.stopwatch.start('Events Post') : undefined;
                 await this.session.eventDispatcher.dispatch(Query.onDeletePost, event);
                 if (eventFrame) eventFrame.end();
@@ -976,6 +989,11 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
         } finally {
             if (frame) frame.end();
         }
+    }
+
+    protected prepareDeleteResult(query: Query<any>, deleteResult: DeleteResult<T>): void {
+        if (query.model.returnPrimaryKeys) deleteResult.returnPrimaryKeys();
+        if (this.session.identityMap.hasItems(this.classSchema)) deleteResult.loadPrimaryKeys();
     }
 
     /**

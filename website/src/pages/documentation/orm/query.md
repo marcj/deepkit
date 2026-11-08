@@ -320,6 +320,16 @@ const result = await database.query(User)
 const result = await database.query(User).filter({id: 4}).deleteOne();
 ```
 
+The result contains the number of deleted items in `modified`. The primary keys of the deleted items are only available with `returnPrimaryKeys()`, since reading them makes the delete slower. Reading `primaryKeys` without it throws a `PrimaryKeysNotReturnedError`, also inside event listeners.
+
+```typescript
+const result = await database.query(User)
+    .filter({logins: 0})
+    .returnPrimaryKeys()
+    .deleteMany();
+result.primaryKeys; //[{id: 4}, {id: 7}]
+```
+
 ## Has
 
 Returns whether at least one entry exists in the database.

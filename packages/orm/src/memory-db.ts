@@ -159,8 +159,8 @@ export class MemoryQueryFactory extends DatabaseAdapterQueryFactory {
             async delete(model: DatabaseQueryModel<T>, deleteResult: DeleteResult<T>): Promise<void> {
                 self.scopedLogger.debug('delete', model.filter);
                 const items = find(adapter, schema, model);
-                for (const item of items) {
-                    deleteResult.primaryKeys.push(item);
+                if (deleteResult.shouldLoadPrimaryKeys) {
+                    for (const item of items) deleteResult.addPrimaryKey(item);
                 }
                 deleteResult.modified = items.length;
                 remove(adapter, schema, items);

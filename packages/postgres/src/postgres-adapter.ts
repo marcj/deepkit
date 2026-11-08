@@ -433,13 +433,15 @@ export class PostgresSQLQueryResolver<T extends OrmEntity> extends SQLQueryResol
                 DELETE
                 FROM ${tableName} USING _
                 WHERE ${tableName}.${pkField} = _.${pkField}
-                RETURNING ${tableName}.${pkField}
+                ${deleteResult.shouldLoadPrimaryKeys ? `RETURNING ${tableName}.${pkField}` : ''}
             `;
 
-            const rows = await connection.execAndReturnAll(sql, select.params);
-            deleteResult.modified = rows.length;
-            for (const row of rows) {
-                deleteResult.primaryKeys.push(primaryKeyConverted(row[primaryKey.name]));
+            await connection.run(sql, select.params);
+            deleteResult.modified = await connection.getChanges();
+            if (deleteResult.shouldLoadPrimaryKeys) {
+                for (const row of (connection as PostgresConnection).lastReturningRows) {
+                    deleteResult.addPrimaryKey(primaryKeyConverted(row[primaryKey.name]));
+                }
             }
         } catch (error: any) {
             error = new DatabaseDeleteError(this.classSchema, 'Could not delete in database', { cause: error });

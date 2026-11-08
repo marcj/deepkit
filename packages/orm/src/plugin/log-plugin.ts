@@ -154,11 +154,17 @@ export class LogPlugin implements DatabasePlugin {
             }
         }
 
+        database.listen(Query.onDeletePre, event => {
+            if (!this.isIncluded(event.classSchema)) return;
+            if (this.options.disableDelete) return;
+            event.deleteResult.loadPrimaryKeys();
+        });
+
         database.listen(Query.onDeletePost, async event => {
             if (!this.isIncluded(event.classSchema)) return;
             if (this.options.disableDelete) return;
 
-            for (const primaryKey of event.deleteResult.primaryKeys) {
+            for (const primaryKey of event.deleteResult.loadedPrimaryKeys) {
                 const log = this.createLog(event.databaseSession, LogType.Deleted, event.classSchema, primaryKey);
                 if (Query.is(event.query, LogQuery)) log.author = event.query.logAuthor as any;
                 event.databaseSession.add(log);

@@ -416,6 +416,17 @@ export class MySQLQueryResolver<T extends OrmEntity> extends SQLQueryResolver<T>
 
         const connection = await this.connectionPool.getConnection(this.session.assignedTransaction);
         try {
+            if (!deleteResult.shouldLoadPrimaryKeys) {
+                await connection.run(`
+                    WITH _ AS (${select.sql})
+                    DELETE ${tableName}
+                    FROM ${tableName} INNER JOIN _
+                    WHERE ${tableName}.${pkField} = _.${pkField}
+                `, select.params);
+                deleteResult.modified = (connection as MySQLConnection).lastExecResult![0].affectedRows;
+                return;
+            }
+
             const sql = `
                 WITH _ AS (${select.sql})
                 DELETE ${tableName}
@@ -429,9 +440,9 @@ export class MySQLQueryResolver<T extends OrmEntity> extends SQLQueryResolver<T>
             if (affectedRows) {
                 const returning = rows[1];
                 const pk = returning[0]['@_pk'];
-                deleteResult.primaryKeys = JSON.parse(pk).map(primaryKeyConverted);
+                for (const key of JSON.parse(pk)) deleteResult.addPrimaryKey(primaryKeyConverted(key));
             }
-            deleteResult.modified = deleteResult.primaryKeys.length;
+            deleteResult.modified = deleteResult.loadedPrimaryKeys.length;
         } catch (error: any) {
             error = new DatabaseDeleteError(this.classSchema, 'Could not delete in database', { cause: error });
             error.query = model;

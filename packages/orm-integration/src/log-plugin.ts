@@ -64,7 +64,7 @@ export const logPluginTests = {
             ]);
         }
 
-        const deleteMany = await database.query(User).lift(LogQuery).byLogAuthor('Foo').deleteMany();
+        const deleteMany = await database.query(User).lift(LogQuery).byLogAuthor('Foo').returnPrimaryKeys().deleteMany();
 
         {
             const logEntries = await database.query(userLogEntity).find();

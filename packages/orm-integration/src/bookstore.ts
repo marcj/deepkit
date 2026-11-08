@@ -229,7 +229,7 @@ export const bookstoreTests = {
         }
 
         {
-            const deleted = await database.query(Image).deleteMany();
+            const deleted = await database.query(Image).returnPrimaryKeys().deleteMany();
             expect(deleted.primaryKeys).toMatchObject([{ id: image.id }]);
             expect(deleted.modified).toBe(1);
         }

@@ -475,6 +475,12 @@ export class SQLiteQueryResolver<T extends OrmEntity> extends SQLQueryResolver<T
         if (connectionFrame) connectionFrame.end();
 
         try {
+            if (!deleteResult.shouldLoadPrimaryKeys) {
+                await connection.run(`DELETE FROM ${tableName} WHERE ${tableName}.${pkField} IN (${select.sql})`, select.params);
+                deleteResult.modified = await connection.getChanges();
+                return;
+            }
+
             await connection.exec(`DROP TABLE IF EXISTS _tmp_d`);
             await connection.run(`CREATE TEMPORARY TABLE _tmp_d as ${select.sql};`, select.params);
 
@@ -484,7 +490,7 @@ export class SQLiteQueryResolver<T extends OrmEntity> extends SQLQueryResolver<T
 
             deleteResult.modified = await connection.getChanges();
             for (const row of rows) {
-                deleteResult.primaryKeys.push(primaryKeyConverted(row[pkName]));
+                deleteResult.addPrimaryKey(primaryKeyConverted(row[pkName]));
             }
         } catch (error: any) {
             error = new DatabaseDeleteError(this.classSchema, `Could not delete ${this.classSchema.getClassName()} in database`, { cause: error });

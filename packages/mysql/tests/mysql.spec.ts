@@ -368,7 +368,7 @@ test('updates & deletes should ignore previous @_pk session variable if no rows 
         }
 
         {
-            const result = await txn.query(Model).filter({id: model.id}).deleteMany();
+            const result = await txn.query(Model).filter({id: model.id}).returnPrimaryKeys().deleteMany();
             expect(result.primaryKeys[0]).toEqual({ id: model.id });
         }
 
@@ -380,7 +380,7 @@ test('updates & deletes should ignore previous @_pk session variable if no rows 
 
         // there should be no ID returned if we try to delete a non-existent record
         {
-            const result = await txn.query(Model).filter({id: model.id}).deleteMany();
+            const result = await txn.query(Model).filter({id: model.id}).returnPrimaryKeys().deleteMany();
             expect(result.primaryKeys[0]).toBeUndefined();
         }
     });

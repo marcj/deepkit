@@ -210,6 +210,14 @@ export class IdentityMap {
         }
     }
 
+    /**
+     * Whether items of this entity are known, and thus have to be removed when they are deleted.
+     */
+    hasItems(classSchema: ReflectionClass<any>): boolean {
+        const store = this.registry.get(classSchema);
+        return store !== undefined && store.size > 0;
+    }
+
     clear<T>() {
         this.registry.clear();
     }
