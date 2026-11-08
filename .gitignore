@@ -20,3 +20,5 @@ packages/create-app/files/var
 .DS_Store
 .build-stamp.json
 .test-certificate.json
+
+benchmarks/.codebases

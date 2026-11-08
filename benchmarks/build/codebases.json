@@ -1,0 +1,9 @@
+{
+  "ref": "e8ce2fe13cfaec38a3f702be203db50b618de38e",
+  "codebases": {
+    "example-app": ["packages/example-app/app.ts", "packages/example-app/src"],
+    "http": ["packages/http/index.ts", "packages/http/src"],
+    "framework": ["packages/framework/index.ts", "packages/framework/src"],
+    "type": ["packages/type/index.ts", "packages/type/src"]
+  }
+}

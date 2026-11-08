@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
-const machine = 'i9mac';
+const machine = process.env.BENCH_MACHINE || 'i9mac';
 const root = dirname(fileURLToPath(import.meta.url));
 const resultsDir = join(root, '..', 'benchmarks', 'results', machine);
 const out = join(root, 'src', 'app', 'benchmarks', 'benchmark-data.json');
@@ -63,10 +63,37 @@ results.forEach((result, runIndex) => {
     }
 });
 
+// emitted size and build time of the pinned codebases, per run
+const builds = new Map();
+results.forEach((result, runIndex) => {
+    for (const [name, entry] of Object.entries(result.builds || {})) {
+        let build = builds.get(name);
+        if (!build) {
+            const perRun = () => results.map(() => null);
+            builds.set(name, build = {
+                name,
+                bytes: { plain: perRun(), reflected: perRun() },
+                gzip: { plain: perRun(), reflected: perRun() },
+                time: { plain: perRun(), reflected: perRun() },
+                rme: { plain: perRun(), reflected: perRun() },
+            });
+        }
+        build.files = entry.files;
+        build.lines = entry.lines;
+        for (const side of ['plain', 'reflected']) {
+            build.bytes[side][runIndex] = entry[side].bytes;
+            build.gzip[side][runIndex] = entry[side].gzip;
+            build.time[side][runIndex] = entry[side].time;
+            build.rme[side][runIndex] = entry[side].rme;
+        }
+    }
+});
+
 const data = {
     machine: results.length ? results[results.length - 1].machine : undefined,
     runs: results.map(v => ({ label: v.label, commit: v.commit, date: v.sortDate, release: isRelease(v.label), libraries: v.libraries || {} })),
     suites: [...suites.values()].map(v => ({ name: v.name, file: v.file, benchmarks: [...v.benchmarks.values()] })),
+    builds: [...builds.values()],
 };
 
 mkdirSync(dirname(out), { recursive: true });

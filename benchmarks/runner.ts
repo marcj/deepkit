@@ -3,6 +3,7 @@
 //
 //   npm run bench                         all benchmarks against the workspace
 //   npm run bench -- bson injector        only files whose path matches one of the filters
+//   npm run bench -- build                only the emitted size and build time of the pinned codebases
 //   npm run bench -- --target 1.0.19      the same benchmark files against the published packages of 1.0.19
 //   npm run bench -- --compare a.json b.json   compares two result files
 //
@@ -21,6 +22,24 @@ interface BenchmarkEntry {
     iterations: number;
 }
 
+/** Compile result of a codebase with the type compiler off or on */
+interface BuildMeasurement {
+    /** emitted JavaScript */
+    bytes: number;
+    gzip: number;
+    /** median in ms of type check and emit */
+    time: number;
+    /** largest deviation from the median in percent */
+    rme: number;
+}
+
+interface BuildEntry {
+    files: number;
+    lines: number;
+    plain: BuildMeasurement;
+    reflected: BuildMeasurement;
+}
+
 interface ResultFile {
     label: string;
     /** dependency versions forced for an older target */
@@ -33,7 +52,11 @@ interface ResultFile {
     libraries?: { [name: string]: string };
     /** file -> suite -> benchmark -> result */
     files: { [file: string]: { [suite: string]: { [benchmark: string]: BenchmarkEntry } } };
+    /** codebase -> emitted size and build time, without and with the type compiler */
+    builds?: { [codebase: string]: BuildEntry };
 }
+
+const buildRepetitions = 5;
 
 const root = join(import.meta.dirname, '..');
 
@@ -141,6 +164,48 @@ function prepareTarget(version: string, files: string[]): string {
     return dir;
 }
 
+/**
+ * Compiles the codebases pinned in build/codebases.json with the type compiler off and on. They are our own sources at
+ * a fixed commit, so a change of the numbers comes from the compiler and not from the code it compiles, and nothing
+ * third-party is installed: dependencies resolve to what the workspace (or the --target) has.
+ */
+function buildBenchmarks(cwd: string): { [codebase: string]: BuildEntry } {
+    const { ref, codebases } = JSON.parse(readFileSync(join(root, 'benchmarks', 'build', 'codebases.json'), 'utf8')) as { ref: string; codebases: { [name: string]: string[] } };
+    const builds: { [codebase: string]: BuildEntry } = {};
+    for (const [name, paths] of Object.entries(codebases)) {
+        const dir = join(cwd, 'benchmarks', '.codebases', ref.slice(0, 9), name);
+        if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+            const archive = execFileSync('git', ['archive', '--format=tar', ref, ...paths], { cwd: root, maxBuffer: 1024 * 1024 * 512 });
+            execFileSync('tar', ['-x', '-C', dir], { input: archive });
+        }
+
+        console.log(`\n▶ build ${name}`);
+        const measure = (reflection: 'true' | 'never') => JSON.parse(execFileSync(process.execPath, [join(root, 'benchmarks', 'build', 'measure.cjs'), dir, reflection], { encoding: 'utf8', maxBuffer: 1024 * 1024 * 16 }));
+        const runs: { plain: any[]; reflected: any[] } = { plain: [], reflected: [] };
+        //alternating, so a slower phase of the machine hits both sides
+        for (let i = 0; i < buildRepetitions; i++) {
+            runs.plain.push(measure('never'));
+            runs.reflected.push(measure('true'));
+        }
+        const summarize = (values: any[]): BuildMeasurement => {
+            if (new Set(values.map(v => v.bytes)).size !== 1) console.error(`  ✗ ${name}: the emitted size differs between runs`);
+            const times = values.map(v => v.time).sort((a, b) => a - b);
+            const median = times[Math.floor(times.length / 2)];
+            const rme = Math.max(...times.map(v => Math.abs(v - median))) / median * 100;
+            return { bytes: values[0].bytes, gzip: values[0].gzip, time: Math.round(median * 10) / 10, rme: Math.round(rme * 100) / 100 };
+        };
+        builds[name] = { files: runs.plain[0].files, lines: runs.plain[0].lines, plain: summarize(runs.plain), reflected: summarize(runs.reflected) };
+        const { plain, reflected } = builds[name];
+        console.log(`  ${plain.bytes} -> ${reflected.bytes} bytes (+${percent(plain.bytes, reflected.bytes)}%), ${plain.time} -> ${reflected.time} ms (+${percent(plain.time, reflected.time)}%)`);
+    }
+    return builds;
+}
+
+function percent(from: number, to: number): string {
+    return ((to / from - 1) * 100).toFixed(1);
+}
+
 function run(args: string[]) {
     let target = '';
     let out = '';
@@ -151,8 +216,10 @@ function run(args: string[]) {
         else filters.push(args[i]);
     }
 
-    const files = findBenchmarks(filters);
-    if (!files.length) throw new Error('No benchmark files found');
+    const withBuilds = !filters.length || filters.includes('build');
+    const benchmarkFilters = filters.filter(v => v !== 'build');
+    const files = filters.length && !benchmarkFilters.length ? [] : findBenchmarks(benchmarkFilters);
+    if (!files.length && !withBuilds) throw new Error('No benchmark files found');
     const cwd = target ? prepareTarget(target, files) : root;
 
     const version = target || JSON.parse(readFileSync(join(root, 'lerna.json'), 'utf8')).version;
@@ -192,12 +259,15 @@ function run(args: string[]) {
         }
     }
 
+    if (withBuilds) result.builds = buildBenchmarks(cwd);
+
     out ||= join(resultsDir, result.machine.hostname.replace(/\.local$/, ''), label + '.json');
     //a filtered run updates its files in an existing result of the same label
     if (filters.length && existsSync(out)) {
         const existing: ResultFile = JSON.parse(readFileSync(out, 'utf8'));
         result.files = { ...existing.files, ...result.files };
         result.libraries = { ...existing.libraries, ...result.libraries };
+        result.builds = { ...existing.builds, ...result.builds };
         Object.assign(result, { label: existing.label, commit: existing.commit, date: existing.date });
     }
     mkdirSync(dirname(out), { recursive: true });
@@ -224,6 +294,16 @@ function compare(fileA: string, fileB: string) {
                 console.log(`| ${suite}: ${name} | ${before ? formatHz(before.hz) : '–'} | ${formatHz(entry.hz)} | ${changeText} |`);
             }
         }
+    }
+
+    for (const [name, entry] of Object.entries(b.builds || {})) {
+        const before = a.builds?.[name];
+        const overhead = (v: BuildEntry, key: 'bytes' | 'gzip' | 'time') => `+${percent(v.plain[key], v.reflected[key])}%`;
+        const timeChange = before ? (entry.reflected.time / before.reflected.time - 1) * 100 : undefined;
+        const noise = timeChange !== undefined && Math.abs(timeChange) <= Math.max(before!.reflected.rme, entry.reflected.rme) * 2;
+        const timeText = timeChange === undefined ? 'new' : `${timeChange > 0 ? '+' : ''}${timeChange.toFixed(1)}%${noise ? ' (noise)' : ''}`;
+        console.log(`| build ${name}: size overhead | ${before ? overhead(before, 'bytes') : '–'} | ${overhead(entry, 'bytes')} | |`);
+        console.log(`| build ${name}: build time | ${before ? before.reflected.time + ' ms' : '–'} | ${entry.reflected.time} ms | ${timeText} |`);
     }
 }
 

@@ -28,10 +28,30 @@ interface Suite {
     benchmarks: Benchmark[];
 }
 
+/** A value per run, without and with the type compiler */
+interface BuildSeries {
+    plain: (number | null)[];
+    reflected: (number | null)[];
+}
+
+/** Emitted size and build time of a pinned codebase */
+interface Build {
+    name: string;
+    files: number;
+    lines: number;
+    bytes: BuildSeries;
+    gzip: BuildSeries;
+    /** ms of type check and emit */
+    time: BuildSeries;
+    /** largest deviation of the build time from its median in percent */
+    rme: BuildSeries;
+}
+
 interface BenchmarkData {
     machine?: { hostname: string; cpu: string; cores: number; platform: string; node: string };
     runs: BenchmarkRun[];
     suites: Suite[];
+    builds?: Build[];
 }
 
 const data = benchmarkData as BenchmarkData;
@@ -41,6 +61,40 @@ export function formatOps(hz: number): string {
     if (hz >= 1e3) return (hz / 1e3).toFixed(hz >= 1e5 ? 0 : 1) + 'K';
     return hz.toFixed(hz >= 100 ? 0 : 1);
 }
+
+export function formatBytes(bytes: number): string {
+    if (bytes >= 1e6) return (bytes / 1e6).toFixed(2) + ' MB';
+    if (bytes >= 1e3) return (bytes / 1e3).toFixed(1) + ' KB';
+    return bytes + ' B';
+}
+
+export function formatMilliseconds(ms: number): string {
+    return ms >= 1000 ? (ms / 1000).toFixed(2) + ' s' : ms.toFixed(0) + ' ms';
+}
+
+/** Overhead of the type compiler in percent, undefined if not measured in this run. */
+function overhead(series: BuildSeries, run: number): number | undefined {
+    const plain = series.plain[run], reflected = series.reflected[run];
+    return plain && reflected ? (reflected / plain - 1) * 100 : undefined;
+}
+
+const formatPercent = (value: number) => '+' + value.toFixed(1) + '%';
+
+/** How a trend of a value where lower is better, like a size, is shown. */
+export interface TrendMetric {
+    format(value: number): string;
+    change(value: number, base: number): string;
+}
+
+const overheadMetric: TrendMetric = {
+    format: formatPercent,
+    change: (value, base) => `${value >= base ? '+' : ''}${(value - base).toFixed(1)} points`,
+};
+
+const buildTimeMetric: TrendMetric = {
+    format: formatMilliseconds,
+    change: (value, base) => `${value >= base ? '+' : ''}${((value / base - 1) * 100).toFixed(1)}%`,
+};
 
 export function formatTime(hz: number): string {
     const ns = 1e9 / hz;
@@ -367,20 +421,24 @@ export class BenchmarkTrendComponent {
     release = input<{ label: string; hz: number }>();
     /** whether the change to the release is within the measurement error */
     noise = input(false);
+    /** the points are values where lower is better (e.g. a size) instead of operations per second */
+    metric = input<TrendMetric>();
 
     chart = computed(() => {
         const points = this.points();
         if (!points.length) return;
         const release = this.release();
+        const metric = this.metric();
         // time per operation: the line goes down when it gets faster
-        const maxTime = Math.max(...points.map(v => 1 / v.hz)) * 1.1;
-        const y = (hz: number) => 50 - (1 / hz / maxTime) * 50;
+        const cost = (hz: number) => (metric ? hz : 1 / hz);
+        const maxTime = Math.max(...points.map(v => cost(v.hz))) * 1.1;
+        const y = (hz: number) => 50 - (cost(hz) / maxTime) * 50;
         const x = (i: number) => (points.length === 1 ? 150 : (i / (points.length - 1)) * 300);
         const dots = points.map((v, i) => ({
             x: x(i),
             y: y(v.hz),
             release: v.release,
-            title: `${v.release ? 'Release ' : ''}${v.label} (${v.date.slice(0, 10)}): ${formatOps(v.hz)} ops/s, ${formatTime(v.hz)}`,
+            title: `${v.release ? 'Release ' : ''}${v.label} (${v.date.slice(0, 10)}): ${metric ? metric.format(v.hz) : `${formatOps(v.hz)} ops/s, ${formatTime(v.hz)}`}`,
         }));
         const last = points[points.length - 1];
         const base = release?.hz || points[0].hz;
@@ -388,9 +446,9 @@ export class BenchmarkTrendComponent {
         return {
             points: dots.map(v => `${v.x},${v.y}`).join(' '),
             dots,
-            latest: formatTime(last.hz),
-            faster: factor >= 1,
-            change: points.length > 1 || release ? (factor >= 1 ? factor.toFixed(1) + '× faster' : (1 / factor).toFixed(1) + '× slower') : '',
+            latest: metric ? metric.format(last.hz) : formatTime(last.hz),
+            faster: metric ? last.hz <= base : factor >= 1,
+            change: metric ? (points.length > 1 || release ? metric.change(last.hz, base) : undefined) : points.length > 1 || release ? (factor >= 1 ? factor.toFixed(1) + '× faster' : (1 / factor).toFixed(1) + '× slower') : '',
             first: points[0].label,
             last: last.label,
         };
@@ -671,6 +729,59 @@ const suiteTitles: { [name: string]: string } = {
                 </section>
             }
 
+            @if (builds().length) {
+                <section class="bm-card" id="build">
+                    <h2>Bundle size and build time</h2>
+                    <p class="intro">
+                        What runtime types cost at build time, measured on our own sources pinned to one commit: the same
+                        <code>tsc</code> run (type check and emit) without and with the type compiler.
+                        Changes are since the last release{{ releaseLabel() ? ' (' + releaseLabel() + ')' : '' }}.
+                    </p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Codebase</th>
+                                    <th class="number">JS plain</th>
+                                    <th class="number">JS + types</th>
+                                    <th class="number">Size overhead</th>
+                                    <th class="number">Gzip overhead</th>
+                                    <th class="number">Change</th>
+                                    <th class="number">Build plain</th>
+                                    <th class="number">Build + types</th>
+                                    <th class="number">Build overhead</th>
+                                    <th class="number">Change</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (row of builds(); track row.name) {
+                                    <tr>
+                                        <td>{{ row.name }}<span class="codebase-size">{{ row.files }} files · {{ row.lines }} lines</span></td>
+                                        <td class="number">{{ row.plainBytes }}</td>
+                                        <td class="number strong">{{ row.reflectedBytes }}</td>
+                                        <td class="number strong">{{ row.sizeOverhead }}</td>
+                                        <td class="number">{{ row.gzipOverhead }}</td>
+                                        <td class="number" [class.faster]="row.sizeBetter" [class.slower]="row.sizeWorse" [class.unchanged]="!row.sizeBetter && !row.sizeWorse">{{ row.sizeChange }}</td>
+                                        <td class="number">{{ row.plainTime }}</td>
+                                        <td class="number strong">{{ row.reflectedTime }}</td>
+                                        <td class="number strong">{{ row.timeOverhead }}</td>
+                                        <td class="number" [class.faster]="row.timeBetter" [class.slower]="row.timeWorse" [class.unchanged]="!row.timeBetter && !row.timeWorse">{{ row.timeChange }}</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @for (group of buildTrends(); track group.title) {
+                        <h3>{{ group.title }}</h3>
+                        <div class="trends">
+                            @for (item of group.items; track item.label) {
+                                <benchmark-trend [label]="item.label" [points]="item.points" [release]="item.release" [noise]="item.noise" [metric]="group.metric" />
+                            }
+                        </div>
+                    }
+                </section>
+            }
+
             <section class="bm-card">
                 <h2>Over time</h2>
                 <p class="intro">
@@ -918,6 +1029,12 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
             color: white;
             font-weight: 700;
         }
+        .codebase-size {
+            display: block;
+            font-size: 12px;
+            color: var(--color-grey);
+            white-space: nowrap;
+        }
         .file {
             font-size: 12px;
             color: #80878f;
@@ -1049,6 +1166,62 @@ export class BenchmarksComponent {
                 return [{ label: item.label, points, release: releaseHz ? { label: data.runs[r].label, hz: releaseHz } : undefined, noise: !!c?.noise }];
             }),
         })).filter(v => v.items.length);
+    });
+
+    protected builds = computed(() => {
+        const a = this.releaseIndex(), b = this.latestIndex();
+        return (data.builds || []).flatMap(build => {
+            const sizeOverhead = overhead(build.bytes, b);
+            const timeOverhead = overhead(build.time, b);
+            if (sizeOverhead === undefined || timeOverhead === undefined) return [];
+            const previousSize = a === -1 ? undefined : overhead(build.bytes, a);
+            const sizeDifference = previousSize === undefined ? undefined : sizeOverhead - previousSize;
+            const before = a === -1 ? null : build.time.reflected[a];
+            const after = build.time.reflected[b]!;
+            const timeDifference = before ? (after / before - 1) * 100 : undefined;
+            const timeNoise = timeDifference === undefined || Math.abs(timeDifference) <= Math.max(build.rme.reflected[a] || 0, build.rme.reflected[b] || 0) * 2;
+            return [{
+                name: build.name,
+                files: build.files,
+                lines: build.lines.toLocaleString('en-US'),
+                plainBytes: formatBytes(build.bytes.plain[b]!),
+                reflectedBytes: formatBytes(build.bytes.reflected[b]!),
+                sizeOverhead: formatPercent(sizeOverhead),
+                gzipOverhead: formatPercent(overhead(build.gzip, b)!),
+                sizeChange: sizeDifference === undefined ? 'new' : Math.abs(sizeDifference) < 0.05 ? 'no change' : overheadMetric.change(sizeOverhead, previousSize!),
+                sizeBetter: sizeDifference !== undefined && sizeDifference <= -0.05,
+                sizeWorse: sizeDifference !== undefined && sizeDifference >= 0.05,
+                plainTime: formatMilliseconds(build.time.plain[b]!),
+                reflectedTime: formatMilliseconds(after),
+                timeOverhead: formatPercent(timeOverhead),
+                timeChange: timeDifference === undefined ? 'new' : timeNoise ? 'no change' : buildTimeMetric.change(after, before!),
+                timeBetter: !timeNoise && timeDifference! < 0,
+                timeWorse: !timeNoise && timeDifference! > 0,
+            }];
+        });
+    });
+
+    protected buildTrends = computed(() => {
+        const r = this.releaseIndex(), b = this.latestIndex();
+        const trend = (build: Build, value: (run: number) => number | undefined | null, noise: boolean) => {
+            const points: TrendPoint[] = [];
+            data.runs.forEach((run, i) => {
+                const hz = value(i);
+                if (hz) points.push({ label: run.label, date: run.date, hz, release: run.release });
+            });
+            const base = r === -1 ? undefined : value(r);
+            return points.length ? [{ label: build.name, points, release: base ? { label: data.runs[r].label, hz: base } : undefined, noise }] : [];
+        };
+        const all = data.builds || [];
+        return [
+            { title: 'Size overhead of runtime types', metric: overheadMetric, items: all.flatMap(v => trend(v, i => overhead(v.bytes, i), false)) },
+            { title: 'Build time with runtime types', metric: buildTimeMetric, items: all.flatMap(v => {
+                const before = r === -1 ? null : v.time.reflected[r], after = v.time.reflected[b];
+                const noise = !before || !after || Math.abs((after / before - 1) * 100) <= Math.max(v.rme.reflected[r] || 0, v.rme.reflected[b] || 0) * 2;
+                return trend(v, i => v.time.reflected[i], noise);
+            }) },
+            { title: 'Build time overhead of runtime types', metric: overheadMetric, items: all.flatMap(v => trend(v, i => overhead(v.time, i), true)) },
+        ].filter(v => v.items.length);
     });
 
     protected suites = computed(() => {
