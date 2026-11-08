@@ -621,7 +621,8 @@ test('forwardRef argument is not wrapped', () => {
     });
     expect(res.app).toContain('ref = forwardRef(() => A)');
     expect(res.app).toContain('ref2 = i0.forwardRef(() => A)');
-    expect(res.app).toContain('other = __assignType(() => A');
+    expect(res.app).toContain('other = () => A');
+    expect(res.app).toContain('other.__type = ');
 });
 
 test('resolves types from .mts and .d.mts files', () => {

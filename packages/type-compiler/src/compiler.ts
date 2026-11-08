@@ -10,6 +10,9 @@
 
 import ts, {
     __String,
+    isVariableStatement,
+    isVariableDeclarationList,
+    VariableStatement,
     ObjectLiteralExpression,
     PropertyName,
     isDecorator,
@@ -555,6 +558,35 @@ function getStaticPropertyKey(name: PropertyName): string | undefined {
     return isIdentifier(name) ? getIdentifierName(name) : isStringLiteral(name) || isNumericLiteral(name) ? name.text : undefined;
 }
 
+function isTransparentExpression(node: Node): boolean {
+    return isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isNonNullExpression(node) || ts.isTypeAssertionExpression(node);
+}
+
+function isValidIdentifierName(name: string): boolean {
+    return /^[\p{ID_Start}$_][\p{ID_Continue}$]*$/u.test(name);
+}
+
+/**
+ * The name JavaScript gives an anonymous function at this position, undefined if it gets none or the name is only known at runtime.
+ */
+function getFunctionNameFromPosition(value: Node): string | undefined {
+    const parent = value.parent;
+    if (!parent) return;
+    if ((isVariableDeclaration(parent) || isParameter(parent) || ts.isBindingElement(parent)) && parent.initializer === value) {
+        return isIdentifier(parent.name) ? getIdentifierName(parent.name) : undefined;
+    }
+    if ((isPropertyAssignment(parent) || ts.isPropertyDeclaration(parent)) && parent.initializer === value) {
+        const key = getStaticPropertyKey(parent.name);
+        // `{__proto__: fn}` sets the prototype and doesn't name anything
+        return key === '__proto__' ? undefined : key;
+    }
+    if (ts.isBinaryExpression(parent) && parent.right === value && isIdentifier(parent.left)) {
+        const assignments = [SyntaxKind.EqualsToken, SyntaxKind.BarBarEqualsToken, SyntaxKind.AmpersandAmpersandEqualsToken, SyntaxKind.QuestionQuestionEqualsToken];
+        return assignments.includes(parent.operatorToken.kind) ? getIdentifierName(parent.left) : undefined;
+    }
+    return;
+}
+
 function isInsideDecorator(node: Node): boolean {
     for (let current = node.parent; current; current = current.parent) {
         if (isDecorator(current)) return true;
@@ -572,6 +604,8 @@ export class ReflectionTransformer implements CustomTransformer {
 
     protected embedAssignType: boolean = false;
     protected embedAssignMethodTypes: boolean = false;
+    /** The types of functions which are the only initializer of a variable statement, assigned in a statement after it. */
+    protected variableFunctionTypes = new Map<Node, Expression>();
 
     /**
      * Types added to this map will get a type program directly under it.
@@ -812,6 +846,7 @@ export class ReflectionTransformer implements CustomTransformer {
         if ((sourceFile as any).deepkitTransformed) return sourceFile;
         this.embedAssignType = false;
         this.embedAssignMethodTypes = false;
+        this.variableFunctionTypes.clear();
         this.addImports = [];
         this.additionalImports.clear();
         this.functionTypeAssignments = [];
@@ -871,6 +906,11 @@ export class ReflectionTransformer implements CustomTransformer {
 
             if (isObjectLiteralExpression(node)) return this.decorateObjectLiteralMethods(node, original);
 
+            if (isVariableStatement(node)) {
+                const encodedType = this.variableFunctionTypes.get((original as VariableStatement).declarationList.declarations[0]);
+                if (encodedType) return [node, this.createTypeAssignment(node.declarationList.declarations[0].name as Identifier, encodedType)];
+            }
+
             if (isClassDeclaration(node)) {
                 return this.decorateClass(sourceFile, node);
             } else if (isParameter(node) && node.parent && node.type) {
@@ -914,7 +954,7 @@ export class ReflectionTransformer implements CustomTransformer {
             } else if (isClassExpression(node)) {
                 return this.decorateClass(sourceFile, node);
             } else if (isFunctionExpression(node)) {
-                return this.decorateFunctionExpression(this.injectResetΩ(node));
+                return this.decorateFunctionValue(this.injectResetΩ(node), original);
             } else if (isFunctionDeclaration(node)) {
                 //ambient functions don't exist at runtime, `fn.__type = ` would throw a ReferenceError
                 if (isAmbientDeclaration(original)) return node;
@@ -922,7 +962,7 @@ export class ReflectionTransformer implements CustomTransformer {
             } else if (isMethodDeclaration(node) || isConstructorDeclaration(node)) {
                 return this.injectResetΩ(node);
             } else if (isArrowFunction(node)) {
-                return this.decorateArrowFunction(this.injectResetΩ(node));
+                return this.decorateFunctionValue(this.injectResetΩ(node), original);
             } else if ((isNewExpression(node) || isCallExpression(node)) && node.typeArguments && node.typeArguments.length > 0) {
 
                 if (isCallExpression(node)) {
@@ -3327,18 +3367,6 @@ export class ReflectionTransformer implements CustomTransformer {
     }
 
     /**
-     * const fn = function() {}
-     *
-     * => const fn = __assignType(function() {}, [34])
-     */
-    protected decorateFunctionExpression(expression: FunctionExpression) {
-        const encodedType = this.getTypeOfType(expression);
-        if (!encodedType) return expression;
-
-        return this.wrapWithAssignType(expression, encodedType);
-    }
-
-    /**
      * function name() {}
      *
      * => function name() {}; name.__type = 34;
@@ -3373,14 +3401,45 @@ export class ReflectionTransformer implements CustomTransformer {
     }
 
     /**
+     * JavaScript names an anonymous function after what it's directly assigned to, which a wrapping call prevents.
+     *
      * const fn = () => {}
-     * => const fn = __assignType(() => {}, [34])
+     * => const fn = () => {}; fn.__type = [34]
+     *
+     * a = {fn: () => {}}
+     * => a = {fn: __assignType({fn: () => {}}.fn, [34])}
+     *
+     * fn(() => {})
+     * => fn(__assignType(() => {}, [34]))
      */
-    protected decorateArrowFunction(expression: ArrowFunction) {
+    protected decorateFunctionValue(expression: ArrowFunction | FunctionExpression, original: Node) {
         const encodedType = this.getTypeOfType(expression);
         if (!encodedType) return expression;
+        if (isFunctionExpression(expression) && expression.name) return this.wrapWithAssignType(expression, encodedType);
 
-        return this.wrapWithAssignType(expression, encodedType);
+        let value = original;
+        while (value.parent && isTransparentExpression(value.parent)) value = value.parent;
+
+        const declaration = value.parent;
+        if (declaration && isVariableDeclaration(declaration) && isIdentifier(declaration.name)
+            && isVariableDeclarationList(declaration.parent) && declaration.parent.declarations.length === 1 && isVariableStatement(declaration.parent.parent)) {
+            this.variableFunctionTypes.set(declaration, encodedType);
+            return expression;
+        }
+
+        const name = getFunctionNameFromPosition(value);
+        if (name === undefined) return this.wrapWithAssignType(expression, encodedType);
+
+        const key = this.f.createStringLiteral(name);
+        const literal = this.f.createObjectLiteralExpression([this.f.createPropertyAssignment(isValidIdentifierName(name) ? this.f.createIdentifier(name) : key, expression)]);
+        return this.wrapWithAssignType(
+            isValidIdentifierName(name) ? this.f.createPropertyAccessExpression(literal, name) : this.f.createElementAccessExpression(literal, key),
+            encodedType,
+        );
+    }
+
+    protected createTypeAssignment(name: Identifier, encodedType: Expression): Statement {
+        return this.f.createExpressionStatement(this.f.createAssignment(this.f.createPropertyAccessExpression(name, '__type'), encodedType));
     }
 
     /**
