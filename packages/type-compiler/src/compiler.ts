@@ -10,6 +10,10 @@
 
 import ts, {
     __String,
+    ObjectLiteralExpression,
+    PropertyName,
+    isDecorator,
+    isNumericLiteral,
     ArrayTypeNode,
     ArrowFunction,
     Block,
@@ -542,6 +546,22 @@ function isTypeReferencePack(expression: Expression): boolean {
     return isStringLiteral(ops) && (ops.text === 'n!' || ops.text === 'P7!');
 }
 
+function containsSuper(node: Node): boolean {
+    return node.kind === SyntaxKind.SuperKeyword || !!ts.forEachChild(node, containsSuper);
+}
+
+/** The key of an object literal member as string, undefined if only known at runtime. */
+function getStaticPropertyKey(name: PropertyName): string | undefined {
+    return isIdentifier(name) ? getIdentifierName(name) : isStringLiteral(name) || isNumericLiteral(name) ? name.text : undefined;
+}
+
+function isInsideDecorator(node: Node): boolean {
+    for (let current = node.parent; current; current = current.parent) {
+        if (isDecorator(current)) return true;
+    }
+    return false;
+}
+
 function containsIdentifier(node: Node, name: string): boolean {
     return (isIdentifier(node) && getIdentifierName(node) === name) || !!ts.forEachChild(node, child => containsIdentifier(child, name));
 }
@@ -551,6 +571,7 @@ export class ReflectionTransformer implements CustomTransformer {
     protected f: NodeFactory;
 
     protected embedAssignType: boolean = false;
+    protected embedAssignMethodTypes: boolean = false;
 
     /**
      * Types added to this map will get a type program directly under it.
@@ -790,6 +811,7 @@ export class ReflectionTransformer implements CustomTransformer {
 
         if ((sourceFile as any).deepkitTransformed) return sourceFile;
         this.embedAssignType = false;
+        this.embedAssignMethodTypes = false;
         this.addImports = [];
         this.additionalImports.clear();
         this.functionTypeAssignments = [];
@@ -847,33 +869,7 @@ export class ReflectionTransformer implements CustomTransformer {
                 }
             }
 
-            if (isMethodDeclaration(node) && node.parent && node.body && isObjectLiteralExpression(node.parent)) {
-                //replace MethodDeclaration with MethodExpression
-                // {add(v: number) {}} => {add: function (v: number) {}}
-                //so that __type can be added.
-                //{default(){}} can not be converted without losing the function name, so we skip that for the moment.
-                let valid = true;
-                if (node.name.kind === SyntaxKind.Identifier && getIdentifierName(node.name) === 'default') valid = false;
-                if (valid) {
-                    const declaration = node;
-                    const body = node.body;
-                    const name = isIdentifier(node.name) ? node.name : undefined;
-                    const createFunction = (functionName: Identifier | undefined) => this.f.createFunctionExpression(
-                        declaration.modifiers as ReadonlyArray<Modifier>, declaration.asteriskToken, functionName,
-                        declaration.typeParameters, declaration.parameters, declaration.type, body,
-                    );
-                    const encodedType = this.getTypeOfType(createFunction(name));
-                    //A method has no binding of its own name, but `function name() {}` has, which would hide an outer variable
-                    //used in the method. In that case `{name: function () {}}.name` keeps the function name without the binding.
-                    const shadowsOuter = name && (
-                        node.parameters.some(v => containsIdentifier(v, getIdentifierName(name))) || containsIdentifier(body, getIdentifierName(name))
-                    );
-                    const fn: Expression = name && shadowsOuter
-                        ? this.f.createPropertyAccessExpression(this.f.createObjectLiteralExpression([this.f.createPropertyAssignment(name, createFunction(undefined))]), name)
-                        : createFunction(name);
-                    node = this.f.createPropertyAssignment(node.name, encodedType ? this.wrapWithAssignType(fn, encodedType) : fn);
-                }
-            }
+            if (isObjectLiteralExpression(node)) return this.decorateObjectLiteralMethods(node, original);
 
             if (isClassDeclaration(node)) {
                 return this.decorateClass(sourceFile, node);
@@ -1237,6 +1233,31 @@ export class ReflectionTransformer implements CustomTransformer {
                 ),
             );
             newTopStatements.push(assignType);
+        }
+
+        if (this.embedAssignMethodTypes) {
+            // function __assignMethodTypes(o, t) { for (let i = 0; i < t.length; i += 2) o[t[i]].__type = t[i + 1]; return o; }
+            const [o, t, i] = [this.f.createIdentifier('o'), this.f.createIdentifier('t'), this.f.createIdentifier('i')];
+            newTopStatements.push(this.f.createFunctionDeclaration(
+                undefined,
+                undefined,
+                this.f.createIdentifier('__assignMethodTypes'),
+                undefined,
+                [this.f.createParameterDeclaration(undefined, undefined, o), this.f.createParameterDeclaration(undefined, undefined, t)],
+                undefined,
+                this.f.createBlock([
+                    this.f.createForStatement(
+                        this.f.createVariableDeclarationList([this.f.createVariableDeclaration(i, undefined, undefined, this.f.createNumericLiteral(0))], ts.NodeFlags.Let),
+                        this.f.createBinaryExpression(i, SyntaxKind.LessThanToken, this.f.createPropertyAccessExpression(t, 'length')),
+                        this.f.createBinaryExpression(i, SyntaxKind.PlusEqualsToken, this.f.createNumericLiteral(2)),
+                        this.f.createExpressionStatement(this.f.createAssignment(
+                            this.f.createPropertyAccessExpression(this.f.createElementAccessExpression(o, this.f.createElementAccessExpression(t, i)), '__type'),
+                            this.f.createElementAccessExpression(t, this.f.createBinaryExpression(i, SyntaxKind.PlusToken, this.f.createNumericLiteral(1))),
+                        )),
+                    ),
+                    this.f.createReturnStatement(o),
+                ], true),
+            ));
         }
 
         if (this.tempResultIdentifier) {
@@ -3360,6 +3381,64 @@ export class ReflectionTransformer implements CustomTransformer {
         if (!encodedType) return expression;
 
         return this.wrapWithAssignType(expression, encodedType);
+    }
+
+    /**
+     * {add(v: number) {}}
+     *
+     * => __assignMethodTypes({add(v) {}}, ['add', [34]])
+     *
+     * The method stays a method: only those have `super`, are not constructible, and get their name from any key.
+     * The type is assigned afterwards, so a method that a later member can replace must not take part in that,
+     * since the type would end up on a function of someone else.
+     */
+    protected decorateObjectLiteralMethods(node: ObjectLiteralExpression, original: Node): Expression {
+        const types: Expression[] = [];
+        // a call is not a literal anymore for tools that statically read decorator arguments, e.g. Angular's compiler
+        const canAssignAfterwards = !isInsideDecorator(original);
+
+        const properties = node.properties.map((member, index) => {
+            if (!isMethodDeclaration(member) || !member.body) return member;
+            const body = member.body;
+            const name = isIdentifier(member.name) ? member.name : undefined;
+            const createFunction = (functionName: Identifier | undefined) => this.f.createFunctionExpression(
+                member.modifiers as ReadonlyArray<Modifier>, member.asteriskToken, functionName,
+                member.typeParameters, member.parameters, member.type, body,
+            );
+
+            const key = getStaticPropertyKey(member.name);
+            const replaceable = key === undefined || node.properties.slice(index + 1).some(v => {
+                if (!v.name) return true; //spread
+                const laterKey = getStaticPropertyKey(v.name);
+                return laterKey === undefined || laterKey === key;
+            });
+
+            if (canAssignAfterwards && !replaceable) {
+                const encodedType = this.getTypeOfType(createFunction(name));
+                if (encodedType) types.push(this.f.createStringLiteral(key), encodedType);
+                return member;
+            }
+
+            // without a place for its type, a method using super stays as it is: a function expression can't use super.
+            if (containsSuper(body)) return member;
+
+            const encodedType = this.getTypeOfType(createFunction(name));
+            //A method has no binding of its own name, but `function name() {}` has, which would hide an outer variable
+            //used in the method. In that case `{name: function () {}}.name` keeps the function name without the binding.
+            const shadowsOuter = name && (
+                member.parameters.some(v => containsIdentifier(v, getIdentifierName(name))) || containsIdentifier(body, getIdentifierName(name))
+            );
+            const fn: Expression = name && shadowsOuter
+                ? this.f.createPropertyAccessExpression(this.f.createObjectLiteralExpression([this.f.createPropertyAssignment(name, createFunction(undefined))]), name)
+                : createFunction(name);
+            return this.f.createPropertyAssignment(member.name, encodedType ? this.wrapWithAssignType(fn, encodedType) : fn);
+        });
+
+        const literal = this.f.updateObjectLiteralExpression(node, properties);
+        if (!types.length) return literal;
+
+        this.embedAssignMethodTypes = true;
+        return this.f.createCallExpression(this.f.createIdentifier('__assignMethodTypes'), undefined, [literal, this.f.createArrayLiteralExpression(types)]);
     }
 
     /**

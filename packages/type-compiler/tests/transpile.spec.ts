@@ -869,3 +869,25 @@ test('type arguments are module-level variables if they reference no local decla
     expect(res.app).toContain(`return is(is(1, [() => __ΩLocal, 'n!']), [() => __ΩLocal, 'n!']);`);
     expect(res.app).toContain(`(is.Ω = [[type, 'n!F']], is([], type))`);
 });
+
+test('object literal methods keep their syntax', () => {
+    const res = transpile({
+        app: `
+            const o = { add(a: number): number { return a; } };
+        `,
+    });
+    expect(res.app).toContain('__assignMethodTypes({ add(a) { return a; } }');
+    expect(res.app).not.toContain('function add');
+});
+
+test('object literal in a decorator argument stays a literal for tools reading it statically', () => {
+    const res = transpile({
+        app: `
+            function Component(options: any) { return (target: any) => target; }
+            @Component({ factory(a: number) { return a; } })
+            class A {}
+        `,
+    });
+    expect(res.app).not.toContain('__assignMethodTypes(');
+    expect(res.app).toContain('factory: __assignType(function factory(a)');
+});
