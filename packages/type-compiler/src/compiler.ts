@@ -122,6 +122,7 @@ const {
     isFunctionLike,
     isIdentifier,
     isImportClause,
+    isNamespaceImport,
     isImportDeclaration,
     isImportSpecifier,
     isInferTypeNode,
@@ -2451,7 +2452,7 @@ export class ReflectionTransformer implements CustomTransformer {
      */
     protected resolveDeclaration(typeName: EntityName): { declaration: Node, importDeclaration?: ImportDeclaration | JSDocImportTag, typeOnly?: boolean, exportedName?: string } | void {
         let current: Node = typeName.parent;
-        if (typeName.kind === SyntaxKind.QualifiedName) return; //namespace access not supported yet, e.g. type a = Namespace.X;
+        if (typeName.kind === SyntaxKind.QualifiedName) return this.resolveNamespaceImportMember(typeName);
 
         let declaration: Node | undefined = undefined;
 
@@ -2529,6 +2530,22 @@ export class ReflectionTransformer implements CustomTransformer {
         if (!declaration) return;
 
         return { declaration, importDeclaration, typeOnly, exportedName };
+    }
+
+    /**
+     * `import * as models from './models'; type a = models.X`. Other qualified names (`Namespace.X`) are not supported yet.
+     */
+    protected resolveNamespaceImportMember(typeName: QualifiedName): { declaration: Node, importDeclaration: ImportDeclaration | JSDocImportTag, typeOnly: boolean, exportedName: string } | void {
+        if (!isIdentifier(typeName.left)) return;
+        const namespace = this.resolveDeclaration(typeName.left);
+        if (!namespace || !isNamespaceImport(namespace.declaration)) return;
+
+        const importDeclaration = namespace.declaration.parent.parent;
+        const exportedName = getIdentifierName(typeName.right);
+        const declaration = this.resolveImportSpecifier(exportedName, importDeclaration, this.sourceFile);
+        if (!declaration) return;
+
+        return { declaration, importDeclaration, typeOnly: namespace.declaration.parent.isTypeOnly, exportedName };
     }
 
     protected getDeclarationVariableName(typeName: EntityName): Identifier {
@@ -2847,7 +2864,7 @@ export class ReflectionTransformer implements CustomTransformer {
                     return;
                 }
 
-                if (resolved.importDeclaration && isIdentifier(typeName)) ensureImportIsEmitted(resolved.importDeclaration, typeName);
+                if (resolved.importDeclaration) ensureImportIsEmitted(resolved.importDeclaration, isIdentifier(typeName) ? typeName : undefined);
                 program.pushFrame();
                 if (typeArguments) {
                     for (const typeArgument of typeArguments) {

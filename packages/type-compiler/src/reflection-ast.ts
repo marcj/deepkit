@@ -41,6 +41,7 @@ const {
     isComputedPropertyName,
     isIdentifier,
     isNamedImports,
+    isNamespaceImport,
     isNumericLiteral,
     isPrivateIdentifier,
     isStringLiteral,
@@ -280,6 +281,10 @@ export function ensureImportIsEmitted(importDeclaration: ImportDeclaration | JSD
                 }
             }
         }
+    }
+
+    if (importDeclaration.importClause && importDeclaration.importClause.namedBindings && isNamespaceImport(importDeclaration.importClause.namedBindings)) {
+        (importDeclaration.importClause.namedBindings.flags as any) |= NodeFlags.Synthesized;
     }
 
     (importDeclaration.flags as any) |= NodeFlags.Synthesized;
