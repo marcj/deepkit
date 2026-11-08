@@ -210,3 +210,42 @@ test('a dropped Subject is collected after its last unsubscribe', async () => {
     expect(kernel.stats.total.subjects).toBe(100);
     expect(kernel.stats.active.subjects).toBe(0);
 });
+
+test('a client can never close a Subject returned by an action, it is not the owner', async () => {
+    const prices = new Subject<number>();
+
+    class PriceController {
+        @rpc.action()
+        updates(): Subject<number> {
+            return prices;
+        }
+    }
+
+    const kernel = new RpcKernel();
+    kernel.registerController(PriceController, 'prices');
+    const clientA = new DirectClient(kernel).controller<PriceController>('prices');
+    const clientB = new DirectClient(kernel).controller<PriceController>('prices');
+
+    const a = await clientA.updates();
+    const b = await clientB.updates();
+    const received: number[] = [];
+    b.subscribe(v => received.push(v));
+
+    a.subscribe().unsubscribe();
+    await sleep(0.05);
+    expect(prices.observed).toBe(true);
+
+    a.unsubscribe();
+    await sleep(0.05);
+
+    const a2 = await clientA.updates();
+    a2.complete();
+    await sleep(0.05);
+
+    expect(prices.closed).toBe(false);
+    expect(prices.isStopped).toBe(false);
+
+    prices.next(1);
+    await sleep(0.05);
+    expect(received).toEqual([1]);
+});
