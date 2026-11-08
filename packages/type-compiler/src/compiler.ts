@@ -649,6 +649,9 @@ export class ReflectionTransformer implements CustomTransformer {
      */
     protected reachedThroughTypeOnly = false;
 
+    /** Like reachedThroughTypeOnly for `export type *`, which has no `__Ω` exports at runtime, unlike a named `export type { T }`. */
+    protected reachedThroughTypeOnlyStar = false;
+
     /**
      * Where the value of the deepest `export type` of the current lookup is exported, set by followExport like reachedThroughTypeOnly.
      * For `export type { Element } from 'domhandler'`, the class exists at runtime, only not in the module re-exporting it.
@@ -2554,7 +2557,7 @@ export class ReflectionTransformer implements CustomTransformer {
      * This is a custom resolver based on populated `locals` from the binder. It uses a custom resolution algorithm since
      * we have no access to the binder/TypeChecker directly and instantiating a TypeChecker per file/transformer is incredible slow.
      */
-    protected resolveDeclaration(typeName: EntityName): { declaration: Node, importDeclaration?: ImportDeclaration | JSDocImportTag, typeOnly?: boolean, typeOnlyExport?: boolean, typeOnlyExportOrigin?: { moduleSpecifier: Expression, name: string }, exportedName?: string } | void {
+    protected resolveDeclaration(typeName: EntityName): { declaration: Node, importDeclaration?: ImportDeclaration | JSDocImportTag, typeOnly?: boolean, typeOnlyExport?: boolean, typeOnlyStarExport?: boolean, typeOnlyExportOrigin?: { moduleSpecifier: Expression, name: string }, exportedName?: string } | void {
         let current: Node = typeName.parent;
         if (typeName.kind === SyntaxKind.QualifiedName) return this.resolveNamespaceImportMember(typeName);
 
@@ -2615,6 +2618,7 @@ export class ReflectionTransformer implements CustomTransformer {
         let typeOnly = false;
         let exportedName: string | undefined = undefined;
         let typeOnlyExport = false;
+        let typeOnlyStarExport = false;
         let typeOnlyExportOrigin: { moduleSpecifier: Expression, name: string } | undefined;
 
         if (declaration && isImportSpecifier(declaration)) {
@@ -2635,9 +2639,11 @@ export class ReflectionTransformer implements CustomTransformer {
             //`import { A as B }`: the runtime type is exported as __ΩA, not __ΩB
             if (declaration && isImportSpecifier(declaration) && declaration.propertyName && importedName !== 'default') exportedName = importedName;
             this.reachedThroughTypeOnly = false;
+            this.reachedThroughTypeOnlyStar = false;
             this.typeOnlyExportOrigin = undefined;
             declaration = this.resolveImportSpecifier(importedName, importDeclaration, this.sourceFile);
             typeOnlyExport = this.reachedThroughTypeOnly;
+            typeOnlyStarExport = this.reachedThroughTypeOnlyStar;
             typeOnlyExportOrigin = this.typeOnlyExportOrigin;
         }
 
@@ -2648,13 +2654,13 @@ export class ReflectionTransformer implements CustomTransformer {
 
         if (!declaration) return;
 
-        return { declaration, importDeclaration, typeOnly, typeOnlyExport, typeOnlyExportOrigin, exportedName };
+        return { declaration, importDeclaration, typeOnly, typeOnlyExport, typeOnlyStarExport, typeOnlyExportOrigin, exportedName };
     }
 
     /**
      * `import * as models from './models'; type a = models.X`. Other qualified names (`Namespace.X`) are not supported yet.
      */
-    protected resolveNamespaceImportMember(typeName: QualifiedName): { declaration: Node, importDeclaration: ImportDeclaration | JSDocImportTag, typeOnly: boolean, typeOnlyExport: boolean, typeOnlyExportOrigin?: { moduleSpecifier: Expression, name: string }, exportedName: string } | void {
+    protected resolveNamespaceImportMember(typeName: QualifiedName): { declaration: Node, importDeclaration: ImportDeclaration | JSDocImportTag, typeOnly: boolean, typeOnlyExport: boolean, typeOnlyStarExport: boolean, typeOnlyExportOrigin?: { moduleSpecifier: Expression, name: string }, exportedName: string } | void {
         if (!isIdentifier(typeName.left)) return;
         const namespace = this.resolveDeclaration(typeName.left);
         if (!namespace || !isNamespaceImport(namespace.declaration)) return;
@@ -2662,11 +2668,12 @@ export class ReflectionTransformer implements CustomTransformer {
         const importDeclaration = namespace.declaration.parent.parent;
         const exportedName = getIdentifierName(typeName.right);
         this.reachedThroughTypeOnly = false;
+        this.reachedThroughTypeOnlyStar = false;
         this.typeOnlyExportOrigin = undefined;
         const declaration = this.resolveImportSpecifier(exportedName, importDeclaration, this.sourceFile);
         if (!declaration) return;
 
-        return { declaration, importDeclaration, typeOnly: namespace.declaration.parent.isTypeOnly, typeOnlyExport: this.reachedThroughTypeOnly, typeOnlyExportOrigin: this.typeOnlyExportOrigin, exportedName };
+        return { declaration, importDeclaration, typeOnly: namespace.declaration.parent.isTypeOnly, typeOnlyExport: this.reachedThroughTypeOnly, typeOnlyStarExport: this.reachedThroughTypeOnlyStar, typeOnlyExportOrigin: this.typeOnlyExportOrigin, exportedName };
     }
 
     protected getDeclarationVariableName(typeName: EntityName): Identifier {
@@ -2872,8 +2879,9 @@ export class ReflectionTransformer implements CustomTransformer {
                         });
                     } else if (isFromImport) {
                         if (resolved.importDeclaration) {
-                            //if explicit `import {type T}`, we do not emit an import and instead push any
-                            if (resolved.typeOnly) {
+                            //if explicit `import {type T}`, we do not emit an import and instead push any.
+                            //`export type *` is erased with everything in it, so there is no __ΩT to import either.
+                            if (resolved.typeOnly || resolved.typeOnlyStarExport) {
                                 this.resolveTypeOnlyImport(typeName, program);
                                 return;
                             }
@@ -3369,6 +3377,7 @@ export class ReflectionTransformer implements CustomTransformer {
             if (found) {
                 if (statement.isTypeOnly) {
                     this.reachedThroughTypeOnly = true;
+                    this.reachedThroughTypeOnlyStar = true;
                     //an `export type` deeper in the chain is closer to the value
                     if (this.typeOnlyExportOrigin === originBefore && statement.moduleSpecifier) {
                         this.typeOnlyExportOrigin = { moduleSpecifier: statement.moduleSpecifier, name: declarationName };
