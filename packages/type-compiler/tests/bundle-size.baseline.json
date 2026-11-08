@@ -1,0 +1,45 @@
+{
+  "typescript": "6.0.3",
+  "samples": {
+    "class": {
+      "plain": 323,
+      "reflected": 587
+    },
+    "interface and aliases": {
+      "plain": 77,
+      "reflected": 525
+    },
+    "generics": {
+      "plain": 251,
+      "reflected": 627
+    },
+    "mapped and conditional types": {
+      "plain": 77,
+      "reflected": 611
+    },
+    "functions": {
+      "plain": 397,
+      "reflected": 804
+    },
+    "imports": {
+      "plain": 505,
+      "reflected": 2638
+    },
+    "library class": {
+      "plain": 251,
+      "reflected": 401
+    },
+    "type-only re-export of a class": {
+      "plain": 167,
+      "reflected": 240
+    },
+    "DOM types in a signature": {
+      "plain": 179,
+      "reflected": 278
+    },
+    "DOM type aliases": {
+      "plain": 77,
+      "reflected": 386
+    }
+  }
+}
