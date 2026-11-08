@@ -193,16 +193,18 @@ function handleCollection(entityStore: EntitySubjectStore<any>, types: Controlle
  * subscription would never complete. Keep a strong reference via the action state (reachable
  * through the client's active replies) as long as there are subscribers.
  */
-function keepAliveWhileSubscribed(state: ActionState, observable: Observable<any>) {
+function keepAliveWhileSubscribed(state: ActionState, observable: Observable<any>, hooks?: { first(): void, last(subject: Subject<any>): void }) {
     let subscriptions = 0;
     const subscribe = observable.subscribe;
     observable.subscribe = function (this: Observable<any>, ...args: any[]) {
         const subscription = subscribe.apply(this, args as any);
         if (subscription.closed) return subscription;
-        subscriptions++;
+        if (++subscriptions === 1) hooks?.first();
         state.observableKeepAlive = this;
         subscription.add(() => {
-            if (--subscriptions === 0) state.observableKeepAlive = undefined;
+            if (--subscriptions !== 0) return;
+            state.observableKeepAlive = undefined;
+            hooks?.last(this as Subject<any>);
         });
         return subscription;
     } as any;
@@ -370,8 +372,24 @@ function actionProtocolFull(reply: RpcMessage, subject: RpcMessageSubject, state
             } else if (body.type === ActionObservableTypes.subject) {
                 const observableSubject = new Subject();
                 let freed = false;
+                let paused = false;
                 state.observableSubjectRef = new WeakRef(observableSubject);
-                keepAliveWhileSubscribed(state, observableSubject);
+                // A Subject without subscribers drops its values, so the server doesn't need to keep observing and
+                // sending them. The client Subject stays usable: a new subscriber attaches the server observer again.
+                keepAliveWhileSubscribed(state, observableSubject, {
+                    first() {
+                        if (!paused || freed) return;
+                        paused = false;
+                        subject.send(RpcTypes.ActionObservableSubjectResume);
+                    },
+                    // takes the Subject as argument: this scope must not capture it, otherwise the finalizer callback,
+                    // which shares the scope, keeps it alive and it's never collected
+                    last(observable) {
+                        if (freed || observable.closed || observable.isStopped) return;
+                        paused = true;
+                        subject.send(RpcTypes.ActionObservableSubjectPause);
+                    },
+                });
 
                 // we have to monkey patch unsubscribe, because there is no other way to hook into that
                 // note: subject.subscribe().add(T), T is not called when subject.unsubscribe() is called.

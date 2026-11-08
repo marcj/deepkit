@@ -136,7 +136,8 @@ export interface RpcServerActionObservableSubject {
     trackingType: NumericKeys<ActionStats>,
     completed: boolean,
     completedByClient: boolean,
-    subscription: Subscription
+    subscription: Subscription,
+    subscribe: () => Subscription,
 }
 
 export class RpcServerAction {
@@ -466,6 +467,20 @@ export class RpcServerAction {
                 break;
             }
 
+            case RpcTypes.ActionObservableSubjectPause: { //the last client subscriber left
+                const subject = this.observableSubjects[message.id];
+                if (!subject || subject.completed) return;
+                subject.subscription.unsubscribe();
+                break;
+            }
+
+            case RpcTypes.ActionObservableSubjectResume: { //a client subscriber arrived after a pause
+                const subject = this.observableSubjects[message.id];
+                if (!subject || subject.completed || !subject.subscription.closed) return;
+                subject.subscription = subject.subscribe();
+                break;
+            }
+
             case RpcTypes.ActionObservableProgressNext: { //ProgressTracker changes from client (e.g. stop signal)
                 const observable = this.observables[message.id];
                 if (!observable || !(observable.observable instanceof ProgressTracker)) return response.error(new RpcError('No observable ProgressTracker to sync found'));
@@ -673,12 +688,7 @@ export class RpcServerAction {
                         }
                     }
 
-                    const v = this.observableSubjects[message.id] = {
-                        subject: result,
-                        trackingType,
-                        completed: false,
-                        completedByClient: false,
-                        subscription: result.subscribe((next) => {
+                    const subscribe = () => result.subscribe((next) => {
                             response.reply(RpcTypes.ResponseActionObservableNext, {
                                 id: message.id,
                                 v: next,
@@ -700,7 +710,15 @@ export class RpcServerAction {
                             response.reply<rpcActionObservableSubscribeId>(RpcTypes.ResponseActionObservableComplete, {
                                 id: message.id,
                             });
-                        }),
+                        });
+
+                    const v = this.observableSubjects[message.id] = {
+                        subject: result,
+                        trackingType,
+                        completed: false,
+                        completedByClient: false,
+                        subscribe,
+                        subscription: subscribe(),
                     } as RpcServerActionObservableSubject;
                 }
 

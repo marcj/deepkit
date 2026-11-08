@@ -367,7 +367,11 @@ export enum RpcTypes {
 
     //Handles changes in ProgressTracker from client side to server (e.g. stop signal)
     //From server to client is handled normally via ObservableNext
-    ActionObservableProgressNext
+    ActionObservableProgressNext,
+
+    //The last client subscriber of a Subject left or a new one arrived: the server releases or attaches its observer
+    ActionObservableSubjectPause,
+    ActionObservableSubjectResume,
 }
 
 export interface rpcClientId {
