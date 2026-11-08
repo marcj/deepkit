@@ -393,7 +393,9 @@ export class SqlQuery {
 
         for (const part of this.parts) {
             if (part instanceof SqlQuery) {
-                sql += part.convertToSQL(platform, placeholderStrategy);
+                const nested = part.convertToSQL(platform, placeholderStrategy, tableName);
+                sql += nested.sql;
+                params.push(...nested.params);
             } else if (part instanceof SQLQueryIdentifier) {
                 const column = platform.quoteIdentifier(part.id);
                 if (tableName) {
