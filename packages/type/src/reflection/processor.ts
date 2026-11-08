@@ -973,6 +973,9 @@ export class Processor {
                         case ReflectionOp.description:
                             (program.stack[program.stackPointer] as TypeProperty).description = program.stack[this.eatParameter() as number] as string;
                             break;
+                        case ReflectionOp.neverDeclared:
+                            this.pushType({ kind: ReflectionKind.never, declared: true });
+                            break;
                         case ReflectionOp.unresolvedTypeParameter:
                             this.pushType({ kind: ReflectionKind.never, unresolvedTypeParameter: program.stack[this.eatParameter() as number] as string });
                             break;
@@ -2011,7 +2014,8 @@ function pushObjectLiteralTypes(
 
     outer:
         for (const member of types) {
-            if (member.kind === ReflectionKind.propertySignature && member.type.kind === ReflectionKind.never && !isUnresolvedTypeParameter(member.type)) continue;
+            //the compiler's placeholder for what it can't express, an explicit never stays
+            if (member.kind === ReflectionKind.propertySignature && member.type.kind === ReflectionKind.never && !member.type.declared && !isUnresolvedTypeParameter(member.type)) continue;
 
             if (member.kind === ReflectionKind.objectLiteral) {
                 //all `extends T` expression land at the beginning of the stack frame, and are always an objectLiteral.

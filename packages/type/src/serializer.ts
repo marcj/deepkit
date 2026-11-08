@@ -2743,6 +2743,11 @@ export class Serializer {
         });
         this.typeGuards.register(20, ReflectionKind.unknown, (type, state) => state.addSetter('true'));
 
+        this.typeGuards.register(1, ReflectionKind.never, (type, state) => {
+            if (type.declared) state.addSetterAndReportErrorIfInvalid('type', 'No value is allowed', 'false');
+            else state.addSetter('true'); //the compiler's placeholder for a type it can't express
+        });
+
         this.typeGuards.register(1, ReflectionKind.symbol, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not a symbol', `'symbol' === typeof ${state.accessor}`));
 
         this.typeGuards.register(1, ReflectionKind.object, (type, state) => {

@@ -131,6 +131,7 @@ export function expectEqualType(actual: any, expected: any, options: {
             if (i === 'jit') continue;
             if (i === 'id') continue;
             if (i === 'indexAccessOrigin') continue;
+            if (i === 'declared') continue;
             if (options.noOrigin && i === 'origin') continue;
             if (options.noTypeNames && (i === 'typeName' || i === 'typeArguments')) continue;
 

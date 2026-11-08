@@ -1821,7 +1821,7 @@ export class ReflectionTransformer implements CustomTransformer {
                 break;
             }
             case SyntaxKind.NeverKeyword: {
-                program.pushOp(ReflectionOp.never);
+                program.pushOp(ReflectionOp.neverDeclared);
                 break;
             }
             case SyntaxKind.AnyKeyword: {

@@ -169,6 +169,11 @@ export interface TypeNever extends TypeAnnotations {
      * like `T` in `function fn<T>() { validate<T>(v) }`, where `type?: ReceiveType<T>` is missing.
      */
     unresolvedTypeParameter?: string;
+    /**
+     * Set for an explicitly written `never`. Without it, never is also the placeholder for
+     * what the compiler can't express, e.g. the type of `cache = new Map()`, which has to stay permissive.
+     */
+    declared?: true;
     parent?: Type;
 }
 

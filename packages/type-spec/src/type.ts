@@ -250,5 +250,7 @@ export enum ReflectionOp {
 
     intrinsic, //has one parameter, the kind of the intrinsic type, and pulls a type from the stack.
 
+    neverDeclared, //an explicitly written `never`. Plain never is also what the compiler emits for everything it can't express, e.g. the type of an unknown initializer expression.
+
     unresolvedTypeParameter, //has one parameter, the index of the stack entry with the name of a type parameter that has no type at runtime. Pushes never.
 }
