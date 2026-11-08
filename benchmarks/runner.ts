@@ -118,7 +118,10 @@ function prepareTarget(version: string, files: string[]): string {
         for (const match of readFileSync(join(root, file), 'utf8').matchAll(/from '(@deepkit\/[a-z-]+)/g)) packages.add(match[1]);
     }
     packages.delete('@deepkit/bench');
-    const dependencies: { [name: string]: string } = { typescript: '~5.8.3', rxjs: '^7.8.0' };
+    //@deepkit/run brings its own TypeScript if it needs another version, and that copy would not have the type compiler installed
+    const [major, minor] = version.split('.').map(Number);
+    const typescript = major > 1 || (major === 1 && minor >= 1) ? JSON.parse(readFileSync(join(root, 'packages', 'run', 'package.json'), 'utf8')).dependencies.typescript : '~5.8.3';
+    const dependencies: { [name: string]: string } = { typescript, rxjs: '^7.8.0' };
     for (const name of packages) dependencies[name] = version;
 
     const packageFile = join(dir, 'package.json');
