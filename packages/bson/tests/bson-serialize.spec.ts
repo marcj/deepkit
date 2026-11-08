@@ -1743,3 +1743,34 @@ test('template literal bigint in union', () => {
     type A = { v: `${bigint}` | Date };
     expect(deserializeBSON<A>(getBSONSerializer<{ v: string }>()({ v: '12' }))).toEqual({ v: '12' });
 });
+
+test('AutoBuffer writes the document after the prepended bytes', () => {
+    const auto = new AutoBuffer(21, 256);
+    const serializer = getBSONSerializer<{ a: string }>();
+    auto.apply(serializer, { a: 'asd' });
+    expect(auto.size).toBe(21 + 4 + 2 + 1 + 8 + 1);
+    expect(deserializeBSONWithoutOptimiser(auto.buffer.subarray(21))).toEqual({ a: 'asd' });
+});
+
+test('AutoBuffer with prepend does not regrow when the document fits', () => {
+    const size = 21 + 4 + 2 + 1 + 8 + 1;
+    const auto = new AutoBuffer(21, size);
+    const before = auto._buffer;
+    auto.apply(getBSONSerializer<{ a: string }>(), { a: 'asd' });
+    expect(auto._buffer).toBe(before);
+    expect(deserializeBSONWithoutOptimiser(auto.buffer.subarray(21))).toEqual({ a: 'asd' });
+});
+
+test('AutoBuffer with prepend grows and writes the complete document', () => {
+    const auto = new AutoBuffer(21, 32);
+    const long = 'x'.repeat(5000);
+    auto.apply(getBSONSerializer<{ a: string }>(), { a: long });
+    expect(deserializeBSONWithoutOptimiser(auto.buffer.subarray(21))).toEqual({ a: long });
+    expect(auto.size).toBe(21 + 4 + 2 + 1 + 4 + 5000 + 1 + 1);
+});
+
+test('AutoBuffer grows geometrically, so a slowly growing message is not written twice every time', () => {
+    const auto = new AutoBuffer(0, 100);
+    auto.apply(getBSONSerializer<{ a: string }>(), { a: 'x'.repeat(110) });
+    expect(auto._buffer.byteLength).toBe(200);
+});

@@ -326,9 +326,10 @@ export class AutoBuffer {
     apply(serializer: AutoBufferSerializer, data: any) {
         this.state.writer.offset = this.prepend;
         serializer(data, this.state);
-        if (this.prepend + this.state.writer.offset > this._buffer.byteLength) {
-            // increase buffer and retry
-            const nextBuffer = new Uint8Array(this.prepend + this.state.writer.offset);
+        // the offset includes the prepended bytes, and counts on although writes past the end are dropped
+        if (this.state.writer.offset > this._buffer.byteLength) {
+            // increase buffer and retry, geometrically so that a slowly growing message is not written twice every time
+            const nextBuffer = new Uint8Array(Math.max(this.state.writer.offset, this._buffer.byteLength * 2));
             if (this.prepend) nextBuffer.set(this._buffer.subarray(0, this.prepend));
             this._buffer = nextBuffer;
 
