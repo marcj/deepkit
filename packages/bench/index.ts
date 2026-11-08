@@ -66,6 +66,10 @@ export type BenchSuiteResult = { [name: string]: BenchResult };
 export interface BenchmarkOptions {
     /** Maximum time to run in seconds (default: 1) */
     maxTime?: number;
+    /** Runs before every iteration and is not timed. Async benchmarks only, which then run one iteration at a time. */
+    beforeEach?: () => Promise<void>;
+    /** Runs after every iteration and is not timed. Async benchmarks only, which then run one iteration at a time. */
+    afterEach?: () => Promise<void>;
 }
 
 interface BenchmarkEntry {
@@ -470,7 +474,7 @@ export class BenchSuite {
         const isAsync = bench.fn instanceof AsyncFunction || (bench.fn as any).constructor?.name === 'AsyncFunction';
 
         const result = isAsync
-            ? await this.testAsync(bench.fn as () => Promise<void>, maxTime)
+            ? await this.testAsync(bench.fn as () => Promise<void>, maxTime, bench.options)
             : this.testSync(bench.fn as () => void, maxTime);
 
         result.async = isAsync;
@@ -525,22 +529,36 @@ export class BenchSuite {
         return this.collectResult(samples, iterations, elapsed, heapDiff, gcEvents);
     }
 
-    private async testAsync(fn: () => Promise<void>, seconds: number): Promise<BenchResult> {
+    private async testAsync(fn: () => Promise<void>, seconds: number, options: BenchmarkOptions = {}): Promise<BenchResult> {
         // Create fresh executors for this benchmark to avoid IC pollution
         const asyncExecutors = createAsyncExecutors();
 
         // Find optimal executor (auto-calibrate)
         let executor = asyncExecutors[0];
-        for (const ex of asyncExecutors) {
-            const start = performance.now();
-            await ex(fn);
-            const t = performance.now() - start;
-            if (t > 5) break;
-            executor = ex;
+        const { beforeEach, afterEach } = options;
+        // the hooks have to run around every single iteration
+        if (!beforeEach && !afterEach) {
+            for (const ex of asyncExecutors) {
+                const start = performance.now();
+                await ex(fn);
+                const t = performance.now() - start;
+                if (t > 5) break;
+                executor = ex;
+            }
         }
 
+        // only the executor is timed
+        const timed = async (): Promise<[iterations: number, time: number]> => {
+            if (beforeEach) await beforeEach();
+            const start = performance.now();
+            const iterations = await executor(fn);
+            const time = performance.now() - start;
+            if (afterEach) await afterEach();
+            return [iterations, time];
+        };
+
         // Warmup
-        for (let i = 0; i < 20; i++) await executor(fn);
+        for (let i = 0; i < 20; i++) await timed();
 
         // Run
         const maxMs = seconds * 1000;
@@ -554,9 +572,7 @@ export class BenchSuite {
         const startTotal = performance.now();
 
         while (consumed < maxMs) {
-            const start = performance.now();
-            const r = await executor(fn);
-            const t = performance.now() - start;
+            const [r, t] = await timed();
             consumed += t;
             samples.push(t / r);
             iterations += r;

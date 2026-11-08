@@ -63,8 +63,7 @@ export async function ormSuite(database: string, library: string, operations: Or
     });
     suite.add(`${library}: insert 1,000 rows`, async () => {
         await operations.insertMany(insertRows);
-        await operations.deleteInserted();
-    });
+    }, { afterEach: operations.deleteInserted });
 
     if (operations.close) {
         const runAsync = suite.runAsync.bind(suite);

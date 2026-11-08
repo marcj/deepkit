@@ -23,9 +23,15 @@ class User {
     constructor(public name: string & Index, public email: string) {}
 }
 
+@entity.name('bench_delete')
+class Deletable {
+    _id: MongoId & PrimaryKey = '';
+    logins: number = 0;
+}
+
 export default async function () {
     const suite = new BenchSuite('mongo');
-    const database = new Database(new MongoDatabaseAdapter(process.env.MONGO_URL || 'mongodb://127.0.0.1/deepkit-bench'), [User]);
+    const database = new Database(new MongoDatabaseAdapter(process.env.MONGO_URL || 'mongodb://127.0.0.1/deepkit-bench'), [User, Deletable]);
     await database.adapter.client.dropDatabase('deepkit-bench');
     await database.migrate();
 
@@ -60,6 +66,15 @@ export default async function () {
         const session = database.createSession();
         for (let k = 0; k < 100; k++) session.add(new User('batch' + k, 'batch@example.com'));
         await session.commit();
+    });
+    suite.add('deleteMany 1,000 rows', async () => {
+        await database.query(Deletable).deleteMany();
+    }, {
+        beforeEach: async () => {
+            const session = database.createSession();
+            for (let k = 0; k < 1000; k++) session.add(new Deletable());
+            await session.commit();
+        },
     });
     suite.add('patchOne', async () => {
         await database.query(User).filter({ _id: ids[i++ % 1000] }).patchOne({ logins: 1 });
