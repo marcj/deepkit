@@ -150,6 +150,10 @@ export function getInstanceStateFromItem<T extends OrmEntity>(item: T): Instance
 }
 
 export function getInstanceState<T extends OrmEntity>(classState: ClassState<T>, item: T): InstanceState<T> {
+    //a state implies that the symbols below are already defined
+    const existing = (item as any)[instanceStateSymbol];
+    if (existing) return existing;
+
     //this approach is up to 60-90x faster than a WeakMap
     if (!(item as any)['constructor'].prototype.hasOwnProperty(instanceStateSymbol)) {
         Object.defineProperty((item as any)['constructor'].prototype, instanceStateSymbol, {
@@ -167,10 +171,7 @@ export function getInstanceState<T extends OrmEntity>(classState: ClassState<T>,
         });
     }
 
-    if (!(item as any)[instanceStateSymbol]) {
-        (item as any)[instanceStateSymbol] = new InstanceState(classState, item);
-    }
-    return (item as any)[instanceStateSymbol];
+    return (item as any)[instanceStateSymbol] = new InstanceState(classState, item);
 }
 
 export type PKHash = string;

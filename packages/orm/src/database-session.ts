@@ -12,7 +12,7 @@ import type { DatabaseAdapter, DatabasePersistence, DatabasePersistenceChangeSet
 import { DatabaseEntityRegistry } from './database-adapter.js';
 import { DatabaseValidationError, OrmEntity } from './type.js';
 import { AbstractClassType, ClassType, CustomError, forwardTypeArguments } from '@deepkit/core';
-import { getPrimaryKeyExtractor, getTypeJitContainer, isReferenceInstance, markAsHydrated, PrimaryKeyFields, ReceiveType, ReflectionClass, ReflectionKind, stringifyType, Type, typeSettings, UnpopulatedCheck, validate } from '@deepkit/type';
+import { getPrimaryKeyExtractor, getTypeJitContainer, getValidatorFunction, isReferenceInstance, markAsHydrated, PrimaryKeyFields, ReceiveType, ReflectionClass, ReflectionKind, stringifyType, Type, typeSettings, UnpopulatedCheck, validate } from '@deepkit/type';
 import { GroupArraySort } from '@deepkit/topsort';
 import { getClassState, getInstanceState, getNormalizedPrimaryKey, IdentityMap } from './identity-map.js';
 import { getClassSchemaInstancePairs } from './utils.js';
@@ -201,12 +201,14 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
                 const inserts: OrmEntity[] = [];
                 const changeSets: DatabasePersistenceChangeSet<OrmEntity>[] = [];
                 const classState = getClassState(group.type);
+                const isValid = getValidatorFunction(undefined, classState.classSchema.type);
 
                 for (const item of group.items) {
                     const state = getInstanceState(classState, item);
-                    const errors = validate(item, classState.classSchema.type);
-                    if (errors.length) {
-                        throw new DatabaseValidationError(classState.classSchema, errors);
+                    // collecting the error messages is only needed when something is wrong
+                    if (!isValid(item)) {
+                        const errors = validate(item, classState.classSchema.type);
+                        if (errors.length) throw new DatabaseValidationError(classState.classSchema, errors);
                     }
 
                     if (state.isKnownInDatabase()) {
