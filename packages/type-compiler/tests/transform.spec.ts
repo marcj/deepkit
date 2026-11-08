@@ -135,7 +135,7 @@ test('export default function', () => {
         `
     });
 
-    expect(res.app).toContain('export default __assignType(function (bar: string');
+    expect(res.app).toContain('export default __assignType({ default: function (bar: string');
 });
 
 test('export default async function', () => {
@@ -147,7 +147,7 @@ test('export default async function', () => {
         `
     });
 
-    expect(res.app).toContain('export default __assignType(async function (bar: string');
+    expect(res.app).toContain('export default __assignType({ default: async function (bar: string');
 });
 
 test('default function name', () => {

@@ -10,6 +10,8 @@
 
 import ts, {
     __String,
+    PropertyAssignment,
+    ComputedPropertyName,
     isVariableStatement,
     isVariableDeclarationList,
     VariableStatement,
@@ -591,6 +593,15 @@ function getFunctionNameFromPosition(value: Node): string | undefined {
         return assignments.includes(parent.operatorToken.kind) ? getIdentifierName(parent.left) : undefined;
     }
     return;
+}
+
+/** A variable hoisted into the function body isn't visible for its parameter initializers. */
+function isInsideParameter(node: Node): boolean {
+    for (let current = node.parent; current; current = current.parent) {
+        if (isParameter(current)) return true;
+        if (isFunctionLike(current) || isBlock(current)) return false;
+    }
+    return false;
 }
 
 function isInsideDecorator(node: Node): boolean {
@@ -3499,10 +3510,11 @@ export class ReflectionTransformer implements CustomTransformer {
             const modifier: readonly Modifier[] = declaration.modifiers
                 ? declaration.modifiers.filter(v => v.kind !== SyntaxKind.ExportKeyword && v.kind !== SyntaxKind.DefaultKeyword && v.kind !== SyntaxKind.Decorator) as Modifier[]
                 : [];
-            return this.f.createExportAssignment(undefined, undefined, this.wrapWithAssignType(
-                this.f.createFunctionExpression(modifier, declaration.asteriskToken, declaration.name, declaration.typeParameters, declaration.parameters, declaration.type, declaration.body),
-                encodedType,
-            ));
+            const fn = this.f.createFunctionExpression(modifier, declaration.asteriskToken, declaration.name, declaration.typeParameters, declaration.parameters, declaration.type, declaration.body);
+            const named = this.getModuleType() === 'esm'
+                ? this.f.createPropertyAccessExpression(this.f.createObjectLiteralExpression([this.f.createPropertyAssignment('default', fn)]), 'default')
+                : fn;
+            return this.f.createExportAssignment(undefined, undefined, this.wrapWithAssignType(named, encodedType));
         }
 
         const assignment = this.f.createExpressionStatement(
@@ -3542,7 +3554,9 @@ export class ReflectionTransformer implements CustomTransformer {
             return expression;
         }
 
-        const name = getFunctionNameFromPosition(value);
+        //in CommonJS, TypeScript emits `exports.default = fn`, which gives no name
+        const isEsmDefaultExport = value.parent && isExportAssignment(value.parent) && !value.parent.isExportEquals && this.getModuleType() === 'esm';
+        const name = isEsmDefaultExport ? 'default' : getFunctionNameFromPosition(value);
         if (name === undefined) return this.wrapWithAssignType(expression, encodedType);
 
         const key = this.f.createStringLiteral(name);
@@ -3550,6 +3564,20 @@ export class ReflectionTransformer implements CustomTransformer {
         return this.wrapWithAssignType(
             isValidIdentifierName(name) ? this.f.createPropertyAccessExpression(literal, name) : this.f.createElementAccessExpression(literal, key),
             encodedType,
+        );
+    }
+
+    /**
+     * {[key]: fn} => {[_a = key]: __assignType({[_a]: fn}[_a], [34])}
+     *
+     * The key is evaluated once, and the function is directly assigned to it to get its name.
+     */
+    protected createComputedKeyAssignment(name: ComputedPropertyName, fn: Expression, encodedType: Expression): PropertyAssignment {
+        const key = this.f.createTempVariable(this.context.hoistVariableDeclaration);
+        const named = this.f.createObjectLiteralExpression([this.f.createPropertyAssignment(this.f.createComputedPropertyName(key), fn)]);
+        return this.f.createPropertyAssignment(
+            this.f.updateComputedPropertyName(name, this.f.createAssignment(key, name.expression)),
+            this.wrapWithAssignType(this.f.createElementAccessExpression(named, key), encodedType),
         );
     }
 
@@ -3572,6 +3600,11 @@ export class ReflectionTransformer implements CustomTransformer {
         const canAssignAfterwards = !isInsideDecorator(original);
 
         const properties = node.properties.map((member, index) => {
+            if (isPropertyAssignment(member) && ts.isComputedPropertyName(member.name) && !isInsideParameter(original)) {
+                const call = member.initializer;
+                const fn = getAssignTypeExpression(call);
+                if (fn && isCallExpression(call) && (isArrowFunction(fn) || (isFunctionExpression(fn) && !fn.name))) return this.createComputedKeyAssignment(member.name, fn, call.arguments[1]);
+            }
             if (!isMethodDeclaration(member) || !member.body) return member;
             const body = member.body;
             const name = isIdentifier(member.name) ? member.name : undefined;
@@ -3597,6 +3630,9 @@ export class ReflectionTransformer implements CustomTransformer {
             if (containsSuper(body)) return member;
 
             const encodedType = this.getTypeOfType(createFunction(name));
+            if (encodedType && ts.isComputedPropertyName(member.name) && !isInsideParameter(original)) {
+                return this.createComputedKeyAssignment(member.name, createFunction(undefined), encodedType);
+            }
             //A method has no binding of its own name, but `function name() {}` has, which would hide an outer variable
             //used in the method. In that case `{name: function () {}}.name` keeps the function name without the binding.
             const shadowsOuter = name && (

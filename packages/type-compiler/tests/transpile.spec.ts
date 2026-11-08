@@ -892,3 +892,16 @@ test('object literal in a decorator argument stays a literal for tools reading i
     expect(res.app).not.toContain('__assignMethodTypes(');
     expect(res.app).toContain('factory: __assignType(function factory(a)');
 });
+
+test('default exported functions keep the name default in ESM', () => {
+    const arrow = transpile({ app: `export default (a: string) => a;` }, { module: ts.ModuleKind.ES2022 });
+    expect(arrow.app).toContain('__assignType({ default: (a) => a }.default');
+    const fn = transpile({ app: `export default function(a: string) { return a; }` }, { module: ts.ModuleKind.ES2022 });
+    expect(fn.app).toContain('.default, ');
+    expect(fn.app).toContain('default: function (a)');
+});
+
+test('default exported functions in CommonJS stay as TypeScript names them', () => {
+    const arrow = transpile({ app: `export default (a: string) => a;` });
+    expect(arrow.app).not.toContain('.default, [');
+});

@@ -162,3 +162,46 @@ test('an arrow function can receive its type argument', () => {
     expect(kind<string>().kind).toBe(ReflectionKind.string);
     expect(kind.name).toBe('kind');
 });
+
+test('computed keys give the name', () => {
+    const key = 'dynamic';
+    const symbol = Symbol('sym');
+    const o = {
+        [key]: (a: string) => a,
+        [symbol]: (a: string) => a,
+    };
+    named(o[key], 'dynamic');
+    named(o[symbol], '[sym]');
+});
+
+test('computed method keys give the name and are evaluated once', () => {
+    let calls = 0;
+    const key = () => {
+        calls++;
+        return 'dynamic';
+    };
+    const o = {
+        [key()](a: string) {
+            return a;
+        },
+    };
+    expect(calls).toBe(1);
+    named((o as any).dynamic, 'dynamic');
+});
+
+test('a computed key in a default parameter still works', () => {
+    const key = 'dynamic';
+    function fn(o = { [key]: (a: string) => a }) {
+        return o[key];
+    }
+    expect(fn()('x')).toBe('x');
+});
+
+test('a recursive function with a computed key does not share the key', () => {
+    function build(depth: number): any {
+        return { [`level${depth}`]: (a: string) => a, inner: depth > 0 ? build(depth - 1) : undefined };
+    }
+    const result = build(1);
+    named(result.level1, 'level1');
+    named(result.inner.level0, 'level0');
+});
