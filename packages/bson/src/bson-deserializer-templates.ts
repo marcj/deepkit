@@ -891,6 +891,7 @@ export function deserializeObjectLiteral(type: TypeClass | TypeObjectLiteral, st
     }
 
     const handleEmbeddedClasses: HandleEmbedded[] = [];
+    const memberNames: (string | number | symbol)[] = [];
 
     for (const member of resolveTypeMembers(type)) {
         if (member.kind === ReflectionKind.indexSignature) {
@@ -901,6 +902,7 @@ export function deserializeObjectLiteral(type: TypeClass | TypeObjectLiteral, st
         if (!isSerializable(member.type)) continue;
         if (excludedAnnotation.isExcluded(member.type, state.registry.serializer.name)) continue;
 
+        memberNames.push(member.name);
         const nameInBson = String(state.namingStrategy.getPropertyName(member, state.registry.serializer.name));
         const valueSetVar = state.compilerContext.reserveName('valueSetVar');
 
@@ -1014,16 +1016,23 @@ export function deserializeObjectLiteral(type: TypeClass | TypeObjectLiteral, st
             const constructorArguments: string[] = [];
             for (const parameter of constructor.getParameters()) {
                 const name = getNameExpression(parameter.getName(), state);
-                constructorArguments.push(parameter.getVisibility() === undefined ? 'undefined' : `${object}[${name}]`);
+                //a parameter passed on to a parent constructor, like `constructor(id: number) { super(id); }`, is a property as well
+                constructorArguments.push(parameter.getVisibility() === undefined && !memberNames.includes(parameter.getName()) ? 'undefined' : `${object}[${name}]`);
             }
 
             const constructorProperties = getDeepConstructorProperties(type).map(v => String(v.name));
-            const resetDefaultSets = constructorProperties.map(v => `delete ${object}.${v};`);
+            // An `Object.assign` of what's left after `delete` puts the object into dictionary mode, which took
+            // most of the time of deserializing a class. Keys of an index signature aren't known in advance, though.
+            const assignRemaining = signatures.length
+                ? `${constructorProperties.map(v => `delete ${object}.${v};`).join('\n')}\nObject.assign(${state.setter}, ${object});`
+                : memberNames.filter(v => !constructorProperties.includes(String(v))).map(v => {
+                    const key = JSON.stringify(v);
+                    return `if (${key} in ${object}) ${state.setter}[${key}] = ${object}[${key}];`;
+                }).join('\n');
 
             createClassInstance = `
                 ${state.setter} = new ${state.compilerContext.reserveConst(type.classType, 'classType')}(${constructorArguments.join(', ')});
-                ${resetDefaultSets.join('\n')}
-                Object.assign(${state.setter}, ${object});
+                ${assignRemaining}
             `;
         } else {
             initializeObject = `new ${state.compilerContext.reserveConst(type.classType, 'classType')}()`;
