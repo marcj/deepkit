@@ -105,6 +105,13 @@ export function formatTime(hz: number): string {
     return ms.toFixed(ms < 10 ? 1 : 0) + ' ms';
 }
 
+/** Small changes in percent, from 10% on as factor. */
+export function formatChange(percent: number): string {
+    if (Math.abs(percent) < 10) return `${percent >= 0 ? '+' : ''}${percent.toFixed(1)}%`;
+    const factor = 1 + percent / 100;
+    return factor >= 1 ? `${factor.toFixed(1)}× faster` : `${(1 / factor).toFixed(1)}× slower`;
+}
+
 /** Change in percent of b to a, undefined if one is missing; noise if within twice the margin of error, like `npm run bench -- --compare`. */
 export function change(benchmark: Benchmark, a: number, b: number): { percent: number; noise: boolean } | undefined {
     const before = benchmark.hz[a], after = benchmark.hz[b];
@@ -329,7 +336,7 @@ interface TrendPoint {
                 <div class="latest">
                     {{ c.latest }}
                     @if (c.change) {
-                        <span [class.faster]="!noise() && c.faster" [class.slower]="!noise() && !c.faster" [class.unchanged]="noise()">{{ noise() ? 'no change' : c.change }}</span>
+                        <span [class.faster]="!noise() && c.faster" [class.slower]="!noise() && !c.faster" [class.unchanged]="noise()">{{ c.change }}</span>
                     }
                 </div>
             }
@@ -448,7 +455,7 @@ export class BenchmarkTrendComponent {
             dots,
             latest: metric ? metric.format(last.hz) : formatTime(last.hz),
             faster: metric ? last.hz <= base : factor >= 1,
-            change: metric ? (points.length > 1 || release ? metric.change(last.hz, base) : undefined) : points.length > 1 || release ? (factor >= 1 ? factor.toFixed(1) + '× faster' : (1 / factor).toFixed(1) + '× slower') : '',
+            change: metric ? (points.length > 1 || release ? metric.change(last.hz, base) : undefined) : points.length > 1 || release ? formatChange((factor - 1) * 100) : '',
             first: points[0].label,
             last: last.label,
         };
@@ -603,6 +610,9 @@ const highlights: { suite: string; name: string; label: string }[] = [
     { suite: 'comparison/serialization', name: 'deepkit cast (with validation)', label: 'cast<User>()' },
     { suite: 'type/serialization', name: 'deepkit array[100] deserialize', label: 'deserialize<T[]>(), 100 items' },
     { suite: 'http/router', name: 'deserialize - user array (10)', label: 'HTTP body with 10 users' },
+    { suite: 'injector/di', name: 'get simple provider', label: 'injector.get()' },
+    { suite: 'injector/di', name: 'get provider with dependencies', label: 'injector.get() with dependencies' },
+    { suite: 'injector/di', name: 'scoped: new scope each call', label: 'Scoped service, new scope' },
     { suite: 'rpc/messages', name: 'createRpcMessage small body', label: 'RPC message with body' },
 ];
 
@@ -804,7 +814,7 @@ const suiteTitles: { [name: string]: string } = {
                 <h2>All benchmarks</h2>
                 <p class="intro">
                     Time per operation in master and the change of operations per second since the last release.
-                    Changes within twice the measurement error count as no change.
+                    Changes within twice the measurement error are shown in grey.
                 </p>
                 @for (suite of suites(); track suite.id) {
                     <details id="{{ suite.id }}">
@@ -1126,9 +1136,7 @@ export class BenchmarksComponent {
                 const factor = 1 + c.percent / 100;
                 return {
                     time: formatTime(hz),
-                    change: c.noise
-                        ? { text: 'no change', faster: false, slower: false }
-                        : { text: factor >= 1 ? factor.toFixed(1) + '× faster' : (1 / factor).toFixed(1) + '× slower', faster: factor >= 1, slower: factor < 1 },
+                    change: { text: formatChange(c.percent), faster: !c.noise && factor >= 1, slower: !c.noise && factor < 1 },
                 };
             });
             return [{ label: h.label, cells }];
@@ -1188,13 +1196,13 @@ export class BenchmarksComponent {
                 reflectedBytes: formatBytes(build.bytes.reflected[b]!),
                 sizeOverhead: formatPercent(sizeOverhead),
                 gzipOverhead: formatPercent(overhead(build.gzip, b)!),
-                sizeChange: sizeDifference === undefined ? 'new' : Math.abs(sizeDifference) < 0.05 ? 'no change' : overheadMetric.change(sizeOverhead, previousSize!),
+                sizeChange: sizeDifference === undefined ? 'new' : overheadMetric.change(sizeOverhead, previousSize!),
                 sizeBetter: sizeDifference !== undefined && sizeDifference <= -0.05,
                 sizeWorse: sizeDifference !== undefined && sizeDifference >= 0.05,
                 plainTime: formatMilliseconds(build.time.plain[b]!),
                 reflectedTime: formatMilliseconds(after),
                 timeOverhead: formatPercent(timeOverhead),
-                timeChange: timeDifference === undefined ? 'new' : timeNoise ? 'no change' : buildTimeMetric.change(after, before!),
+                timeChange: timeDifference === undefined ? 'new' : buildTimeMetric.change(after, before!),
                 timeBetter: !timeNoise && timeDifference! < 0,
                 timeWorse: !timeNoise && timeDifference! > 0,
             }];
@@ -1240,7 +1248,7 @@ export class BenchmarksComponent {
                         name: benchmark.name,
                         time: formatTime(hz),
                         ops: formatOps(hz),
-                        change: !c ? 'new' : c.noise ? 'no change' : (c.percent > 0 ? '+' : '') + c.percent.toFixed(0) + '%',
+                        change: !c ? 'new' : formatChange(c.percent),
                         faster: !!c && !c.noise && c.percent > 0,
                         slower: !!c && !c.noise && c.percent < 0,
                     }];
