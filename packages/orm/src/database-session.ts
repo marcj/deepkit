@@ -643,6 +643,7 @@ export class DatabaseSession<ADAPTER extends DatabaseAdapter = DatabaseAdapter> 
             //make sure all stuff in the identity-map is known
             const round = this.getCurrentRound();
             if (this.withIdentityMap) {
+                this.identityMap.registerPending();
                 for (const map of this.identityMap.registry.values()) {
                     for (const item of map.values()) {
                         round.add([item.ref]);

@@ -183,6 +183,12 @@ type Store = {
 export class IdentityMap {
     registry = new Map<ReflectionClass<any>, Map<PKHash, Store>>();
 
+    /**
+     * Items that are not yet in the registry, as a flat list of hash and store entry. Putting a string key into
+     * a Map is by far the most expensive part of remembering an item, and a session that only inserts never reads it.
+     */
+    protected pending = new Map<ReflectionClass<any>, (PKHash | Store)[]>();
+
     deleteMany<T>(classSchema: ReflectionClass<T>, pks: Partial<T>[]) {
         const store = this.getStore(classSchema);
         const state = getClassState(classSchema);
@@ -215,11 +221,13 @@ export class IdentityMap {
      * Whether items of this entity are known, and thus have to be removed when they are deleted.
      */
     hasItems(classSchema: ReflectionClass<any>): boolean {
+        if (this.pending.has(classSchema)) return true;
         const store = this.registry.get(classSchema);
         return store !== undefined && store.size > 0;
     }
 
     clear<T>() {
+        this.pending.clear();
         this.registry.clear();
     }
 
@@ -235,12 +243,12 @@ export class IdentityMap {
 
     storeMany<T>(classSchema: ReflectionClass<T>, items: T[]) {
         if (!classSchema.hasPrimary()) throw new Error(`Entity ${classSchema.getClassName()} has no primary field defined. Use @f.primary to defined one.`);
-        const store = this.getStore(classSchema);
         const state = getClassState(classSchema);
+        let pending = this.pending.get(classSchema);
+        if (!pending) this.pending.set(classSchema, pending = []);
 
         for (const item of items) {
-            const pkHash = state.primaryKeyHashGenerator(item);
-            store.set(pkHash, { ref: item, stale: false });
+            pending.push(state.primaryKeyHashGenerator(item), { ref: item, stale: false });
             getInstanceState(state as ClassState<any>, item).markAsPersisted();
         }
     }
@@ -255,14 +263,22 @@ export class IdentityMap {
         return store.has(pk) ? store.get(pk)!.ref : undefined;
     }
 
-    protected getStore(classSchema: ReflectionClass<any>): Map<PKHash, Store> {
-        const store = this.registry.get(classSchema);
-        if (store) {
-            return store;
-        }
+    /**
+     * Moves all pending items into the registry. Needed before reading `registry` directly.
+     */
+    registerPending(): void {
+        for (const classSchema of [...this.pending.keys()]) this.getStore(classSchema);
+    }
 
-        const newStore = new Map();
-        this.registry.set(classSchema, newStore);
-        return newStore;
+    protected getStore(classSchema: ReflectionClass<any>): Map<PKHash, Store> {
+        let store = this.registry.get(classSchema);
+        if (!store) this.registry.set(classSchema, store = new Map());
+
+        const pending = this.pending.get(classSchema);
+        if (pending) {
+            this.pending.delete(classSchema);
+            for (let i = 0; i < pending.length; i += 2) store.set(pending[i] as PKHash, pending[i + 1] as Store);
+        }
+        return store;
     }
 }
