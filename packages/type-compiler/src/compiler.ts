@@ -541,6 +541,10 @@ function isTypeReferencePack(expression: Expression): boolean {
     return isStringLiteral(ops) && (ops.text === 'n!' || ops.text === 'P7!');
 }
 
+function containsIdentifier(node: Node, name: string): boolean {
+    return (isIdentifier(node) && getIdentifierName(node) === name) || !!ts.forEachChild(node, child => containsIdentifier(child, name));
+}
+
 export class ReflectionTransformer implements CustomTransformer {
     sourceFile!: SourceFile;
     protected f: NodeFactory;
@@ -845,13 +849,23 @@ export class ReflectionTransformer implements CustomTransformer {
                 let valid = true;
                 if (node.name.kind === SyntaxKind.Identifier && getIdentifierName(node.name) === 'default') valid = false;
                 if (valid) {
-                    const method = this.decorateFunctionExpression(
-                        this.f.createFunctionExpression(
-                            node.modifiers as ReadonlyArray<Modifier>, node.asteriskToken, isIdentifier(node.name) ? node.name : undefined,
-                            node.typeParameters, node.parameters, node.type, node.body,
-                        ),
+                    const declaration = node;
+                    const body = node.body;
+                    const name = isIdentifier(node.name) ? node.name : undefined;
+                    const createFunction = (functionName: Identifier | undefined) => this.f.createFunctionExpression(
+                        declaration.modifiers as ReadonlyArray<Modifier>, declaration.asteriskToken, functionName,
+                        declaration.typeParameters, declaration.parameters, declaration.type, body,
                     );
-                    node = this.f.createPropertyAssignment(node.name, method);
+                    const encodedType = this.getTypeOfType(createFunction(name));
+                    //A method has no binding of its own name, but `function name() {}` has, which would hide an outer variable
+                    //used in the method. In that case `{name: function () {}}.name` keeps the function name without the binding.
+                    const shadowsOuter = name && (
+                        node.parameters.some(v => containsIdentifier(v, getIdentifierName(name))) || containsIdentifier(body, getIdentifierName(name))
+                    );
+                    const fn: Expression = name && shadowsOuter
+                        ? this.f.createPropertyAccessExpression(this.f.createObjectLiteralExpression([this.f.createPropertyAssignment(name, createFunction(undefined))]), name)
+                        : createFunction(name);
+                    node = this.f.createPropertyAssignment(node.name, encodedType ? this.wrapWithAssignType(fn, encodedType) : fn);
                 }
             }
 
