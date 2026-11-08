@@ -753,14 +753,14 @@ test('types of third-party declaration files', () => {
     const res = transpile({
         'app': `
             import { Client, Options, Options as AliasedOptions } from 'built';
-            import OpenAIDefault, { OpenAI, OpenAI as AI, Settings } from 'plain';
+            import OpenAIDefault, { OpenAI, OpenAI as AI, Settings, Settings as AliasedSettings } from 'plain';
             import Reexported from 'reexported';
             import DefaultClass from 'default-class';
             import Cjs from 'cjs';
             export class Service {
                 constructor(
                     public client: Client, public options: Options, public aliasedOptions: AliasedOptions,
-                    public openai: OpenAI, public ai: AI, public def: OpenAIDefault, public settings: Settings,
+                    public openai: OpenAI, public ai: AI, public def: OpenAIDefault, public settings: Settings, public aliasedSettings: AliasedSettings,
                     public reexported: Reexported, public defaultClass: DefaultClass, public cjs: Cjs,
                 ) {}
             }
@@ -789,7 +789,11 @@ test('types of third-party declaration files', () => {
     });
     expect(res.app).toContain('() => built_1.Client');
     expect(res.app).toContain('() => __ΩOptions');
-    expect(res.app).not.toContain('__ΩAliasedOptions');
+    //the library exports __ΩOptions, a renamed import is bound to it (#727)
+    expect(res.app).toContain('__ΩOptions: __ΩAliasedOptions');
+    expect(res.app).toContain('() => __ΩAliasedOptions');
+    //the library exports no __ΩSettings, so there is nothing to import
+    expect(res.app).not.toContain('__ΩAliasedSettings');
     expect(res.app).toContain('() => plain_1.OpenAI');
     expect(res.app).toContain(`'Settings'`);
     // default and aliased imports of classes are class references too

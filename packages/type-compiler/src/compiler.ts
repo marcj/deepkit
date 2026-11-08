@@ -571,7 +571,7 @@ export class ReflectionTransformer implements CustomTransformer {
      */
     protected compiledDeclarations = new Set<Node>();
 
-    protected addImports: { importDeclaration: ImportDeclaration | JSDocImportTag, identifier: Identifier }[] = [];
+    protected addImports: { importDeclaration: ImportDeclaration | JSDocImportTag, identifier: Identifier, exportedIdentifier?: Identifier }[] = [];
     protected additionalImports = new Map<ImportDeclaration | JSDocImportTag, Statement>();
 
     /**
@@ -1133,7 +1133,7 @@ export class ReflectionTransformer implements CustomTransformer {
         if (this.addImports.length) {
             const handledIdentifier: string[] = [];
             // group by importDeclaration so that we have one `{...} per importDeclaration`
-            const importMap = new Map<ImportDeclaration | JSDocImportTag, Identifier[]>();
+            const importMap = new Map<ImportDeclaration | JSDocImportTag, { identifier: Identifier, exportedIdentifier?: Identifier }[]>();
             for (const imp of this.addImports) {
                 if (handledIdentifier.includes(getIdentifierName(imp.identifier))) continue;
                 handledIdentifier.push(getIdentifierName(imp.identifier));
@@ -1142,10 +1142,10 @@ export class ReflectionTransformer implements CustomTransformer {
                     arr = [];
                     importMap.set(imp.importDeclaration, arr);
                 }
-                arr.push(imp.identifier);
+                arr.push(imp);
             }
 
-            for (const [importDeclaration, identifiers] of importMap.entries()) {
+            for (const [importDeclaration, imports] of importMap.entries()) {
                 if (this.additionalImports.has(importDeclaration)) {
                     throw new Error('Internal error: additional import already exists');
                 }
@@ -1155,8 +1155,8 @@ export class ReflectionTransformer implements CustomTransformer {
                         undefined,
                         this.f.createVariableDeclarationList(
                             [this.f.createVariableDeclaration(
-                                this.f.createObjectBindingPattern(identifiers.map(identifier => this.f.createBindingElement(
-                                    undefined, undefined, identifier, undefined
+                                this.f.createObjectBindingPattern(imports.map(({ identifier, exportedIdentifier }) => this.f.createBindingElement(
+                                    undefined, exportedIdentifier, identifier, undefined
                                 ))),
                                 undefined,
                                 undefined,
@@ -1175,7 +1175,7 @@ export class ReflectionTransformer implements CustomTransformer {
                     this.additionalImports.set(importDeclaration, typeDeclWithComment);
                 } else {
                     // import {a, b, c} from './bar.js'
-                    const namedImports = this.f.createNamedImports(identifiers.map(identifier => this.f.createImportSpecifier(false, undefined, identifier)));
+                    const namedImports = this.f.createNamedImports(imports.map(({ identifier, exportedIdentifier }) => this.f.createImportSpecifier(false, exportedIdentifier, identifier)));
                     const importStatement = this.f.createImportDeclaration(undefined,
                         this.f.createImportClause(false, undefined, namedImports), importDeclaration.moduleSpecifier,
                     );
@@ -2449,7 +2449,7 @@ export class ReflectionTransformer implements CustomTransformer {
      * This is a custom resolver based on populated `locals` from the binder. It uses a custom resolution algorithm since
      * we have no access to the binder/TypeChecker directly and instantiating a TypeChecker per file/transformer is incredible slow.
      */
-    protected resolveDeclaration(typeName: EntityName): { declaration: Node, importDeclaration?: ImportDeclaration | JSDocImportTag, typeOnly?: boolean } | void {
+    protected resolveDeclaration(typeName: EntityName): { declaration: Node, importDeclaration?: ImportDeclaration | JSDocImportTag, typeOnly?: boolean, exportedName?: string } | void {
         let current: Node = typeName.parent;
         if (typeName.kind === SyntaxKind.QualifiedName) return; //namespace access not supported yet, e.g. type a = Namespace.X;
 
@@ -2499,6 +2499,7 @@ export class ReflectionTransformer implements CustomTransformer {
 
         let importDeclaration: ImportDeclaration | JSDocImportTag | undefined = undefined;
         let typeOnly = false;
+        let exportedName: string | undefined = undefined;
 
         if (declaration && isImportSpecifier(declaration)) {
             if (declaration.isTypeOnly) typeOnly = true;
@@ -2515,6 +2516,8 @@ export class ReflectionTransformer implements CustomTransformer {
             //the module exports the original name: `import { A as B }` exports A, `import B from` exports default
             const importedName = declaration && isImportSpecifier(declaration) && declaration.propertyName ? getIdentifierName(declaration.propertyName)
                 : declaration && isImportClause(declaration) ? 'default' : getEscapedText(typeName);
+            //`import { A as B }`: the runtime type is exported as __ΩA, not __ΩB
+            if (declaration && isImportSpecifier(declaration) && declaration.propertyName && importedName !== 'default') exportedName = importedName;
             declaration = this.resolveImportSpecifier(importedName, importDeclaration, this.sourceFile);
         }
 
@@ -2525,7 +2528,7 @@ export class ReflectionTransformer implements CustomTransformer {
 
         if (!declaration) return;
 
-        return { declaration, importDeclaration, typeOnly };
+        return { declaration, importDeclaration, typeOnly, exportedName };
     }
 
     protected getDeclarationVariableName(typeName: EntityName): Identifier {
@@ -2713,6 +2716,8 @@ export class ReflectionTransformer implements CustomTransformer {
                 }
 
                 const runtimeTypeName = this.getDeclarationVariableName(typeName);
+                //the name in the imported module, if different from the local one
+                const exportedIdentifier = resolved.exportedName ? this.f.createIdentifier('__Ω' + resolved.exportedName) : undefined;
 
                 //to break recursion, we track which declaration has already been compiled
                 if (!this.compiledDeclarations.has(declaration) && !this.compileDeclarations.has(declaration)) {
@@ -2750,7 +2755,7 @@ export class ReflectionTransformer implements CustomTransformer {
                                 // this is necessary since we emit an additional import `import { __ΩXY } from 'my-module'`,
                                 // so we check if whatever file we get from resolve() actually exports __ΩXY.
                                 const resolverDecVariable = this.resolveImportSpecifier(
-                                    getEscapedText(runtimeTypeName),
+                                    getEscapedText(exportedIdentifier || runtimeTypeName),
                                     resolved.importDeclaration,
                                     this.sourceFile,
                                 );
@@ -2762,7 +2767,7 @@ export class ReflectionTransformer implements CustomTransformer {
                                     return;
                                 }
 
-                                this.addImports.push({ identifier: runtimeTypeName, importDeclaration: resolved.importDeclaration });
+                                this.addImports.push({ identifier: runtimeTypeName, exportedIdentifier, importDeclaration: resolved.importDeclaration });
                             } else {
                                 const reflection = this.getReflectionConfig(declarationSourceFile);
                                 // if this is never, then its generally disabled for this file
@@ -2778,7 +2783,7 @@ export class ReflectionTransformer implements CustomTransformer {
                                     return;
                                 }
 
-                                this.addImports.push({ identifier: runtimeTypeName, importDeclaration: resolved.importDeclaration });
+                                this.addImports.push({ identifier: runtimeTypeName, exportedIdentifier, importDeclaration: resolved.importDeclaration });
                             }
                         }
                     } else {
