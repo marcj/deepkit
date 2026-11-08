@@ -545,7 +545,7 @@ const databaseSuites: { suite: string; title: string; drivers: string[] }[] = [
 const databaseOperations: { name: string; title: string; description: string }[] = [
     { name: 'findOne by id', title: 'findOne by id', description: 'A row by its primary key.' },
     { name: 'find 10,000 rows', title: 'Load 10,000 rows', description: 'All rows of the table as objects.' },
-    { name: 'insert 1,000 rows', title: 'Insert 1,000 rows', description: 'In one unit of work or batch, then deleted again.' },
+    { name: 'insert 1,000 rows', title: 'Insert 1,000 rows', description: 'In one unit of work or batch.' },
 ];
 
 /** Benchmarks of whole operations, shown over time. */
