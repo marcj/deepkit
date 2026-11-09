@@ -161,6 +161,7 @@ export class SQLiteConnection extends SQLConnection {
         super(connectionPool, logger, transaction, stopwatch);
         this.db = new SQLiteConnection.DatabaseConstructor(this.dbPath);
         this.db.exec('PRAGMA foreign_keys=ON');
+        if ((connectionPool as SQLiteConnectionPool).walMode && dbPath !== ':memory:') this.enableWal();
         this.db.function('regexp', { deterministic: true }, (regex: any, text: any) => {
             const splitter = regex.indexOf('::');
             if (splitter !== -1) {
@@ -168,6 +169,15 @@ export class SQLiteConnection extends SQLConnection {
             }
             return new RegExp(regex).test(text) ? 1 : 0;
         });
+    }
+
+    protected enableWal() {
+        try {
+            this.db.pragma('journal_mode = WAL');
+        } catch (error: any) {
+            //e.g. a read-only file or another process holding a lock. The database still works in its current mode.
+            this.logger.warn(`Could not enable WAL for SQLite database ${this.dbPath}: ${error.message}`);
+        }
     }
 
     async prepare(sql: string) {
@@ -237,6 +247,13 @@ export class SQLiteConnectionPool extends SQLConnectionPool {
 
     //we keep the first connection alive
     protected firstConnection?: SQLiteConnection;
+
+    /**
+     * Whether file databases use write-ahead logging, which makes reads much faster and lets them run next to a write.
+     * It is stored in the database file and adds -wal and -shm files next to it. Has to be set before the first query.
+     * Turn it off for databases on a network filesystem, which WAL does not support.
+     */
+    public walMode: boolean = true;
 
     constructor(
         protected dbPath: string | ':memory:',
