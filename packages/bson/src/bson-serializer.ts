@@ -105,13 +105,14 @@ export const JS_INT_MIN = -0x20000000000000; // Any integer down to -2^53 can be
 const LONG_MAX = 'undefined' !== typeof BigInt ? BigInt('9223372036854775807') : 9223372036854775807;
 const LONG_MIN = 'undefined' !== typeof BigInt ? BigInt('-9223372036854775807') : -9223372036854775807;
 
-export function hexToByte(hex: string, index: number = 0, offset: number = 0): number {
-    let code1 = hex.charCodeAt(index * 2 + offset) - 48;
-    if (code1 > 9) code1 -= 39;
+// a table, because whether a digit is a letter is random in an id, which a branch can't predict
+const hexValues = new Uint8Array(256);
+for (let i = 0; i < 10; i++) hexValues[48 + i] = i;
+for (let i = 0; i < 6; i++) hexValues[97 + i] = hexValues[65 + i] = 10 + i;
 
-    let code2 = hex.charCodeAt((index * 2) + offset + 1) - 48;
-    if (code2 > 9) code2 -= 39;
-    return code1 * 16 + code2;
+export function hexToByte(hex: string, index: number = 0, offset: number = 0): number {
+    const position = index * 2 + offset;
+    return hexValues[hex.charCodeAt(position)] * 16 + hexValues[hex.charCodeAt(position + 1)];
 }
 
 export function uuidStringToByte(hex: string, index: number = 0): number {

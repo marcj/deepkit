@@ -22,6 +22,9 @@ test('hexToByte', () => {
     expect(hexToByte('f0ff', 1)).toBe(255);
     expect(hexToByte('f00001', 2)).toBe(1);
 
+    expect(hexToByte('AB')).toBe(171);
+    expect(hexToByte('aB')).toBe(171);
+
     expect(hexToByte('f8')).toBe(16 * 15 + 8);
     expect(hexToByte('41')).toBe(16 * 4 + 1);
 
