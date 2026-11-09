@@ -249,5 +249,12 @@
   "Validation with error messages": "エラーメッセージ付きのバリデーション",
   "MongoDB: find one document by id": "MongoDB: IDで1件のドキュメントを検索",
   "PostgreSQL: find one row by id": "PostgreSQL: IDで1行を検索",
-  "PostgreSQL: insert 1,000 rows": "PostgreSQL: 1,000行を挿入"
+  "PostgreSQL: insert 1,000 rows": "PostgreSQL: 1,000行を挿入",
+  "What you can build with Deepkit": "Deepkitで構築できるもの",
+  "TypeScript backend framework": "TypeScriptバックエンドフレームワーク",
+  "TypeScript RPC framework": "TypeScript RPCフレームワーク",
+  "TypeScript CLI framework": "TypeScript CLIフレームワーク",
+  "TypeScript dependency injection": "TypeScript依存性注入",
+  "TypeScript ORM": "TypeScript ORM",
+  "CLI Framework": "CLIフレームワーク"
 }

@@ -249,5 +249,11 @@
   "Validation with error messages": "带错误消息的验证",
   "MongoDB: find one document by id": "MongoDB：按 ID 查找单个文档",
   "PostgreSQL: find one row by id": "PostgreSQL：按 ID 查找单行",
-  "PostgreSQL: insert 1,000 rows": "PostgreSQL：插入 1,000 行"
+  "PostgreSQL: insert 1,000 rows": "PostgreSQL：插入 1,000 行",
+  "What you can build with Deepkit": "使用 Deepkit 可以构建什么",
+  "TypeScript backend framework": "TypeScript 后端框架",
+  "TypeScript RPC framework": "TypeScript RPC 框架",
+  "TypeScript CLI framework": "TypeScript CLI 框架",
+  "TypeScript dependency injection": "TypeScript 依赖注入",
+  "TypeScript ORM": "TypeScript ORM"
 }

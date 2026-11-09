@@ -1,8 +1,8 @@
 # 查询
 
-查询是一个对象，用于描述如何从数据库检索或修改数据。它有多种方法来描述查询，以及执行它们的终止方法。数据库适配器可以通过多种方式扩展查询 API，以支持数据库特定的功能。
+查询是一个对象,用于描述如何从数据库中检索或修改数据。它提供了多个用于描述查询的方法,以及用于执行查询的终止方法。数据库适配器可以通过多种方式扩展查询 API,以支持特定于数据库的功能。
 
-你可以使用 `Database.query(T)` 或 `Session.query(T)` 创建查询。我们建议使用 Session，因为它能提升性能。
+你可以使用 `Database.query(T)` 或 `Session.query(T)` 创建查询。我们推荐使用 Session,因为它可以提升性能。
 
 ```typescript
 @entity.name('user')
@@ -22,48 +22,48 @@ const database = new Database(...);
 const users = await database.query(User).select('username').find();
 ```
 
-## 过滤器
+## 过滤
 
 可以应用过滤器来限制结果集。
 
 ```typescript
-// 简单过滤器
+//简单过滤器
 const users = await database.query(User).filter({name: 'User1'}).find();
 
-// 多个过滤器，全部 AND
+//多个过滤条件,全部以 AND 连接
 const users = await database.query(User).filter({name: 'User1', id: 2}).find();
 
-// 范围过滤：$gt, $lt, $gte, $lte（大于，小于，...）
-// 等价于 WHERE created < NOW()
+//范围过滤器:$gt、$lt、$gte、$lte(大于、小于……)
+//等同于 WHERE created < NOW()
 const users = await database.query(User).filter({created: {$lt: new Date}}).find();
-// 等价于 WHERE id > 500
+//等同于 WHERE id > 500
 const users = await database.query(User).filter({id: {$gt: 500}}).find();
-// 等价于 WHERE id >= 500
+//等同于 WHERE id >= 500
 const users = await database.query(User).filter({id: {$gte: 500}}).find();
 
-// 集合过滤：$in, $nin（在，不在）
-// 等价于 WHERE id IN (1, 2, 3)
+//集合过滤器:$in、$nin(in、not in)
+//等同于 WHERE id IN (1, 2, 3)
 const users = await database.query(User).filter({id: {$in: [1, 2, 3]}}).find();
 
-// 正则过滤
+//正则表达式过滤器
 const users = await database.query(User).filter({username: {$regex: /User[0-9]+/}}).find();
 
-// 分组：$and, $nor, $or
-// 等价于 WHERE (username = 'User1') OR (username = 'User2')
+//分组:$and、$nor、$or
+//等同于 WHERE (username = 'User1') OR (username = 'User2')
 const users = await database.query(User).filter({
     $or: [{username: 'User1'}, {username: 'User2'}]
 }).find();
 
 
-// 嵌套分组
-// 等价于 WHERE username = 'User1' OR (username = 'User2' and id > 0)
+//嵌套分组
+//等同于 WHERE username = 'User1' OR (username = 'User2' and id > 0)
 const users = await database.query(User).filter({
     $or: [{username: 'User1'}, {username: 'User2', id: {$gt: 0}}]
 }).find();
 
 
-// 嵌套分组
-// 等价于 WHERE username = 'User1' AND (created < NOW() OR id > 0)
+//嵌套分组
+//等同于 WHERE username = 'User1' AND (created < NOW() OR id > 0)
 const users = await database.query(User).filter({
     $and: [{username: 'User1'}, {$or: [{created: {$lt: new Date}, id: {$gt: 0}}]}]
 }).find();
@@ -75,20 +75,20 @@ const users = await database.query(User).filter({
 
 ### 正则表达式
 
-### 分组 AND/OR
+### AND/OR 分组
 
 ### In
 
-## 选择字段
+## Select
 
-要缩小从数据库接收的字段范围，可以使用 `select('field1')`。
+要缩小从数据库接收的字段范围,可以使用 `select('field1')`。
 
 ```typescript
 const user = await database.query(User).select('username').findOne();
 const user = await database.query(User).select('id', 'username').findOne();
 ```
 
-需要注意的是，一旦使用 `select` 缩小了字段范围，结果将不再是实体的实例，而只是普通对象字面量。
+需要注意的是,一旦使用 `select` 缩小了字段范围,结果就不再是实体的实例,而只是对象字面量。
 
 ```
 const user = await database.query(User).select('username').findOne();
@@ -97,8 +97,8 @@ user instanceof User; //false
 
 ## 排序
 
-使用 `orderBy(field, order)` 可以改变条目的顺序。
-可以多次调用 `orderBy` 以进一步细化排序。
+使用 `orderBy(field, order)` 可以更改条目的顺序。
+可以多次执行 `orderBy`,以逐步细化排序。
 
 ```typescript
 const users = await session.query(User).orderBy('created', 'desc').find();
@@ -113,18 +113,18 @@ const users = await session.query(User).orderBy('created', 'asc').find();
 const users = await session.query(User).itemsPerPage(50).page(1).find();
 ```
 
-通过备用方法 `limit` 和 `skip` 也可以手动分页。
+也可以使用替代方法 `limit` 和 `skip` 手动分页。
 
 ```typescript
 const users = await session.query(User).limit(5).skip(10).find();
 ```
 
 [#database-join]
-## 连接（Join）
+## Join
 
-默认情况下，实体中的引用既不会包含在查询中也不会被加载。若要在查询中包含连接但不加载引用，请使用 `join()`（左连接）或 `innerJoin()`。若要在查询中包含连接并加载引用，请使用 `joinWith()` 或 `innerJoinWith()`。
+默认情况下,实体中的引用既不会包含在查询中,也不会被加载。要在查询中包含 join 但不加载引用,请使用 `join()`(left join)或 `innerJoin()`。要在查询中包含 join 并加载引用,请使用 `joinWith()` 或 `innerJoinWith()`。
 
-以下所有示例都假设这些模型模式：
+以下所有示例均假定使用这些模型 schema:
 
 ```typescript
 @entity.name('group')
@@ -149,41 +149,41 @@ class User {
 ```
 
 ```typescript
-// 只选择有分配到组的用户（INNER JOIN）
+//仅选择已分配 group 的用户(INNER JOIN)
 const users = await session.query(User).innerJoin('group').find();
 for (const user of users) {
-    user.group; // 报错，因为引用未被加载
+    user.group; //错误,因为引用未被加载
 }
 ```
 
 ```typescript
-// 只选择有分配到组的用户（INNER JOIN）并加载关系
+//仅选择已分配 group 的用户(INNER JOIN)并加载关系
 const users = await session.query(User).innerJoinWith('group').find();
 for (const user of users) {
-    user.group.name; // 可用
+    user.group.name; //正常工作
 }
 ```
 
-要修改连接查询，请使用相同的方法，但加上 `use` 前缀：`useJoin`、`useInnerJoin`、`useJoinWith` 或 `useInnerJoinWith`。要结束连接查询的修改，使用 `end()` 回到父查询。
+要修改 join 查询,请使用带 `use` 前缀的相同方法:`useJoin`、`useInnerJoin`、`useJoinWith` 或 `useInnerJoinWith`。要结束对 join 查询的修改,请使用 `end()` 返回父查询。
 
 ```typescript
-// 只选择分配了名为 'admins' 的组的用户（INNER JOIN）
+//仅选择已分配名称为 'admins' 的 group 的用户(INNER JOIN)
 const users = await session.query(User)
     .useInnerJoinWith('group')
         .filter({name: 'admins'})
-        .end()  // 返回到父查询
+        .end()  // 返回父查询
     .find();
 
 for (const user of users) {
-    user.group.name; // 始终为 admin
+    user.group.name; //始终为 admin
 }
 ```
 
 ## 聚合
 
-聚合方法允许你统计记录并聚合字段。
+聚合方法允许你统计记录数量并对字段进行聚合。
 
-以下示例假设此模型模式：
+以下示例均假定使用此模型 schema:
 
 ```typescript
 @entity.name('file')
@@ -200,7 +200,7 @@ class File {
 }
 ```
 
-`groupBy` 允许按指定字段对结果分组。
+`groupBy` 允许按指定字段对结果进行分组。
 
 ```typescript
 await database.persist(
@@ -213,10 +213,10 @@ await database.persist(
 await session.query(File).groupBy('category').find();
 ```
 
-有多种聚合方法：`withSum`、`withAverage`、`withCount`、`withMin`、`withMax`、`withGroupConcat`。每个方法都需要字段名作为第一个参数，并可选地提供第二个参数以更改别名。
+有多种聚合方法:`withSum`、`withAverage`、`withCount`、`withMin`、`withMax`、`withGroupConcat`。每个方法都需要将字段名作为第一个参数,并可通过可选的第二个参数更改别名。
 
 ```typescript
-// 首先我们更新部分记录：
+// 首先更新一些记录:
 await database.query(File).filter({path: 'images/file1'}).patchOne({$inc: {downloads: 15}});
 await database.query(File).filter({path: 'images/file2'}).patchOne({$inc: {downloads: 5}});
 
@@ -230,11 +230,11 @@ await session.query(File).groupBy('category').withAverage('downloads').find();
 await session.query(File).groupBy('category').withCount('id', 'amount').find();
 ```
 
-## 返回（Returning）
+## Returning
 
-使用 `returning` 可以在通过 `patch` 和 `delete` 更改数据时额外请求字段。
+使用 `returning` 可以在通过 `patch` 和 `delete` 进行更改时请求返回额外的字段。
 
-注意：并非所有数据库适配器都会以原子方式返回字段。请使用事务以确保数据一致性。
+注意:并非所有数据库适配器都以原子方式返回字段。请使用事务来确保数据一致性。
 
 ```typescript
 await database.query(User).patchMany({visits: 0});
@@ -248,7 +248,7 @@ const result = await database.query(User)
 
 ## Find
 
-返回匹配指定过滤器的条目数组。
+返回与指定过滤器匹配的条目数组。
 
 ```typescript
 const users: User[] = await database.query(User).filter({username: 'Peter'}).find();
@@ -256,8 +256,8 @@ const users: User[] = await database.query(User).filter({username: 'Peter'}).fin
 
 ## FindOne
 
-返回匹配指定过滤器的条目。
-如果未找到条目，将抛出 `ItemNotFound` 错误。
+返回与指定过滤器匹配的一个条目。
+如果未找到条目,则抛出 `ItemNotFound` 错误。
 
 ```typescript
 const users: User = await database.query(User).filter({username: 'Peter'}).findOne();
@@ -265,8 +265,8 @@ const users: User = await database.query(User).filter({username: 'Peter'}).findO
 
 ## FindOneOrUndefined
 
-返回匹配指定过滤器的条目。
-如果未找到条目，则返回 undefined。
+返回与指定过滤器匹配的一个条目。
+如果未找到条目,则返回 undefined。
 
 ```typescript
 const query = database.query(User).filter({username: 'Peter'});
@@ -275,7 +275,7 @@ const users: User|undefined = await query.findOneOrUndefined();
 
 ## FindField
 
-返回匹配指定过滤器的某个字段的列表。
+返回与指定过滤器匹配的某个字段的列表。
 
 ```typescript
 const usernames: string[] = await database.query(User).findField('username');
@@ -283,8 +283,8 @@ const usernames: string[] = await database.query(User).findField('username');
 
 ## FindOneField
 
-返回匹配指定过滤器的某个字段的值。
-如果未找到条目，将抛出 `ItemNotFound` 错误。
+返回与指定过滤器匹配的某个字段的列表。
+如果未找到条目,则抛出 `ItemNotFound` 错误。
 
 ```typescript
 const username: string = await database.query(User).filter({id: 3}).findOneField('username');
@@ -292,10 +292,9 @@ const username: string = await database.query(User).filter({id: 3}).findOneField
 
 ## Patch
 
-Patch 是一种更改查询，用于修改查询所描述的记录。方法
-`patchOne` 和 `patchMany` 会结束查询并执行补丁操作。
+Patch 是一种变更查询,用于修补查询所描述的记录。`patchOne` 和 `patchMany` 方法会结束查询并执行修补。
 
-`patchMany` 会更改数据库中符合指定过滤器的所有记录。如果未设置过滤器，整个表都会被更改。使用 `patchOne` 可一次仅更改一个条目。
+`patchMany` 会更改数据库中与指定过滤器匹配的所有记录。如果未设置过滤器,则会更改整张表。使用 `patchOne` 可以每次仅更改一个条目。
 
 ```typescript
 await database.query(User).filter({username: 'Peter'}).patch({username: 'Peter2'});
@@ -306,10 +305,10 @@ await database.query(User).filter({username: 'User1'}).patchOne({$inc: {visits: 
 await database.query(User).patchMany({visits: 0});
 ```
 
-## 删除
+## Delete
 
-`deleteMany` 会删除数据库中所有匹配指定过滤器的条目。
-如果未设置过滤器，整个表都会被删除。使用 `deleteOne` 可一次仅删除一个条目。
+`deleteMany` 会删除数据库中与指定过滤器匹配的所有条目。
+如果未设置过滤器,则会删除整张表。使用 `deleteOne` 可以每次仅删除一个条目。
 
 ```typescript
 const result = await database.query(User)
@@ -317,6 +316,16 @@ const result = await database.query(User)
     .deleteMany();
 
 const result = await database.query(User).filter({id: 4}).deleteOne();
+```
+
+结果的 `modified` 中包含已删除条目的数量。已删除条目的主键只有在使用 `returnPrimaryKeys()` 时才可用,因为读取它们会使删除操作变慢。未使用该方法时读取 `primaryKeys` 会抛出 `PrimaryKeysNotReturnedError`,在事件监听器中也是如此。
+
+```typescript
+const result = await database.query(User)
+    .filter({logins: 0})
+    .returnPrimaryKeys()
+    .deleteMany();
+result.primaryKeys; //[{id: 4}, {id: 7}]
 ```
 
 ## Has
@@ -327,17 +336,17 @@ const result = await database.query(User).filter({id: 4}).deleteOne();
 const userExists: boolean = await database.query(User).filter({username: 'Peter'}).has();
 ```
 
-## 计数
+## Count
 
-返回条目数量。
+返回条目的数量。
 
 ```typescript
 const userCount: number = await database.query(User).count();
 ```
 
-## 提升（Lift）
+## Lift
 
-对查询进行“提升”意味着向其添加新功能。这通常由插件或复杂架构使用，以将较大的查询类拆分为多个方便、可复用的类。
+Lift 查询意味着为其添加新功能。这通常由插件或复杂架构使用,以便将较大的查询类拆分为多个方便且可复用的类。
 
 ```typescript
 import { FilterQuery, Query } from '@deepkit/orm';

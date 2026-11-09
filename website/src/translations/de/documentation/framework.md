@@ -1,35 +1,115 @@
-# Deepkit Framework
+# TypeScript Backend Framework
 
-Das Deepkit Framework basiert auf [Deepkit App](./app.md) in `@deepkit/app` und stellt das Modul `FrameworkModule` in `@deepkit/framework` bereit, das in Ihrer Anwendung importiert werden kann.
+Deepkit Framework ist ein TypeScript-Backend-Framework, in dem ein einziger Type zugleich Validator, JSON-Format, Datenbankschema und API-Dokumentation ist. Es vereint HTTP- und RPC-Server, ORM, Dependency Injection, CLI und Konfiguration in einer Anwendung.
 
-Die `App`-Abstraktion bringt:
+```typescript
+//app.ts
+import { App } from '@deepkit/app';
+import { FrameworkModule } from '@deepkit/framework';
+import { http, HttpBody } from '@deepkit/http';
+import { Logger } from '@deepkit/logger';
+import { Email, MinLength } from '@deepkit/type';
+
+interface CreateUser {
+    username: string & MinLength<3>;
+    email: string & Email;
+}
+
+class UserService {
+    constructor(private logger: Logger) {}
+
+    create(input: CreateUser) {
+        this.logger.log(`New user ${input.username}`);
+        return { id: 1, ...input };
+    }
+}
+
+class UserController {
+    constructor(private users: UserService) {}
+
+    @http.POST('/users')
+    create(body: HttpBody<CreateUser>) {
+        return this.users.create(body);
+    }
+}
+
+new App({
+    controllers: [UserController],
+    providers: [UserService],
+    imports: [new FrameworkModule()],
+}).run();
+```
+
+```sh
+$ ts-node app.ts server:start
+
+$ curl -X POST localhost:8080/users -H 'content-type: application/json' \
+    -d '{"username":"Peter","email":"peter@example.com"}'
+{"id":1,"username":"Peter","email":"peter@example.com"}
+
+$ curl -X POST localhost:8080/users -H 'content-type: application/json' \
+    -d '{"username":"ab","email":"nope"}'
+HTTP/1.1 400 Bad Request
+{
+  "message": "Validation error: ...",
+  "errors": [
+    {
+      "path": "username",
+      "code": "minLength",
+      "message": "Min length is 3",
+      "value": "ab"
+    },
+    ...
+  ]
+}
+```
+
+Der Body wird anhand des `CreateUser`-Interfaces validiert, bevor die Methode ausgeführt wird, und `UserService` wird anhand seines Types injiziert. Ein neues Projekt wird mit `npm init @deepkit/app@latest my-app` erstellt.
+
+## Vergleich mit NestJS und Express
+
+|                      | Deepkit Framework              | NestJS                                 | Express oder Fastify      |
+| -------------------- | ------------------------------ | -------------------------------------- | ------------------------- |
+| Request-Validierung  | Aus dem TypeScript-Type        | Dekorierte Klassen und eine Validator-Pipe | Selbst hinzuzufügen   |
+| Dependency Injection | Integriert, keine Decorators nötig | Integriert, mit `@Injectable()`    | Selbst hinzuzufügen       |
+| ORM                  | Integriert                     | Selbst hinzuzufügen                    | Selbst hinzuzufügen       |
+| RPC                  | Integriert                     | Über einen Transport hinzuzufügen      | Selbst hinzuzufügen       |
+| Build-Schritt        | Deepkit Type-Compiler          | TypeScript-Compiler                    | Optional                  |
+
+Deepkit benötigt seinen [Type-Compiler](./runtime-types/getting-started.md) in Ihrem Build, da es Ihre Types zur Laufzeit ausliest. Express und NestJS haben deutlich größere Ökosysteme, was wichtiger sein kann als die integrierten Features. Angaben zur Performance finden Sie auf der [Benchmark-Seite](/benchmarks).
+
+## Was das Framework enthält
+
+Deepkit Framework basiert auf [Deepkit App](./app.md) in `@deepkit/app` und stellt in `@deepkit/framework` das Modul `FrameworkModule` bereit, das Sie in Ihre Anwendung importieren können.
+
+Die `App`-Abstraktion bietet:
 
 - CLI-Befehle
-- Konfigurationsladen (Environment, Dotfiles, benutzerdefiniert)
-- Modul-System
-- Leistungsfähiger Service-Container
+- Laden der Konfiguration (Umgebungsvariablen, Dotfiles, benutzerdefiniert)
+- Modulsystem
+- Leistungsfähiger Service Container
 - Registry und Hooks für Controller, Provider, Listener und mehr
 
-Das Modul `FrameworkModule` bringt zusätzliche Funktionen:
+Das Modul `FrameworkModule` bietet zusätzliche Features:
 
-- Anwendungsserver
+- Application Server
     - HTTP-Server
     - RPC-Server
-    - Multi-Prozess-Lastverteilung
+    - Multi-Process Load Balancing
     - SSL
-- Debugging-CLI-Befehle
-- Konfiguration/Befehle für Database Migration
-- Debugging/Profiler-GUI über die Option `{debug: true}`
-- Interaktive API-Dokumentation (ähnlich Swagger)
+- CLI-Befehle zum Debuggen
+- Konfiguration und Befehle für Datenbankmigrationen
+- Debugging-/Profiler-GUI über die Option `{debug: true}`
+- Interaktive API-Dokumentation (ähnlich wie Swagger)
 - Provider für DatabaseRegistry, ProcessLocking, Broker, Sessions
-- Integration-Test-APIs
+- APIs für Integrationstests
 
-Sie können Anwendungen mit oder ohne das `FrameworkModule` schreiben.
+Sie können Anwendungen mit oder ohne `FrameworkModule` schreiben.
 
 ## Installation
 
-Das Deepkit Framework basiert auf [Deepkit App](./app.md). Stellen Sie sicher, dass Sie dessen Installationsanweisungen befolgt haben.
-Falls ja, können Sie das Deepkit Framework installieren und das `FrameworkModule` in Ihre `App` importieren. 
+Deepkit Framework basiert auf [Deepkit App](./app.md). Stellen Sie sicher, dass Sie dessen Installationsanleitung befolgt haben.
+Ist das der Fall, können Sie Deepkit Framework installieren und das `FrameworkModule` in Ihre `App` importieren. 
 
 ```sh
 npm install @deepkit/framework
@@ -38,6 +118,7 @@ npm install @deepkit/framework
 ```typescript
 import { App } from '@deepkit/app';
 import { FrameworkModule } from '@deepkit/framework';
+import { Logger } from '@deepkit/logger';
 
 const app = new App({
     imports: [new FrameworkModule({ debug: true })]
@@ -50,13 +131,15 @@ app.command('test', (logger: Logger) => {
 app.run();
 ```
 
-Da die App jetzt das `FrameworkModule` importiert, sehen wir, dass mehr Befehle verfügbar sind, gruppiert nach Themen.
+Da die App nun das `FrameworkModule` importiert, stehen weitere Befehle zur Verfügung, die nach Themen gruppiert sind.
 
 Einer davon ist `server:start`, der den HTTP-Server startet. Um ihn zu verwenden, müssen wir mindestens eine HTTP-Route registrieren.
 
 ```typescript
 import { App } from '@deepkit/app';
+import { FrameworkModule } from '@deepkit/framework';
 import { HttpRouterRegistry } from '@deepkit/http';
+import { Logger } from '@deepkit/logger';
 
 const app = new App({
     imports: [new FrameworkModule({ debug: true })]
@@ -76,10 +159,10 @@ router.get('/', () => {
 app.run();
 ```
 
-Wenn Sie den Befehl `server:start` erneut ausführen, sehen Sie, dass der HTTP-Server nun gestartet ist und die Route `/` verfügbar ist.
+Wenn Sie den Befehl `server:start` erneut ausführen, sehen Sie, dass der HTTP-Server nun gestartet und die Route `/` verfügbar ist.
 
 ```sh
-$ ./node_modules/.bin/ts-node ./app.ts server:start
+$ ts-node app.ts server:start
 ```
 
 ```sh
@@ -87,26 +170,26 @@ $ curl http://localhost:8080/
 Hello World
 ```
 
-Um Anfragen zu bedienen, lesen Sie bitte das Kapitel [HTTP](http.md) oder [RPC](rpc.md). Im Kapitel [App](app.md) erfahren Sie mehr über CLI-Befehle.
+Wie Sie Requests verarbeiten, erfahren Sie in den Kapiteln [HTTP](http.md) und [RPC](rpc.md). Im Kapitel [App](app.md) erfahren Sie mehr über CLI-Befehle.
 
 ## App
 
-Die `App`-Klasse ist der Haupteinstiegspunkt für Ihre Anwendung. Sie ist verantwortlich für das Laden aller Module, der Konfiguration und das Starten der Anwendung.
-Sie ist außerdem dafür verantwortlich, alle CLI-Befehle zu laden und auszuführen. Module wie FrameworkModule stellen zusätzliche Befehle bereit, registrieren Event-Listener,
-stellen Controller für HTTP/RPC, Service-Provider und so weiter bereit.
+Die Klasse `App` ist der Haupteinstiegspunkt Ihrer Anwendung. Sie ist dafür zuständig, alle Module und die Konfiguration zu laden und die Anwendung zu starten.
+Außerdem lädt sie alle CLI-Befehle und führt sie aus. Module wie FrameworkModule stellen zusätzliche Befehle bereit, registrieren Event Listener,
+stellen Controller für HTTP/RPC, Service Provider und so weiter bereit.
 
-Dieses `app`-Objekt kann auch verwendet werden, um auf den Dependency-Injection-Container zuzugreifen, ohne einen CLI-Controller auszuführen.
+Über dieses `app`-Objekt können Sie auch auf den Dependency-Injection-Container zugreifen, ohne einen CLI-Controller auszuführen.
 
 ```typescript
 const app = new App({
     imports: [new FrameworkModule]
 });
 
-// Zugriff auf alle registrierten Services
+//Zugriff auf alle registrierten Services erhalten
 const eventDispatcher = app.get(EventDispatcher);
 ```
 
-Sie können den `EventDispatcher` abrufen, weil das `FrameworkModule` ihn als Service-Provider registriert, wie viele andere (Logger, ApplicationServer und [vieles mehr](https://github.com/deepkit/deepkit-framework/blob/master/packages/framework/src/module.ts)).
+Sie können den `EventDispatcher` abrufen, weil das `FrameworkModule` ihn wie viele andere (Logger, ApplicationServer und [vieles mehr](https://github.com/deepkit/deepkit-framework/blob/master/packages/framework/src/module.ts)) als Service Provider registriert.
 
 Sie können auch Ihren eigenen Service registrieren.
 
@@ -140,8 +223,6 @@ import { App } from '@deepkit/app';
 import { FrameworkModule } from '@deepkit/framework';
 
 new App({
-    config: Config,
-    controllers: [MyWebsite],
     imports: [
         new FrameworkModule({
             debug: true,
@@ -152,56 +233,29 @@ new App({
 
 ![Debugger-Konfiguration](/assets/documentation/framework/debugger-configuration.png)
 
-Sie können auch `ts-node app.ts app:config` verwenden, um alle verfügbaren Konfigurationsoptionen, den aktiven Wert, ihren Standardwert, Beschreibung und Datentyp anzuzeigen.
-
-```sh
-$ ts-node app.ts app:config
-Application config
-┌─────────┬───────────────┬────────────────────────┬────────────────────────┬─────────────┬───────────┐
-│ (index) │     name      │         value          │      defaultValue      │ description │   type    │
-├─────────┼───────────────┼────────────────────────┼────────────────────────┼─────────────┼───────────┤
-│    0    │  'pageTitle'  │     'Other title'      │      'Cool site'       │     ''      │ 'string'  │
-│    1    │   'domain'    │     'example.com'      │     'example.com'      │     ''      │ 'string'  │
-│    2    │    'port'     │          8080          │          8080          │     ''      │ 'number'  │
-│    3    │ 'databaseUrl' │ 'mongodb://localhost/' │ 'mongodb://localhost/' │     ''      │ 'string'  │
-│    4    │    'email'    │         false          │         false          │     ''      │ 'boolean' │
-│    5    │ 'emailSender' │       undefined        │       undefined        │     ''      │ 'string?' │
-└─────────┴───────────────┴────────────────────────┴────────────────────────┴─────────────┴───────────┘
-Modules config
-┌─────────┬──────────────────────────────┬─────────────────┬─────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────┬────────────┐
-│ (index) │           name               │      value      │  defaultValue   │                                            description                                             │    type    │
-├─────────┼──────────────────────────────┼─────────────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┼────────────┤
-│    0    │       'framework.host'       │   'localhost'   │   'localhost'   │                                                 ''                                                 │  'string'  │
-│    1    │       'framework.port'       │      8080       │      8080       │                                                 ''                                                 │  'number'  │
-│    2    │    'framework.httpsPort'     │    undefined    │    undefined    │ 'If httpsPort and ssl is defined, then the https server is started additional to the http-server.' │ 'number?'  │
-│    3    │    'framework.selfSigned'    │    undefined    │    undefined    │           'If for ssl: true the certificate and key should be automatically generated.'            │ 'boolean?' │
-│    4    │ 'framework.keepAliveTimeout' │    undefined    │    undefined    │                                                 ''                                                 │ 'number?'  │
-│    5    │       'framework.path'       │       '/'       │       '/'       │                                                 ''                                                 │  'string'  │
-│    6    │     'framework.workers'      │        1        │        1        │                                                 ''                                                 │  'number'  │
-│    7    │       'framework.ssl'        │      false      │      false      │                                       'Enables HTTPS server'                                       │ 'boolean'  │
-│    8    │    'framework.sslOptions'    │    undefined    │    undefined    │                   'Same interface as tls.SecureContextOptions & tls.TlsOptions.'                   │   'any'    │
-...
-```
-
-## Anwendungsserver
-
-## Dateistruktur
-
-## Auto-CRUD
+Mit `ts-node app.ts debug:config` können Sie außerdem alle verfügbaren Konfigurationsoptionen mit ihrem aktiven Wert, Standardwert, ihrer Beschreibung und ihrem Datentyp anzeigen.
 
 ## Events
 
-Das Deepkit-Framework wird mit verschiedenen Event-Tokens geliefert, auf die Event-Listener registriert werden können.
+Deepkit Framework bringt verschiedene Event Tokens mit, für die Event Listener registriert werden können.
 
-Siehe das Kapitel [Events](./app/events.md), um mehr darüber zu erfahren, wie Events funktionieren.
+Im Kapitel [Events](./app/events.md) erfahren Sie mehr darüber, wie Events funktionieren.
 
-### Events senden
+### Events versenden
 
-Events werden über die `EventDispatcher`-Klasse gesendet. In einer Deepkit-App kann dieser über Dependency Injection bereitgestellt werden.
+Events werden über die Klasse `EventDispatcher` versendet. In einer Deepkit-App kann diese per Dependency Injection bereitgestellt werden.
 
 ```typescript
 import { cli, Command } from '@deepkit/app';
-import { EventDispatcher } from '@deepkit/event';
+import { BaseEvent, EventDispatcher, EventToken } from '@deepkit/event';
+
+class UserEvent extends BaseEvent {
+    constructor(public user: { username: string }) {
+        super();
+    }
+}
+
+const UserAdded = new EventToken<UserEvent>('user.added');
 
 @cli.controller('test')
 export class TestCommand implements Command {
@@ -209,7 +263,8 @@ export class TestCommand implements Command {
     }
 
     async execute() {
-        this.eventDispatcher.dispatch(UserAdded, new UserEvent({ username: 'Peter' }));
+        const event = new UserEvent({ username: 'Peter' });
+        await this.eventDispatcher.dispatch(UserAdded, event);
     }
 }
 ```

@@ -1,8 +1,50 @@
-# 依存性注入
+# TypeScript の Dependency Injection
 
-Dependency Injection (DI) は、Class や Function が依存関係を「_受け取る_」設計パターンです。Inversion of Control (IoC) の原則に従い、複雑なコードをよりよく分離することで、テスタビリティ、モジュール性、明確性を大幅に向上させます。IoC の原則を適用するためのデザインパターンとしてはサービスロケーターパターンなどもありますが、特にエンタープライズソフトウェアにおいては、DI が支配的なパターンとして確立されています。
+Deepkit は TypeScript 向けの Dependency Injection コンテナで、サービスにデコレーターを付けなくても動作します。コンストラクターのパラメーターを interface も含めた TypeScript の型から解決するため、コードにコンテナ固有のアノテーションやトークンを持ち込まずに済みます。
 
-IoC の原則を説明するために、次の例を示します。
+```typescript
+import { InjectorContext } from '@deepkit/injector';
+
+interface Mailer {
+    send(to: string, text: string): void;
+}
+
+class SmtpMailer implements Mailer {
+    send(to: string, text: string): void {
+        console.log(`Sending "${text}" to ${to}`);
+    }
+}
+
+class Signup {
+    constructor(private mailer: Mailer) {}
+
+    register(email: string): void {
+        this.mailer.send(email, 'Welcome');
+    }
+}
+
+const injector = InjectorContext.forProviders([Signup, SmtpMailer]);
+injector.get(Signup).register('peter@example.com');
+// Sending "Welcome" to peter@example.com
+```
+
+`Signup` は `Mailer` interface に依存しており、`SmtpMailer` がその interface を実装しているため、コンテナは `SmtpMailer` を見つけることができます。テストなどで別の実装を使うには、`provide<Mailer>({ useClass: TestMailer })` のように明示的に提供します。どこからも提供されていない依存関係は、その正確な場所を示すエラーになります: `Undefined dependency "mailer: Mailer" of Signup(?). Type has no provider.`
+
+## NestJS、InversifyJS、tsyringe との比較
+
+|                         | Deepkit                 | NestJS                     | InversifyJS                 | tsyringe                    |
+| ----------------------- | ----------------------- | -------------------------- | --------------------------- | --------------------------- |
+| サービスへのデコレーター | なし                    | `@Injectable()`            | `@injectable()`             | `@injectable()`             |
+| interface への依存      | interface の型          | トークンと `@Inject()`     | トークンと `@inject()`      | トークンと `@inject()`      |
+| 型情報の取得元          | Deepkit 型コンパイラー  | `emitDecoratorMetadata`    | `emitDecoratorMetadata`     | `emitDecoratorMetadata`     |
+
+Deepkit は実行時に型を読み取るため、ビルドに [Deepkit 型コンパイラー](./runtime-types/getting-started.md)を組み込む必要があります。コンテナが依存関係を解決する速度については、[ベンチマークページ](/benchmarks)に掲載しています。インストール方法は[はじめに](./dependency-injection/getting-started.md)を参照してください。
+
+## Dependency Injection とは？
+
+Dependency Injection (DI) は、class や function が依存関係を _受け取る_ デザインパターンです。Inversion of Control (IoC) の原則に従っており、複雑なコードをより適切に分離することで、テスト容易性、モジュール性、見通しを大幅に向上させます。IoC の原則を適用するデザインパターンには service locator パターンなどもありますが、特にエンタープライズソフトウェアでは DI が主流のパターンとして定着しています。
+
+IoC の原則を説明するために、次の例を見てみましょう。
 
 ```typescript
 import { HttpClient } from 'http-library';
@@ -15,12 +57,12 @@ class UserRepository {
 }
 ```
 
-UserRepository Class は依存関係として HttpClient を持っています。この依存関係自体は特筆すべきものではありませんが、`UserRepository` が自分自身で HttpClient を生成していることが問題です。
-HttpClient の生成を UserRepository の中にカプセル化するのは良い考えのように思えるかもしれませんが、実はそうではありません。もし HttpClient を差し替えたい場合はどうでしょうか？実際の HTTP リクエストが外部に出ていかないようにして UserRepository をユニットテストしたい場合はどうでしょうか？この Class がそもそも HttpClient を使用していることを、どのようにして知るのでしょうか？
+UserRepository class は HttpClient に依存しています。この依存自体は特筆すべきものではありませんが、`UserRepository` が HttpClient を自ら生成している点が問題です。
+HttpClient の生成を UserRepository の中にカプセル化するのは良い考えに見えますが、実際にはそうではありません。HttpClient を置き換えたい場合はどうすればよいでしょうか？実際の HTTP リクエストを送信せずに UserRepository をユニットテストしたい場合はどうでしょうか？そもそも、この class が HttpClient を使っていることをどうやって知ればよいのでしょうか？
 
 ## Inversion of Control
 
-Inversion of Control (IoC) の考え方では、HttpClient をコンストラクターで明示的な依存関係として受け取る（コンストラクターインジェクションとも呼ばれる）次のような別案があります。
+Inversion of Control (IoC) の考え方に基づくと、HttpClient をコンストラクターの明示的な依存関係とする次のような別の形になります (コンストラクターインジェクションとも呼ばれます)。
 
 ```typescript
 class UserRepository {
@@ -34,11 +76,11 @@ class UserRepository {
 }
 ```
 
-これで UserRepository は HttpClient を生成する責任を持たず、UserRepository の利用者がその責任を負います。これが Inversion of Control (IoC) です。制御が反転（逆転）しました。具体的には、このコードは依存性注入を適用しています。依存関係は受け取られ（注入され）、もはや自分で生成したり要求したりしません。Dependency Injection は IoC の一つの変種にすぎません。
+これで HttpClient の生成に責任を持つのは UserRepository ではなく、UserRepository の利用者になりました。これが Inversion of Control (IoC) です。制御が逆転 (反転) しています。具体的には、依存関係を生成したり要求したりするのではなく受け取る (注入される) ため、このコードは Dependency Injection を適用しています。Dependency Injection は IoC の一形態にすぎません。
 
 ## Service Locator
 
-DI とは別に、Service Locator (SL) も IoC の原則を適用する方法です。これは依存関係を受け取るのではなく要求するため、一般的に Dependency Injection の対極と見なされます。もし上記コードで HttpClient を次のように要求した場合、これは Service Locator パターンと呼ばれます。
+DI のほかに、Service Locator (SL) も IoC の原則を適用する方法の 1 つです。依存関係を受け取るのではなく要求するため、一般に Dependency Injection と対になるものと見なされています。上記のコードで HttpClient を次のように要求する場合、Service Locator パターンと呼ばれます。
 
 ```typescript
 class UserRepository {
@@ -49,7 +91,7 @@ class UserRepository {
 }
 ```
 
-`locator.getHttpClient` という Function は任意の名前を持てます。代替案としては、`useContext(HttpClient)`, `getHttpClient()`, `await import("client")` のような呼び出しや、`container.get(HttpClient)` や `container.http` のようなコンテナへの問い合わせがあります。グローバルの import はサービスロケーターの少し異なる変種で、モジュールシステム自体をロケーターとして使用します。
+`locator.getHttpClient` という function の名前は何でもかまいません。ほかにも `useContext(HttpClient)`、`getHttpClient()`、`await import("client")` のような function 呼び出しや、`container.get(HttpClient)`、`container.http` のようなコンテナへの問い合わせが考えられます。グローバルなオブジェクトの import は、モジュールシステム自体をロケーターとして使う、Service Locator のやや異なる形です。
 
 ```typescript
 import { httpClient } from 'clients'
@@ -61,36 +103,36 @@ class UserRepository {
 }
 ```
 
-これらの変種に共通しているのは、HttpClient という依存関係を明示的に要求し、コードがサービスコンテナの存在を知っているという点です。これはコードをフレームワークに強く結びつけ、コードをクリーンに保つためには避けたいものです。
+これらすべてに共通するのは、HttpClient という依存関係を明示的に要求しており、サービスコンテナの存在をコードが認識している点です。これはコードをフレームワークに密結合させるため、コードをクリーンに保つうえで避けるべきものです。
 
-サービスの要求は、Property のデフォルト値としてだけでなく、コードの途中のどこかでも発生しえます。コードの途中ということは Type の Interface の一部ではないため、HttpClient の使用が隠蔽されます。HttpClient の要求方法のバリエーションによっては、別の実装に置き換えることが非常に難しかったり、完全に不可能な場合もあります。特にユニットテストの領域や明確さのために、ここで困難が生じることがあり、そのためサービスロケーターは状況によってはアンチパターンと分類されます。
+サービスの要求は、Property のデフォルト値としてだけでなく、コードの途中のどこでも行えます。コードの途中ということは型のインターフェースの一部にならないため、HttpClient の使用が隠蔽されてしまいます。HttpClient の要求方法によっては、別の実装への置き換えが非常に難しくなったり、まったく不可能になったりすることがあります。特にユニットテストの分野やコードの見通しの点で問題が生じやすいため、現在では Service Locator は状況によってアンチパターンに分類されています。
 
 ## Dependency Injection
 
-Dependency Injection では、何かを要求するのではなく、利用者によって明示的に提供されるか、コードが受け取ります。利用側はサービスコンテナにアクセスせず、`HttpClient` がどのように生成または取得されるかを知りません。本質的には、IoC フレームワークからコードを疎結合にし、よりクリーンにします。
+Dependency Injection では何も要求せず、利用者が明示的に提供したものをコードが受け取ります。利用する側はサービスコンテナにアクセスできず、`HttpClient` がどのように生成または取得されるかも知りません。その本質は、コードを IoC フレームワークから切り離し、よりクリーンにできることにあります。
 
-必要なのは `HttpClient` が Type として必要だと宣言することだけです。Service Locator に対する Dependency Injection の大きな差異であり利点の一つは、Dependency Injection を使用するコードが、あらゆる種類のサービスコンテナやサービス識別システムなしでも問題なく動作することです（サービスに名前を付ける必要がありません）。これは単なる Type の宣言であり、IoC フレームワークの文脈外でも機能します。
+コードは `HttpClient` が必要であることを型として宣言するだけです。Service Locator と比べた Dependency Injection の重要な違いであり利点でもあるのは、Dependency Injection を使ったコードが、サービスコンテナやサービスの識別システムがなくても問題なく動作することです (サービスに名前を付ける必要はありません)。単なる型宣言なので、IoC フレームワークの外でも機能します。
 
-前の例で見たように、すでに依存性注入パターンが適用されています。具体的にはコンストラクターインジェクションが見られ、依存関係がコンストラクターで宣言されています。したがって、UserRepository は次のようにインスタンス化する必要があります。
+先ほどの例からわかるように、そこではすでに Dependency Injection パターンが適用されています。具体的には、依存関係をコンストラクターで宣言しているのでコンストラクターインジェクションです。したがって、UserRepository は次のようにインスタンス化する必要があります。
 
 ```typescript
 const users = new UserRepository(new HttpClient());
 ```
 
-UserRepository を使用したいコードは、その依存関係すべてを提供（注入）しなければなりません。HttpClient を毎回生成するべきか、毎回同じものを使うべきかは、Class 自身ではなく、その Class の利用者が決めます。もはや（Class の観点では）サービスロケーターの場合のように要求されることも、最初の例のように完全に自分で生成されることもありません。このフローの反転にはさまざまな利点があります。
+UserRepository を使いたいコードは、そのすべての依存関係も提供 (注入) しなければなりません。HttpClient を毎回生成するか、同じものを毎回使うかは、class 自身ではなく class の利用者が決めるようになりました。(class の視点では) Service Locator のように要求することも、最初の例のように完全に自分で生成することもなくなりました。このフローの反転には、さまざまな利点があります。
 
-* すべての依存関係が明示的に見えるため、コードが理解しやすくなる。
-* すべての依存関係が一意で、必要に応じて簡単に差し替えられるため、テストが容易になる。
-* 依存関係を簡単に交換できるため、コードがよりモジュール化される。
-* UserRepository が非常に複雑な依存関係を自ら生成する責任を負わなくなるため、関心の分離 (Separation of Concern) の原則を促進する。
+* すべての依存関係が明示的に見えるため、コードが理解しやすくなります。
+* すべての依存関係が一意であり、必要に応じて簡単に変更できるため、コードをテストしやすくなります。
+* 依存関係を簡単に交換できるため、コードのモジュール性が高まります。
+* UserRepository が非常に複雑な依存関係を自ら生成する責任を負わなくなるため、関心の分離 (Separation of Concern) の原則を促進します。
 
-しかし、明らかな欠点もすぐに見えてきます。HttpClient のようなすべての依存関係を本当に自分で作成または管理する必要があるのでしょうか？答えは Yes と No です。Yes、多くのケースでは依存関係を自分で管理するのは完全に正当です。良い API の証は、依存関係が手に負えなくならないこと、そしてそうなったとしても使い心地が良いことです。多くのアプリケーションや複雑なライブラリでは、それが当てはまる場合があります。多くの依存関係を持つ非常に複雑な低レベル API を、利用者にとって簡素化して提供するには、Facade パターンが素晴らしく有効です。
+しかし、明らかな欠点もすぐに見えてきます。HttpClient のような依存関係は、本当にすべて自分で生成または管理しなければならないのでしょうか？答えはイエスでもありノーでもあります。依存関係を自分で管理することがまったく妥当なケースは数多くあります。優れた API の特徴は、依存関係が手に負えないほど増えず、それでいて使い心地が良いことです。多くのアプリケーションや複雑なライブラリでは、これで十分な場合もあるでしょう。依存関係の多い非常に複雑な低レベル API を利用者に簡素化して提供するには、facade パターンが非常に適しています。
 
-## 依存性注入コンテナ
+## Dependency Injection コンテナ
 
-しかし、より複雑なアプリケーションでは、すべての依存関係を自分で管理する必要はありません。まさにそのために、いわゆる依存性注入コンテナが存在します。これはすべてのオブジェクトを自動的に生成するだけでなく、依存関係も自動的に「注入」するため、手動での "new" 呼び出しが不要になります。コンストラクターインジェクション、メソッドインジェクション、プロパティインジェクションなど、さまざまな種類のインジェクションがあります。これにより、多数の依存関係を持つ複雑なアーキテクチャでも容易に管理できます。
+しかし、より複雑なアプリケーションでは、すべての依存関係を自分で管理する必要はありません。それこそが、いわゆる Dependency Injection コンテナの役割だからです。コンテナはすべてのオブジェクトを自動的に生成するだけでなく、依存関係も自動的に「注入」するため、手動で「new」を呼び出す必要がなくなります。注入にはコンストラクターインジェクション、Method インジェクション、Property インジェクションなど、さまざまな種類があります。これにより、依存関係の多い複雑なアーキテクチャでも簡単に管理できます。
 
-依存性注入コンテナ（DI コンテナまたは IoC コンテナとも呼ばれる）は、Deepkit では `@deepkit/injector` として提供されており、Deepkit Framework では App モジュールを通じてすでに統合されています。上記のコードは、`@deepkit/injector` パッケージの低レベル API を使用すると次のようになります。
+Deepkit は Dependency Injection コンテナ (DI コンテナまたは IoC コンテナとも呼ばれます) を `@deepkit/injector` で提供しており、Deepkit Framework では App モジュールを通じてすでに統合されています。上記のコードは、`@deepkit/injector` パッケージの低レベル API を使うと次のようになります。
 
 ```typescript
 import { InjectorContext } from '@deepkit/injector';
@@ -104,14 +146,14 @@ const userRepo = injector.get(UserRepository);
 const users = await userRepo.getUsers();
 ```
 
-この場合の `injector` オブジェクトが依存性注入コンテナです。"new UserRepository" を使う代わりに、コンテナは `get(UserRepository)` を用いて UserRepository のインスタンスを返します。コンテナを静的に初期化するために、`InjectorContext.forProviders` Function にプロバイダーの一覧（この場合は単に Class）を渡します。
-DI は依存関係を提供することがすべてなので、コンテナには依存関係が提供されます。これが「プロバイダー」という技術用語の由来です。
+この場合、`injector` オブジェクトが Dependency Injection コンテナです。「new UserRepository」を使う代わりに、コンテナが `get(UserRepository)` によって UserRepository のインスタンスを返します。コンテナを静的に初期化するには、provider のリスト (この場合は単に class) を `InjectorContext.forProviders` function に渡します。
+DI は依存関係を提供することがすべてであり、コンテナには依存関係が提供されるため、「provider」という専門用語が使われています。
 
-プロバイダーには複数の種類があります: ClassProvider, ValueProvider, ExistingProvider, FactoryProvider。これらを組み合わせることで、DI コンテナで非常に柔軟なアーキテクチャを表現できます。
+provider には ClassProvider、ValueProvider、ExistingProvider、FactoryProvider といういくつかの種類があります。これらを組み合わせることで、非常に柔軟なアーキテクチャを DI コンテナで表現できます。
 
-プロバイダー間のすべての依存関係は自動的に解決され、`injector.get()` 呼び出しが発生した時点でオブジェクトと依存関係が生成・キャッシュされ、コンストラクター引数として正しく渡され（これがコンストラクターインジェクション）、Property として設定され（これがプロパティインジェクション）、またはメソッド呼び出しに渡されます（これがメソッドインジェクション）。
+provider 間のすべての依存関係は自動的に解決され、`injector.get()` が呼び出されるとすぐに、オブジェクトと依存関係が生成およびキャッシュされ、コンストラクターの Argument として渡される (コンストラクターインジェクション)、Property として設定される (Property インジェクション)、または Method 呼び出しに渡される (Method インジェクション) かのいずれかの方法で正しく受け渡されます。
 
-さて、HttpClient を別のものに交換するには、HttpClient に対して別のプロバイダー（ここでは ValueProvider）を定義できます。
+HttpClient を別のものに交換するには、HttpClient に対して別の provider (ここでは ValueProvider) を定義します。
 
 ```typescript
 const injector = InjectorContext.forProviders([
@@ -120,7 +162,7 @@ const injector = InjectorContext.forProviders([
 ]);
 ```
 
-`injector.get(UserRepository)` を通じて UserRepository が要求されると、AnotherHttpClient オブジェクトを受け取ります。代わりに ClassProvider を使うのも非常に有効で、AnotherHttpClient の依存関係も DI コンテナによって管理されます。
+`injector.get(UserRepository)` で UserRepository を要求すると、AnotherHttpClient オブジェクトが渡されます。代わりに ClassProvider を使うこともでき、その場合は AnotherHttpClient のすべての依存関係も DI コンテナによって管理されます。
 
 ```typescript
 const injector = InjectorContext.forProviders([
@@ -129,15 +171,15 @@ const injector = InjectorContext.forProviders([
 ]);
 ```
 
-プロバイダーのすべての種類は、[依存性注入のプロバイダー](./dependency-injection/providers.md) セクションで一覧と説明があります。
+すべての種類の provider については、[Dependency Injection Providers](./dependency-injection/providers.md) のセクションで一覧にして説明しています。
 
-ここで言及しておくべきは、Deepkit の DI コンテナは Deepkit のランタイム Type にのみ対応しているということです。つまり、Class、Type、Interface、Function を含むコードは、ランタイムで Type 情報を利用できるようにするために、Deepkit Type Compiler でコンパイルされる必要があります。詳しくは [ランタイム型](./runtime-types.md) の章を参照してください。
+ここで補足しておくと、Deepkit の DI コンテナは Deepkit のランタイム型でのみ動作します。つまり、class、type、interface、function を含むすべてのコードは、実行時に型情報を利用できるよう Deepkit Type Compiler でコンパイルする必要があります。[ランタイム型](./runtime-types.md)の章を参照してください。
 
-## 依存性逆転
+## Dependency Inversion
 
-先ほどの UserRepository の例では、UserRepository が下位レイヤーの HTTP ライブラリに依存しています。さらに、抽象 (Interface) ではなく具体的な実装 (Class) を依存関係として宣言しています。一見するとオブジェクト指向のパラダイムに沿っているように見えますが、特に複雑で大規模なアーキテクチャでは問題につながる可能性があります。
+先ほどの UserRepository の例では、UserRepository がより低レベルの HTTP ライブラリに依存しています。さらに、抽象 (interface) ではなく具体的な実装 (class) が依存関係として宣言されています。一見するとオブジェクト指向のパラダイムに沿っているように思えますが、特に複雑で大規模なアーキテクチャでは問題につながる可能性があります。
 
-別の案としては、HttpClient の依存関係を抽象 (Interface) に変換し、UserRepository に HTTP ライブラリのコードを import しないようにすることが考えられます。
+別の方法として、HttpClient への依存を抽象 (interface) に変換し、HTTP ライブラリのコードを UserRepository に import しないようにすることが考えられます。
 
 ```typescript
 interface HttpClientInterface {
@@ -145,7 +187,7 @@ interface HttpClientInterface {
 }
 
 class UserRepository {
-    concstructor(
+    constructor(
         private http: HttpClientInterface
     ) {}
 
@@ -155,12 +197,12 @@ class UserRepository {
 }
 ```
 
-これは依存性逆転の原則と呼ばれます。UserRepository はもはや HTTP ライブラリに直接依存せず、抽象（Interface）に基づきます。これにより、この原則の二つの基本的な目標を満たします。
+これを依存性逆転の原則 (Dependency Inversion Principle) と呼びます。UserRepository は HTTP ライブラリに直接依存しなくなり、代わりに抽象 (interface) に基づくようになります。これにより、この原則の 2 つの基本的な目標を満たします。
 
-* 高水準モジュールは低水準モジュールから何も import すべきではない。
-* 実装は抽象（Interface）に基づくべきである。
+* 高レベルのモジュールは、低レベルのモジュールから何も import すべきではありません。
+* 実装は抽象 (interface) に基づくべきです。
 
-二つの実装（HTTP ライブラリを用いた UserRepository）の統合は、DI コンテナを通じて行えます。
+2 つの実装 (UserRepository と HTTP ライブラリ) の結合は、DI コンテナを介して行えるようになりました。
 
 ```typescript
 import { InjectorContext } from '@deepkit/injector';
@@ -173,13 +215,11 @@ const injector = InjectorContext.forProviders([
 ]);
 ```
 
-Deepkit の DI コンテナは HttpClientInterface のような抽象的な依存関係（Interface）を解決できるため、HttpClient が HttpClientInterface を実装している限り、UserRepository は自動的に HttpClient の実装を取得します。
+Deepkit の DI コンテナは、この HttpClientInterface のような抽象的な依存関係 (interface) を解決できるため、HttpClient が `class HttpClient implements HttpClientInterface` と宣言していれば、UserRepository には自動的に HttpClient の実装が渡されます。
 
-これは、HttpClient が明示的に HttpClientInterface を実装する（`class HttpClient implements HttpClientInterface`）か、あるいは HttpClient の API が単に HttpClientInterface と互換であることによって実現されます。
+HttpClient がこの interface を実装していない場合、DI コンテナはエラー (`Undefined dependency "http: HttpClientInterface" of UserRepository(?). Type has no provider.`) をスローします。この場合、2 つの実装を結合しようとする利用者が解決策を用意しなければなりません。たとえば、HttpClientInterface を実装し、Method 呼び出しを HttpClient に正しく転送するアダプター class を登録する方法があります。
 
-HttpClient が API を変更（たとえば `get` Method を削除）して HttpClientInterface と互換でなくなった時点で、DI コンテナは Error を投げます（"the HttpClientInterface dependency was not provided"）。ここでは、両方の実装を結びつけたい利用者が解決策を見つける責任を負います。例としては、HttpClientInterface を実装し、Method 呼び出しを正しく HttpClient に中継するアダプター Class を登録することが挙げられます。
-
-代替として、HttpClientInterface に具体的な実装を直接提供することもできます。
+別の方法として、HttpClientInterface に具体的な実装を直接提供することもできます。
 
 ```typescript
 import { InjectorContext, provide } from '@deepkit/injector';
@@ -192,6 +232,6 @@ const injector = InjectorContext.forProviders([
 ]);
 ```
 
-ここで注意すべきは、理論的には依存性逆転の原則に利点がある一方で、実践では大きな欠点もあるということです。より多くの Interface を記述しなければならないためコード量が増えるだけでなく、各実装が依存関係ごとに Interface を持つことになるため、複雑性も増します。このコストを支払う価値があるのは、アプリケーションが一定の規模に達し、この柔軟性が必要になったときだけです。あらゆるデザインパターンや原則には費用対効果があり、適用する前に熟考すべきです。
+ここで注意すべき点として、依存性逆転の原則には理論上の利点がある一方で、実際には大きな欠点もあります。より多くの interface を書く必要があるためコード量が増えるだけでなく、各実装が依存関係ごとに interface を持つことになるため複雑さも増します。この代償に見合うのは、アプリケーションが一定の規模に達し、この柔軟性が必要になった場合だけです。あらゆるデザインパターンや原則と同様に、この原則にもコストと効用のバランスがあり、適用する前によく検討する必要があります。
 
-デザインパターンは、最も単純なコードにまで闇雲に一律適用すべきではありません。しかし、複雑なアーキテクチャ、大規模アプリケーション、拡大するチームといった前提条件が揃っているならば、依存性逆転やその他のデザインパターンこそが真価を発揮します。
+デザインパターンは、ごく単純なコードにまで盲目的かつ一律に適用すべきではありません。しかし、複雑なアーキテクチャ、大規模なアプリケーション、拡大するチームといった前提条件がそろって初めて、依存性逆転やその他のデザインパターンは真の力を発揮します。

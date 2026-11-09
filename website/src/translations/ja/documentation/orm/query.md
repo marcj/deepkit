@@ -1,8 +1,8 @@
 # クエリ
 
-クエリは、データベースからデータを取得または変更する方法を記述するオブジェクトです。クエリを記述するための複数の Method と、それらを実行する終端 Method を持ちます。データベースアダプターは、データベース固有の機能をサポートするために、クエリ API をさまざまな方法で拡張できます。
+クエリは、データベースからデータを取得または変更する方法を記述するオブジェクトです。クエリを記述するための複数のメソッドと、クエリを実行する終端メソッドを備えています。データベースアダプターは、データベース固有の機能をサポートするために、さまざまな方法でクエリ API を拡張できます。
 
-`Database.query(T)` または `Session.query(T)` を使用してクエリを作成できます。パフォーマンスが向上するため、Session の使用を推奨します。
+クエリは `Database.query(T)` または `Session.query(T)` を使用して作成できます。パフォーマンスが向上するため、Session の使用を推奨します。
 
 ```typescript
 @entity.name('user')
@@ -24,16 +24,16 @@ const users = await database.query(User).select('username').find();
 
 ## フィルター
 
-フィルターを適用して結果セットを絞り込むことができます。
+フィルターを適用すると、結果セットを絞り込めます。
 
 ```typescript
-//シンプルなフィルター
+//単純なフィルター
 const users = await database.query(User).filter({name: 'User1'}).find();
 
-//複数フィルター。すべて AND
+//複数のフィルター（すべて AND）
 const users = await database.query(User).filter({name: 'User1', id: 2}).find();
 
-//範囲フィルター: $gt, $lt, $gte, $lte（より大きい、より小さい、...）
+//範囲フィルター: $gt, $lt, $gte, $lte (より大きい、より小さい、...)
 //WHERE created < NOW() と同等
 const users = await database.query(User).filter({created: {$lt: new Date}}).find();
 //WHERE id > 500 と同等
@@ -41,28 +41,28 @@ const users = await database.query(User).filter({id: {$gt: 500}}).find();
 //WHERE id >= 500 と同等
 const users = await database.query(User).filter({id: {$gte: 500}}).find();
 
-//集合フィルター: $in, $nin（IN, NOT IN）
+//集合フィルター: $in, $nin (in, not in)
 //WHERE id IN (1, 2, 3) と同等
 const users = await database.query(User).filter({id: {$in: [1, 2, 3]}}).find();
 
 //正規表現フィルター
 const users = await database.query(User).filter({username: {$regex: /User[0-9]+/}}).find();
 
-//グルーピング: $and, $nor, $or
+//グループ化: $and, $nor, $or
 //WHERE (username = 'User1') OR (username = 'User2') と同等
 const users = await database.query(User).filter({
     $or: [{username: 'User1'}, {username: 'User2'}]
 }).find();
 
 
-//ネストされたグルーピング
+//ネストされたグループ化
 //WHERE username = 'User1' OR (username = 'User2' and id > 0) と同等
 const users = await database.query(User).filter({
     $or: [{username: 'User1'}, {username: 'User2', id: {$gt: 0}}]
 }).find();
 
 
-//ネストされたグルーピング
+//ネストされたグループ化
 //WHERE username = 'User1' AND (created < NOW() OR id > 0) と同等
 const users = await database.query(User).filter({
     $and: [{username: 'User1'}, {$or: [{created: {$lt: new Date}, id: {$gt: 0}}]}]
@@ -71,24 +71,24 @@ const users = await database.query(User).filter({
 
 ### 等価
 
-### 大なり/小なり
+### より大きい / より小さい
 
 ### 正規表現
 
-### グルーピング AND/OR
+### AND/OR によるグループ化
 
-### IN
+### In
 
 ## Select
 
-データベースから受け取るフィールドを絞り込むには、`select('field1')` を使用します。
+データベースから受け取るフィールドを絞り込むには、`select('field1')` を使用できます。
 
 ```typescript
 const user = await database.query(User).select('username').findOne();
 const user = await database.query(User).select('id', 'username').findOne();
 ```
 
-`select` を使ってフィールドを絞り込んだ時点で、結果はエンティティのインスタンスではなく、オブジェクトリテラルのみになることに注意してください。
+`select` を使用してフィールドを絞り込むと、結果はエンティティのインスタンスではなく、単なるオブジェクトリテラルになる点に注意してください。
 
 ```
 const user = await database.query(User).select('username').findOne();
@@ -97,8 +97,8 @@ user instanceof User; //false
 
 ## 並び順
 
-`orderBy(field, order)` でエントリの並び順を変更できます。
-`orderBy` は複数回実行でき、順序を段階的に詳細化できます。
+`orderBy(field, order)` を使用すると、エントリの並び順を変更できます。
+`orderBy` を複数回実行することで、並び順をさらに細かく指定できます。
 
 ```typescript
 const users = await session.query(User).orderBy('created', 'desc').find();
@@ -107,22 +107,22 @@ const users = await session.query(User).orderBy('created', 'asc').find();
 
 ## ページネーション
 
-`itemsPerPage()` と `page()` を使って、結果をページングできます。ページは 1 から開始します。
+`itemsPerPage()` メソッドと `page()` メソッドを使用すると、結果をページネーションできます。ページは 1 から始まります。
 
 ```typescript
 const users = await session.query(User).itemsPerPage(50).page(1).find();
 ```
 
-代替の `limit` と `skip` を使えば手動でページングできます。
+代替メソッドの `limit` と `skip` を使用すると、手動でページネーションできます。
 
 ```typescript
 const users = await session.query(User).limit(5).skip(10).find();
 ```
 
 [#database-join]
-## 結合
+## Join
 
-デフォルトでは、エンティティからの参照はクエリに含まれず、ロードもされません。参照をロードせずにクエリに結合を含めるには、`join()`（LEFT JOIN）または `innerJoin()` を使用します。参照をロードしつつクエリに結合を含めるには、`joinWith()` または `innerJoinWith()` を使用します。
+デフォルトでは、エンティティの参照はクエリに含まれず、ロードもされません。参照をロードせずにクエリに join を含めるには、`join()`（left join）または `innerJoin()` を使用します。クエリに join を含めて参照もロードするには、`joinWith()` または `innerJoinWith()` を使用します。
 
 以下の例はすべて、次のモデルスキーマを前提としています。
 
@@ -149,25 +149,25 @@ class User {
 ```
 
 ```typescript
-//グループが割り当てられたユーザーのみを選択（INNER JOIN）
+//グループが割り当てられたユーザーのみを選択 (INNER JOIN)
 const users = await session.query(User).innerJoin('group').find();
 for (const user of users) {
-    user.group; //参照がロードされていないため error
+    user.group; //参照がロードされていないためエラー
 }
 ```
 
 ```typescript
-//グループが割り当てられたユーザーのみを選択（INNER JOIN）し、リレーションをロード
+//グループが割り当てられたユーザーのみを選択 (INNER JOIN) し、リレーションをロード
 const users = await session.query(User).innerJoinWith('group').find();
 for (const user of users) {
-    user.group.name; //動作します
+    user.group.name; //動作する
 }
 ```
 
-結合クエリを修正するには、同じ Method を `use` プレフィックス付きで使用します: `useJoin`, `useInnerJoin`, `useJoinWith`, `useInnerJoinWith`。結合クエリの修正を終了し、親クエリに戻るには `end()` を使用します。
+join クエリを変更するには、同じメソッドに `use` プレフィックスを付けた `useJoin`、`useInnerJoin`、`useJoinWith`、`useInnerJoinWith` を使用します。join クエリの変更を終了するには、`end()` を使用して親クエリに戻ります。
 
 ```typescript
-//名前が 'admins' のグループが割り当てられているユーザーのみを選択（INNER JOIN）
+//名前が 'admins' のグループが割り当てられたユーザーのみを選択 (INNER JOIN)
 const users = await session.query(User)
     .useInnerJoinWith('group')
         .filter({name: 'admins'})
@@ -181,9 +181,9 @@ for (const user of users) {
 
 ## 集計
 
-集計 Method により、レコードのカウントやフィールドの集計が可能です。
+集計メソッドを使用すると、レコードをカウントしたり、フィールドを集計したりできます。
 
-次の例は、このモデルスキーマを前提としています。
+以下の例は、次のモデルスキーマを前提としています。
 
 ```typescript
 @entity.name('file')
@@ -200,7 +200,7 @@ class File {
 }
 ```
 
-`groupBy` は指定したフィールドで結果をグルーピングします。
+`groupBy` を使用すると、指定したフィールドで結果をグループ化できます。
 
 ```typescript
 await database.persist(
@@ -213,7 +213,7 @@ await database.persist(
 await session.query(File).groupBy('category').find();
 ```
 
-利用できる集計 Method は複数あります: `withSum`, `withAverage`, `withCount`, `withMin`, `withMax`, `withGroupConcat`。いずれも第1引数にフィールド名を取り、別名を変更するための任意の第2引数を取ります。
+集計メソッドには、`withSum`、`withAverage`、`withCount`、`withMin`、`withMax`、`withGroupConcat` があります。いずれも第 1 引数にフィールド名を必要とし、オプションの第 2 引数でエイリアスを変更できます。
 
 ```typescript
 // まず、いくつかのレコードを更新します:
@@ -232,9 +232,9 @@ await session.query(File).groupBy('category').withCount('id', 'amount').find();
 
 ## Returning
 
-`patch` および `delete` による変更時に、`returning` で追加のフィールドを要求できます。
+`returning` を使用すると、`patch` および `delete` による変更時に追加のフィールドを要求できます。
 
-注意: すべてのデータベースアダプターがフィールドをアトミックに返すわけではありません。データ整合性を確保するためにトランザクションを使用してください。
+注意: すべてのデータベースアダプターがフィールドをアトミックに返すわけではありません。データの整合性を確保するには、トランザクションを使用してください。
 
 ```typescript
 await database.query(User).patchMany({visits: 0});
@@ -257,7 +257,7 @@ const users: User[] = await database.query(User).filter({username: 'Peter'}).fin
 ## FindOne
 
 指定したフィルターに一致するアイテムを返します。
-アイテムが見つからない場合、`ItemNotFound` Error がスローされます。
+アイテムが見つからない場合は、`ItemNotFound` エラーがスローされます。
 
 ```typescript
 const users: User = await database.query(User).filter({username: 'Peter'}).findOne();
@@ -266,7 +266,7 @@ const users: User = await database.query(User).filter({username: 'Peter'}).findO
 ## FindOneOrUndefined
 
 指定したフィルターに一致するエントリを返します。
-エントリが見つからない場合は、undefined が返されます。
+エントリが見つからない場合は、undefined を返します。
 
 ```typescript
 const query = database.query(User).filter({username: 'Peter'});
@@ -284,7 +284,7 @@ const usernames: string[] = await database.query(User).findField('username');
 ## FindOneField
 
 指定したフィルターに一致するフィールドのリストを返します。
-エントリが見つからない場合、`ItemNotFound` Error がスローされます。
+エントリが見つからない場合は、`ItemNotFound` エラーがスローされます。
 
 ```typescript
 const username: string = await database.query(User).filter({id: 3}).findOneField('username');
@@ -292,9 +292,9 @@ const username: string = await database.query(User).filter({id: 3}).findOneField
 
 ## Patch
 
-Patch は、クエリで記述されたレコードをパッチする変更クエリです。`patchOne` と `patchMany` の Method がクエリを終了し、パッチを実行します。
+Patch は、クエリで記述されたレコードにパッチを適用する変更クエリです。`patchOne` メソッドと `patchMany` メソッドはクエリを終了し、パッチを実行します。
 
-`patchMany` は、指定したフィルターに一致するすべてのレコードをデータベースで変更します。フィルターが設定されていない場合は、テーブル全体が変更されます。1件のみ変更するには `patchOne` を使用します。
+`patchMany` は、指定したフィルターに一致するデータベース内のすべてのレコードを変更します。フィルターが設定されていない場合は、テーブル全体が変更されます。一度に 1 つのエントリのみを変更するには、`patchOne` を使用してください。
 
 ```typescript
 await database.query(User).filter({username: 'Peter'}).patch({username: 'Peter2'});
@@ -307,8 +307,8 @@ await database.query(User).patchMany({visits: 0});
 
 ## Delete
 
-`deleteMany` は、指定したフィルターに一致するすべてのエントリをデータベースから削除します。
-フィルターが設定されていない場合は、テーブル全体が削除されます。1件のみ削除するには `deleteOne` を使用します。
+`deleteMany` は、指定したフィルターに一致するデータベース内のすべてのエントリを削除します。
+フィルターが設定されていない場合は、テーブル全体が削除されます。一度に 1 つのエントリのみを削除するには、`deleteOne` を使用してください。
 
 ```typescript
 const result = await database.query(User)
@@ -318,9 +318,19 @@ const result = await database.query(User)
 const result = await database.query(User).filter({id: 4}).deleteOne();
 ```
 
+結果の `modified` には、削除されたアイテムの数が含まれます。削除されたアイテムの primary key は、読み取ると削除処理が遅くなるため、`returnPrimaryKeys()` を使用した場合にのみ取得できます。これを使用せずに `primaryKeys` を読み取ると、イベントリスナー内であっても `PrimaryKeysNotReturnedError` がスローされます。
+
+```typescript
+const result = await database.query(User)
+    .filter({logins: 0})
+    .returnPrimaryKeys()
+    .deleteMany();
+result.primaryKeys; //[{id: 4}, {id: 7}]
+```
+
 ## Has
 
-データベースに少なくとも1件のエントリが存在するかどうかを返します。
+データベースに少なくとも 1 つのエントリが存在するかどうかを返します。
 
 ```typescript
 const userExists: boolean = await database.query(User).filter({username: 'Peter'}).has();
@@ -328,7 +338,7 @@ const userExists: boolean = await database.query(User).filter({username: 'Peter'
 
 ## Count
 
-エントリ数を返します。
+エントリの数を返します。
 
 ```typescript
 const userCount: number = await database.query(User).count();
@@ -336,7 +346,7 @@ const userCount: number = await database.query(User).count();
 
 ## Lift
 
-クエリのリフトとは、クエリに新しい機能を追加することを意味します。これは通常、プラグインや複雑なアーキテクチャで、大きなクエリ Class を複数の使いやすく再利用可能な Class に分割するために使用されます。
+クエリを Lift するとは、クエリに新しい機能を追加することを意味します。これは通常、プラグインや複雑なアーキテクチャにおいて、大きなクエリクラスを便利で再利用可能な複数のクラスに分割するために使用されます。
 
 ```typescript
 import { FilterQuery, Query } from '@deepkit/orm';

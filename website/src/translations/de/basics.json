@@ -249,5 +249,11 @@
   "Validation with error messages": "Validierung mit Fehlermeldungen",
   "MongoDB: find one document by id": "MongoDB: ein Dokument anhand der ID finden",
   "PostgreSQL: find one row by id": "PostgreSQL: eine Zeile anhand der ID finden",
-  "PostgreSQL: insert 1,000 rows": "PostgreSQL: 1.000 Zeilen einfügen"
+  "PostgreSQL: insert 1,000 rows": "PostgreSQL: 1.000 Zeilen einfügen",
+  "What you can build with Deepkit": "Was du mit Deepkit bauen kannst",
+  "TypeScript backend framework": "TypeScript-Backend-Framework",
+  "TypeScript RPC framework": "TypeScript-RPC-Framework",
+  "TypeScript CLI framework": "TypeScript-CLI-Framework",
+  "TypeScript dependency injection": "TypeScript Dependency Injection",
+  "TypeScript ORM": "TypeScript-ORM"
 }

@@ -1,8 +1,8 @@
 # Query
 
-Eine Query ist ein Objekt, das beschreibt, wie Daten aus der Datenbank abgerufen oder verändert werden. Sie hat mehrere Methoden, um die Query zu beschreiben, und Abschlussmethoden, die sie ausführen. Der Database Adapter kann die Query-API auf viele Arten erweitern, um datenbankspezifische Features zu unterstützen.
+Eine Query ist ein Objekt, das beschreibt, wie Daten aus der Datenbank abgerufen oder geändert werden. Sie verfügt über mehrere Methoden zur Beschreibung der Query sowie über abschließende Methoden, die sie ausführen. Der Datenbankadapter kann die Query-API auf vielfältige Weise erweitern, um datenbankspezifische Features zu unterstützen.
 
-Eine Query kann mit `Database.query(T)` oder `Session.query(T)` erstellt werden. Wir empfehlen Sessions, da dies die Performance verbessert.
+Eine Query kann mit `Database.query(T)` oder `Session.query(T)` erstellt werden. Wir empfehlen Sessions, da sie die Performance verbessern.
 
 ```typescript
 @entity.name('user')
@@ -30,7 +30,7 @@ Ein Filter kann angewendet werden, um die Ergebnismenge einzuschränken.
 //einfache Filter
 const users = await database.query(User).filter({name: 'User1'}).find();
 
-//mehrere Filter, alle AND
+//mehrere Filter, alle mit AND verknüpft
 const users = await database.query(User).filter({name: 'User1', id: 2}).find();
 
 //Bereichsfilter: $gt, $lt, $gte, $lte (größer als, kleiner als, ...)
@@ -41,7 +41,7 @@ const users = await database.query(User).filter({id: {$gt: 500}}).find();
 //entspricht WHERE id >= 500
 const users = await database.query(User).filter({id: {$gte: 500}}).find();
 
-//Set-Filter: $in, $nin (in, not in)
+//Mengenfilter: $in, $nin (in, nicht in)
 //entspricht WHERE id IN (1, 2, 3)
 const users = await database.query(User).filter({id: {$in: [1, 2, 3]}}).find();
 
@@ -69,33 +69,33 @@ const users = await database.query(User).filter({
 }).find();
 ```
 
-### Equal
+### Gleich
 
-### Greater / Smaller
+### Größer / Kleiner
 
 ### RegExp
 
-### Grouping AND/OR
+### Gruppierung AND/OR
 
 ### In
 
 ## Select
 
-Um die Felder einzugrenzen, die aus der Datenbank abgerufen werden, kann `select('field1')` verwendet werden.
+Um die aus der Datenbank abzurufenden Felder einzugrenzen, kann `select('field1')` verwendet werden.
 
 ```typescript
 const user = await database.query(User).select('username').findOne();
 const user = await database.query(User).select('id', 'username').findOne();
 ```
 
-Wichtig ist: Sobald die Felder mit `select` eingegrenzt werden, sind die Ergebnisse keine Instanzen der Entity mehr, sondern nur noch Object-Literals.
+Wichtig ist, dass die Ergebnisse keine Instanzen der Entity mehr sind, sondern nur noch Objektliterale, sobald die Felder mit `select` eingegrenzt werden.
 
 ```
 const user = await database.query(User).select('username').findOne();
 user instanceof User; //false
 ```
 
-## Order
+## Sortierung
 
 Mit `orderBy(field, order)` kann die Reihenfolge der Einträge geändert werden.
 `orderBy` kann mehrfach ausgeführt werden, um die Sortierung immer weiter zu verfeinern.
@@ -105,15 +105,15 @@ const users = await session.query(User).orderBy('created', 'desc').find();
 const users = await session.query(User).orderBy('created', 'asc').find();
 ```
 
-## Pagination
+## Paginierung
 
-Die Methoden `itemsPerPage()` und `page()` können verwendet werden, um die Ergebnisse zu paginieren. Die Page beginnt bei 1.
+Mit den Methoden `itemsPerPage()` und `page()` können die Ergebnisse paginiert werden. Die Seitenzählung beginnt bei 1.
 
 ```typescript
 const users = await session.query(User).itemsPerPage(50).page(1).find();
 ```
 
-Mit den alternativen Methoden `limit` und `skip` kann man manuell paginieren.
+Mit den alternativen Methoden `limit` und `skip` kann manuell paginiert werden.
 
 ```typescript
 const users = await session.query(User).limit(5).skip(10).find();
@@ -122,9 +122,9 @@ const users = await session.query(User).limit(5).skip(10).find();
 [#database-join]
 ## Join
 
-Standardmäßig werden References aus der Entity weder in Queries berücksichtigt noch geladen. Um einen Join in die Query einzuschließen, ohne die Reference zu laden, verwenden Sie `join()` (Left Join) oder `innerJoin()`. Um einen Join in die Query einzuschließen und die Reference zu laden, verwenden Sie `joinWith()` oder `innerJoinWith()`.
+Standardmäßig werden Referenzen der Entity weder in Queries einbezogen noch geladen. Um einen Join in die Query aufzunehmen, ohne die Referenz zu laden, verwende `join()` (Left Join) oder `innerJoin()`. Um einen Join in die Query aufzunehmen und die Referenz zu laden, verwende `joinWith()` oder `innerJoinWith()`.
 
-Alle folgenden Beispiele gehen von diesen Model-Schemas aus:
+Alle folgenden Beispiele gehen von diesen Modellschemata aus:
 
 ```typescript
 @entity.name('group')
@@ -149,29 +149,29 @@ class User {
 ```
 
 ```typescript
-//wählt nur Users mit einer zugewiesenen group (INNER JOIN)
+//nur Benutzer auswählen, denen eine Gruppe zugewiesen ist (INNER JOIN)
 const users = await session.query(User).innerJoin('group').find();
 for (const user of users) {
-    user.group; //Fehler, da die Referenz nicht geladen wurde
+    user.group; //Error, da die Referenz nicht geladen wurde
 }
 ```
 
 ```typescript
-//wählt nur Users mit einer zugewiesenen group (INNER JOIN) und lädt die Relation
+//nur Benutzer auswählen, denen eine Gruppe zugewiesen ist (INNER JOIN), und die Relation laden
 const users = await session.query(User).innerJoinWith('group').find();
 for (const user of users) {
     user.group.name; //funktioniert
 }
 ```
 
-Um Join-Queries zu modifizieren, verwenden Sie dieselben Methoden, jedoch mit dem Prefix `use`: `useJoin`, `useInnerJoin`, `useJoinWith` oder `useInnerJoinWith`. Um die Join-Query-Modifikation zu beenden, verwenden Sie `end()`, um zur Parent-Query zurückzukehren.
+Um Join-Queries zu ändern, verwende dieselben Methoden, jedoch mit dem Präfix `use`: `useJoin`, `useInnerJoin`, `useJoinWith` oder `useInnerJoinWith`. Um die Änderung der Join-Query zu beenden, verwende `end()`, womit du zur übergeordneten Query zurückkehrst.
 
 ```typescript
-//wählt nur Users mit einer group mit dem Namen 'admins' (INNER JOIN)
+//nur Benutzer auswählen, denen eine Gruppe mit dem Namen 'admins' zugewiesen ist (INNER JOIN)
 const users = await session.query(User)
     .useInnerJoinWith('group')
         .filter({name: 'admins'})
-        .end()  // kehrt zur Parent-Query zurück
+        .end()  // kehrt zur übergeordneten Query zurück
     .find();
 
 for (const user of users) {
@@ -181,9 +181,9 @@ for (const user of users) {
 
 ## Aggregation
 
-Aggregation-Methoden ermöglichen es, Records zu zählen und Felder zu aggregieren.
+Mit Aggregationsmethoden lassen sich Datensätze zählen und Felder aggregieren.
 
-Die folgenden Beispiele gehen von diesem Model-Schema aus:
+Die folgenden Beispiele gehen von diesem Modellschema aus:
 
 ```typescript
 @entity.name('file')
@@ -213,10 +213,10 @@ await database.persist(
 await session.query(File).groupBy('category').find();
 ```
 
-Es gibt mehrere Aggregation-Methoden: `withSum`, `withAverage`, `withCount`, `withMin`, `withMax`, `withGroupConcat`. Jede benötigt einen Feldnamen als erstes Argument und optional ein zweites Argument, um den Alias zu ändern.
+Es gibt mehrere Aggregationsmethoden: `withSum`, `withAverage`, `withCount`, `withMin`, `withMax`, `withGroupConcat`. Jede erfordert einen Feldnamen als erstes Argument und akzeptiert ein optionales zweites Argument, um den Alias zu ändern.
 
 ```typescript
-//zuerst aktualisieren wir einige Records:
+// zuerst aktualisieren wir einige der Datensätze:
 await database.query(File).filter({path: 'images/file1'}).patchOne({$inc: {downloads: 15}});
 await database.query(File).filter({path: 'images/file2'}).patchOne({$inc: {downloads: 5}});
 
@@ -234,7 +234,7 @@ await session.query(File).groupBy('category').withCount('id', 'amount').find();
 
 Mit `returning` können bei Änderungen über `patch` und `delete` zusätzliche Felder angefordert werden.
 
-Achtung: Nicht alle Database Adapter liefern Felder atomar zurück. Verwenden Sie Transactions, um Datenkonsistenz sicherzustellen.
+Achtung: Nicht alle Datenbankadapter geben Felder atomar zurück. Verwende Transaktionen, um die Datenkonsistenz sicherzustellen.
 
 ```typescript
 await database.query(User).patchMany({visits: 0});
@@ -257,7 +257,7 @@ const users: User[] = await database.query(User).filter({username: 'Peter'}).fin
 ## FindOne
 
 Gibt einen Eintrag zurück, der dem angegebenen Filter entspricht.
-Wenn kein Eintrag gefunden wird, wird ein `ItemNotFound` Error ausgelöst.
+Wird kein Eintrag gefunden, wird ein `ItemNotFound`-Error geworfen.
 
 ```typescript
 const users: User = await database.query(User).filter({username: 'Peter'}).findOne();
@@ -266,7 +266,7 @@ const users: User = await database.query(User).filter({username: 'Peter'}).findO
 ## FindOneOrUndefined
 
 Gibt einen Eintrag zurück, der dem angegebenen Filter entspricht.
-Wenn kein Eintrag gefunden wird, wird undefined zurückgegeben.
+Wird kein Eintrag gefunden, wird undefined zurückgegeben.
 
 ```typescript
 const query = database.query(User).filter({username: 'Peter'});
@@ -275,7 +275,7 @@ const users: User|undefined = await query.findOneOrUndefined();
 
 ## FindField
 
-Gibt eine Liste eines Feldes zurück, die dem angegebenen Filter entspricht.
+Gibt eine Liste der Werte eines Feldes zurück, die dem angegebenen Filter entsprechen.
 
 ```typescript
 const usernames: string[] = await database.query(User).findField('username');
@@ -283,8 +283,8 @@ const usernames: string[] = await database.query(User).findField('username');
 
 ## FindOneField
 
-Gibt eine Liste eines Feldes zurück, die dem angegebenen Filter entspricht.
-Wenn kein Eintrag gefunden wird, wird ein `ItemNotFound` Error ausgelöst.
+Gibt eine Liste der Werte eines Feldes zurück, die dem angegebenen Filter entsprechen.
+Wird kein Eintrag gefunden, wird ein `ItemNotFound`-Error geworfen.
 
 ```typescript
 const username: string = await database.query(User).filter({id: 3}).findOneField('username');
@@ -292,10 +292,10 @@ const username: string = await database.query(User).filter({id: 3}).findOneField
 
 ## Patch
 
-Patch ist eine Change-Query, die die in der Query beschriebenen Records patcht. Die Methoden
-`patchOne` und `patchMany` beenden die Query und führen den Patch aus.
+Patch ist eine Änderungs-Query, die die in der Query beschriebenen Datensätze patcht. Die Methoden
+`patchOne` und `patchMany` schließen die Query ab und führen den Patch aus.
 
-`patchMany` ändert alle Records in der Datenbank, die dem angegebenen Filter entsprechen. Wenn kein Filter gesetzt ist, wird die gesamte Tabelle geändert. Verwenden Sie `patchOne`, um jeweils nur einen Eintrag zu ändern.
+`patchMany` ändert alle Datensätze in der Datenbank, die dem angegebenen Filter entsprechen. Ist kein Filter gesetzt, wird die gesamte Tabelle geändert. Verwende `patchOne`, um jeweils nur einen Eintrag zu ändern.
 
 ```typescript
 await database.query(User).filter({username: 'Peter'}).patch({username: 'Peter2'});
@@ -309,7 +309,7 @@ await database.query(User).patchMany({visits: 0});
 ## Delete
 
 `deleteMany` löscht alle Einträge in der Datenbank, die dem angegebenen Filter entsprechen.
-Wenn kein Filter gesetzt ist, wird die gesamte Tabelle gelöscht. Verwenden Sie `deleteOne`, um jeweils nur einen Eintrag zu löschen.
+Ist kein Filter gesetzt, wird die gesamte Tabelle gelöscht. Verwende `deleteOne`, um jeweils nur einen Eintrag zu löschen.
 
 ```typescript
 const result = await database.query(User)
@@ -317,6 +317,16 @@ const result = await database.query(User)
     .deleteMany();
 
 const result = await database.query(User).filter({id: 4}).deleteOne();
+```
+
+Das Ergebnis enthält in `modified` die Anzahl der gelöschten Einträge. Die Primärschlüssel der gelöschten Einträge sind nur mit `returnPrimaryKeys()` verfügbar, da ihr Auslesen den Löschvorgang verlangsamt. Wird `primaryKeys` ohne diese Methode gelesen, wird ein `PrimaryKeysNotReturnedError` geworfen, auch innerhalb von Event-Listenern.
+
+```typescript
+const result = await database.query(User)
+    .filter({logins: 0})
+    .returnPrimaryKeys()
+    .deleteMany();
+result.primaryKeys; //[{id: 4}, {id: 7}]
 ```
 
 ## Has
@@ -337,7 +347,7 @@ const userCount: number = await database.query(User).count();
 
 ## Lift
 
-Eine Query zu liften bedeutet, ihr neue Funktionalität hinzuzufügen. Dies wird üblicherweise entweder von Plugins oder in komplexen Architekturen verwendet, um größere Query-Klassen in mehrere bequeme, wiederverwendbare Klassen aufzuteilen.
+Das Liften einer Query bedeutet, ihr neue Funktionalität hinzuzufügen. Dies wird üblicherweise entweder von Plugins oder in komplexen Architekturen verwendet, um größere Query-Klassen in mehrere praktische, wiederverwendbare Klassen aufzuteilen.
 
 ```typescript
 import { FilterQuery, Query } from '@deepkit/orm';

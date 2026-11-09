@@ -249,5 +249,11 @@
   "Validation with error messages": "오류 메시지를 포함한 유효성 검사",
   "MongoDB: find one document by id": "MongoDB: id로 문서 하나 찾기",
   "PostgreSQL: find one row by id": "PostgreSQL: id로 행 하나 찾기",
-  "PostgreSQL: insert 1,000 rows": "PostgreSQL: 1,000개 행 삽입"
+  "PostgreSQL: insert 1,000 rows": "PostgreSQL: 1,000개 행 삽입",
+  "What you can build with Deepkit": "Deepkit으로 만들 수 있는 것",
+  "TypeScript backend framework": "TypeScript 백엔드 프레임워크",
+  "TypeScript RPC framework": "TypeScript RPC 프레임워크",
+  "TypeScript CLI framework": "TypeScript CLI 프레임워크",
+  "TypeScript dependency injection": "TypeScript 의존성 주입",
+  "TypeScript ORM": "TypeScript ORM"
 }
