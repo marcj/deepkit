@@ -1483,3 +1483,8 @@ test('discriminated unions check only the member of the discriminator', () => {
     type Named = { messageType: 'a'; firstValue: string } | { messageType: 'b'; secondValue: string };
     expect(deserialize<Named>({ message_type: 'b', second_value: 'x' }, undefined, undefined, underscoreNamingStrategy)).toEqual({ messageType: 'b', secondValue: 'x' });
 });
+
+test('loosely convert numbers and strings to boolean', () => {
+    expect([1, 0, 2, -1, 0.5, NaN].map(v => cast<boolean>(v))).toEqual([true, false, false, false, false, false]);
+    expect(['1', '0', 'true', 'false', '2', ''].map(v => cast<boolean>(v))).toEqual([true, false, true, false, false, false]);
+});

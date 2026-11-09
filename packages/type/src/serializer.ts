@@ -265,6 +265,8 @@ function toBigIntLoosely(value: any): any {
 }
 
 function toBooleanLoosely(value: any): any {
+    // comparing a number with 'true' converts the string every time, and databases without a boolean type return numbers
+    if ('number' === typeof value) return value === 1;
     return isPrimitiveConvertible(value) ? value == 1 || value == 'true' : value;
 }
 
