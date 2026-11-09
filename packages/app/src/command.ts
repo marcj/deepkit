@@ -146,6 +146,9 @@ export function getArgsFromEnvironment(): string[] {
     return [];
 }
 
+/** A value like -1 or -0.5, which would otherwise be read as a short flag. */
+const negativeNumber = /^-(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i;
+
 export function parseCliArgs(args: string[], aliases: { [name: string]: string } = {}): {
     [name: string]: boolean | string | string[]
 } {
@@ -179,7 +182,7 @@ export function parseCliArgs(args: string[], aliases: { [name: string]: string }
                 append(name, value);
                 current = undefined;
             }
-        } else if (arg.startsWith('-')) {
+        } else if (arg.startsWith('-') && !(negativeNumber.test(arg) && !aliases[arg.substring(1)])) {
             if (current) {
                 append(current, true);
             }
@@ -197,7 +200,7 @@ export function parseCliArgs(args: string[], aliases: { [name: string]: string }
     }
 
     if (current) {
-        result[current] = true;
+        append(current, true);
     }
 
     return result;

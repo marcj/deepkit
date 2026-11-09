@@ -319,3 +319,34 @@ test('optional unknown provider', async () => {
 
     expect((await app(['test'])).output).toContain('Test');
 });
+
+test('parser: a negative number is a value', () => {
+    expect(parseCliArgs(['--times', '-1'])).toEqual({ times: '-1' });
+    expect(parseCliArgs(['--ratio', '-0.5'])).toEqual({ ratio: '-0.5' });
+    expect(parseCliArgs(['--ratio', '-.5'])).toEqual({ ratio: '-.5' });
+    expect(parseCliArgs(['--big', '-1e3'])).toEqual({ big: '-1e3' });
+    expect(parseCliArgs(['-t', '-1'])).toEqual({ t: '-1' });
+    expect(parseCliArgs(['-5', 'a'])).toEqual({ '@': ['-5', 'a'] });
+    expect(parseCliArgs(['--ids', '-1', '--ids', '-2'])).toEqual({ ids: ['-1', '-2'] });
+});
+
+test('parser: short flags are still flags', () => {
+    expect(parseCliArgs(['-v'])).toEqual({ v: true });
+    expect(parseCliArgs(['-v', '--help'])).toEqual({ v: true, help: true });
+    expect(parseCliArgs(['-1a'])).toEqual({ '1a': true });
+    expect(parseCliArgs(['--flag', '-v'])).toEqual({ flag: true, v: true });
+});
+
+test('parser: a registered alias that looks like a number stays a flag', () => {
+    expect(parseCliArgs(['-1'], { '1': 'one' })).toEqual({ one: true });
+});
+
+test('a negative number reaches the command', async () => {
+    const values: any[] = [];
+    const exec = simpleApp([function repeat(value: number, times: number & Flag = 1) {
+        values.push([value, times]);
+    }]);
+    await exec(['repeat', '5', '--times', '-1']);
+    await exec(['repeat', '-5', '--times', '-2.5']);
+    expect(values).toEqual([[5, -1], [-5, -2.5]]);
+});
