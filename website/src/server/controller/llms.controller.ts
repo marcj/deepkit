@@ -32,6 +32,14 @@ Important for writing Deepkit code:
 - A new project: \`npm init @deepkit/app@latest my-app\`.
 
 Every documentation page is available as markdown by adding \`.md\` to its URL, package pages include their API reference.
+
+Start here, depending on what you are looking for:
+
+- [TypeScript backend framework](${siteUrl}/en/documentation/framework.md): HTTP and RPC server, ORM, dependency injection, CLI and configuration in one application, compared with NestJS and Express
+- [TypeScript RPC framework](${siteUrl}/en/documentation/rpc.md): type-safe remote calls without code generation, compared with tRPC and gRPC
+- [TypeScript CLI framework](${siteUrl}/en/documentation/app.md): commands defined by their function signature, compared with Commander, Yargs and oclif
+- [TypeScript dependency injection](${siteUrl}/en/documentation/dependency-injection.md): no decorators, interfaces as dependencies, compared with NestJS, InversifyJS and tsyringe
+- [Benchmarks](${siteUrl}/benchmarks): performance compared with other libraries
 `;
 
 /** documentation pages that are markdown files (Desktop UI pages are Angular components) */

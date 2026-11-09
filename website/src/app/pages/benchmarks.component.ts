@@ -714,6 +714,14 @@ const suiteTitles: { [name: string]: string } = {
                     Every package of Deepkit has benchmarks. The comparisons with other libraries use the same data and
                     run in the same process, on a dedicated machine.
                 </p>
+                <p>
+                    What is measured here:
+                    <a href="/en/documentation/orm">TypeScript ORM</a>,
+                    <a href="/en/documentation/rpc">TypeScript RPC framework</a>,
+                    <a href="/en/documentation/dependency-injection">TypeScript dependency injection</a>,
+                    <a href="/en/documentation/runtime-types/validation">TypeScript validation</a>,
+                    <a href="/en/documentation/framework">TypeScript backend framework</a>.
+                </p>
                 <div class="meta">
                     @if (latest(); as run) {
                         <a class="chip" [attr.title]="masterTitle()" href="https://github.com/deepkit/deepkit-framework/commit/{{ run.commit }}">{{ masterLabel() }} {{ run.label }}</a>

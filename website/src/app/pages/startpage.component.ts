@@ -180,6 +180,14 @@ app.command('user:create', (
 // APP_PAGE_SIZE=50 sets pageSize, -1 fails at startup
 app.loadConfigFromEnv().run();`;
 
+const buildLinks = [
+    { title: texts.buildBackend, link: 'documentation/framework' },
+    { title: texts.buildRpc, link: 'documentation/rpc' },
+    { title: texts.buildCli, link: 'documentation/app' },
+    { title: texts.buildDi, link: 'documentation/dependency-injection' },
+    { title: texts.buildOrm, link: 'documentation/orm' },
+];
+
 const features = [
     { title: texts.runtimeTypesTitle, text: texts.runtimeTypesText, link: 'documentation/runtime-types', code: runtimeTypesCode },
     { title: texts.httpTitle, text: texts.httpText, link: 'documentation/http', code: httpCode },
@@ -316,6 +324,14 @@ const performanceCharts = [
                 </div>
             </main>
 
+                <div class="feature-center">
+                    <h2>{{ texts.buildWithTitle | translate }}</h2>
+                    <p class="actions">
+                        @for (item of buildLinks; track item.link) {
+                            <a class="button" [routerLink]="item.link | i18nRoute">{{ item.title | translate }}</a>
+                        }
+                    </p>
+                </div>
             @if (performanceCharts.length) {
                 <div class="feature-center color">
                     <div class="wrapper">
@@ -642,6 +658,7 @@ const performanceCharts = [
 export class StartpageComponent {
     protected readonly texts = texts;
     protected readonly features = features;
+    protected readonly buildLinks = buildLinks;
     protected readonly pillars = pillars;
     protected readonly agentPoints = agentPoints;
     protected readonly performanceCharts = performanceCharts;
