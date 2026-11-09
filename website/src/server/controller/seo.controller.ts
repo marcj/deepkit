@@ -62,6 +62,10 @@ export function getPermanentRedirect(url: string): string | undefined {
     }
     // renamed documentation pages
     const renamed: Record<string, string> = {
+        // the CLI documentation is part of App
+        cli: 'app',
+        'cli/getting-started': 'app',
+        'cli/events': 'app/events',
         'package/mongodb': 'package/mongo',
         'package/filesystem-s3': 'package/filesystem-aws-s3',
         'dependency-injection/dependency-injection': 'dependency-injection',

@@ -1,4 +1,46 @@
-# Dependency Injection
+# TypeScript Dependency Injection
+
+Deepkit is a dependency injection container for TypeScript that works without decorators on your services. It resolves constructor parameters from their TypeScript types, including interfaces, so your code stays free of container-specific annotations and tokens.
+
+```typescript
+import { InjectorContext } from '@deepkit/injector';
+
+interface Mailer {
+    send(to: string, text: string): void;
+}
+
+class SmtpMailer implements Mailer {
+    send(to: string, text: string): void {
+        console.log(`Sending "${text}" to ${to}`);
+    }
+}
+
+class Signup {
+    constructor(private mailer: Mailer) {}
+
+    register(email: string): void {
+        this.mailer.send(email, 'Welcome');
+    }
+}
+
+const injector = InjectorContext.forProviders([Signup, SmtpMailer]);
+injector.get(Signup).register('peter@example.com');
+// Sending "Welcome" to peter@example.com
+```
+
+`Signup` depends on the `Mailer` interface, and the container finds `SmtpMailer` because it implements that interface. To use another implementation, for example in a test, provide it explicitly with `provide<Mailer>({ useClass: TestMailer })`. A dependency nobody provides is an error with its exact location: `Undefined dependency "mailer: Mailer" of Signup(?). Type has no provider.`
+
+## Comparison with NestJS, InversifyJS and tsyringe
+
+|                         | Deepkit                 | NestJS                     | InversifyJS                 | tsyringe                    |
+| ----------------------- | ----------------------- | -------------------------- | --------------------------- | --------------------------- |
+| Decorator on a service  | None                    | `@Injectable()`            | `@injectable()`             | `@injectable()`             |
+| Depending on interfaces | The interface type      | Token and `@Inject()`      | Token and `@inject()`       | Token and `@inject()`       |
+| Type information from   | Deepkit type compiler   | `emitDecoratorMetadata`    | `emitDecoratorMetadata`     | `emitDecoratorMetadata`     |
+
+Deepkit needs the [Deepkit type compiler](./runtime-types/getting-started.md) in your build, because it reads your types at runtime. How fast the container resolves dependencies is listed on the [benchmarks page](/benchmarks). See [Getting Started](./dependency-injection/getting-started.md) for the installation.
+
+## What is Dependency Injection?
 
 Dependency Injection (DI) is a design pattern in which classes and functions _receive_ their dependencies. It follows the principle of Inversion of Control (IoC) and helps to better separate complex code in order to significantly improve testability, modularity and clarity. Although there are other design patterns, such as the service locator pattern, for applying the principle of IoC, DI has established itself as the dominant pattern, especially in enterprise software.
 
@@ -145,7 +187,7 @@ interface HttpClientInterface {
 }
 
 class UserRepository {
-    concstructor(
+    constructor(
         private http: HttpClientInterface
     ) {}
 
@@ -173,12 +215,9 @@ const injector = InjectorContext.forProviders([
 ]);
 ```
 
-Since Deepkit's DI container is capable of resolving abstract dependencies (interfaces) such as this one of HttpClientInterface, UserRepository automatically gets the implementation of HttpClient since HttpClient implemented the interface HttpClientInterface. 
+Since Deepkit's DI container is capable of resolving abstract dependencies (interfaces) such as this one of HttpClientInterface, UserRepository automatically gets the implementation of HttpClient, as long as HttpClient declares it with `class HttpClient implements HttpClientInterface`.
 
-This is done either by HttpClient specifically implementing HttpClientInterface (`class HttpClient implements HttpClientInterface`), or by HttpClient's API simply being compatible with HttpClientInterface.
-
-
-As soon as HttpClient modifies its API (for example, removes the `get` method) and is thus no longer compatible with HttpClientInterface, the DI container throws an error ("the HttpClientInterface dependency was not provided"). Here the user, who wants to bring both implementations together, is in the obligation to find a solution. As an example, an adapter class could be registered here that implements HttpClientInterface and correctly forwards the method calls to HttpClient.
+If HttpClient doesn't implement the interface, the DI container throws an error (`Undefined dependency "http: HttpClientInterface" of UserRepository(?). Type has no provider.`). Here the user, who wants to bring both implementations together, is in the obligation to find a solution. As an example, an adapter class could be registered here that implements HttpClientInterface and correctly forwards the method calls to HttpClient.
 
 As an alternative, the HttpClientInterface can be provided directly with a concrete implementation.
 

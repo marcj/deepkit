@@ -27,3 +27,10 @@ test('malformed percent-encoding', () => {
     expect(isMalformedUrl('/search?q=%')).toBe(false);
     expect(isMalformedUrl('/a%20b')).toBe(false);
 });
+
+test('the CLI documentation moved to App', () => {
+    expect(getPermanentRedirect('/en/documentation/cli')).toBe('/en/documentation/app');
+    expect(getPermanentRedirect('/de/documentation/cli/getting-started')).toBe('/de/documentation/app');
+    expect(getPermanentRedirect('/en/documentation/cli/events')).toBe('/en/documentation/app/events');
+    expect(getPermanentRedirect('/en/documentation/cli.md')).toBe('/en/documentation/app.md');
+});

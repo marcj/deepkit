@@ -1,4 +1,84 @@
-# Deepkit Framework
+# TypeScript Backend Framework
+
+Deepkit Framework is a TypeScript backend framework where one type is the validator, the JSON format, the database schema and the API documentation. It brings an HTTP and RPC server, ORM, dependency injection, CLI and configuration in one application.
+
+```typescript
+//app.ts
+import { App } from '@deepkit/app';
+import { FrameworkModule } from '@deepkit/framework';
+import { http, HttpBody } from '@deepkit/http';
+import { Logger } from '@deepkit/logger';
+import { Email, MinLength } from '@deepkit/type';
+
+interface CreateUser {
+    username: string & MinLength<3>;
+    email: string & Email;
+}
+
+class UserService {
+    constructor(private logger: Logger) {}
+
+    create(input: CreateUser) {
+        this.logger.log(`New user ${input.username}`);
+        return { id: 1, ...input };
+    }
+}
+
+class UserController {
+    constructor(private users: UserService) {}
+
+    @http.POST('/users')
+    create(body: HttpBody<CreateUser>) {
+        return this.users.create(body);
+    }
+}
+
+new App({
+    controllers: [UserController],
+    providers: [UserService],
+    imports: [new FrameworkModule()],
+}).run();
+```
+
+```sh
+$ ts-node app.ts server:start
+
+$ curl -X POST localhost:8080/users -H 'content-type: application/json' \
+    -d '{"username":"Peter","email":"peter@example.com"}'
+{"id":1,"username":"Peter","email":"peter@example.com"}
+
+$ curl -X POST localhost:8080/users -H 'content-type: application/json' \
+    -d '{"username":"ab","email":"nope"}'
+HTTP/1.1 400 Bad Request
+{
+  "message": "Validation error: ...",
+  "errors": [
+    {
+      "path": "username",
+      "code": "minLength",
+      "message": "Min length is 3",
+      "value": "ab"
+    },
+    ...
+  ]
+}
+```
+
+The body is validated from the `CreateUser` interface before the method runs, and `UserService` is injected from its type. A new project starts with `npm init @deepkit/app@latest my-app`.
+
+## Comparison with NestJS and Express
+
+|                      | Deepkit Framework              | NestJS                                 | Express or Fastify        |
+| -------------------- | ------------------------------ | -------------------------------------- | ------------------------- |
+| Request validation   | From the TypeScript type       | Decorated classes and a validator pipe | Added by you              |
+| Dependency injection | Built in, no decorators needed | Built in, with `@Injectable()`         | Added by you              |
+| ORM                  | Built in                       | Added by you                           | Added by you              |
+| RPC                  | Built in                       | Added through a transport              | Added by you              |
+| Build step           | Deepkit type compiler          | TypeScript compiler                    | Optional                  |
+
+Deepkit needs its [type compiler](./runtime-types/getting-started.md) in your build, because it reads your types at runtime. Express and NestJS have much larger ecosystems, which can matter more than the built-in features. Performance is listed on the [benchmarks page](/benchmarks).
+
+## What the framework includes
 
 Deepkit Framework is based on [Deepkit App](./app.md) in `@deepkit/app` and provides the `FrameworkModule` module in `@deepkit/framework`, which can be imported in your application.
 
@@ -38,6 +118,7 @@ npm install @deepkit/framework
 ```typescript
 import { App } from '@deepkit/app';
 import { FrameworkModule } from '@deepkit/framework';
+import { Logger } from '@deepkit/logger';
 
 const app = new App({
     imports: [new FrameworkModule({ debug: true })]
@@ -56,7 +137,9 @@ One of them is `server:start`, which starts the HTTP server. To use it, we have 
 
 ```typescript
 import { App } from '@deepkit/app';
+import { FrameworkModule } from '@deepkit/framework';
 import { HttpRouterRegistry } from '@deepkit/http';
+import { Logger } from '@deepkit/logger';
 
 const app = new App({
     imports: [new FrameworkModule({ debug: true })]
@@ -79,7 +162,7 @@ app.run();
 When you execute the `server:start` command again, you will see that the HTTP server is now started and the route `/` is available.
 
 ```sh
-$ ./node_modules/.bin/ts-node ./app.ts server:start
+$ ts-node app.ts server:start
 ```
 
 ```sh
@@ -140,8 +223,6 @@ import { App } from '@deepkit/app';
 import { FrameworkModule } from '@deepkit/framework';
 
 new App({
-    config: Config,
-    controllers: [MyWebsite],
     imports: [
         new FrameworkModule({
             debug: true,
@@ -152,42 +233,7 @@ new App({
 
 ![Debugger Configuration](/assets/documentation/framework/debugger-configuration.png)
 
-You can also use `ts-node app.ts app:config` to display all available configuration options, the active value, their default value, description and data type.
-
-```sh
-$ ts-node app.ts app:config
-Application config
-┌─────────┬───────────────┬────────────────────────┬────────────────────────┬─────────────┬───────────┐
-│ (index) │     name      │         value          │      defaultValue      │ description │   type    │
-├─────────┼───────────────┼────────────────────────┼────────────────────────┼─────────────┼───────────┤
-│    0    │  'pageTitle'  │     'Other title'      │      'Cool site'       │     ''      │ 'string'  │
-│    1    │   'domain'    │     'example.com'      │     'example.com'      │     ''      │ 'string'  │
-│    2    │    'port'     │          8080          │          8080          │     ''      │ 'number'  │
-│    3    │ 'databaseUrl' │ 'mongodb://localhost/' │ 'mongodb://localhost/' │     ''      │ 'string'  │
-│    4    │    'email'    │         false          │         false          │     ''      │ 'boolean' │
-│    5    │ 'emailSender' │       undefined        │       undefined        │     ''      │ 'string?' │
-└─────────┴───────────────┴────────────────────────┴────────────────────────┴─────────────┴───────────┘
-Modules config
-┌─────────┬──────────────────────────────┬─────────────────┬─────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────┬────────────┐
-│ (index) │           name               │      value      │  defaultValue   │                                            description                                             │    type    │
-├─────────┼──────────────────────────────┼─────────────────┼─────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┼────────────┤
-│    0    │       'framework.host'       │   'localhost'   │   'localhost'   │                                                 ''                                                 │  'string'  │
-│    1    │       'framework.port'       │      8080       │      8080       │                                                 ''                                                 │  'number'  │
-│    2    │    'framework.httpsPort'     │    undefined    │    undefined    │ 'If httpsPort and ssl is defined, then the https server is started additional to the http-server.' │ 'number?'  │
-│    3    │    'framework.selfSigned'    │    undefined    │    undefined    │           'If for ssl: true the certificate and key should be automatically generated.'            │ 'boolean?' │
-│    4    │ 'framework.keepAliveTimeout' │    undefined    │    undefined    │                                                 ''                                                 │ 'number?'  │
-│    5    │       'framework.path'       │       '/'       │       '/'       │                                                 ''                                                 │  'string'  │
-│    6    │     'framework.workers'      │        1        │        1        │                                                 ''                                                 │  'number'  │
-│    7    │       'framework.ssl'        │      false      │      false      │                                       'Enables HTTPS server'                                       │ 'boolean'  │
-│    8    │    'framework.sslOptions'    │    undefined    │    undefined    │                   'Same interface as tls.SecureContextOptions & tls.TlsOptions.'                   │   'any'    │
-...
-```
-
-## Application Server
-
-## File Structure
-
-## Auto-CRUD
+You can also use `ts-node app.ts debug:config` to display all available configuration options, the active value, their default value, description and data type.
 
 ## Events
 
@@ -201,7 +247,15 @@ Events are sent via the `EventDispatcher` class. In a Deepkit app, this can be p
 
 ```typescript
 import { cli, Command } from '@deepkit/app';
-import { EventDispatcher } from '@deepkit/event';
+import { BaseEvent, EventDispatcher, EventToken } from '@deepkit/event';
+
+class UserEvent extends BaseEvent {
+    constructor(public user: { username: string }) {
+        super();
+    }
+}
+
+const UserAdded = new EventToken<UserEvent>('user.added');
 
 @cli.controller('test')
 export class TestCommand implements Command {
@@ -209,7 +263,8 @@ export class TestCommand implements Command {
     }
 
     async execute() {
-        this.eventDispatcher.dispatch(UserAdded, new UserEvent({ username: 'Peter' }));
+        const event = new UserEvent({ username: 'Peter' });
+        await this.eventDispatcher.dispatch(UserAdded, event);
     }
 }
 ```

@@ -1,14 +1,71 @@
-# Deepkit App
+# TypeScript CLI Framework
 
-The Deepkit App abstraction is the most fundamental building block of a Deepkit application. It is usually where you start building your application if you are not using the
-libraries standalone.
-It is a regular TypeScript file that you execute with a runtime like Node.js. It is the entry point for your application and provides a way to define CLI commands, services,
-configuration, events, and more.
+Deepkit App is a TypeScript CLI framework where the function signature is the command definition. Arguments, flags, defaults and validation come from your TypeScript types, so there is nothing to declare twice.
 
-Command-line Interface (CLI) programs are programs that interact via the terminal in the form of text input and text output. The advantage of interacting with the application in
-this variant is that only a terminal must exist either locally or via an SSH connection.
+```typescript title=app.ts
+import { App, Flag } from '@deepkit/app';
+import { Logger } from '@deepkit/logger';
+import { Maximum } from '@deepkit/type';
 
-It provides:
+class Greeter {
+    constructor(private logger: Logger) {}
+
+    greet(name: string) {
+        this.logger.log(`Hello ${name}`);
+    }
+}
+
+function greet(
+    name: string,
+    times: number & Maximum<5> & Flag = 1,
+    greeter: Greeter,
+) {
+    for (let i = 0; i < times; i++) greeter.greet(name);
+}
+
+new App({ providers: [Greeter] })
+    .command('greet', greet)
+    .run();
+```
+
+`name` becomes a required argument, `times` becomes the `--times` flag with a default of 1, and `greeter` is provided by the dependency injection container.
+
+```sh
+$ ts-node app.ts greet Peter --times 2
+Hello Peter
+Hello Peter
+
+$ ts-node app.ts greet Peter --times 9
+Invalid value for option --times: 9.
+Number needs to be smaller than or equal to 5
+
+$ ts-node app.ts greet Peter --times abc
+Invalid value for option --times: abc.
+Cannot convert abc to number [type]
+
+$ ts-node app.ts greet --help
+Usage: ts-node app.ts greet [OPTIONS] [name]
+
+Arguments:
+  name	[required]
+Options:
+  --times number [default=1]
+```
+
+## Comparison with Commander, Yargs and oclif
+
+|                        | Deepkit App                      | Commander                 | Yargs                        | oclif                     |
+| ---------------------- | -------------------------------- | ------------------------- | ---------------------------- | ------------------------- |
+| Options defined by     | TypeScript types of the command  | `.option()` calls         | Builder calls                | Static `flags` on a class |
+| Validation             | From the type, e.g. `Maximum<5>` | Your own parser functions | `choices`, `coerce`, `check` | Flag options and parsers  |
+| Dependency injection   | Built in                         | None                      | None                         | None                      |
+| Configuration, modules | Built in                         | None                      | Config files only            | Plugins                   |
+
+Deepkit needs the [Deepkit type compiler](./runtime-types/getting-started.md) in your build, because it reads your types at runtime. For a small script without a build step, a library like Commander is the simpler choice.
+
+## What Deepkit App includes
+
+Deepkit App is the most fundamental building block of a Deepkit application, and usually where you start if you are not using the libraries standalone. It is a regular TypeScript file that you execute with a runtime like Node.js, and it provides:
 
 - CLI commands
 - Module system
@@ -18,38 +75,9 @@ It provides:
 - Logger
 - Configuration loader (env, dotenv, json)
 
-A command in Deepkit has full access to the DI container and can thus access all providers and configuration options. The arguments and options of the CLI commands are controlled
-by parameters declaration via TypeScript types and are automatically serialized and validated.
+A command has full access to the DI container and can thus access all providers and configuration options. There is no Deepkit specific global CLI tool: the HTTP/RPC server, migrations and your own commands all start from the same file.
 
 [Deepkit Framework](./framework.md) with `@deepkit/framework` extends this further with an application server for HTTP/RPC, a debugger/profiler, and much more.
-
-Example:
-
-```typescript
-import { App, Flag } from '@deepkit/app';
-import { Database } from './database';
-
-const app = new App({
-    providers: [Database]
-});
-
-async function testCommand(
-    name: string, // CLI argument
-    age: number & Flag, // CLI flag
-    database: Database, // Dependency Injection
-) {
-    console.log(`Hello ${name}!`);
-    const users = await database.query<User>().find();
-}
-
-app.command('test', testCommand);
-
-void app.run();
-```
-
-```sh
-ts-node app.ts test John --age 42
-```
 
 ## Installation Easy
 
@@ -57,14 +85,14 @@ The easiest way to get started is to use NPM init to create a new Deepkit projec
 
 ```shell
 npm init @deepkit/app@latest my-deepkit-app
-````
+```
 
 This will create a new folder `my-deepkit-app` with all the dependencies and a basic `app.ts` file.
 
 ```sh
 cd my-deepkit-app
 npm run app
-````
+```
 
 This will run the `app.ts` file with `ts-node` and show you the available commands. You can start from here and add your own commands, controllers, and so on.
 
@@ -194,6 +222,7 @@ As soon as you import Deepkit Framework you get additional providers. See [Deepk
 The exit code is 0 by default, which means that the command was executed successfully. To change the exit code, a number other than 0 should be returned in the execute method or command callback.
 
 ```typescript
+import { cli } from '@deepkit/app';
 
 @cli.controller('test')
 export class TestCommand {

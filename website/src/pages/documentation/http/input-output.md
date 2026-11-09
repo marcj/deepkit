@@ -132,7 +132,7 @@ The properties in the specified model can contain all TypeScript types and valid
 For HTTP methods that allow an HTTP body, a body model can also be specified. The body content type of the HTTP request must be either `application/x-www-form-urlencoded`, `multipart/form-data` or `application/json` so that Deepkit can automatically convert this to JavaScript objects.
 
 ```typescript
-import { HttpBody } from '@deepkit/type';
+import { HttpBody } from '@deepkit/http';
 
 class HelloWorldBody {
     text!: string;
@@ -152,7 +152,7 @@ router.post('/', (body: HttpBody<HelloWorldBody>) => {
 To manually take over the validation of the body model, a special type `HttpBodyValidation<T>` can be used. It allows to receive also invalid body data and to react very specifically to error messages.
 
 ```typescript
-import { HttpBodyValidation } from '@deepkit/type';
+import { HttpBodyValidation } from '@deepkit/http';
 
 class HelloWorldBody {
     text!: string;
