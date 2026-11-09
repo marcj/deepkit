@@ -45,6 +45,21 @@ test('no body', () => {
     expectFramed(buffer);
 });
 
+test('no body on every route', () => {
+    for (const routeType of [RpcMessageRouteType.client, RpcMessageRouteType.server]) {
+        const buffer = serializeBinaryRpcMessage(createRpcMessage(9, 4, undefined, routeType));
+        expectFramed(buffer);
+        const message = readBinaryRpcMessage(buffer);
+        expect(message.id).toBe(9);
+        expect(message.type).toBe(4);
+        expect(message.routeType).toBe(routeType);
+        expect(message.composite).toBe(false);
+        expect(message.bodySize).toBe(0);
+    }
+    expectFramed(serializeBinaryRpcMessage(createRpcMessageSourceDest(7, 3, source, destination)));
+    expectFramed(serializeBinaryRpcMessage(createRpcMessagePeer(7, 3, source, 'peer1')));
+});
+
 test('source and destination', () => {
     const buffer = serializeBinaryRpcMessage(createRpcMessageSourceDest<Body>(7, 3, source, destination, { name: 'peter' }));
     expectFramed(buffer);

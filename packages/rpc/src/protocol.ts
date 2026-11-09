@@ -428,6 +428,16 @@ function assertNoPreSerialized(message: RpcMessageDefinition): void {
     }
 }
 
+/** Pings and acks have a known size, nothing is gained by going through the shared buffer. */
+function serializeBinaryRpcMessageWithoutBody(message: RpcMessageDefinition): Uint8Array {
+    const writer = new Writer(createBuffer(12));
+    writeMessageStart(writer, message.id, message.routeType);
+    writer.writeByte(0); //composite=false
+    writer.writeByte(message.type);
+    writeMessageEnd(writer);
+    return writer.buffer;
+}
+
 function getMessageWriter(message: RpcMessageDefinition): AutoBufferSerializer {
     if (message.composite || message.routeType !== RpcMessageRouteType.client) assertNoPreSerialized(message);
 
@@ -444,6 +454,10 @@ function getMessageWriter(message: RpcMessageDefinition): AutoBufferSerializer {
  * can use serializeBinaryRpcMessageTransient instead, which does not copy.
  */
 export function serializeBinaryRpcMessage(message: RpcMessageDefinition): Uint8Array {
+    if (!message.body && !message.composite && (message.routeType === RpcMessageRouteType.client || message.routeType === RpcMessageRouteType.server)) {
+        return serializeBinaryRpcMessageWithoutBody(message);
+    }
+
     const preSerialized = message.body && !message.composite && message.routeType === RpcMessageRouteType.client ? getPreSerialized(message.body.body) : undefined;
     if (preSerialized) return serializeBinaryRpcMessageSingleBodyPreSerialized(message as RpcMessageDefinition & { body: {} }, preSerialized);
     return copyOfMessageBuffer(getMessageWriter(message), message);
