@@ -30,6 +30,20 @@ function commitDate(commit) {
     }
 }
 
+/** How many commits that can change the numbers came after the commit, website-only commits don't count. */
+function commitsBehind(commit) {
+    try {
+        execFileSync('git', ['merge-base', '--is-ancestor', commit, 'HEAD'], { cwd: root, stdio: 'ignore' });
+        const count = execFileSync('git', ['rev-list', '--count', `${commit}..HEAD`, '--', 'packages', 'benchmarks', ':!benchmarks/results', 'package.json', 'yarn.lock'], {
+            cwd: join(root, '..'),
+            stdio: ['ignore', 'pipe', 'ignore'],
+        });
+        return Number(count.toString().trim());
+    } catch {
+        return undefined;
+    }
+}
+
 const files = existsSync(resultsDir) ? readdirSync(resultsDir).filter(v => v.endsWith('.json') && !v.includes('-dirty')) : [];
 const results = files.map(file => JSON.parse(readFileSync(join(resultsDir, file), 'utf8')));
 for (const result of results) {
@@ -91,7 +105,7 @@ results.forEach((result, runIndex) => {
 
 const data = {
     machine: results.length ? results[results.length - 1].machine : undefined,
-    runs: results.map(v => ({ label: v.label, commit: v.commit, date: v.sortDate, release: isRelease(v.label), libraries: v.libraries || {} })),
+    runs: results.map(v => ({ label: v.label, commit: v.commit, date: v.sortDate, release: isRelease(v.label), behind: !isRelease(v.label) && v.commit ? commitsBehind(v.commit) : undefined, libraries: v.libraries || {} })),
     suites: [...suites.values()].map(v => ({ name: v.name, file: v.file, benchmarks: [...v.benchmarks.values()] })),
     builds: [...builds.values()],
 };

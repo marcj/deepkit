@@ -10,6 +10,8 @@ interface BenchmarkRun {
     commit?: string;
     date: string;
     release: boolean;
+    /** commits that can change the numbers since this one, for commits of master */
+    behind?: number;
     /** installed versions of the compared libraries in this run */
     libraries?: { [name: string]: string };
 }
@@ -714,7 +716,7 @@ const suiteTitles: { [name: string]: string } = {
                 </p>
                 <div class="meta">
                     @if (latest(); as run) {
-                        <a class="chip" href="https://github.com/deepkit/deepkit-framework/commit/{{ run.commit }}">master {{ run.label }}</a>
+                        <a class="chip" [attr.title]="masterTitle()" href="https://github.com/deepkit/deepkit-framework/commit/{{ run.commit }}">{{ masterLabel() }} {{ run.label }}</a>
                         <span class="chip">{{ formatDate(run.date) }}</span>
                     }
                     @if (machine; as m) {
@@ -776,7 +778,7 @@ const suiteTitles: { [name: string]: string } = {
                                         <th class="number">{{ previous.label }}</th>
                                     }
                                     <th class="number with-change">{{ release.run.label }}</th>
-                                    <th class="number with-change">master</th>
+                                    <th class="number with-change" [attr.title]="masterTitle()">{{ masterLabel() }}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1141,6 +1143,18 @@ export class BenchmarksComponent {
         return data.runs.length - 1;
     });
     protected latest = computed(() => data.runs[this.latestIndex()]);
+
+    /** master, or master~N when N commits that can change the numbers came after the measured one */
+    protected masterLabel = computed(() => {
+        const behind = this.latest()?.behind;
+        return behind ? `master~${behind}` : 'master';
+    });
+
+    protected masterTitle = computed(() => {
+        const run = this.latest();
+        if (!run?.behind) return null;
+        return `Measured at ${run.commit}, ${run.behind} commit${run.behind === 1 ? '' : 's'} changing packages or benchmarks behind master`;
+    });
 
     protected releaseIndex = computed(() => {
         for (let i = data.runs.length - 1; i >= 0; i--) if (data.runs[i].release) return i;
