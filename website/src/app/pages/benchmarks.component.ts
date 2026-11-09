@@ -1078,6 +1078,8 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
         }
         table {
             width: 100%;
+            /* the global table style fixes the column widths, then the unwrapped cells overlap on small screens */
+            table-layout: auto;
             border-collapse: collapse;
             font-size: 14px;
         }
