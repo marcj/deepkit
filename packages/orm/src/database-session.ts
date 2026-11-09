@@ -50,6 +50,10 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
     protected inCommit: boolean = false;
     protected committed: boolean = false;
 
+    /** the entity of the last added class instance, since most rounds add many of the same class */
+    protected lastAddedClass: unknown = null;
+    protected lastAddedSchema?: ReflectionClass<any>;
+
     constructor(
         protected round: number = 0,
         protected session: DatabaseSession<any>,
@@ -75,14 +79,16 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
         typeSettings.unpopulatedCheck = UnpopulatedCheck.None;
         try {
             for (const item of items) {
-                if (this.removeQueue.has(item)) continue;
-                if (this.addQueue.has(item)) continue;
+                if (this.removeQueue.size && this.removeQueue.has(item)) continue;
 
+                const size = this.addQueue.size;
                 this.addQueue.add(item);
+                if (this.addQueue.size === size) continue;
 
-                const thisClassSchema = classSchema || this.session.entityRegistry.getFromInstance(item);
+                const thisClassSchema = classSchema || this.getEntityOfInstance(item);
                 this.addQueueResolved.push([thisClassSchema, item]);
 
+                if (!thisClassSchema.getReferences().length) continue;
                 for (const [schema, dep] of this.getReferenceDependenciesWithSchema(thisClassSchema, item)) {
                     this.add([dep], schema);
                 }
@@ -90,6 +96,19 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
         } finally {
             typeSettings.unpopulatedCheck = old;
         }
+    }
+
+    protected getEntityOfInstance(item: OrmEntity): ReflectionClass<any> {
+        const classType = (item as any).constructor;
+        if (classType === this.lastAddedClass) return this.lastAddedSchema!;
+
+        const schema = this.session.entityRegistry.getFromInstance(item);
+        // a plain object is matched by its content, not by its constructor
+        if (classType !== Object) {
+            this.lastAddedClass = classType;
+            this.lastAddedSchema = schema;
+        }
+        return schema;
     }
 
     protected getReferenceDependenciesWithSchema<T extends OrmEntity>(classSchema: ReflectionClass<any>, item: T): [ReflectionClass<any>, OrmEntity][] {
@@ -182,22 +201,40 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
         }
     }
 
+    /**
+     * The added items grouped by entity, in the order they have to be written.
+     */
+    protected getPersistGroups(): { type: ReflectionClass<any>, items: OrmEntity[] }[] {
+        if (this.addQueueResolved.some(v => v[0].getReferences().length > 0)) {
+            const sorter = new GroupArraySort<OrmEntity, ReflectionClass<any>>();
+            sorter.sameTypeExtraGrouping = true;
+            sorter.throwOnNonExistingDependency = false;
+            for (const [classSchema, item] of this.addQueueResolved) {
+                sorter.add(item, classSchema, this.getReferenceDependencies(classSchema, item));
+            }
+            sorter.sort();
+            return sorter.getGroups();
+        }
+
+        // without references there is nothing to sort: groups by entity in the order they were first seen
+        const groups: { type: ReflectionClass<any>, items: OrmEntity[] }[] = [];
+        let group: { type: ReflectionClass<any>, items: OrmEntity[] } | undefined;
+        for (const [type, item] of this.addQueueResolved) {
+            if (!group || group.type !== type) {
+                group = groups.find(v => v.type === type);
+                if (!group) groups.push(group = { type, items: [] });
+            }
+            group.items.push(item);
+        }
+        return groups;
+    }
+
     protected async doPersist(persistence: DatabasePersistence) {
-        const sorter = new GroupArraySort<OrmEntity, ReflectionClass<any>>();
-        sorter.sameTypeExtraGrouping = true;
-        sorter.throwOnNonExistingDependency = false;
         const unpopulatedCheck = typeSettings.unpopulatedCheck;
         typeSettings.unpopulatedCheck = UnpopulatedCheck.None;
 
         try {
-            for (const [classSchema, item] of this.addQueueResolved) {
-                sorter.add(item, classSchema, this.getReferenceDependencies(classSchema, item));
-            }
-
-            sorter.sort();
-            const groups = sorter.getGroups();
-
-            for (const group of groups) {
+            for (const group of this.getPersistGroups()) {
                 const inserts: OrmEntity[] = [];
                 const changeSets: DatabasePersistenceChangeSet<OrmEntity>[] = [];
                 const classState = getClassState(group.type);
