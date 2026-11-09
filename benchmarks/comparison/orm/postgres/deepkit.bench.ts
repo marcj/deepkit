@@ -37,7 +37,9 @@ export default async function (): Promise<BenchSuite> {
         findOne: id => database.query(User).filter({ id }).findOneOrUndefined(),
         findAll: () => database.query(User).find(),
         insertMany: async rows => {
+            // no change detection afterwards, the other libraries only insert too. Older versions don't have this.
             const session = database.createSession();
+            session.disableChangeDetection?.();
             for (const row of rows) session.add(Object.assign(new Inserted(row.name), row));
             await session.commit();
         },
