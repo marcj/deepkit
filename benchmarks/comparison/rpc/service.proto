@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package bench;
+
+service Bench {
+    rpc Add (AddRequest) returns (AddReply);
+    rpc SaveUser (User) returns (User);
+    rpc ListUsers (ListRequest) returns (ListReply);
+}
+
+message AddRequest {
+    int32 a = 1;
+    int32 b = 2;
+}
+
+message AddReply {
+    int32 result = 1;
+}
+
+message User {
+    int32 id = 1;
+    string name = 2;
+    string email = 3;
+    bool active = 4;
+    repeated string roles = 5;
+}
+
+message ListRequest {
+    int32 count = 1;
+}
+
+message ListReply {
+    repeated User users = 1;
+}

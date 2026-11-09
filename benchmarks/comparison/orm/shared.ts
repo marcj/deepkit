@@ -1,4 +1,5 @@
 // The same operations for every ORM and driver, so the results are comparable.
+import Sqlite from 'better-sqlite3';
 import { existsSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -38,6 +39,10 @@ export interface OrmOperations {
 export function sqliteFile(library: string): string {
     const file = join(tmpdir(), `deepkit-bench-orm-${library}-${process.pid}.sqlite`);
     for (const suffix of ['', '-wal', '-shm', '-journal']) if (existsSync(file + suffix)) unlinkSync(file + suffix);
+    // WAL is stored in the file, so every library runs in the same mode
+    const database = new Sqlite(file);
+    database.pragma('journal_mode = WAL');
+    database.close();
     return file;
 }
 

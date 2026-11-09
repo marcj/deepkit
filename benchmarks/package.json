@@ -6,6 +6,8 @@
   "description": "Benchmarks of all packages and comparisons with other libraries, see runner.ts",
   "devDependencies": {
     "@deepkit/bench": "^1.0.19",
+    "@grpc/grpc-js": "^1.14.7",
+    "@grpc/proto-loader": "^0.8.1",
     "@mikro-orm/core": "^7.2.0",
     "@mikro-orm/mongodb": "^7.2.0",
     "@mikro-orm/postgresql": "^7.2.0",
@@ -14,6 +16,9 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@sinclair/typebox": "^0.34.52",
+    "@trpc/client": "^11.22.1",
+    "@trpc/server": "^11.22.1",
+    "@types/ws": "^8",
     "arktype": "^2.2.9",
     "bson": "^7.3.3",
     "class-transformer": "^0.5.1",
@@ -27,11 +32,14 @@
     "prisma": "^7.10.0",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.0",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4",
     "sqlite3": "^6.0.0",
     "ttsc": "0.34.1",
     "typeorm": "^1.1.0",
     "typia": "15.2.0",
     "valibot": "^1.5.0",
+    "ws": "^8.22.1",
     "zod": "^4.6.7"
   },
   "optionalDependencies": {
