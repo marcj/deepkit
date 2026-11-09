@@ -140,6 +140,10 @@ const libraryPackages: { [label: string]: string } = {
     'Drizzle': 'drizzle-orm',
     'TypeORM': 'typeorm',
     'MikroORM': '@mikro-orm/core',
+    'gRPC': '@grpc/grpc-js',
+    'tRPC': '@trpc/server',
+    'Socket.IO': 'socket.io',
+    'ws (no framework)': 'ws',
     'Sequelize': 'sequelize',
     'Mongoose': 'mongoose',
     'mongodb': 'mongodb',
@@ -550,6 +554,15 @@ const databaseOperations: { name: string; title: string; description: string }[]
     { name: 'insert 1,000 rows', title: 'Insert 1,000 rows', description: 'In one unit of work or batch.' },
 ];
 
+/** The RPC comparison, see benchmarks/comparison/rpc. */
+const rpcBaselines = ['ws'];
+
+const rpcOperations: { name: string; title: string; description: string }[] = [
+    { name: 'add two numbers', title: 'Small call', description: 'Two numbers as arguments, one number as result.' },
+    { name: 'send and receive an object', title: 'Object call', description: 'A user object as argument and as result.' },
+    { name: 'receive 100 objects', title: 'List of 100 objects', description: 'One number as argument, 100 user objects as result.' },
+];
+
 /** Benchmarks of whole operations, shown over time. */
 const trends: { title: string; items: { suite: string; name: string; label: string }[] }[] = [
     {
@@ -740,6 +753,7 @@ const suiteTitles: { [name: string]: string } = {
                     Operations per second, higher is better. Deepkit reads the TypeScript types at runtime, so there is no
                     schema to write: the validators check a plain <code>interface User</code>. typia also uses TypeScript
                     types, but generates its code at build time.
+                    <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison">Benchmark source code on GitHub</a>
                 </p>
                 <div class="charts">
                     @for (chart of charts(); track chart.title) {
@@ -755,6 +769,7 @@ const suiteTitles: { [name: string]: string } = {
                         Complete ORM operations against a real database on the same machine: a table with
                         10,000 rows, read as entities or objects of each library. Time per operation, the longer the bar the
                         faster. The raw drivers (striped) are the lower bound of what an ORM on top of them can reach.
+                        <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/orm">Benchmark source code on GitHub</a>
                     </p>
                     @for (database of databases(); track database.name) {
                         <h3>{{ database.title }}</h3>
@@ -764,6 +779,27 @@ const suiteTitles: { [name: string]: string } = {
                             }
                         </div>
                     }
+                </section>
+            }
+
+            @if (rpc().length) {
+                <section class="bm-card">
+                    <h2>RPC</h2>
+                    <p class="intro">
+                        Complete calls over a local socket, with client and server in one process. Time per call, the
+                        longer the bar the faster. The libraries do different amounts of work: Deepkit validates the
+                        arguments from their types and uses binary BSON over TCP or WebSocket (TCP in these
+                        measurements), tRPC validates with Zod and uses
+                        JSON over HTTP, gRPC uses Protocol Buffers over HTTP/2 and only checks the message
+                        structure, and Socket.IO sends JSON without validation. Plain ws (striped) sends JSON
+                        with no framework at all, as a reference point.
+                        <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/rpc">Benchmark source code on GitHub</a>
+                    </p>
+                    <div class="charts three">
+                        @for (chart of rpc(); track chart.title) {
+                            <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                        }
+                    </div>
                 </section>
             }
 
@@ -1188,6 +1224,24 @@ export class BenchmarksComponent {
             }).filter(v => v.entries.length);
             return charts.length ? [{ name: database.suite, title: database.title, charts }] : [];
         });
+    });
+
+    protected rpc = computed(() => {
+        const index = this.latestIndex();
+        const suite = data.suites.find(v => v.name === 'comparison/rpc');
+        if (!suite) return [];
+        return rpcOperations.map(operation => {
+            const entries: ChartEntry[] = [];
+            for (const benchmark of suite.benchmarks) {
+                const [library, name] = benchmark.name.split(': ');
+                const hz = benchmark.hz[index];
+                if (name !== operation.name || !hz) continue;
+                const baseline = rpcBaselines.includes(library);
+                const label = baseline ? library + ' (no framework)' : library;
+                entries.push({ label, hz, highlight: library.startsWith('Deepkit'), baseline, version: libraryVersion(label, index) });
+            }
+            return { title: operation.title, description: operation.description, entries };
+        }).filter(v => v.entries.length);
     });
 
     protected charts = computed(() => {
