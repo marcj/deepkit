@@ -814,7 +814,7 @@ const suiteTitles: { [name: string]: string } = {
                         {{ release.noise }} of {{ release.total }} benchmarks.
                     </p>
                     <div class="table-scroll">
-                        <table>
+                        <table [style.--columns]="release.previous ? 3 : 2">
                             <thead>
                                 <tr>
                                     <th></th>
@@ -834,7 +834,7 @@ const suiteTitles: { [name: string]: string } = {
                                         <tr>
                                             <td><code>{{ row.label }}</code></td>
                                             @for (cell of row.cells; track $index; let last = $last) {
-                                                <td class="number" [class.strong]="last">
+                                                <td class="number" [class.strong]="last" [attr.data-label]="last ? masterLabel() : $index === row.cells.length - 2 ? release.run.label : release.previous?.label">
                                                     {{ cell.time }}
                                                     @if (cell.change; as change) {
                                                         <span class="change" [class.faster]="change.faster" [class.slower]="change.slower" [class.unchanged]="!change.faster && !change.slower">{{ change.text }}</span>
@@ -859,7 +859,7 @@ const suiteTitles: { [name: string]: string } = {
                         Changes are since the last release{{ releaseLabel() ? ' (' + releaseLabel() + ')' : '' }}.
                     </p>
                     <div class="table-scroll">
-                        <table>
+                        <table style="--columns: 3">
                             <thead>
                                 <tr>
                                     <th>Codebase</th>
@@ -878,15 +878,15 @@ const suiteTitles: { [name: string]: string } = {
                                 @for (row of builds(); track row.name) {
                                     <tr>
                                         <td>{{ row.name }}<span class="codebase-size">{{ row.files }} files · {{ row.lines }} lines</span></td>
-                                        <td class="number">{{ row.plainBytes }}</td>
-                                        <td class="number strong">{{ row.reflectedBytes }}</td>
-                                        <td class="number strong">{{ row.sizeOverhead }}</td>
-                                        <td class="number">{{ row.gzipOverhead }}</td>
-                                        <td class="number" [class.faster]="row.sizeBetter" [class.slower]="row.sizeWorse" [class.unchanged]="!row.sizeBetter && !row.sizeWorse">{{ row.sizeChange }}</td>
-                                        <td class="number">{{ row.plainTime }}</td>
-                                        <td class="number strong">{{ row.reflectedTime }}</td>
-                                        <td class="number strong">{{ row.timeOverhead }}</td>
-                                        <td class="number" [class.faster]="row.timeBetter" [class.slower]="row.timeWorse" [class.unchanged]="!row.timeBetter && !row.timeWorse">{{ row.timeChange }}</td>
+                                        <td data-label="JS plain" class="number">{{ row.plainBytes }}</td>
+                                        <td data-label="JS + types" class="number strong">{{ row.reflectedBytes }}</td>
+                                        <td data-label="Size overhead" class="number strong">{{ row.sizeOverhead }}</td>
+                                        <td data-label="Gzip overhead" class="number">{{ row.gzipOverhead }}</td>
+                                        <td data-label="Size change" class="number" [class.faster]="row.sizeBetter" [class.slower]="row.sizeWorse" [class.unchanged]="!row.sizeBetter && !row.sizeWorse">{{ row.sizeChange }}</td>
+                                        <td data-label="Build plain" class="number">{{ row.plainTime }}</td>
+                                        <td data-label="Build + types" class="number strong">{{ row.reflectedTime }}</td>
+                                        <td data-label="Build overhead" class="number strong">{{ row.timeOverhead }}</td>
+                                        <td data-label="Build change" class="number" [class.faster]="row.timeBetter" [class.slower]="row.timeWorse" [class.unchanged]="!row.timeBetter && !row.timeWorse">{{ row.timeChange }}</td>
                                     </tr>
                                 }
                             </tbody>
@@ -934,7 +934,7 @@ const suiteTitles: { [name: string]: string } = {
                             <span class="file">{{ suite.rows.length }} benchmarks · {{ suite.file }}</span>
                         </summary>
                         <div class="table-scroll">
-                            <table>
+                            <table style="--columns: 3">
                                 <tbody>
                                     @for (row of suite.rows; track row.name) {
                                         <tr>
@@ -1176,6 +1176,55 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
             }
             .charts {
                 grid-template-columns: 1fr;
+            }
+        }
+        /* too narrow for the columns: each row becomes its name and below it the values, each with its heading */
+        @media (max-width: 1000px) {
+            table,
+            tbody {
+                display: block;
+            }
+            thead {
+                display: none;
+            }
+            tbody tr {
+                display: grid;
+                grid-template-columns: repeat(var(--columns), minmax(0, 1fr));
+                gap: 6px 12px;
+                padding: 10px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+            tbody tr.group {
+                display: block;
+                padding: 18px 10px 8px;
+            }
+            tr.group th {
+                display: block;
+                padding: 0;
+                border: 0;
+            }
+            td,
+            td.number,
+            td:first-child {
+                display: block;
+                padding: 0;
+                border: 0;
+                text-align: left;
+                white-space: normal;
+            }
+            td:first-child {
+                grid-column: 1 / -1;
+            }
+            td[data-label]::before {
+                content: attr(data-label);
+                display: block;
+                font-size: 11px;
+                color: #80878f;
+            }
+            .change {
+                display: block;
+                min-width: 0;
+                margin-left: 0;
             }
         }
     `,
