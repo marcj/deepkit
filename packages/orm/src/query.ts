@@ -100,7 +100,7 @@ export class DatabaseQueryModel<T extends OrmEntity, FILTER extends FilterQuery<
     public limit?: number;
     public parameters: { [name: string]: any } = {};
     public sort?: SORT;
-    public readonly change = new EventEmitter();
+    protected changeEmitter?: EventEmitter<any>;
     public returning: (keyof T & string)[] = [];
     public batchSize?: number;
     public returnPrimaryKeys: boolean = false;
@@ -114,8 +114,13 @@ export class DatabaseQueryModel<T extends OrmEntity, FILTER extends FilterQuery<
         return this.lazyLoad.has(field);
     }
 
+    get change(): EventEmitter<any> {
+        return this.changeEmitter ||= new EventEmitter();
+    }
+
     changed(): void {
-        this.change.emit(new EmitterEvent);
+        //nobody can be subscribed without the emitter
+        if (this.changeEmitter) this.changeEmitter.emit(new EmitterEvent);
     }
 
     hasSort(): boolean {
@@ -142,9 +147,10 @@ export class DatabaseQueryModel<T extends OrmEntity, FILTER extends FilterQuery<
         m.having = this.having && { ...this.having };
         m.withIdentityMap = this.withIdentityMap;
         m.withChangeDetection = this.withChangeDetection;
-        m.select = new Set(this.select);
-        m.groupBy = new Set(this.groupBy);
-        m.lazyLoad = new Set(this.lazyLoad);
+        //a new model has its own empty sets already
+        if (this.select.size) m.select = new Set(this.select);
+        if (this.groupBy.size) m.groupBy = new Set(this.groupBy);
+        if (this.lazyLoad.size) m.lazyLoad = new Set(this.lazyLoad);
         m.for = this.for;
         m.batchSize = this.batchSize;
         m.adapterName = this.adapterName;
@@ -164,7 +170,7 @@ export class DatabaseQueryModel<T extends OrmEntity, FILTER extends FilterQuery<
 
         m.skip = this.skip;
         m.limit = this.limit;
-        m.returning = this.returning.slice(0);
+        if (this.returning.length) m.returning = this.returning.slice(0);
         m.returnPrimaryKeys = this.returnPrimaryKeys;
         m.itemsPerPage = this.itemsPerPage;
         m.sort = this.sort ? { ...this.sort } : undefined;
@@ -894,7 +900,7 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
      * @throws DatabaseError
      */
     public async findOneOrUndefined(): Promise<Resolve<this> | undefined> {
-        await this.explainLogIfNeeded('findOne');
+        if (this.explainingEnabled) await this.explainLogIfNeeded('findOne');
         const frame = this.session.stopwatch?.start('FindOne:' + this.classSchema.getClassName(), FrameCategory.database);
         let query: Query<any> | undefined = undefined;
 

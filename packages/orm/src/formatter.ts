@@ -62,10 +62,10 @@ export class Formatter {
     protected instancePools: Map<ClassType, Map<PKHash, any>> = new Map();
 
     public withIdentityMap: boolean = true;
-    protected rootPkHash: (value: any) => string = getPrimaryKeyHashGenerator(this.rootClassSchema, this.serializer);
+    protected rootPkHashFn?: (value: any) => string;
 
     protected deserialize: SerializeFunction;
-    protected partialDeserialize: SerializeFunction;
+    protected partialDeserializeFn?: SerializeFunction;
 
     protected rootClassState: ClassState = getClassState(this.rootClassSchema);
 
@@ -76,7 +76,14 @@ export class Formatter {
         protected identityMap?: IdentityMap,
     ) {
         this.deserialize = getSerializeFunction(rootClassSchema.type, serializer.deserializeRegistry);
-        this.partialDeserialize = getPartialSerializeFunction(rootClassSchema.type, serializer.deserializeRegistry);
+    }
+
+    protected get rootPkHash(): (value: any) => string {
+        return this.rootPkHashFn ||= getPrimaryKeyHashGenerator(this.rootClassSchema, this.serializer);
+    }
+
+    protected get partialDeserialize(): SerializeFunction {
+        return this.partialDeserializeFn ||= getPartialSerializeFunction(this.rootClassSchema.type, this.serializer.deserializeRegistry);
     }
 
     protected getInstancePoolForClass(classType: ClassType): Map<PKHash, any> {

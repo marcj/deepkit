@@ -382,7 +382,11 @@ export class DatabaseSession<ADAPTER extends DatabaseAdapter = DatabaseAdapter> 
      */
     public assignedTransaction?: ReturnType<this['adapter']['createTransaction']>;
 
-    public readonly identityMap = new IdentityMap();
+    protected createdIdentityMap?: IdentityMap;
+
+    get identityMap(): IdentityMap {
+        return this.createdIdentityMap ||= new IdentityMap();
+    }
 
     /**
      * Creates a new DatabaseQuery instance which can be used to query and manipulate data.
@@ -390,6 +394,8 @@ export class DatabaseSession<ADAPTER extends DatabaseAdapter = DatabaseAdapter> 
     public readonly query: ReturnType<this['adapter']['queryFactory']>['createQuery'];
 
     public readonly raw!: ReturnType<this['adapter']['rawFactory']>['create'];
+
+    protected rawQueryFactory?: ReturnType<ADAPTER['rawFactory']>;
 
     protected rounds: DatabaseSessionRound<ADAPTER>[] = [];
 
@@ -427,8 +433,8 @@ export class DatabaseSession<ADAPTER extends DatabaseAdapter = DatabaseAdapter> 
 
         this.query = query as any;
 
-        const factory = this.adapter.rawFactory(this);
         this.raw = (...args: any[]) => {
+            const factory = this.rawQueryFactory ||= this.adapter.rawFactory(this) as ReturnType<ADAPTER['rawFactory']>;
             forwardTypeArguments(this.raw, factory.create);
             return factory.create(...args);
         };

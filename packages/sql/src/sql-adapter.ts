@@ -351,8 +351,34 @@ export class SQLQueryResolver<T extends OrmEntity> extends GenericQueryResolver<
 
     async findOneOrUndefined(model: SQLQueryModel<T>): Promise<T | undefined> {
         //when joins are used, it's important to fetch all rows
-        const items = await this.find(model);
-        return items[0];
+        if (model.hasJoins() || model.isAggregate() || model.sqlSelect) {
+            const items = await this.find(model);
+            return items[0];
+        }
+
+        const sqlBuilderFrame = this.session.stopwatch ? this.session.stopwatch.start('SQL Builder') : undefined;
+        const sql = new SqlBuilder(this.adapter).select(this.classSchema, model);
+        if (sqlBuilderFrame) sqlBuilderFrame.end();
+
+        const connectionFrame = this.session.stopwatch ? this.session.stopwatch.start('Connection acquisition') : undefined;
+        const connection = await this.connectionPool.getConnection(this.session.assignedTransaction);
+        if (connectionFrame) connectionFrame.end();
+
+        let row: any;
+        try {
+            row = await connection.execAndReturnSingle(sql.sql, sql.params);
+        } catch (error: any) {
+            error = this.handleSpecificError(error);
+            throw new DatabaseError(`Could not query ${this.classSchema.getClassName()} due to SQL error ${error}`, { cause: error });
+        } finally {
+            connection.release();
+        }
+        if (!row) return undefined;
+
+        const formatterFrame = this.session.stopwatch ? this.session.stopwatch.start('Formatter') : undefined;
+        const item = this.createFormatter(model.withIdentityMap).hydrate(model, row);
+        if (formatterFrame) formatterFrame.end();
+        return item;
     }
 
     async has(model: SQLQueryModel<T>): Promise<boolean> {
@@ -513,8 +539,9 @@ export class SQLDatabaseQueryFactory extends DatabaseAdapterQueryFactory {
     }
 
     createQuery<T extends OrmEntity>(classType: ReceiveType<T> | ClassType<T> | AbstractClassType<T> | ReflectionClass<T>): SQLDatabaseQuery<T> {
-        return new SQLDatabaseQuery(ReflectionClass.from(classType), this.databaseSession,
-            new SQLQueryResolver(this.connectionPool, this.platform, ReflectionClass.from(classType), this.databaseSession.adapter, this.databaseSession),
+        const schema = ReflectionClass.from(classType);
+        return new SQLDatabaseQuery(schema, this.databaseSession,
+            new SQLQueryResolver(this.connectionPool, this.platform, schema, this.databaseSession.adapter, this.databaseSession),
         );
     }
 }

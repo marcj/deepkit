@@ -647,8 +647,9 @@ export class SQLiteDatabaseQueryFactory extends SQLDatabaseQueryFactory {
     }
 
     createQuery<T extends OrmEntity>(type?: ReceiveType<T> | ClassType<T> | AbstractClassType<T> | ReflectionClass<T>): SQLiteDatabaseQuery<T> {
-        return new SQLiteDatabaseQuery<T>(ReflectionClass.from(type), this.databaseSession,
-            new SQLiteQueryResolver<T>(this.connectionPool, this.platform, ReflectionClass.from(type), this.databaseSession),
+        const schema = ReflectionClass.from(type);
+        return new SQLiteDatabaseQuery<T>(schema, this.databaseSession,
+            new SQLiteQueryResolver<T>(this.connectionPool, this.platform, schema, this.databaseSession),
         );
     }
 }
