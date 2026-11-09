@@ -75,23 +75,30 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
     public add(items: Iterable<OrmEntity>, classSchema?: ReflectionClass<any>): void {
         if (this.isInCommit()) throw new Error('Already in commit. Can not change queues.');
 
+        for (const item of items) this.addItem(item, classSchema);
+    }
+
+    /**
+     * The round must not be in commit. Only an entity with references has properties that have to be read here,
+     * so only then the check for unloaded references has to be turned off.
+     */
+    public addItem(item: OrmEntity, classSchema?: ReflectionClass<any>): void {
+        if (this.removeQueue.size && this.removeQueue.has(item)) return;
+
+        const size = this.addQueue.size;
+        this.addQueue.add(item);
+        if (this.addQueue.size === size) return;
+
+        const thisClassSchema = classSchema || this.getEntityOfInstance(item);
+        this.addQueueResolved.push([thisClassSchema, item]);
+
+        if (!thisClassSchema.getReferences().length) return;
+
         const old = typeSettings.unpopulatedCheck;
         typeSettings.unpopulatedCheck = UnpopulatedCheck.None;
         try {
-            for (const item of items) {
-                if (this.removeQueue.size && this.removeQueue.has(item)) continue;
-
-                const size = this.addQueue.size;
-                this.addQueue.add(item);
-                if (this.addQueue.size === size) continue;
-
-                const thisClassSchema = classSchema || this.getEntityOfInstance(item);
-                this.addQueueResolved.push([thisClassSchema, item]);
-
-                if (!thisClassSchema.getReferences().length) continue;
-                for (const [schema, dep] of this.getReferenceDependenciesWithSchema(thisClassSchema, item)) {
-                    this.add([dep], schema);
-                }
+            for (const [schema, dep] of this.getReferenceDependenciesWithSchema(thisClassSchema, item)) {
+                this.addItem(dep, schema);
             }
         } finally {
             typeSettings.unpopulatedCheck = old;
@@ -102,13 +109,19 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
         const classType = (item as any).constructor;
         if (classType === this.lastAddedClass) return this.lastAddedSchema!;
 
-        const schema = this.session.entityRegistry.getFromInstance(item);
-        // a plain object is matched by its content, not by its constructor
-        if (classType !== Object) {
-            this.lastAddedClass = classType;
-            this.lastAddedSchema = schema;
+        // a plain object is matched by its content, which can contain unloaded references
+        const old = typeSettings.unpopulatedCheck;
+        typeSettings.unpopulatedCheck = UnpopulatedCheck.None;
+        try {
+            const schema = this.session.entityRegistry.getFromInstance(item);
+            if (classType !== Object) {
+                this.lastAddedClass = classType;
+                this.lastAddedSchema = schema;
+            }
+            return schema;
+        } finally {
+            typeSettings.unpopulatedCheck = old;
         }
-        return schema;
     }
 
     protected getReferenceDependenciesWithSchema<T extends OrmEntity>(classSchema: ReflectionClass<any>, item: T): [ReflectionClass<any>, OrmEntity][] {
@@ -583,11 +596,13 @@ export class DatabaseSession<ADAPTER extends DatabaseAdapter = DatabaseAdapter> 
      * This works like Git: you add files, and later commit all in one batch.
      */
     public add(...items: OrmEntity[]): this {
-        if (this.getCurrentRound().isInCommit()) {
+        let round = this.getCurrentRound();
+        if (round.isInCommit()) {
             this.enterNewRound();
+            round = this.getCurrentRound();
         }
 
-        this.getCurrentRound().add(items);
+        for (let i = 0; i < items.length; i++) round.addItem(items[i]);
         return this;
     }
 
