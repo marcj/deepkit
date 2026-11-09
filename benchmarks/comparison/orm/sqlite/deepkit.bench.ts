@@ -34,7 +34,8 @@ export default async function (): Promise<BenchSuite> {
 
     return ormSuite('sqlite', 'Deepkit', {
         findOne: id => database.query(User).filter({ id }).findOneOrUndefined(),
-        findAll: () => database.query(User).find(),
+        // no change detection afterwards, the other libraries only load too
+        findAll: () => database.query(User).disableChangeDetection().find(),
         insertMany: async rows => {
             // no change detection afterwards, the other libraries only insert too. Older versions don't have this.
             const session = database.createSession();
