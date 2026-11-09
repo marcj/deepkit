@@ -1071,6 +1071,8 @@ function serializeNumber(type: Type, state: TemplateState) {
                 state.writer.writeType(${BSONType.NUMBER});
                 state.writer.writeDouble(${state.accessor});
             }
+        } else {
+            ${state.throwCode(type)}
         }
     `);
 }
@@ -1101,6 +1103,8 @@ function serializeBigInt(type: TypeBigInt, state: TemplateState) {
             //long
             state.writer.writeType(${BSONType.BINARY});
             state.writer.${writeBigInt}(${state.accessor});
+        } else {
+            ${state.throwCode(type)}
         }`);
     } else {
         serializeNumber(type, state);
