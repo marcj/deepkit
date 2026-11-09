@@ -11,7 +11,7 @@
 import { SQLFilterBuilder } from '@deepkit/sql';
 
 export class SQLiteFilterBuilder extends SQLFilterBuilder {
-    protected bindValue(value: any): any {
+    override bindValue(value: any): any {
         if (typeof value === 'boolean') return value ? 1 : 0;
         return super.bindValue(value);
     }

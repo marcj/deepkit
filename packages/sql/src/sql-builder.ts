@@ -10,10 +10,11 @@
 
 import { SQLQueryModel } from './sql-adapter.js';
 import { DefaultPlatform, SqlPlaceholderStrategy } from './platform/default-platform.js';
-import { getPrimaryKeyHashGenerator, ReflectionClass, ReflectionProperty } from '@deepkit/type';
+import { getPrimaryKeyHashGenerator, getSerializeFunction, isBackReferenceType, isReferenceType, ReflectionClass, ReflectionKind, ReflectionProperty, resolvePath } from '@deepkit/type';
 import { DatabaseJoinModel, DatabaseQueryModel, OrmEntity } from '@deepkit/orm';
 import { getSqlFilter } from './filter.js';
 import { getPreparedEntity, PreparedAdapter } from './prepare.js';
+import { LruCache } from './lru-cache.js';
 
 type ConvertedData = { hash: string, item: { [name: string]: any }, joined: { [name: string]: any }[] };
 type ConvertDataToDict = (row: any) => ConvertedData | undefined;
@@ -34,6 +35,40 @@ export class Sql {
         this.sql += ' ' + sql;
         if (params) this.params.push(...params);
     }
+}
+
+/** A limit or skip that differs on every call would otherwise push out everything else, so the number is limited. */
+const maxCachedSelects = 256;
+
+/**
+ * Identifies queries that result in the same SQL. Undefined if the SQL depends on more
+ * than the names of the filtered fields, e.g. null is `IS NULL` and a list has a placeholder per item.
+ */
+function getSelectCacheKey(model: SQLQueryModel<any>): string | undefined {
+    if (model.joins.length || model.where || model.sqlSelect || model.having
+        || model.aggregate.size || model.groupBy.size || model.select.size || model.lazyLoad.size) return undefined;
+
+    let key = model.limit + '\0' + model.skip + '\0' + model.for + '\0';
+    if (model.sort) {
+        for (const name in model.sort) {
+            const direction = model.sort[name];
+            if (typeof direction !== 'string' || name.includes('\0')) return undefined;
+            key += name + '\0' + direction + '\0';
+        }
+    }
+    key += '\0';
+
+    const filter = model.filter;
+    if (filter) {
+        if (filter.constructor !== Object) return undefined;
+        for (const name in filter) {
+            if (name[0] === '$' || name.includes('\0')) return undefined;
+            const type = typeof filter[name];
+            if (type !== 'string' && type !== 'number' && type !== 'boolean') return undefined;
+            key += name + '\0';
+        }
+    }
+    return key;
 }
 
 export class SqlBuilder {
@@ -437,6 +472,58 @@ export class SqlBuilder {
         options: { select?: string[] } = {}
     ): Sql {
         const manualSelect = options.select && options.select.length ? options.select : undefined;
+
+        if (!manualSelect && !this.params.length) {
+            const key = getSelectCacheKey(model);
+            if (key !== undefined) return this.selectCached(schema, model, key);
+        }
+
+        return this.buildSelect(schema, model, manualSelect);
+    }
+
+    protected selectCached(schema: ReflectionClass<any>, model: SQLQueryModel<any>, key: string): Sql {
+        const prepared = getPreparedEntity(this.adapter, schema);
+        prepared.selectCache ||= new LruCache(maxCachedSelects);
+
+        const cached = prepared.selectCache.get(key);
+        if (cached) {
+            const params: any[] = new Array(cached.binders.length);
+            let i = 0;
+            for (const name in model.filter) params[i] = cached.binders[i++](model.filter[name]);
+            return new Sql(cached.sql, params);
+        }
+
+        const sql = this.buildSelect(schema, model);
+        const binders = this.createFilterBinders(schema, model, sql);
+        if (binders) prepared.selectCache.set(key, { sql: sql.sql, binders });
+        return sql;
+    }
+
+    /**
+     * How to get the parameters from the values of the filter, the same way SQLFilterBuilder does it.
+     * Undefined if a field needs more than that, or a parameter doesn't come from a field.
+     */
+    protected createFilterBinders(schema: ReflectionClass<any>, model: SQLQueryModel<any>, sql: Sql): ((value: any) => any)[] | undefined {
+        const names = model.filter ? Object.keys(model.filter) : [];
+        if (names.length !== sql.params.length) return undefined;
+
+        const builder = this.platform.createSqlFilterBuilder(this.adapter, schema, '');
+        const registry = this.platform.serializer.serializeRegistry;
+        const binders: ((value: any) => any)[] = [];
+        for (const name of names) {
+            if (name.includes('.') || !schema.hasProperty(name)) return undefined;
+            const type = resolvePath(name, schema.type);
+            const propertyType = schema.getProperty(name).type;
+            if (propertyType.kind === ReflectionKind.array || isReferenceType(propertyType) || isBackReferenceType(propertyType)) return undefined;
+            if (builder.requiresJson(propertyType) || builder.requiresJson(type)) return undefined;
+
+            const serialize = getSerializeFunction(type, registry);
+            binders.push(value => builder.bindValue(serialize(value)));
+        }
+        return binders;
+    }
+
+    protected buildSelect(schema: ReflectionClass<any>, model: SQLQueryModel<any>, manualSelect?: string[]): Sql {
 
         if (!manualSelect) {
             if (model.hasJoins()) {

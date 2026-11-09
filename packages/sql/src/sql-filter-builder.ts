@@ -63,7 +63,7 @@ export class SQLFilterBuilder {
      * Normalizes values necessary for the connection driver to bind parameters for prepared statements.
      * E.g. SQLite does not support boolean, so we convert boolean to number.
      */
-    protected bindValue(value: any): any {
+    bindValue(value: any): any {
         if (value === undefined) return null; //no SQL driver supports undefined
         if (value instanceof RegExp) return value.source;
         return value;

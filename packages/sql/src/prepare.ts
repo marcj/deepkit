@@ -1,3 +1,4 @@
+import { LruCache } from './lru-cache.js';
 import { ReflectionClass, resolvePath, resolveProperty, Type, TypeClass, TypeObjectLiteral } from '@deepkit/type';
 import { DefaultPlatform } from './platform/default-platform.js';
 
@@ -17,7 +18,15 @@ export interface PreparedField {
     sqlTypeCast: SqlTypeCast;
 }
 
+/** The SQL of a query, and how to convert the values of its filter to the parameters. */
+export interface CachedSelect {
+    sql: string;
+    binders: ((value: any) => any)[];
+}
+
 export interface PreparedEntity {
+    /** the SQL of queries that differ only in the values of their filter */
+    selectCache?: LruCache<CachedSelect>;
     platform: DefaultPlatform,
     type: TypeClass | TypeObjectLiteral;
     name: string;
