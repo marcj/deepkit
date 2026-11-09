@@ -8,7 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
-import { BsonStreamReader, deserializeBSONWithoutOptimiser, getBSONDeserializer, getBSONSerializer, getBSONSizer, Writer } from '@deepkit/bson';
+import { AutoBuffer, AutoBufferSerializer, AutoBufferSerializerState, BsonStreamReader, deserializeBSONWithoutOptimiser, getBSONDeserializer, getBSONSerializer, Writer } from '@deepkit/bson';
 import { bufferConcat, ClassType, createBuffer } from '@deepkit/core';
 import { rpcChunk, RpcError, rpcError, RpcTypes } from './model.js';
 import type { SingleProgress } from './progress.js';
@@ -260,37 +260,86 @@ export function createRpcCompositeMessage<T>(
     };
 }
 
-export function serializeBinaryRpcCompositeMessage(message: RpcMessageDefinition): Uint8Array {
-    if (!message.composite) throw new RpcError('No messages set');
+/**
+ * The one buffer every message is written to, so nothing has to compute its size first.
+ * Serialization is synchronous, so it can be shared by all connections.
+ */
+let messageBuffer = new AutoBuffer(0, 64 * 1024);
 
-    let bodySize = 0;
-    for (const sub of message.composite) {
-        bodySize += 4 + 1 + (sub.schema && sub.body ? getBSONSizer(undefined, sub.schema)(sub.body) : 0);
-    }
+/** The largest buffer that is kept between messages. */
+const maxRetainedMessageBuffer = 16 * 1024 * 1024;
 
-    //<size> <version> <messageId> <routeType>[routeData] <isComposite> <type> <body...>
-    const messageSize = 4 + 1 + 4 + 1 + 1 + 1 + bodySize;
+function writeInMessageBuffer(write: AutoBufferSerializer, data: any): Uint8Array {
+    messageBuffer.apply(write, data);
+    return messageBuffer.buffer;
+}
 
-    const writer = new Writer(createBuffer(messageSize));
-    writer.writeUint32(messageSize);
+function copyOfMessageBuffer(write: AutoBufferSerializer, data: any): Uint8Array {
+    const written = writeInMessageBuffer(write, data);
+    const copy = createBuffer(written.byteLength);
+    copy.set(written);
+    releaseMessageBufferIfLarge();
+    return copy;
+}
+
+/**
+ * Has to be called when something still holds on to the buffer of a transient message.
+ */
+export function releaseMessageBuffer(): void {
+    messageBuffer = new AutoBuffer(0, 64 * 1024);
+}
+
+export function releaseMessageBufferIfLarge(): void {
+    if (messageBuffer._buffer.byteLength > maxRetainedMessageBuffer) releaseMessageBuffer();
+}
+
+//<size> <version> <messageId> <routeType>
+function writeMessageStart(writer: Writer, id: number, routeType: RpcMessageRouteType): void {
+    writer.writeUint32(0); //set by writeMessageEnd, once the size is known
     writer.writeByte(1); //version
-    writer.writeUint32(message.id);
+    writer.writeUint32(id);
+    writer.writeByte(routeType);
+}
 
-    writer.writeByte(message.routeType);
-    writer.writeByte(1);
-    writer.writeByte(message.type);
+function writeMessageEnd(writer: Writer): void {
+    writer.writeDelayedSize(writer.offset, 0);
+}
 
-    for (const sub of message.composite) {
-        writer.writeUint32(sub.schema && sub.body ? getBSONSizer(undefined, sub.schema)(sub.body) : 0);
+function writeCompositeBodies(writer: Writer, composite: RpcCreateMessageDef<any>[]): void {
+    for (const sub of composite) {
+        const sizePosition = writer.offset;
+        writer.writeUint32(0);
         writer.writeByte(sub.type); //type
 
         if (sub.schema && sub.body) {
+            const start = writer.offset;
             //BSON object contain already their size at the beginning
             getBSONSerializer(undefined, sub.schema)(sub.body, { writer });
+            writer.writeDelayedSize(writer.offset - start, sizePosition);
         }
     }
+}
 
-    return writer.buffer;
+function writeSourceDest(writer: Writer, source: Uint8Array, destination: Uint8Array): void {
+    if (source.byteLength !== 16) throw new RpcError(`Source invalid byteLength of ${source.byteLength}`);
+    if (destination.byteLength !== 16) throw new RpcError(`Destination invalid byteLength of ${destination.byteLength}`);
+    writer.writeBuffer(source);
+    writer.writeBuffer(destination);
+}
+
+//<size> <version> <messageId> <routeType>[routeData] <isComposite> <type> <body...>
+const writeCompositeMessage: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
+    if (!message.composite) throw new RpcError('No messages set');
+    const writer = state.writer!;
+    writeMessageStart(writer, message.id, message.routeType);
+    writer.writeByte(1);
+    writer.writeByte(message.type);
+    writeCompositeBodies(writer, message.composite);
+    writeMessageEnd(writer);
+};
+
+export function serializeBinaryRpcCompositeMessage(message: RpcMessageDefinition): Uint8Array {
+    return copyOfMessageBuffer(writeCompositeMessage, message);
 }
 
 export function createRpcCompositeMessageSourceDest(
@@ -310,43 +359,21 @@ export function createRpcCompositeMessageSourceDest(
     };
 }
 
-export function serializeBinaryRpcCompositeMessageSourceDest(message: RpcMessageDefinition): Uint8Array {
+const writeCompositeMessageSourceDest: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
     if (!message.composite) throw new RpcError('No messages set');
     if (!message.source) throw new RpcError('No source set');
     if (!message.destination) throw new RpcError('No destination set');
-
-    let bodySize = 0;
-    for (const sub of message.composite) {
-        bodySize += 4 + 1 + (sub.schema && sub.body ? getBSONSizer(undefined, sub.schema)(sub.body) : 0);
-    }
-
-    //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
-    const messageSize = 4 + 1 + 4 + 1 + (16 + 16) + 1 + 1 + bodySize;
-
-    const writer = new Writer(createBuffer(messageSize));
-    writer.writeUint32(messageSize);
-    writer.writeByte(1); //version
-    writer.writeUint32(message.id);
-
-    writer.writeByte(RpcMessageRouteType.sourceDest);
-    if (message.source.byteLength !== 16) throw new RpcError(`Source invalid byteLength of ${message.source.byteLength}`);
-    if (message.destination.byteLength !== 16) throw new RpcError(`Destination invalid byteLength of ${message.destination.byteLength}`);
-    writer.writeBuffer(message.source);
-    writer.writeBuffer(message.destination);
+    const writer = state.writer!;
+    writeMessageStart(writer, message.id, RpcMessageRouteType.sourceDest);
+    writeSourceDest(writer, message.source, message.destination);
     writer.writeByte(1); //composite=true
     writer.writeByte(message.type);
+    writeCompositeBodies(writer, message.composite);
+    writeMessageEnd(writer);
+};
 
-    for (const sub of message.composite) {
-        writer.writeUint32(sub.schema && sub.body ? getBSONSizer(undefined, sub.schema)(sub.body) : 0);
-        writer.writeByte(sub.type); //type
-
-        if (sub.schema && sub.body) {
-            //BSON object contain already their size at the beginning
-            getBSONSerializer(undefined, sub.schema)(sub.body, { writer });
-        }
-    }
-
-    return writer.buffer;
+export function serializeBinaryRpcCompositeMessageSourceDest(message: RpcMessageDefinition): Uint8Array {
+    return copyOfMessageBuffer(writeCompositeMessageSourceDest, message);
 }
 
 export interface RpcMessageDefinition {
@@ -394,25 +421,35 @@ function assertNoPreSerialized(message: RpcMessageDefinition): void {
     }
 }
 
-export function serializeBinaryRpcMessage(message: RpcMessageDefinition): Uint8Array {
+function getMessageWriter(message: RpcMessageDefinition): AutoBufferSerializer {
     if (message.composite || message.routeType !== RpcMessageRouteType.client) assertNoPreSerialized(message);
 
     if (message.composite) {
-        if (message.routeType === RpcMessageRouteType.sourceDest) {
-            return serializeBinaryRpcCompositeMessageSourceDest(message);
-        }
-        return serializeBinaryRpcCompositeMessage(message);
+        return message.routeType === RpcMessageRouteType.sourceDest ? writeCompositeMessageSourceDest : writeCompositeMessage;
     }
+    if (message.routeType === RpcMessageRouteType.peer) return writeMessagePeer;
+    if (message.routeType === RpcMessageRouteType.sourceDest) return writeMessageSourceDest;
+    return writeMessageSingleBody;
+}
 
-    if (message.routeType === RpcMessageRouteType.peer) {
-        return serializeBinaryRpcMessagePeer(message);
-    }
+/**
+ * The returned buffer belongs to the caller. A transport that hands the bytes over right away
+ * can use serializeBinaryRpcMessageTransient instead, which does not copy.
+ */
+export function serializeBinaryRpcMessage(message: RpcMessageDefinition): Uint8Array {
+    const preSerialized = message.body && !message.composite && message.routeType === RpcMessageRouteType.client ? getPreSerialized(message.body.body) : undefined;
+    if (preSerialized) return serializeBinaryRpcMessageSingleBodyPreSerialized(message as RpcMessageDefinition & { body: {} }, preSerialized);
+    return copyOfMessageBuffer(getMessageWriter(message), message);
+}
 
-    if (message.routeType === RpcMessageRouteType.sourceDest) {
-        return serializeBinaryRpcMessageSourceDest(message);
-    }
-
-    return serializeBinaryRpcMessageSingleBody(message);
+/**
+ * Writes the message into the shared buffer and returns a view on it, which is only valid until the next message
+ * is serialized. Returns undefined for messages that need their own buffer. If something still holds
+ * on to the view afterwards (e.g. a socket that could not write everything), call releaseMessageBuffer().
+ */
+export function serializeBinaryRpcMessageTransient(message: RpcMessageDefinition): Uint8Array | undefined {
+    if (message.body && getPreSerialized(message.body.body)) return undefined;
+    return writeInMessageBuffer(getMessageWriter(message), message);
 }
 
 /**
@@ -471,7 +508,7 @@ function preSerializeWrapperType(type: Type): TypeObjectLiteral {
  */
 export function preSerialize<T>(value: T, type?: ReceiveType<T>): PreSerialized {
     const wrapper = preSerializeWrapperType(resolveReceiveType(type));
-    const bytes = getBSONSerializer(undefined, wrapper)({ v: value });
+    const bytes = copyOfMessageBuffer(getBSONSerializer(undefined, wrapper), { v: value });
     //document layout: <uint32 size> <element "v"> <0x00>
     return new PreSerialized(bytes.subarray(4, bytes.length - 1), bytes.subarray(4));
 }
@@ -501,7 +538,7 @@ function getPreSerialized(body: any): PreSerialized | undefined {
 function serializeBinaryRpcMessageSingleBodyPreSerialized(message: RpcMessageDefinition & { body: {} }, pre: PreSerialized): Uint8Array {
     const rest = { ...message.body.body };
     delete rest.v;
-    const restBytes = getBSONSerializer(undefined, preSerializedRestType(message.body.type))(rest);
+    const restBytes = writeInMessageBuffer(getBSONSerializer(undefined, preSerializedRestType(message.body.type)), rest);
     //the rest document without its terminator, then the shared tail
     const bodySize = restBytes.length - 1 + pre.tail.length;
     //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
@@ -528,30 +565,20 @@ function serializeBinaryRpcMessageSingleBodyPreSerialized(message: RpcMessageDef
     return writer.buffer;
 }
 
+//<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
+const writeMessageSingleBody: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeMessageStart(writer, message.id, message.routeType);
+    writer.writeByte(0); //composite=false
+    writer.writeByte(message.type);
+    if (message.body) getBSONSerializer(undefined, message.body.type)(message.body.body, state);
+    writeMessageEnd(writer);
+};
+
 export function serializeBinaryRpcMessageSingleBody(message: RpcMessageDefinition): Uint8Array {
     const preSerialized = message.body ? getPreSerialized(message.body.body) : undefined;
     if (preSerialized) return serializeBinaryRpcMessageSingleBodyPreSerialized(message as RpcMessageDefinition & { body: {} }, preSerialized);
-
-    const bodySize = message.body ? getBSONSizer(undefined, message.body.type)(message.body.body) : 0;
-    //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
-    const messageSize = 4 + 1 + 4 + 1 + 1 + 1 + bodySize;
-
-    const writer = new Writer(createBuffer(messageSize));
-    writer.writeUint32(messageSize);
-    writer.writeByte(1); //version
-    writer.writeUint32(message.id);
-
-    writer.writeByte(message.routeType);
-    writer.writeByte(0); //composite=false
-    writer.writeByte(message.type);
-
-    if (message.body) {
-        const offset = writer.offset;
-        const serializer = getBSONSerializer(undefined, message.body.type);
-        serializer(message.body.body, { writer });
-    }
-
-    return writer.buffer;
+    return copyOfMessageBuffer(writeMessageSingleBody, message);
 }
 
 export function createRpcMessagePeer<T>(
@@ -574,31 +601,23 @@ export function createRpcMessagePeer<T>(
     };
 }
 
-export function serializeBinaryRpcMessagePeer(message: RpcMessageDefinition): Uint8Array {
+const writeMessagePeer: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
     if (!message.peerId) throw new RpcError('No peerId set');
     if (!message.source) throw new RpcError('No source set');
-
-    const bodySize = message.body ? getBSONSizer(undefined, message.body.type)(message.body.body) : 0;
-    //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
-    const messageSize = 4 + 1 + 4 + 1 + (16 + message.peerId.length + 1) + 1 + 1 + bodySize;
-
-    const writer = new Writer(createBuffer(messageSize));
-    writer.writeUint32(messageSize);
-    writer.writeByte(1); //version
-    writer.writeUint32(message.id);
-
-    writer.writeByte(RpcMessageRouteType.peer);
     if (message.source.byteLength !== 16) throw new RpcError(`Source invalid byteLength of ${message.source.byteLength}`);
+    const writer = state.writer!;
+    writeMessageStart(writer, message.id, RpcMessageRouteType.peer);
     writer.writeBuffer(message.source);
     writer.writeAsciiString(message.peerId);
     writer.writeNull();
-
     writer.writeByte(0); //composite=false
     writer.writeByte(message.type);
+    if (message.body) getBSONSerializer(undefined, message.body.type)(message.body.body, state);
+    writeMessageEnd(writer);
+};
 
-    if (message.body) getBSONSerializer(undefined, message.body.type)(message.body.body, { writer });
-
-    return writer.buffer;
+export function serializeBinaryRpcMessagePeer(message: RpcMessageDefinition): Uint8Array {
+    return copyOfMessageBuffer(writeMessagePeer, message);
 }
 
 export function createRpcMessageSourceDest<T>(
@@ -622,31 +641,20 @@ export function createRpcMessageSourceDest<T>(
     };
 }
 
-export function serializeBinaryRpcMessageSourceDest(message: RpcMessageDefinition): Uint8Array {
+const writeMessageSourceDest: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
     if (!message.source) throw new RpcError('No source set');
     if (!message.destination) throw new RpcError('No destination set');
-
-    const bodySize = message.body ? getBSONSizer(undefined, message.body.type)(message.body.body) : 0;
-    //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
-    const messageSize = 4 + 1 + 4 + 1 + (16 + 16) + 1 + 1 + bodySize;
-
-    const writer = new Writer(createBuffer(messageSize));
-    writer.writeUint32(messageSize);
-    writer.writeByte(1); //version
-    writer.writeUint32(message.id);
-
-    writer.writeByte(RpcMessageRouteType.sourceDest);
-    if (message.source.byteLength !== 16) throw new RpcError(`Source invalid byteLength of ${message.source.byteLength}`);
-    if (message.destination.byteLength !== 16) throw new RpcError(`Destination invalid byteLength of ${message.destination.byteLength}`);
-    writer.writeBuffer(message.source);
-    writer.writeBuffer(message.destination);
-
+    const writer = state.writer!;
+    writeMessageStart(writer, message.id, RpcMessageRouteType.sourceDest);
+    writeSourceDest(writer, message.source, message.destination);
     writer.writeByte(0); //composite=false
     writer.writeByte(message.type);
+    if (message.body) getBSONSerializer(undefined, message.body.type)(message.body.body, state);
+    writeMessageEnd(writer);
+};
 
-    if (message.body) getBSONSerializer(undefined, message.body.type)(message.body.body, { writer });
-
-    return writer.buffer;
+export function serializeBinaryRpcMessageSourceDest(message: RpcMessageDefinition): Uint8Array {
+    return copyOfMessageBuffer(writeMessageSourceDest, message);
 }
 
 export function createRpcMessageSourceDestForBody<T>(
@@ -672,7 +680,7 @@ export function createRpcMessageSourceDestForBody<T>(
     writer.writeByte(0); //composite=false
     writer.writeByte(type);
 
-    writer.writeBuffer(body);
+    writer.buffer.set(body, writer.offset);
 
     return writer.buffer;
 }

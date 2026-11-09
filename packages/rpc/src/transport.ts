@@ -1,4 +1,4 @@
-import { createRpcMessage, readBinaryRpcMessage, RpcBinaryMessageReader, RpcMessage, RpcMessageDefinition, serializeBinaryRpcMessage } from './protocol.js';
+import { createRpcMessage, readBinaryRpcMessage, releaseMessageBuffer, releaseMessageBufferIfLarge, RpcBinaryMessageReader, RpcMessage, RpcMessageDefinition, serializeBinaryRpcMessage, serializeBinaryRpcMessageTransient } from './protocol.js';
 import { SingleProgress } from './progress.js';
 import { rpcChunk, RpcError, RpcTransportStats, RpcTypes } from './model.js';
 import { asyncOperation } from '@deepkit/core';
@@ -44,6 +44,12 @@ export interface TransportConnection {
      */
     writeBinary?(message: Uint8Array): void;
 
+    /**
+     * A socket to write to instead of writeBinary. Its bytes are copied by the kernel during write(), so
+     * messages can be sent from one reused buffer without copying them first.
+     */
+    binarySocket?: BinarySocket;
+
     bufferedAmount?(): number;
 
     clientAddress?(): string;
@@ -71,6 +77,13 @@ export interface TransportClientConnection {
 
 export type RpcBinaryWriter = (buffer: Uint8Array) => void;
 
+export interface BinarySocket {
+    write(buffer: Uint8Array): unknown;
+
+    /** Bytes the socket could not hand to the kernel yet, and whose memory it still needs. */
+    readonly writableLength: number;
+}
+
 /**
  * This class acts as a layer between kernel/client and a connection writer.
  * It automatically chunks long messages into multiple smaller one using the RpcType.Chunks type.
@@ -95,6 +108,28 @@ export class TransportBinaryMessageChunkWriter {
     write(writer: RpcBinaryWriter, message: Uint8Array, progress?: SingleProgress): void {
         this.writeFull(writer, message, progress)
             .catch(error => console.log('TransportBinaryMessageChunkWriter writeAsync error', error));
+    }
+
+    /**
+     * Serializes the message and writes it to the socket, without a copy unless it has to be chunked.
+     * Returns the size of the message.
+     */
+    writeToSocket(socket: BinarySocket, message: RpcMessageDefinition, progress?: SingleProgress): number {
+        const transient = serializeBinaryRpcMessageTransient(message);
+
+        if (!transient || (this.options.chunkSize && transient.byteLength >= this.options.chunkSize)) {
+            const buffer = serializeBinaryRpcMessage(message);
+            this.write(data => socket.write(data), buffer, progress);
+            return buffer.byteLength;
+        }
+
+        const size = transient.byteLength;
+        socket.write(transient);
+        progress?.set(size, size);
+        // what could not be handed to the kernel is queued, and then node still needs this memory
+        if (socket.writableLength > 0) releaseMessageBuffer();
+        else releaseMessageBufferIfLarge();
+        return size;
     }
 
     protected sendChunks(writer: RpcBinaryWriter, message: RpcMessage, buffer: Uint8Array, progress?: SingleProgress): Promise<void> {
@@ -156,6 +191,15 @@ export function createWriter(transport: TransportConnection, options: TransportO
     if (transport.writeBinary) {
         const chunkWriter = new TransportBinaryMessageChunkWriter(reader, options);
         const writeBinary = transport.writeBinary;
+        const socket = transport.binarySocket;
+        if (socket) {
+            return (message, options, stats, progress) => {
+                const size = chunkWriter.writeToSocket(socket, message, progress);
+                stats.increase('outgoing', 1);
+                stats.increase('outgoingBytes', size);
+            };
+        }
+
         return (message, options, stats, progress) => {
             const buffer = serializeBinaryRpcMessage(message);
             stats.increase('outgoing', 1);

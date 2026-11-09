@@ -40,7 +40,7 @@ export class RpcTcpServer {
             this.server.on('connection', (socket: Socket) => {
                 const connection = this.kernel?.createConnection({
                     write(b: RpcMessageDefinition) {
-                        connection.sendBinary(b, (data) => socket.write(data));
+                        connection.sendToSocket(b, socket);
                     },
                     clientAddress(): string {
                         return socket.remoteAddress || '';

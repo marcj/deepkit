@@ -48,7 +48,8 @@ export class RpcTcpClientAdapter implements ClientTransportAdapter {
                 },
                 writeBinary(message) {
                     socket.write(message);
-                }
+                },
+                binarySocket: socket,
             });
         });
     }

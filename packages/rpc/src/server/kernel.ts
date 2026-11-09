@@ -33,7 +33,7 @@ import { RemoteController } from '../client/client.js';
 import { InjectorContext, InjectorModule, NormalizedProvider, Resolver } from '@deepkit/injector';
 import { Logger, LoggerInterface } from '@deepkit/logger';
 import { RpcAction, rpcClass } from '../decorators.js';
-import { createWriter, RpcBinaryWriter, TransportBinaryMessageChunkWriter, TransportConnection, TransportMessageWriter, TransportOptions } from '../transport.js';
+import { BinarySocket, createWriter, RpcBinaryWriter, TransportBinaryMessageChunkWriter, TransportConnection, TransportMessageWriter, TransportOptions } from '../transport.js';
 import { HttpRpcMessage, RpcHttpRequest, RpcHttpResponse } from './http.js';
 import { SingleProgress } from '../progress.js';
 import { DataEvent, EventDispatcher, EventDispatcherUnsubscribe, EventListenerCallback, EventToken } from '@deepkit/event';
@@ -274,6 +274,13 @@ export abstract class RpcKernelBaseConnection {
      */
     sendBinary(message: RpcMessageDefinition, writer: RpcBinaryWriter): void {
         this.binaryChunkWriter.write(writer, serializeBinaryRpcMessage(message));
+    }
+
+    /**
+     * Same as sendBinary, for a socket: written from one reused buffer without a copy.
+     */
+    sendToSocket(message: RpcMessageDefinition, socket: BinarySocket): void {
+        this.binaryChunkWriter.writeToSocket(socket, message);
     }
 
     clientAddress(): string | undefined {
