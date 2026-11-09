@@ -14,6 +14,8 @@ import {
     getDeepTypeCaster,
     getPreparedEntity,
     LruCache,
+    createRows,
+    getRowFactory,
     maxPreparedStatementLength,
     prepareBatchUpdate,
     PreparedEntity,
@@ -111,29 +113,27 @@ export class PostgresStatement extends SQLStatement {
         super();
     }
 
-    protected query(params: any[]): Promise<any> {
+    protected query(params: any[], rowMode?: 'array'): Promise<any> {
         //postgres driver does not maintain error.stack when they throw errors, so
         //we have to manually convert it using asyncOperation.
         return asyncOperation<any>((resolve, reject) => {
-            const result = this.reusable
-                ? this.client.query({ name: this.reusable.name, text: this.sql, values: params })
-                : this.client.query(this.sql, params);
+            const result = this.client.query<any, any[]>({ name: this.reusable?.name, text: this.sql, values: params, rowMode } as any);
             result.then(resolve).catch(reject);
         });
     }
 
-    protected async execute(params: any[]): Promise<any> {
-        if (!this.reusable) return this.query(params);
+    protected async execute(params: any[], rowMode?: 'array'): Promise<any> {
+        if (!this.reusable) return this.query(params, rowMode);
 
         try {
-            return await this.query(params);
+            return await this.query(params, rowMode);
         } catch (error: any) {
             if (!isStaleStatementError(error)) throw error;
             this.reusable.forget();
             this.reusable = undefined;
             //in a transaction this error already aborted it
             if (this.inTransaction) throw error;
-            return await this.query(params);
+            return await this.query(params, rowMode);
         }
     }
 
@@ -158,8 +158,10 @@ export class PostgresStatement extends SQLStatement {
         try {
             if (frame) frame.data({ sql: this.sql, sqlParams: params });
             this.logger.scoped(scope).debug(this.sql, params);
-            const res = await this.execute(params);
-            return res.rows;
+            const res = await this.execute(params, 'array');
+            //several statements at once return a list of results, and there is nothing to convert without rows
+            if (!res.rows?.length) return res.rows;
+            return createRows(res.rows, getRowFactory(res.fields.map((v: any) => v.name)));
         } catch (error: any) {
             error = ensureDatabaseError(error);
             this.logger.scoped(scope).debug(error, this.sql, params);

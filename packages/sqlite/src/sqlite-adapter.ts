@@ -28,6 +28,9 @@ import {
     asAliasName,
     DefaultPlatform,
     LruCache,
+    createRows,
+    getRowFactory,
+    RowFactory,
     maxPreparedStatementLength,
     prepareBatchUpdate,
     PreparedEntity,
@@ -67,7 +70,13 @@ function handleSpecificError(session: DatabaseSession, error: DatabaseError): Er
 const scope = 'deepkit:orm:sqlite';
 
 export class SQLiteStatement extends SQLStatement {
-    constructor(protected logger: Logger, protected sql: string, protected stmt: sqlite3.Statement, protected stopwatch?: Stopwatch) {
+    constructor(
+        protected logger: Logger,
+        protected sql: string,
+        protected stmt: sqlite3.Statement,
+        protected stopwatch?: Stopwatch,
+        protected createRow?: RowFactory,
+    ) {
         super();
     }
 
@@ -77,7 +86,7 @@ export class SQLiteStatement extends SQLStatement {
             if (frame) frame.data({ sql: this.sql, sqlParams: params });
             const res = this.stmt.get(...params);
             this.logger.scoped(scope).debug(this.sql, params);
-            return res;
+            return this.createRow && res ? this.createRow(res as any[]) : res;
         } catch (error: any) {
             error = ensureDatabaseError(error);
             this.logger.scoped(scope).debug(error, this.sql, params);
@@ -93,7 +102,7 @@ export class SQLiteStatement extends SQLStatement {
             if (frame) frame.data({ sql: this.sql, sqlParams: params });
             const res = this.stmt.all(...params);
             this.logger.scoped(scope).debug(this.sql, params);
-            return res;
+            return this.createRow ? createRows(res as any[][], this.createRow) : res;
         } catch (error: any) {
             error = ensureDatabaseError(error);
             this.logger.scoped(scope).debug(error, this.sql, params);
@@ -137,7 +146,7 @@ export class SQLiteDatabaseTransaction extends DatabaseTransaction {
 export class SQLiteConnection extends SQLConnection {
     public platform = new SQLitePlatform();
     protected changes: number = 0;
-    protected statements?: LruCache<sqlite3.Statement>;
+    protected statements?: LruCache<{ statement: sqlite3.Statement; createRow?: RowFactory }>;
     public db: sqlite3.Database;
 
     static DatabaseConstructor: any = sqlite3;
@@ -170,12 +179,18 @@ export class SQLiteConnection extends SQLConnection {
         if (!maxSize || sql.length > maxPreparedStatementLength) return this.prepare(sql);
 
         this.statements ||= new LruCache(maxSize);
-        let statement = this.statements.get(sql);
-        if (!statement) {
-            statement = this.db.prepare(sql);
-            this.statements.set(sql, statement);
+        let cached = this.statements.get(sql);
+        if (!cached) {
+            const statement = this.db.prepare(sql);
+            cached = { statement };
+            //SQLite prepares again after a schema change, and only a * could then return other columns
+            if (statement.reader && !sql.includes('*')) {
+                cached.createRow = getRowFactory(statement.columns().map(v => v.name));
+                statement.raw(true);
+            }
+            this.statements.set(sql, cached);
         }
-        return new SQLiteStatement(this.logger, sql, statement, this.stopwatch);
+        return new SQLiteStatement(this.logger, sql, cached.statement, this.stopwatch, cached.createRow);
     }
 
     async run(sql: string, params: any[] = []) {

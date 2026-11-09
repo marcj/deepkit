@@ -12,6 +12,7 @@ export * from './src/sql-builder.js';
 export * from './src/sql-escape.js';
 export * from './src/sql-adapter.js';
 export * from './src/lru-cache.js';
+export * from './src/row-factory.js';
 export * from './src/sql-filter-builder.js';
 
 export * from './src/migration/migration.js';
