@@ -13,6 +13,8 @@ import {
     DefaultPlatform,
     getDeepTypeCaster,
     getPreparedEntity,
+    LruCache,
+    maxPreparedStatementLength,
     prepareBatchUpdate,
     PreparedEntity,
     splitDotPath,
@@ -82,11 +84,57 @@ function handleSpecificError(session: DatabaseSession, error: DatabaseError): Er
 
 const scope = 'deepkit:orm:postgres';
 
+/** A statement the server keeps under a name. */
+interface PostgresReusableStatement {
+    name: string;
+
+    /** Removes it, so the next query prepares it again. */
+    forget(): void;
+}
+
+/** The server dropped the statement, or the result of its plan changed because a table changed. */
+function isStaleStatementError(error: any): boolean {
+    return error.code === '26000' || (error.code === '0A000' && String(error.message).includes('cached plan'));
+}
+
 export class PostgresStatement extends SQLStatement {
     protected released = false;
 
-    constructor(protected logger: Logger, protected sql: string, protected client: PoolClient, protected stopwatch?: Stopwatch) {
+    constructor(
+        protected logger: Logger,
+        protected sql: string,
+        protected client: PoolClient,
+        protected stopwatch?: Stopwatch,
+        protected reusable?: PostgresReusableStatement,
+        protected inTransaction: boolean = false,
+    ) {
         super();
+    }
+
+    protected query(params: any[]): Promise<any> {
+        //postgres driver does not maintain error.stack when they throw errors, so
+        //we have to manually convert it using asyncOperation.
+        return asyncOperation<any>((resolve, reject) => {
+            const result = this.reusable
+                ? this.client.query({ name: this.reusable.name, text: this.sql, values: params })
+                : this.client.query(this.sql, params);
+            result.then(resolve).catch(reject);
+        });
+    }
+
+    protected async execute(params: any[]): Promise<any> {
+        if (!this.reusable) return this.query(params);
+
+        try {
+            return await this.query(params);
+        } catch (error: any) {
+            if (!isStaleStatementError(error)) throw error;
+            this.reusable.forget();
+            this.reusable = undefined;
+            //in a transaction this error already aborted it
+            if (this.inTransaction) throw error;
+            return await this.query(params);
+        }
     }
 
     async get(params: any[] = []) {
@@ -94,11 +142,7 @@ export class PostgresStatement extends SQLStatement {
         try {
             if (frame) frame.data({ sql: this.sql, sqlParams: params });
             this.logger.scoped(scope).debug(this.sql, params);
-            //postgres driver does not maintain error.stack when they throw errors, so
-            //we have to manually convert it using asyncOperation.
-            const res = await asyncOperation<any>((resolve, reject) => {
-                this.client.query(this.sql, params).then(resolve).catch(reject);
-            });
+            const res = await this.execute(params);
             return res.rows[0];
         } catch (error: any) {
             error = ensureDatabaseError(error);
@@ -114,11 +158,7 @@ export class PostgresStatement extends SQLStatement {
         try {
             if (frame) frame.data({ sql: this.sql, sqlParams: params });
             this.logger.scoped(scope).debug(this.sql, params);
-            //postgres driver does not maintain error.stack when they throw errors, so
-            //we have to manually convert it using asyncOperation.
-            const res = await asyncOperation<any>((resolve, reject) => {
-                this.client.query(this.sql, params).then(resolve).catch(reject);
-            });
+            const res = await this.execute(params);
             return res.rows;
         } catch (error: any) {
             error = ensureDatabaseError(error);
@@ -149,6 +189,13 @@ export class PostgresConnection extends SQLConnection {
 
     async prepare(sql: string) {
         return new PostgresStatement(this.logger, sql, this.connection, this.stopwatch);
+    }
+
+    protected override async prepareReusable(sql: string, params?: any[]): Promise<PostgresStatement> {
+        //without parameters the driver uses the simple protocol, which can run several statements at once
+        if (!params || !params.length) return this.prepare(sql);
+        const reusable = (this.connectionPool as PostgresConnectionPool).getReusableStatement(this.connection, sql);
+        return new PostgresStatement(this.logger, sql, this.connection, this.stopwatch, reusable, !!this.transaction);
     }
 
     async run(sql: string, params: any[] = []) {
@@ -228,12 +275,45 @@ export class PostgresDatabaseTransaction extends DatabaseTransaction {
 }
 
 export class PostgresConnectionPool extends SQLConnectionPool {
+    protected statements = new WeakMap<PoolClient, LruCache<PostgresReusableStatement>>();
+    protected statementId = 0;
+
     constructor(
         protected pool: Pool,
         protected logger: Logger,
         protected stopwatch?: Stopwatch,
     ) {
         super(logger);
+    }
+
+    protected removeStatement(client: PoolClient, name: string): void {
+        delete (client as any).connection.parsedStatements[name];
+        //fails when the server has no such statement, or the transaction is aborted. Then there is nothing to do
+        client.query(`DEALLOCATE "${name}"`).catch(() => undefined);
+    }
+
+    getReusableStatement(client: PoolClient, sql: string): PostgresReusableStatement | undefined {
+        if (!this.maxPreparedStatements || sql.length > maxPreparedStatementLength) return undefined;
+
+        let statements = this.statements.get(client);
+        if (!statements) {
+            statements = new LruCache(this.maxPreparedStatements, (key, statement) => this.removeStatement(client, statement.name));
+            this.statements.set(client, statements);
+        }
+
+        let statement = statements.get(sql);
+        if (!statement) {
+            const name = 'deepkit_' + ++this.statementId;
+            statement = {
+                name,
+                forget: () => {
+                    statements.delete(sql);
+                    this.removeStatement(client, name);
+                },
+            };
+            statements.set(sql, statement);
+        }
+        return statement;
     }
 
     async getConnection(transaction?: PostgresDatabaseTransaction): Promise<PostgresConnection> {

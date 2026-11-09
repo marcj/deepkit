@@ -27,6 +27,8 @@ import {
 import {
     asAliasName,
     DefaultPlatform,
+    LruCache,
+    maxPreparedStatementLength,
     prepareBatchUpdate,
     PreparedEntity,
     splitDotPath,
@@ -135,6 +137,7 @@ export class SQLiteDatabaseTransaction extends DatabaseTransaction {
 export class SQLiteConnection extends SQLConnection {
     public platform = new SQLitePlatform();
     protected changes: number = 0;
+    protected statements?: LruCache<sqlite3.Statement>;
     public db: sqlite3.Database;
 
     static DatabaseConstructor: any = sqlite3;
@@ -160,6 +163,19 @@ export class SQLiteConnection extends SQLConnection {
 
     async prepare(sql: string) {
         return new SQLiteStatement(this.logger, sql, this.db.prepare(sql), this.stopwatch);
+    }
+
+    protected override async prepareReusable(sql: string): Promise<SQLiteStatement> {
+        const maxSize = this.connectionPool.maxPreparedStatements;
+        if (!maxSize || sql.length > maxPreparedStatementLength) return this.prepare(sql);
+
+        this.statements ||= new LruCache(maxSize);
+        let statement = this.statements.get(sql);
+        if (!statement) {
+            statement = this.db.prepare(sql);
+            this.statements.set(sql, statement);
+        }
+        return new SQLiteStatement(this.logger, sql, statement, this.stopwatch);
     }
 
     async run(sql: string, params: any[] = []) {

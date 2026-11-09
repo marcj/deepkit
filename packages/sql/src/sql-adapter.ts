@@ -94,6 +94,9 @@ export class SQLQueryModel<T extends OrmEntity> extends DatabaseQueryModel<T, Fi
     }
 }
 
+/** A statement longer than this is not kept, it is most likely a list that differs every time. */
+export const maxPreparedStatementLength = 8 * 1024;
+
 export abstract class SQLStatement {
     abstract get(params?: any[]): Promise<any>;
 
@@ -120,6 +123,14 @@ export abstract class SQLConnection {
     abstract prepare(sql: string): Promise<SQLStatement>;
 
     /**
+     * Like prepare, but the database can keep the statement, so that running the same SQL again doesn't
+     * have to prepare it again. By default, it is prepared every time.
+     */
+    protected prepareReusable(sql: string, params?: any[]): Promise<SQLStatement> {
+        return this.prepare(sql);
+    }
+
+    /**
      * Runs a single SQL query.
      */
     abstract run(sql: string, params?: any[]): Promise<any>;
@@ -127,7 +138,7 @@ export abstract class SQLConnection {
     abstract getChanges(): Promise<number>;
 
     async execAndReturnSingle(sql: string, params?: any[]): Promise<any> {
-        const stmt = await this.prepare(sql);
+        const stmt = await this.prepareReusable(sql, params);
         try {
             return await stmt.get(params);
         } finally {
@@ -136,7 +147,7 @@ export abstract class SQLConnection {
     }
 
     async execAndReturnAll(sql: string, params?: any[]): Promise<any> {
-        const stmt = await this.prepare(sql);
+        const stmt = await this.prepareReusable(sql, params);
         try {
             return await stmt.all(params);
         } finally {
@@ -147,6 +158,13 @@ export abstract class SQLConnection {
 
 export abstract class SQLConnectionPool {
     protected activeConnections = 0;
+
+    /**
+     * How many prepared statements each connection keeps to run the same query again, 0 turns it off.
+     * Has to be set before the first query. Turn it off when connecting through something that
+     * shares connections between clients and doesn't support prepared statements, e.g. PgBouncer in transaction mode.
+     */
+    public maxPreparedStatements: number = 256;
 
     constructor(protected logger: Logger) {
     }
