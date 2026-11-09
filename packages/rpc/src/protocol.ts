@@ -293,11 +293,12 @@ function copyOfMessageBuffer(write: AutoBufferSerializer, data: any): Uint8Array
  * Has to be called when something still holds on to the buffer of a transient message.
  */
 export function releaseMessageBuffer(): void {
+    messageBuffer.dispose();
     messageBuffer = new AutoBuffer(0, 64 * 1024);
 }
 
 export function releaseMessageBufferIfLarge(): void {
-    if (messageBuffer._buffer.byteLength > maxRetainedMessageBuffer) releaseMessageBuffer();
+    if (messageBuffer._buffer.byteLength > maxRetainedMessageBuffer) messageBuffer.releaseLarge();
 }
 
 //<size> <version> <messageId> <routeType>

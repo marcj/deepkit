@@ -302,13 +302,34 @@ export function writeFloat64LE(buffer: Uint8Array, offset: number, value: number
 export type AutoBufferSerializerState = { writer?: Writer };
 export type AutoBufferSerializer = (data: any, state: AutoBufferSerializerState) => void;
 
+/**
+ * A reusable buffer to serialize messages into without computing their size first.
+ *
+ * Messages are written to a small buffer that is capped and always kept, so everyday messages never allocate.
+ * A message that exceeds the cap goes to a large buffer, which is reused while such messages keep coming
+ * and released when it was not used for a while. A single huge message doesn't stay in memory.
+ */
 export class AutoBuffer {
     _buffer: Uint8Array = createBuffer(this.initialSize);
     state = { writer: new Writer(this._buffer) };
 
+    protected small: Uint8Array = this._buffer;
+    protected large?: Uint8Array;
+    protected largeUsed: boolean = false;
+    protected returnToSmall: boolean = false;
+    protected releaseTimer?: ReturnType<typeof setTimeout>;
+
+    /**
+     * @param prepend Bytes reserved in front of the message, written by the caller.
+     * @param initialSize Start size of the small buffer.
+     * @param maxSmallSize The small buffer doesn't grow further, larger messages use the large buffer.
+     * @param largeRetention Milliseconds without a large message after which the large buffer is released.
+     */
     constructor(
         public prepend: number = 0,
         private initialSize: number = 256,
+        private maxSmallSize: number = 256 * 1024,
+        private largeRetention: number = 5000,
     ) {
     }
 
@@ -320,25 +341,91 @@ export class AutoBuffer {
         return this.state.writer.offset;
     }
 
+    get hasLargeBuffer(): boolean {
+        return this.large !== undefined;
+    }
+
     setOffset(offset: number) {
         this.state.writer.offset = offset;
     }
 
     apply(serializer: AutoBufferSerializer, data: any) {
-        this.state.writer.offset = this.prepend;
+        const writer = this.state.writer;
+        if (this.returnToSmall) {
+            this.returnToSmall = false;
+            this.use(this.small);
+        }
+        if (this._buffer !== this.small) this.largeUsed = true;
+
+        writer.offset = this.prepend;
         serializer(data, this.state);
         // the offset includes the prepended bytes, and counts on although writes past the end are dropped
-        if (this.state.writer.offset > this._buffer.byteLength) {
-            // increase buffer and retry, geometrically so that a slowly growing message is not written twice every time
-            const nextBuffer = createBuffer(Math.max(this.state.writer.offset, this._buffer.byteLength * 2));
-            if (this.prepend) nextBuffer.set(this._buffer.subarray(0, this.prepend));
-            this._buffer = nextBuffer;
-
-            this.state.writer.buffer = this._buffer;
-            this.state.writer.reset();
-            this.state.writer.offset = this.prepend;
+        const size = writer.offset;
+        if (size > this._buffer.byteLength) {
+            this.use(this.bufferFor(size));
+            writer.reset();
+            writer.offset = this.prepend;
             serializer(data, this.state);
+        } else if (this._buffer !== this.small && size <= this.small.byteLength) {
+            // this message still needs the large buffer, the next one can use the small one again
+            this.returnToSmall = true;
         }
+    }
+
+    /**
+     * Releases the large buffer right away.
+     * Anything that still holds on to a view of it, like a socket with queued bytes, keeps its memory alive.
+     */
+    releaseLarge(): void {
+        if (this.releaseTimer !== undefined) clearTimeout(this.releaseTimer);
+        this.releaseTimer = undefined;
+        this.large = undefined;
+        this.largeUsed = false;
+        this.returnToSmall = false;
+        if (this._buffer !== this.small) this.use(this.small);
+    }
+
+    /**
+     * To call when this buffer is replaced, so its release timer doesn't keep it in memory.
+     */
+    dispose(): void {
+        this.releaseLarge();
+    }
+
+    protected bufferFor(size: number): Uint8Array {
+        if (size <= this.maxSmallSize) {
+            // geometrically, so that a slowly growing message is not written twice every time
+            this.small = createBuffer(Math.min(this.maxSmallSize, Math.max(size, this.small.byteLength * 2)));
+            return this.small;
+        }
+
+        if (!this.large || this.large.byteLength < size) {
+            this.large = createBuffer(Math.max(size, this.large ? this.large.byteLength * 2 : 0));
+        }
+        this.largeUsed = true;
+        this.scheduleRelease();
+        return this.large;
+    }
+
+    protected use(buffer: Uint8Array): void {
+        if (this.prepend) buffer.set(this._buffer.subarray(0, this.prepend));
+        this._buffer = buffer;
+        this.state.writer.buffer = buffer;
+    }
+
+    protected scheduleRelease(): void {
+        if (this.releaseTimer !== undefined) return;
+        this.releaseTimer = setTimeout(() => {
+            this.releaseTimer = undefined;
+            if (this.largeUsed) {
+                this.largeUsed = false;
+                this.scheduleRelease();
+                return;
+            }
+            this.releaseLarge();
+        }, this.largeRetention);
+        // doesn't keep a process alive. In browsers setTimeout returns a number
+        (this.releaseTimer as any).unref?.();
     }
 }
 

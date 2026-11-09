@@ -960,8 +960,11 @@ export class MongoConnection {
 
             // The kernel copies what it accepts during write(), so the buffer can be used for the next message.
             // Only what it did not accept stays queued, and then node still needs this memory.
-            if (this.socket.writableLength > 0 || buffer.byteLength > maxRetainedMessageBuffer) {
+            if (this.socket.writableLength > 0) {
+                messageBuffer.dispose();
                 this.messageBuffer = createMessageBuffer();
+            } else if (buffer.byteLength > maxRetainedMessageBuffer) {
+                messageBuffer.releaseLarge();
             }
         } catch (error) {
             console.log('failed sending message', message, 'for type', stringifyType(type));
