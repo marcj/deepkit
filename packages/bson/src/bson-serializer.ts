@@ -418,10 +418,38 @@ export class Writer {
         }
     }
 
+    /**
+     * The key of an array item, without converting the number to a string first.
+     */
+    writeArrayIndex(index: number) {
+        if (index < 10) {
+            this.buffer[this.offset++] = 48 + index;
+        } else if (index < 100) {
+            this.buffer[this.offset++] = 48 + Math.floor(index / 10);
+            this.buffer[this.offset++] = 48 + (index % 10);
+        } else {
+            this.writeAsciiString(index);
+        }
+    }
+
     writeString(str: string) {
         if (!str) return;
         if (typeof str !== 'string') return;
-        for (let i = 0; i < str.length; i++) {
+        const buffer = this.buffer;
+        const length = str.length;
+        let offset = this.offset;
+        let i = 0;
+        for (; i < length; i++) {
+            const c = str.charCodeAt(i);
+            if (c > 127) break;
+            buffer[offset++] = c;
+        }
+        this.offset = offset;
+        if (i < length) this.writeNonAsciiString(str, i);
+    }
+
+    protected writeNonAsciiString(str: string, start: number) {
+        for (let i = start; i < str.length; i++) {
             const c = str.charCodeAt(i);
 
             // surrogate pairs for characters outside the BMP
@@ -1216,7 +1244,7 @@ function serializeArray(elementType: Type, state: TemplateState) {
         for (const ${item} of ${state.accessor}) {
             state.writer.prepareWriteType();
 
-            state.writer.writeAsciiString(${i} + '');
+            state.writer.writeArrayIndex(${i});
             state.writer.writeByte(0);
 
             ${executeTemplates(state.fork('', item).extendPath(new RuntimeCode(i)), elementType)}
@@ -1250,7 +1278,7 @@ function serializeTuple(type: TypeTuple, state: TemplateState) {
             lines.push(`
             for (; ${i} < ${state.accessor}.length - ${restEndOffset}; ${i}++) {
                 state.writer.prepareWriteType();
-                state.writer.writeAsciiString(${i} + '');
+                state.writer.writeArrayIndex(${i});
                 state.writer.writeByte(0);
                 ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type.type)}
             }
@@ -1262,7 +1290,7 @@ function serializeTuple(type: TypeTuple, state: TemplateState) {
             lines.push(`
             if (${i} < ${state.accessor}.length) {
                 state.writer.prepareWriteType();
-                state.writer.writeAsciiString(${i} + '');
+                state.writer.writeArrayIndex(${i});
                 state.writer.writeByte(0);
                 if (${state.accessor}[${i}] === undefined) {
                     state.writer.writeType(${BSONType.NULL});
@@ -1275,7 +1303,7 @@ function serializeTuple(type: TypeTuple, state: TemplateState) {
         } else {
             lines.push(`
             state.writer.prepareWriteType();
-            state.writer.writeAsciiString(${i} + '');
+            state.writer.writeArrayIndex(${i});
             state.writer.writeByte(0);
             ${executeTemplates(state.fork('', `${state.accessor}[${i}]`).extendPath(member.name || new RuntimeCode(i)), member.type)}
             ${i}++;

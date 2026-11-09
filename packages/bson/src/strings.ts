@@ -12,12 +12,27 @@ import { BSONError } from './model.js';
 
 const decoder = new TextDecoder('utf-8');
 
+/** up to this many bytes a string is faster to build in JavaScript than to get from native code */
+const maxShortAscii = 16;
+const asciiCodes: number[][] = [];
+for (let i = 0; i <= maxShortAscii; i++) asciiCodes.push(new Array(i).fill(0));
+
 export function decodeUTF8(buffer: Uint8Array, off: number = 0, end: number) {
-    if (end - off > 8) {
-        return decoder.decode(buffer.subarray(off, end));
-    } else {
-        return decodeUTF8Short(buffer, off, end);
+    const size = end - off;
+    if (size <= maxShortAscii) {
+        const codes = asciiCodes[size];
+        for (let i = 0; i < size; i++) {
+            const c = buffer[off + i];
+            //multi-byte sequences and the terminating null are handled by the slower path
+            if (c > 127 || c === 0) return decodeUTF8Short(buffer, off, end);
+            codes[i] = c;
+        }
+        return String.fromCharCode.apply(null, codes);
     }
+
+    //a Buffer in Node, about twice as fast as TextDecoder and it also keeps a leading byte order mark
+    if ('function' === typeof (buffer as any).utf8Slice) return (buffer as any).utf8Slice(off, end);
+    return decoder.decode(buffer.subarray(off, end));
 }
 
 export function decodeUTF8Short(buffer: Uint8Array, off: number = 0, end: number) {

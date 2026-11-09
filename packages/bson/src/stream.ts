@@ -1,16 +1,20 @@
-import { bufferConcat } from '@deepkit/core';
+import { createBuffer } from '@deepkit/core';
+
 import { BSONError } from './model.js';
 
-function readUint32LE(buffer: Uint8Array, offset: number = 0): number {
-    return buffer[offset] + (buffer[offset + 1] * 2 ** 8) + (buffer[offset + 2] * 2 ** 16) + (buffer[offset + 3] * 2 ** 24);
+function readSize(buffer: Uint8Array, offset: number): number {
+    return buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24);
 }
 
 /**
  * Reads BSON messages from a stream and emits them as Uint8Array.
+ *
+ * Accepts chunks of any size. A message that is complete within one chunk is emitted without a copy,
+ * and a message spread over several chunks is copied only once, when it is complete.
  */
 export class BsonStreamReader {
-    protected currentMessage?: Uint8Array;
-    protected currentMessageSize: number = 0;
+    protected chunks: Uint8Array[] = [];
+    protected total: number = 0;
 
     constructor(
         protected readonly onMessage: (response: Uint8Array) => void,
@@ -18,75 +22,81 @@ export class BsonStreamReader {
     }
 
     public emptyBuffer(): boolean {
-        return this.currentMessage === undefined;
+        return this.total === 0;
     }
 
     public feed(data: Uint8Array, bytes?: number) {
         if (!data.byteLength) return;
-        if (!bytes) bytes = data.byteLength;
+        const length = bytes || data.byteLength;
 
-        if (!this.currentMessage) {
-            if (data.byteLength < 4) {
-                //not enough data to read the header. Wait for next onData
-                this.currentMessage = data;
-                this.currentMessageSize = 0;
-                return;
+        if (this.total === 0) {
+            let offset = 0;
+            while (offset + 4 <= length) {
+                const size = readSize(data, offset);
+                if (size <= 0) throw new BSONError('message size wrong');
+                if (offset + size > length) break;
+                this.onMessage(offset === 0 && size === data.byteLength ? data : data.subarray(offset, offset + size));
+                offset += size;
             }
-            this.currentMessage = data.byteLength === bytes ? data : data.subarray(0, bytes);
-            this.currentMessageSize = readUint32LE(data);
-        } else {
-            this.currentMessage = bufferConcat([this.currentMessage, data.byteLength === bytes ? data : data.subarray(0, bytes)]);
-            if (!this.currentMessageSize) {
-                if (this.currentMessage.byteLength < 4) {
-                    //not enough data to read the header. Wait for next onData
-                    return;
-                }
-                this.currentMessageSize = readUint32LE(this.currentMessage);
+            if (offset < length) {
+                this.chunks.push(offset === 0 && length === data.byteLength ? data : data.subarray(offset, length));
+                this.total = length - offset;
             }
-            if (this.currentMessage.byteLength < this.currentMessageSize) {
-                //not enough data to read the header. Wait for next onData
-                return;
-            }
+            return;
         }
 
-        let currentSize = this.currentMessageSize;
-        let currentBuffer = this.currentMessage;
+        this.chunks.push(length === data.byteLength ? data : data.subarray(0, length));
+        this.total += length;
 
-        while (currentBuffer) {
-            if (currentSize > currentBuffer.byteLength) {
-                this.currentMessage = currentBuffer;
-                this.currentMessageSize = currentSize;
-                //message not completely loaded, wait for next onData
-                return;
-            }
-
-            if (currentSize === currentBuffer.byteLength) {
-                //current buffer is exactly the message length
-                this.currentMessageSize = 0;
-                this.currentMessage = undefined;
-                this.onMessage(currentBuffer);
-                return;
-            }
-
-            if (currentSize < currentBuffer.byteLength) {
-                //we have more messages in this buffer. read what is necessary and hop to next loop iteration
-                const message = currentBuffer.subarray(0, currentSize);
-                this.onMessage(message);
-
-                currentBuffer = currentBuffer.subarray(currentSize);
-                if (currentBuffer.byteLength < 4) {
-                    //not enough data to read the header. Wait for next onData
-                    this.currentMessage = currentBuffer;
-                    this.currentMessageSize = 0;
-                    return;
-                }
-
-                const nextCurrentSize = readUint32LE(currentBuffer);
-                if (nextCurrentSize <= 0) throw new BSONError('message size wrong');
-                currentSize = nextCurrentSize;
-                //buffer and size has been set. consume this message in the next loop iteration
-            }
+        while (this.total >= 4) {
+            const size = this.peekSize();
+            if (size <= 0) throw new BSONError('message size wrong');
+            if (this.total < size) return;
+            this.onMessage(this.consume(size));
         }
     }
-}
 
+    protected peekSize(): number {
+        const first = this.chunks[0];
+        if (first.byteLength >= 4) return readSize(first, 0);
+
+        const header = new Uint8Array(4);
+        let copied = 0;
+        for (const chunk of this.chunks) {
+            for (let i = 0; i < chunk.byteLength && copied < 4; i++) header[copied++] = chunk[i];
+            if (copied === 4) break;
+        }
+        return readSize(header, 0);
+    }
+
+    protected consume(size: number): Uint8Array {
+        this.total -= size;
+        const first = this.chunks[0];
+        if (first.byteLength >= size) {
+            if (first.byteLength === size) {
+                this.chunks.shift();
+                return first;
+            }
+            this.chunks[0] = first.subarray(size);
+            return first.subarray(0, size);
+        }
+
+        //the same type as the chunks of a socket, a mix of both makes all element access slower
+        const result = createBuffer(size);
+        let written = 0;
+        let index = 0;
+        while (written < size) {
+            const chunk = this.chunks[index];
+            const toCopy = Math.min(size - written, chunk.byteLength);
+            result.set(toCopy === chunk.byteLength ? chunk : chunk.subarray(0, toCopy), written);
+            written += toCopy;
+            if (toCopy === chunk.byteLength) {
+                index++;
+            } else {
+                this.chunks[index] = chunk.subarray(toCopy);
+            }
+        }
+        this.chunks.splice(0, index);
+        return result;
+    }
+}

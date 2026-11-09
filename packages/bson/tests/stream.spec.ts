@@ -218,3 +218,64 @@ test('RpcBinaryBufferReader', () => {
         });
     }
 });
+
+function message(size: number, fill: number): Uint8Array {
+    const data = new Uint8Array(size).fill(fill);
+    new DataView(data.buffer).setUint32(0, size, true);
+    return data;
+}
+
+test('messages split at every position', () => {
+    const first = message(9, 1);
+    const second = message(20, 2);
+    const joined = new Uint8Array(29);
+    joined.set(first, 0);
+    joined.set(second, 9);
+
+    for (let cut = 1; cut < joined.length; cut++) {
+        const received: Uint8Array[] = [];
+        const reader = new BsonStreamReader(v => received.push(new Uint8Array(v)));
+        reader.feed(joined.subarray(0, cut));
+        reader.feed(joined.subarray(cut));
+        expect(received).toEqual([first, second]);
+        expect(reader.emptyBuffer()).toBe(true);
+    }
+});
+
+test('byte by byte', () => {
+    const data = message(300, 7);
+    const received: Uint8Array[] = [];
+    const reader = new BsonStreamReader(v => received.push(new Uint8Array(v)));
+    for (let i = 0; i < data.length; i++) {
+        expect(reader.emptyBuffer()).toBe(i === 0);
+        reader.feed(data.subarray(i, i + 1));
+    }
+    expect(received).toEqual([data]);
+    expect(reader.emptyBuffer()).toBe(true);
+});
+
+test('only the given number of bytes is read', () => {
+    const data = message(10, 3);
+    const buffer = new Uint8Array(64).fill(255);
+    buffer.set(data);
+    const received: Uint8Array[] = [];
+    new BsonStreamReader(v => received.push(v)).feed(buffer, 10);
+    expect(received).toEqual([data]);
+});
+
+test('a wrong size is an error', () => {
+    const data = new Uint8Array([0, 0, 0, 0, 1]);
+    expect(() => new BsonStreamReader(() => undefined).feed(data)).toThrow('message size wrong');
+});
+
+test('a message in many chunks is copied once', () => {
+    const size = 2_000_000;
+    const data = message(size, 5);
+    const received: Uint8Array[] = [];
+    const reader = new BsonStreamReader(v => received.push(v));
+    const start = Date.now();
+    for (let i = 0; i < size; i += 1000) reader.feed(data.subarray(i, Math.min(size, i + 1000)));
+    expect(received).toHaveLength(1);
+    expect(received[0].byteLength).toBe(size);
+    expect(Date.now() - start).toBeLessThan(1000);
+});
