@@ -62,6 +62,14 @@ export function provideRpcWebSocketClient(
     };
 }
 
+/**
+ * A Buffer without copying where available: mixing Buffer and Uint8Array makes all element access in the
+ * BSON code slower, and strings of a Buffer are decoded faster.
+ */
+function toBytes(data: ArrayBuffer): Uint8Array {
+    return 'undefined' !== typeof Buffer ? Buffer.from(data) : new Uint8Array(data);
+}
+
 export class RpcWebSocketClientAdapter implements ClientTransportAdapter {
     constructor(
         public url: string,
@@ -92,7 +100,7 @@ export class RpcWebSocketClientAdapter implements ClientTransportAdapter {
         socket.binaryType = 'arraybuffer';
 
         socket.onmessage = (event: MessageEvent) => {
-            connection.readBinary(new Uint8Array(event.data));
+            connection.readBinary(toBytes(event.data));
         };
 
         let errored = false;

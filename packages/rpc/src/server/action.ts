@@ -216,6 +216,10 @@ export class RpcServerAction {
     protected async hasControllerAccess(controller: RpcControllerAccess, connection: RpcKernelBaseConnection): Promise<boolean> {
         const session = this.sessionState.getSession();
 
+        if (!this.eventDispatcher.hasListeners(onRpcControllerAccess)) {
+            return this.security.hasControllerAccess(session, controller, connection);
+        }
+
         const event = new DataEvent<RpcControllerAccessEventStart>({
             phase: 'start', session, controller, context: this.context,
         });
@@ -524,11 +528,15 @@ export class RpcServerAction {
 
         const { controller, types, fn, resolver, action, label, bodyDecoder } = cache;
 
-        const timing = { start: performance.now(), end: 0 } as RpcActionTimings;
+        //the timings exist for the listeners only
+        const timed = this.eventDispatcher.hasListeners(onRpcAction);
+        const timing = { start: timed ? performance.now() : 0, end: 0 } as RpcActionTimings;
 
-        this.eventDispatcher.dispatch(onRpcAction, () => ({
-            phase: 'start', context: this.context, timing, controller,
-        }), this.injector);
+        if (timed) {
+            this.eventDispatcher.dispatch(onRpcAction, () => ({
+                phase: 'start', context: this.context, timing, controller,
+            }), this.injector);
+        }
 
         const triggerError = (error?: any) => {
             timing.end = performance.now();
@@ -538,14 +546,14 @@ export class RpcServerAction {
         };
 
         const access = await this.hasControllerAccess(controller, this.connection);
-        timing.controllerAccess = performance.now() - timing.start;
+        if (timed) timing.controllerAccess = performance.now() - timing.start;
         if (!access) {
             const error = new RpcError(`Access denied to action ${body.method}`);
             triggerError(error);
             return response.error(error);
         }
 
-        timing.types = performance.now() - timing.start;
+        if (timed) timing.types = performance.now() - timing.start;
         let value: { args: any[] } = { args: [] };
 
         response.strictSerialization = !!action.strictSerialization;
@@ -553,7 +561,7 @@ export class RpcServerAction {
 
         try {
             value = message.decodeBody(bodyDecoder);
-            timing.parseBody = performance.now() - timing.start;
+            if (timed) timing.parseBody = performance.now() - timing.start;
         } catch (error: any) {
             const message = `Validation error for arguments of ${label}`;
             if (action.logValidationErrors) {
@@ -581,7 +589,7 @@ export class RpcServerAction {
         // const converted = types.parametersDeserialize(value.args);
         const errors: ValidationErrorItem[] = [];
         types.parametersValidate(value.args, { errors });
-        timing.validate = performance.now() - timing.start;
+        if (timed) timing.validate = performance.now() - timing.start;
 
         if (errors.length) {
             const error = new ValidationError(errors);
@@ -602,10 +610,12 @@ export class RpcServerAction {
             // In some environments, we get "TypeError: Spread syntax requires ...iterable[Symbol.iterator] to be a function"
             // so we use `apply` instead of `method(...value.args)`
             const result = await fn.apply(controllerInstance, value.args);
-            timing.end = performance.now();
-            this.eventDispatcher.dispatch(onRpcAction, () => ({
-                phase: 'success', context: this.context, timing, controller,
-            }), this.injector);
+            if (timed) {
+                timing.end = performance.now();
+                this.eventDispatcher.dispatch(onRpcAction, () => ({
+                    phase: 'success', context: this.context, timing, controller,
+                }), this.injector);
+            }
 
             if (isEntitySubject(result)) {
                 response.reply(RpcTypes.ResponseEntity, { v: result.value }, types.resultSchema);

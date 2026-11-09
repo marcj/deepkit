@@ -303,12 +303,10 @@ export function appendObject(origin: { [k: string]: any }, extend: { [k: string]
  */
 export async function asyncOperation<T>(executor: (resolve: (value: T) => void, reject: (error: any) => void) => void | Promise<void>): Promise<T> {
     try {
-        return await new Promise<T>(async (resolve, reject) => {
-            try {
-                await executor(resolve, reject);
-            } catch (e) {
-                reject(e);
-            }
+        return await new Promise<T>((resolve, reject) => {
+            const result = executor(resolve, reject) as any;
+            //an error of a synchronous executor is handled by the Promise constructor
+            if (result && 'function' === typeof result.then) result.then(undefined, reject);
         });
     } catch (error: any) {
         mergeStack(error, createStack());

@@ -103,9 +103,18 @@ export class RpcWebSocketServer {
         this.server = new WebSocketServer({ ...defaultOptions, ...options });
 
         this.server.on('connection', (ws, req: IncomingMessage) => {
+            //ws hands the bytes to the socket right away, so messages can be sent from the reused buffer
+            const binarySocket = {
+                write(data: Uint8Array) {
+                    ws.send(data);
+                },
+                get writableLength() {
+                    return ws.bufferedAmount;
+                },
+            };
             const connection = this.kernel?.createConnection({
-                writeBinary(message) {
-                    ws.send(message);
+                write(message: RpcMessageDefinition) {
+                    connection.sendToSocket(message, binarySocket);
                 },
                 close() {
                     ws.close();

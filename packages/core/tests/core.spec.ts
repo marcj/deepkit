@@ -621,3 +621,11 @@ test('current file', () => {
     expect(getCurrentFileName().endsWith('packages/core/tests/core.spec.ts')).toBe(true);
     expect(getCurrentDirName().endsWith('packages/core/tests')).toBe(true);
 });
+
+test('asyncOperation', async () => {
+    expect(await asyncOperation<number>(resolve => resolve(1))).toBe(1);
+    expect(await asyncOperation<number>(async resolve => resolve(2))).toBe(2);
+    await expect(asyncOperation(() => { throw new Error('sync'); })).rejects.toThrow('sync');
+    await expect(asyncOperation(async () => { throw new Error('async'); })).rejects.toThrow('async');
+    await expect(asyncOperation((resolve, reject) => reject(new Error('rejected')))).rejects.toThrow('rejected');
+});
