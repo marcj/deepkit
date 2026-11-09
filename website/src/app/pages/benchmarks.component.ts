@@ -601,19 +601,79 @@ const trends: { title: string; items: { suite: string; name: string; label: stri
     },
 ];
 
-/** Benchmarks shown in "Since the last release". */
-const highlights: { suite: string; name: string; label: string }[] = [
-    { suite: 'comparison/validation', name: 'deepkit is (valid)', label: 'is<User>()' },
-    { suite: 'comparison/validation', name: 'deepkit validate (invalid)', label: 'validate<User>() with errors' },
-    { suite: 'comparison/serialization', name: 'deepkit serialize', label: 'serialize<User>()' },
-    { suite: 'comparison/serialization', name: 'deepkit deserialize', label: 'deserialize<User>()' },
-    { suite: 'comparison/serialization', name: 'deepkit cast (with validation)', label: 'cast<User>()' },
-    { suite: 'type/serialization', name: 'deepkit array[100] deserialize', label: 'deserialize<T[]>(), 100 items' },
-    { suite: 'http/router', name: 'deserialize - user array (10)', label: 'HTTP body with 10 users' },
-    { suite: 'injector/di', name: 'get simple provider', label: 'injector.get()' },
-    { suite: 'injector/di', name: 'get provider with dependencies', label: 'injector.get() with dependencies' },
-    { suite: 'injector/di', name: 'scoped: new scope each call', label: 'Scoped service, new scope' },
-    { suite: 'rpc/messages', name: 'createRpcMessage small body', label: 'RPC message with body' },
+/** Benchmarks shown in "Releases and master", by area. */
+const highlights: { title: string; items: { suite: string; name: string; label: string }[] }[] = [
+    {
+        title: 'Validation and serialization',
+        items: [
+            { suite: 'comparison/validation', name: 'deepkit is (valid)', label: 'is<User>()' },
+            { suite: 'comparison/validation', name: 'deepkit validate (invalid)', label: 'validate<User>() with errors' },
+            { suite: 'comparison/serialization', name: 'deepkit serialize', label: 'serialize<User>()' },
+            { suite: 'comparison/serialization', name: 'deepkit deserialize', label: 'deserialize<User>()' },
+            { suite: 'comparison/serialization', name: 'deepkit cast (with validation)', label: 'cast<User>()' },
+            { suite: 'type/serialization', name: 'deepkit array[100] deserialize', label: 'deserialize<T[]>(), 100 items' },
+        ],
+    },
+    {
+        title: 'Runtime types',
+        items: [
+            { suite: 'type/reflection', name: 'typeOf<Order>', label: 'typeOf<Order>()' },
+            { suite: 'type/reflection', name: 'resolveReceiveType<User>', label: 'resolveReceiveType<User>()' },
+            { suite: 'type/reflection', name: 'ReflectionClass.from (cached)', label: 'ReflectionClass.from(), cached' },
+        ],
+    },
+    {
+        title: 'Change detection',
+        items: [
+            { suite: 'type/change-detection', name: 'detect changes (with changes, medium)', label: 'Detect changes, medium entity' },
+            { suite: 'type/change-detection', name: 'createSnapshot (medium entity)', label: 'Create snapshot, medium entity' },
+        ],
+    },
+    {
+        title: 'BSON',
+        items: [
+            { suite: 'bson/serialization', name: 'serialize small object', label: 'Serialize small object' },
+            { suite: 'bson/serialization', name: 'deserialize small object', label: 'Deserialize small object' },
+        ],
+    },
+    {
+        title: 'RPC',
+        items: [
+            { suite: 'rpc/messages', name: 'serialize (no body)', label: 'RPC message without body' },
+            { suite: 'rpc/messages', name: 'serialize small body', label: 'RPC message with body' },
+            { suite: 'rpc/messages', name: 'round-trip small', label: 'RPC message round trip' },
+            { suite: 'rpc/actions', name: 'simple: add (2 number args, number return)', label: 'RPC action call' },
+        ],
+    },
+    {
+        title: 'HTTP',
+        items: [
+            { suite: 'http/kernel', name: 'GET with route parameter', label: 'GET with route parameter' },
+            { suite: 'http/kernel', name: 'POST with validated JSON body', label: 'POST with validated JSON body' },
+            { suite: 'http/router', name: 'resolve request - with query', label: 'Route with query string' },
+            { suite: 'http/router', name: 'deserialize - user array (10)', label: 'HTTP body with 10 users' },
+            { suite: 'http/router', name: 'serialize - api response', label: 'Serialize API response' },
+        ],
+    },
+    {
+        title: 'Dependency injection, app and events',
+        items: [
+            { suite: 'injector/di', name: 'get simple provider', label: 'injector.get()' },
+            { suite: 'injector/di', name: 'get provider with dependencies', label: 'injector.get() with dependencies' },
+            { suite: 'injector/di', name: 'scoped: new scope each call', label: 'Scoped service, new scope' },
+            { suite: 'app/module', name: 'App creation - 5 module imports', label: 'App with 5 module imports' },
+            { suite: 'event/dispatcher', name: 'sync event - single listener', label: 'Event with one listener' },
+        ],
+    },
+    {
+        title: 'ORM and database',
+        items: [
+            { suite: 'orm/sqlite', name: 'query findOne', label: 'SQLite findOne' },
+            { suite: 'orm/sqlite', name: 'deserialize 100 entities', label: 'Hydrate 100 entities' },
+            { suite: 'mongo', name: 'insert 100 in one session', label: 'MongoDB insert of 100 entities' },
+            { suite: 'mongo', name: 'deleteMany 1,000 rows', label: 'MongoDB deleteMany of 1,000 documents' },
+        ],
+    },
 ];
 
 const suiteTitles: { [name: string]: string } = {
@@ -720,18 +780,23 @@ const suiteTitles: { [name: string]: string } = {
                                 </tr>
                             </thead>
                             <tbody>
-                                @for (row of release.highlights; track row.label) {
-                                    <tr>
-                                        <td><code>{{ row.label }}</code></td>
-                                        @for (cell of row.cells; track $index; let last = $last) {
-                                            <td class="number" [class.strong]="last">
-                                                {{ cell.time }}
-                                                @if (cell.change; as change) {
-                                                    <span class="change" [class.faster]="change.faster" [class.slower]="change.slower" [class.unchanged]="!change.faster && !change.slower">{{ change.text }}</span>
-                                                }
-                                            </td>
-                                        }
+                                @for (group of release.highlights; track group.title) {
+                                    <tr class="group">
+                                        <th scope="colgroup" [attr.colspan]="release.previous ? 4 : 3">{{ group.title }}</th>
                                     </tr>
+                                    @for (row of group.rows; track row.label) {
+                                        <tr>
+                                            <td><code>{{ row.label }}</code></td>
+                                            @for (cell of row.cells; track $index; let last = $last) {
+                                                <td class="number" [class.strong]="last">
+                                                    {{ cell.time }}
+                                                    @if (cell.change; as change) {
+                                                        <span class="change" [class.faster]="change.faster" [class.slower]="change.slower" [class.unchanged]="!change.faster && !change.slower">{{ change.text }}</span>
+                                                    }
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
                                 }
                             </tbody>
                         </table>
@@ -979,6 +1044,14 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
         tbody tr:hover {
             background: rgba(255, 255, 255, 0.025);
         }
+        tbody tr.group:hover {
+            background: none;
+        }
+        tr.group th {
+            padding-top: 18px;
+            color: #c4c9cf;
+            font-size: 13px;
+        }
         th {
             font-weight: normal;
             font-size: 12px;
@@ -1124,9 +1197,10 @@ export class BenchmarksComponent {
         const p = this.previousReleaseIndex();
         // previous release, last release, master: each with its change to the column before
         const columns = p === -1 ? [a, b] : [p, a, b];
-        const rows = highlights.flatMap(h => {
+        const row = (h: { suite: string; name: string; label: string }) => {
             const benchmark = data.suites.find(v => v.name === h.suite)?.benchmarks.find(v => v.name === h.name);
-            if (!benchmark || !benchmark.hz[a] || !benchmark.hz[b]) return [];
+            // a benchmark newer than the release has no value there, but master can be shown
+            if (!benchmark || !benchmark.hz[b]) return [];
             const cells = columns.map((run, i) => {
                 const hz = benchmark.hz[run];
                 if (!hz) return { time: '–' };
@@ -1140,11 +1214,14 @@ export class BenchmarksComponent {
                 };
             });
             return [{ label: h.label, cells }];
-        });
+        };
+        const groups = highlights
+            .map(group => ({ title: group.title, rows: group.items.flatMap(row) }))
+            .filter(group => group.rows.length);
         return {
             run: data.runs[a],
             previous: p === -1 ? undefined : data.runs[p],
-            faster, slower, noise, total: faster + slower + noise, highlights: rows,
+            faster, slower, noise, total: faster + slower + noise, highlights: groups,
         };
     });
 
