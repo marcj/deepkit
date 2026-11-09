@@ -275,9 +275,16 @@ function writeInMessageBuffer(write: AutoBufferSerializer, data: any): Uint8Arra
 }
 
 function copyOfMessageBuffer(write: AutoBufferSerializer, data: any): Uint8Array {
-    const written = writeInMessageBuffer(write, data);
-    const copy = createBuffer(written.byteLength);
-    copy.set(written);
+    messageBuffer.apply(write, data);
+    const size = messageBuffer.size;
+    const source = messageBuffer._buffer;
+    const copy = createBuffer(size);
+    // creating the view for set() costs more than copying a small message
+    if (size < 128) {
+        for (let i = 0; i < size; i++) copy[i] = source[i];
+    } else {
+        copy.set(source.subarray(0, size));
+    }
     releaseMessageBufferIfLarge();
     return copy;
 }
