@@ -315,11 +315,11 @@ export class DatabaseSessionRound<ADAPTER extends DatabaseAdapter> {
                 }
 
                 if (this.identityMap) {
-                    this.identityMap.storeMany(group.type, group.items);
+                    this.identityMap.storeMany(group.type, group.items, this.session.withChangeDetection);
                 } else {
                     for (const item of group.items) {
                         const state = getInstanceState(classState, item);
-                        state.markAsPersisted();
+                        state.markAsPersisted(this.session.withChangeDetection);
                     }
                 }
             }
@@ -358,6 +358,7 @@ export class DatabaseSession<ADAPTER extends DatabaseAdapter = DatabaseAdapter> 
     public readonly id = SESSION_IDS++;
     public round: number = 0;
     public withIdentityMap = true;
+    public withChangeDetection = true;
 
     /**
      * When this session belongs to a transaction, then this is set.
@@ -564,6 +565,16 @@ export class DatabaseSession<ADAPTER extends DatabaseAdapter = DatabaseAdapter> 
 
     protected enterNewRound() {
         this.rounds.push(new DatabaseSessionRound(this.round++, this, this.eventDispatcher, this.logger, this.withIdentityMap ? this.identityMap : undefined));
+    }
+
+    /**
+     * After a commit a snapshot of each item is taken, on which change-detection happens. This is not
+     * necessary when items are only inserted and not changed afterwards.
+     * Note: session.commit won't detect any changes of items of this session, same as Query.disableChangeDetection().
+     */
+    public disableChangeDetection(): this {
+        this.withChangeDetection = false;
+        return this;
     }
 
     /**

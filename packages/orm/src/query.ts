@@ -719,6 +719,7 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
     ) {
         super(classSchema);
         this.model.withIdentityMap = session.withIdentityMap;
+        this.model.withChangeDetection = session.withChangeDetection;
     }
 
     /**

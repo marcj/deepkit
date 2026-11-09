@@ -112,7 +112,7 @@ class InstanceState<T extends OrmEntity> {
         this.fromDatabase = true;
     }
 
-    markAsPersisted() {
+    markAsPersisted(withChangeDetection: boolean = true) {
         this.knownInDatabase = true;
         this.lastPKHash = undefined; //mark it for generation on-demand
 
@@ -122,18 +122,18 @@ class InstanceState<T extends OrmEntity> {
         //not the real object but a Proxy and detect write-operations. As soon
         //a write operation is detected, we create a snapshot. Essentially implement copy-on-write,
         //or in our case snapshot-on-write.
-        this.snapshot = this.classState.snapshot(this.item);
+        this.snapshot = withChangeDetection ? this.classState.snapshot(this.item) : undefined;
 
         if ((this.item as any)[changeSetSymbol]) (this.item as any)[changeSetSymbol].clear();
     }
 
     getLastKnownPK(): Partial<T> {
-        return this.classState.primaryKeyExtractor(this.snapshot);
+        return this.classState.primaryKeyExtractor(this.getSnapshot());
     }
 
     getLastKnownPKHash(): string {
         if (this.lastPKHash === undefined) {
-            this.lastPKHash = this.classState.primaryKeyHashGenerator(this.snapshot);
+            this.lastPKHash = this.classState.primaryKeyHashGenerator(this.getSnapshot());
         }
         return this.lastPKHash;
     }
@@ -241,7 +241,7 @@ export class IdentityMap {
         return store.has(pkHash);
     }
 
-    storeMany<T>(classSchema: ReflectionClass<T>, items: T[]) {
+    storeMany<T>(classSchema: ReflectionClass<T>, items: T[], withChangeDetection: boolean = true) {
         if (!classSchema.hasPrimary()) throw new Error(`Entity ${classSchema.getClassName()} has no primary field defined. Use @f.primary to defined one.`);
         const state = getClassState(classSchema);
         let pending = this.pending.get(classSchema);
@@ -249,7 +249,7 @@ export class IdentityMap {
 
         for (const item of items) {
             pending.push(state.primaryKeyHashGenerator(item), { ref: item, stale: false });
-            getInstanceState(state as ClassState<any>, item).markAsPersisted();
+            getInstanceState(state as ClassState<any>, item).markAsPersisted(withChangeDetection);
         }
     }
 
