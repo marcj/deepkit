@@ -98,7 +98,6 @@ export class MongoPersistence extends DatabasePersistence {
     }
 
     async insert<T extends OrmEntity>(classSchema: ReflectionClass<T>, items: T[]): Promise<void> {
-        const insert: any[] = [];
         const has_Id = classSchema.hasProperty('_id');
 
         const connection = await this.getConnection();
@@ -122,7 +121,10 @@ export class MongoPersistence extends DatabasePersistence {
         }
 
         const adapterName = this.session.adapter.getName();
-        const propertyNames = classSchema.getProperties().filter(v => !v.isDatabaseSkipped(adapterName)).map(v => v.getName());
+        const properties = classSchema.getProperties();
+        const propertyNames = properties.filter(v => !v.isDatabaseSkipped(adapterName)).map(v => v.getName());
+        // the serializer writes by type, so items can be used directly unless properties have to be left out
+        const insert: any[] = propertyNames.length === properties.length ? items : [];
 
         for (const item of items) {
             if (autoIncrement) item[autoIncrement.name] = ++autoIncrementValue;
@@ -130,6 +132,7 @@ export class MongoPersistence extends DatabasePersistence {
                 item['_id'] = ObjectId.generate();
             }
 
+            if (insert === items) continue;
             const filteredItem = {};
             for (const name of propertyNames) filteredItem[name] = item[name];
             insert.push(filteredItem);
