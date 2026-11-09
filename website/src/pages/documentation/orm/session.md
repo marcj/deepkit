@@ -56,4 +56,13 @@ Important: Once you start using sessions, you should use their `session.query` m
 
 ## Change Detection
 
+
+After each commit a snapshot of every item is taken, on which the next commit detects changes. If a session only inserts items and doesn't change them afterwards, `disableChangeDetection()` skips the snapshots. The next commit then doesn't detect any changes of its items.
+
+```typescript
+const session = database.createSession().disableChangeDetection();
+session.add(...rows);
+await session.commit();
+```
+
 ## Request/Response
