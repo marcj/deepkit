@@ -8,7 +8,7 @@ import { MainDatabase } from '@app/server/database';
 import { Database } from '@deepkit/orm';
 import { MarkdownParser } from '@app/common/markdown';
 import { migrate } from '@app/server/commands/migrate';
-import { getPermanentRedirect, SeoController } from '@app/server/controller/seo.controller';
+import { getPermanentRedirect, isMalformedUrl, SeoController } from '@app/server/controller/seo.controller';
 import { LlmsController } from '@app/server/controller/llms.controller';
 import { AdminController } from '@app/server/controller/admin.controller';
 import { RpcKernelSecurity, SessionState } from '@deepkit/rpc';
@@ -18,7 +18,7 @@ import { MinLength } from '@deepkit/type';
 import { AdminFilesController } from '@app/server/controller/admin-files.controller';
 import { Filesystem } from '@deepkit/filesystem';
 import { FilesystemDatabaseAdapter } from '@deepkit/filesystem-database';
-import { httpWorkflow, Redirect } from '@deepkit/http';
+import { httpWorkflow, Redirect, Response } from '@deepkit/http';
 
 (global as any).window = undefined;
 (global as any).document = undefined;
@@ -69,6 +69,12 @@ app.setup((module, config) => {
 // before the router (order 100), so moved URLs don't end up in the Angular catch-all route.
 // Permanent, so search engines move their index and the ranking of the old URL to the new one.
 app.listen(httpWorkflow.onRoute, (event) => {
+    if (isMalformedUrl(event.request.url || '')) {
+        // the router and Angular throw on these, which would be a server error
+        event.send(new Response('Not found', 'text/plain; charset=utf-8', 404));
+        event.stopImmediatePropagation();
+        return;
+    }
     const to = getPermanentRedirect(event.request.url || '');
     if (!to) return;
     event.send(Redirect.toUrl(to, 301));

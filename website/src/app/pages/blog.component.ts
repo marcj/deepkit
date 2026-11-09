@@ -8,8 +8,10 @@ import {
     effect,
     inject,
     input,
+    signal,
     viewChild,
 } from '@angular/core';
+import { PageResponse } from '@app/app/page-response';
 import { ActivatedRoute, RouterLink, RouterOutlet } from '@angular/router';
 import { ControllerClient } from '@app/app/client.js';
 import { ContentRenderComponent } from '@app/app/components/content-render.component.js';
@@ -103,6 +105,9 @@ export class BlogPostItemComponent {
                     <h1>{{ post.title }}</h1>
                     <div class="date">{{ post.publishedAt | date: blogDateFormat }}, Marc</div>
                     <app-render-content [content]="postContent()" (onRender)="onRender()" />
+                } @else if (missing()) {
+                    <h1>404</h1>
+                    <p>This blog post does not exist.</p>
                 }
             </dui-content-text>
         </div>
@@ -133,6 +138,8 @@ export class BlogPostItemComponent {
 export class BlogPostDetailComponent {
     client = inject(ControllerClient);
     slug = injectParams('slug');
+    pageResponse = inject(PageResponse);
+    missing = signal(false);
 
     subline = computed(() => {
         const content = this.postContent();
@@ -144,7 +151,11 @@ export class BlogPostDetailComponent {
         pendingTask(async () => {
             const slug = this.slug();
             if (!slug) return undefined;
-            return await this.client.main.getBlogPost(slug);
+            const post = await this.client.main.getBlogPost(slug);
+            this.missing.set(!post);
+            // otherwise search engines index every unknown URL as a page (soft 404)
+            if (!post) this.pageResponse.notFound();
+            return post;
         }),
     );
 

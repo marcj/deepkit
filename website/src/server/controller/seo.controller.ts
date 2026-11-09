@@ -27,6 +27,18 @@ const libraryDocs: Record<string, string> = {
 };
 
 /**
+ * Whether the path of the URL has an invalid percent-encoding, which no page can have.
+ */
+export function isMalformedUrl(url: string): boolean {
+    try {
+        decodeURIComponent(url.split('?')[0]);
+        return false;
+    } catch {
+        return true;
+    }
+}
+
+/**
  * Target of a permanent redirect for URLs that moved or were removed, so search engines move their index and
  * links to the new URL.
  */
@@ -36,6 +48,8 @@ export function getPermanentRedirect(url: string): string | undefined {
     const query = queryStart === -1 ? '' : url.substring(queryStart);
     let match: RegExpMatchArray | null;
 
+    // collapsed, so that the target can't be a protocol-relative URL to another host
+    if (path.includes('//') && !path.startsWith('/api/')) return path.replace(/\/{2,}/g, '/') + query;
     if (path === '/en' || path === '/en/') return '/' + query;
     if (path === '/library' || path === '/library/' || path === '/enterprise' || path === '/community') return '/';
     if ((match = path.match(/^\/library\/([a-z-]+)/))) {
