@@ -1,5 +1,5 @@
 import { expect, test } from '@jest/globals';
-import { AutoBuffer, getBSONSerializer, getBSONSizer, getValueSize, hexToByte, serializeBSONWithoutOptimiser, uuidStringToByte, wrapObjectId, wrapUUID, wrapValue } from '../src/bson-serializer.js';
+import { AutoBuffer, getBSONSerializer, serializeBSON, getBSONSizer, getValueSize, hexToByte, serializeBSONWithoutOptimiser, uuidStringToByte, wrapObjectId, wrapUUID, wrapValue } from '../src/bson-serializer.js';
 import { BinaryBigInt, createReference, Excluded, hasCircularReference, MongoId, nodeBufferToArrayBuffer, PrimaryKey, Reference, SignedBinaryBigInt, typeOf, uuid, UUID } from '@deepkit/type';
 import bson from 'bson';
 import { randomBytes } from 'crypto';
@@ -1776,4 +1776,29 @@ test('AutoBuffer grows geometrically, so a slowly growing message is not written
     const auto = new AutoBuffer(0, 100);
     auto.apply(getBSONSerializer<{ a: string }>(), { a: 'x'.repeat(110) });
     expect(auto._buffer.byteLength).toBe(200);
+});
+
+test('binary values of every size and form are written completely', () => {
+    const serializer = getBSONSerializer<{ v: Uint8Array }>();
+    for (const size of [0, 1, 63, 64, 65, 1000, 100_000]) {
+        const bytes = new Uint8Array(size);
+        for (let i = 0; i < size; i++) bytes[i] = i % 251;
+        const auto = new AutoBuffer(0, 256);
+        auto.apply(serializer, { v: bytes });
+        const parsed = deserializeBSONWithoutOptimiser(auto.buffer);
+        expect(Buffer.from(parsed.v).equals(Buffer.from(bytes))).toBe(true);
+    }
+});
+
+test('a binary value that is a view on a larger buffer writes only its part', () => {
+    const backing = new Uint8Array(500).map((_, i) => i % 251);
+    const view = backing.subarray(100, 300);
+    const parsed = deserializeBSONWithoutOptimiser(serializeBSON<{ v: Uint8Array }>({ v: view }));
+    expect(Buffer.from(parsed.v).equals(Buffer.from(view))).toBe(true);
+});
+
+test('an ArrayBuffer value is written completely', () => {
+    const bytes = new Uint8Array(200).map((_, i) => i % 251);
+    const parsed = deserializeBSONWithoutOptimiser(serializeBSON<{ v: ArrayBuffer }>({ v: bytes.buffer }));
+    expect(Buffer.from(parsed.v).equals(Buffer.from(bytes))).toBe(true);
 });

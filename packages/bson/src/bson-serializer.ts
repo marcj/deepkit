@@ -703,6 +703,12 @@ export class Writer {
         this.writeUint32(value.byteLength);
         this.writeByte(BSON_BINARY_SUBTYPE_DEFAULT);
 
+        if (value.byteLength >= 64 && view.byteLength === value.byteLength && this.offset + value.byteLength <= this.buffer.byteLength) {
+            this.buffer.set(view, this.offset);
+            this.offset += value.byteLength;
+            return;
+        }
+
         for (let i = 0; i < value.byteLength; i++) {
             this.buffer[this.offset++] = view[i];
         }
