@@ -306,8 +306,15 @@ export class SqlSerializer extends Serializer {
 
 export const sqlSerializer: Serializer = new SqlSerializer;
 
+const uuidHex = /^[0-9a-fA-F]{32}$/;
+
 export function uuid4Binary(u: any): Buffer {
-    return 'string' === typeof u ? Buffer.from(u.replace(/-/g, ''), 'hex') : Buffer.alloc(0);
+    if ('string' !== typeof u) return Buffer.alloc(0);
+    const hex = u.replace(/-/g, '');
+    // Buffer.from stops at the first character that is not hex: 'abc' gave a short buffer, which the database
+    // rejected as a protocol error ("insufficient data left in message") instead of an invalid value
+    if (!uuidHex.test(hex)) throw new TypeError(`'${u}' is not a UUID`);
+    return Buffer.from(hex, 'hex');
 }
 
 export function uuid4Stringify(buffer: Buffer): string {
