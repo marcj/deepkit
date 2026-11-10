@@ -1,30 +1,10 @@
 import {
-    binaryBigIntAnnotation,
     BinaryBigIntType,
-    collapsePath,
-    containsTuple,
     ContainerAccessor,
-    createTypeGuardFunction,
-    embeddedAnnotation,
     EmbeddedOptions,
-    excludedAnnotation,
-    executeTemplates,
-    extendTemplateLiteral,
-    getDeepConstructorProperties,
-    getIndexCheck,
-    getNameExpression,
-    getStaticDefaultCodeForProperty,
-    getTupleLengthRange,
-    hasDefaultValue,
-    isCustomTypeClass,
-    isNullable,
-    isOptional,
-    isPropertyMemberType,
     ReflectionClass,
     ReflectionKind,
-    resolveTypeMembers,
     RuntimeCode,
-    sortSignatures,
     TemplateState,
     Type,
     TypeArray,
@@ -38,15 +18,36 @@ import {
     TypeTemplateLiteral,
     TypeTuple,
     TypeUnion,
-    uuidAnnotation,
-    validate,
     ValidationError,
     ValidationErrorItem,
+    binaryBigIntAnnotation,
+    collapsePath,
+    containsTuple,
+    createTypeGuardFunction,
+    embeddedAnnotation,
+    excludedAnnotation,
+    executeTemplates,
+    extendTemplateLiteral,
+    getDeepConstructorProperties,
+    getIndexCheck,
+    getNameExpression,
+    getStaticDefaultCodeForProperty,
+    getTupleLengthRange,
+    hasDefaultValue,
+    isCustomTypeClass,
+    isNullable,
+    isOptional,
+    isPropertyMemberType,
+    resolveTypeMembers,
+    sortSignatures,
     stringifyShortResolvedType,
+    uuidAnnotation,
+    validate,
 } from '@deepkit/type';
+
+import { BaseParser } from './bson-parser.js';
 import { seekElementSize } from './continuation.js';
 import { BSONType, commentSafe, digitByteSize, isSerializable, utf8Bytes } from './utils.js';
-import { BaseParser } from './bson-parser.js';
 
 function getNameComparator(name: string): string {
     const bytes = utf8Bytes(name);
@@ -69,13 +70,26 @@ function throwInvalidBsonType(type: Type, state: TemplateState) {
  * `validate()`: the errors of the member selected by a discriminator or of the closest member, otherwise the
  * expected members. Returns undefined if the value can't be parsed for validation.
  */
-function getUnionMemberErrors(parser: BaseParser, elementType: BSONType | undefined, type: TypeUnion, path: string): ValidationErrorItem[] | undefined {
+function getUnionMemberErrors(
+    parser: BaseParser,
+    elementType: BSONType | undefined,
+    type: TypeUnion,
+    path: string,
+): ValidationErrorItem[] | undefined {
     if (!elementType) return;
     const offset = parser.offset;
     try {
         const errors = validate(parser.parse(elementType), type);
         if (!errors.length) return;
-        return errors.map(v => new ValidationErrorItem(path && v.path ? path + '.' + v.path : path || v.path, v.code, v.message, v.value));
+        return errors.map(
+            v =>
+                new ValidationErrorItem(
+                    path && v.path ? path + '.' + v.path : path || v.path,
+                    v.code,
+                    v.message,
+                    v.value,
+                ),
+        );
     } catch {
         return;
     } finally {
@@ -110,15 +124,18 @@ export function deserializeAny(type: Type, state: TemplateState) {
     `);
 }
 
-const numberParsers = createParserLookup(() => 0, [
-    [BSONType.INT, parser => parser.parseInt()],
-    [BSONType.NUMBER, parser => parser.parseNumber()],
-    [BSONType.LONG, parser => Number(parser.parseLong())],
-    [BSONType.TIMESTAMP, parser => Number(parser.parseLong())],
-    [BSONType.BOOLEAN, parser => parser.parseBoolean() ? 1 : 0],
-    [BSONType.BINARY, parser => Number(parser.parseBinaryBigInt())],
-    [BSONType.STRING, parser => Number(parser.parseString())],
-]);
+const numberParsers = createParserLookup(
+    () => 0,
+    [
+        [BSONType.INT, parser => parser.parseInt()],
+        [BSONType.NUMBER, parser => parser.parseNumber()],
+        [BSONType.LONG, parser => Number(parser.parseLong())],
+        [BSONType.TIMESTAMP, parser => Number(parser.parseLong())],
+        [BSONType.BOOLEAN, parser => (parser.parseBoolean() ? 1 : 0)],
+        [BSONType.BINARY, parser => Number(parser.parseBinaryBigInt())],
+        [BSONType.STRING, parser => Number(parser.parseString())],
+    ],
+);
 
 export function deserializeNumber(type: Type, state: TemplateState) {
     state.setContext({ numberParsers });
@@ -130,15 +147,18 @@ export function deserializeNumber(type: Type, state: TemplateState) {
     `);
 }
 
-const bigIntParsers = createParserLookup(() => 0n, [
-    [BSONType.INT, parser => BigInt(parser.parseInt())],
-    [BSONType.NUMBER, parser => BigInt(parser.parseNumber())],
-    [BSONType.LONG, parser => BigInt(parser.parseLong())],
-    [BSONType.TIMESTAMP, parser => BigInt(parser.parseLong())],
-    [BSONType.BOOLEAN, parser => BigInt(parser.parseBoolean() ? 1 : 0)],
-    [BSONType.BINARY, parser => parser.parseBinaryBigInt()],
-    [BSONType.STRING, parser => BigInt(parser.parseString())],
-]);
+const bigIntParsers = createParserLookup(
+    () => 0n,
+    [
+        [BSONType.INT, parser => BigInt(parser.parseInt())],
+        [BSONType.NUMBER, parser => BigInt(parser.parseNumber())],
+        [BSONType.LONG, parser => BigInt(parser.parseLong())],
+        [BSONType.TIMESTAMP, parser => BigInt(parser.parseLong())],
+        [BSONType.BOOLEAN, parser => BigInt(parser.parseBoolean() ? 1 : 0)],
+        [BSONType.BINARY, parser => parser.parseBinaryBigInt()],
+        [BSONType.STRING, parser => BigInt(parser.parseString())],
+    ],
+);
 
 export function deserializeBigInt(type: Type, state: TemplateState) {
     const binaryBigInt = binaryBigIntAnnotation.getFirst(type);
@@ -238,15 +258,31 @@ type Parse = (parser: BaseParser, elementType: BSONType) => any;
  * @note make sure any user of this code is tested in `createParserLookup from invalid object`
  */
 function createParserLookup(defaultReturn: () => any, parsers: [elementType: BSONType, fn: Parse][]): Parse[] {
-    const defaultParse = function(parser: BaseParser, elementType: BSONType) {
+    const defaultParse = function (parser: BaseParser, elementType: BSONType) {
         seekElementSize(elementType, parser);
         return defaultReturn();
     };
     const result = [
-        defaultParse, defaultParse, defaultParse, defaultParse, defaultParse,
-        defaultParse, defaultParse, defaultParse, defaultParse, defaultParse,
-        defaultParse, defaultParse, defaultParse, defaultParse, defaultParse,
-        defaultParse, defaultParse, defaultParse, defaultParse, defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
+        defaultParse,
     ];
     for (const [index, parse] of parsers) {
         result[index] = parse;
@@ -270,15 +306,18 @@ export function isBooleanString(value: unknown): boolean {
     return 'string' === typeof value && parseBooleanString(value) !== undefined;
 }
 
-const booleanParsers = createParserLookup(() => false, [
-    [BSONType.BOOLEAN, parser => parser.parseBoolean()],
-    [BSONType.NULL, parser => false],
-    [BSONType.UNDEFINED, parser => false],
-    [BSONType.INT, parser => !!parser.parseInt()],
-    [BSONType.NUMBER, parser => !!parser.parseNumber()],
-    [BSONType.LONG, parser => !!parser.parseLong()],
-    [BSONType.TIMESTAMP, parser => !!parser.parseLong()],
-]);
+const booleanParsers = createParserLookup(
+    () => false,
+    [
+        [BSONType.BOOLEAN, parser => parser.parseBoolean()],
+        [BSONType.NULL, parser => false],
+        [BSONType.UNDEFINED, parser => false],
+        [BSONType.INT, parser => !!parser.parseInt()],
+        [BSONType.NUMBER, parser => !!parser.parseNumber()],
+        [BSONType.LONG, parser => !!parser.parseLong()],
+        [BSONType.TIMESTAMP, parser => !!parser.parseLong()],
+    ],
+);
 
 export function deserializeBoolean(type: Type, state: TemplateState) {
     state.setContext({ booleanParsers, parseBooleanString });
@@ -349,18 +388,18 @@ export function deserializeUnion(typeGuards: TypeGuardRegistry, type: TypeUnion,
 
             const validation = !state.validation ? 'loose' : state.validation;
 
-            const fn = createTypeGuardFunction(t,
-                state.fork()
-                    .forRegistry(typeGuard)
-                    .withValidation(validation),
-            );
+            const fn = createTypeGuardFunction(t, state.fork().forRegistry(typeGuard).withValidation(validation));
             if (!fn) continue;
             const guard = state.setVariable('guard' + t.kind, fn);
             const looseCheck = specificality <= 0 ? `state.loosely && ` : '';
             const isAlternativeCheck = specificality > 1;
 
-            const args = state.isValidation() ? `${state.accessor || 'undefined'}, state` : `${state.accessor || 'undefined'}, state, ${collapsePath(state.path)}`;
-            const action = state.isValidation() ? `${state.setter} = true;` : executeTemplates(state.fork(state.setter, state.accessor).forPropertyName(state.propertyName), t);
+            const args = state.isValidation()
+                ? `${state.accessor || 'undefined'}, state`
+                : `${state.accessor || 'undefined'}, state, ${collapsePath(state.path)}`;
+            const action = state.isValidation()
+                ? `${state.setter} = true;`
+                : executeTemplates(state.fork(state.setter, state.accessor).forPropertyName(state.propertyName), t);
 
             const debug = `type = ${ReflectionKind[t.kind]} ${t.typeName}, specificality=${specificality}, validation=${state.isValidation()}, ${String(state.propertyName)}`;
             if (isCustomTypeClass(t) || t.kind === ReflectionKind.objectLiteral) {
@@ -401,8 +440,12 @@ export function deserializeUnion(typeGuards: TypeGuardRegistry, type: TypeUnion,
             const fn = createTypeGuardFunction(t, memberState);
             if (!fn) continue;
             const guard = state.setVariable('guardLoose' + t.kind, fn);
-            const args = state.isValidation() ? `${state.accessor || 'undefined'}, state` : `${state.accessor || 'undefined'}, state, ${collapsePath(state.path)}`;
-            const action = state.isValidation() ? `${state.setter} = true;` : executeTemplates(state.fork(state.setter, state.accessor).forPropertyName(state.propertyName), t);
+            const args = state.isValidation()
+                ? `${state.accessor || 'undefined'}, state`
+                : `${state.accessor || 'undefined'}, state, ${collapsePath(state.path)}`;
+            const action = state.isValidation()
+                ? `${state.setter} = true;`
+                : executeTemplates(state.fork(state.setter, state.accessor).forPropertyName(state.propertyName), t);
             const debug = `type = ${ReflectionKind[t.kind]} ${t.typeName}, looseTupleLength`;
 
             if (isCustomTypeClass(t) || t.kind === ReflectionKind.objectLiteral) {
@@ -512,6 +555,7 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
     const v = state.compilerContext.reserveName('v');
     const i = state.compilerContext.reserveName('i');
     const length = state.compilerContext.reserveName('length');
+    const written = state.compilerContext.reserveName('written');
     state.setContext({ digitByteSize });
     const lines: string[] = [];
 
@@ -531,6 +575,11 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
         }
     }
 
+    // without a rest element the size is known: the array is created with it instead of growing with each push
+    const size = type.types.length;
+    const append = (value: string) => (hasRest ? `${result}.push(${value});` : `${result}[${written}++] = ${value};`);
+    const initial = hasRest || size === 0 ? `[]` : `[${new Array(size).fill('undefined').join(', ')}]`;
+
     let j = 0;
     for (const member of type.types) {
         if (member.type.kind === ReflectionKind.rest) {
@@ -540,7 +589,7 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
             else if (${check}) {
                 ${executeTemplates(state.fork(v).extendPath(member.name || new RuntimeCode(i)), member.type.type)}
                 if (${v} !== undefined || ${isOptional(member)}) {
-                    ${result}.push(${v});
+                    ${append(v)}
                 }
                 ${i}++;
                 continue;
@@ -549,19 +598,26 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
         } else {
             const offsetRight = type.types.length - j;
             const check = hasRest && j >= restStart ? `${length} - ${i} === ${offsetRight}` : `${i} === ${j}`;
-            const elementTemplate = executeTemplates(state.fork(v).extendPath(member.name || new RuntimeCode(i)), member.type);
+            const elementTemplate = executeTemplates(
+                state.fork(v).extendPath(member.name || new RuntimeCode(i)),
+                member.type,
+            );
             lines.push(`
             //tuple item ${j}
             else if (${check}) {
-                ${member.optional ? `
+                ${
+                    member.optional
+                        ? `
                 //BSON has no undefined in arrays, so the writer stores an optional element that is undefined as null (see serializeTuple)
                 if (${isNullable(member.type) ? `elementType === ${BSONType.UNDEFINED}` : `elementType === ${BSONType.NULL} || elementType === ${BSONType.UNDEFINED}`}) {
                     ${v} = undefined;
                 } else {
                     ${elementTemplate}
-                }` : elementTemplate}
+                }`
+                        : elementTemplate
+                }
                 if (${v} !== undefined || ${isOptional(member)}) {
-                    ${result}.push(${v});
+                    ${append(v)}
                 }
                 ${i}++;
                 continue;
@@ -596,7 +652,8 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
     if (!hasRest) {
         for (let k = 0; k < type.types.length; k++) {
             const member = type.types[k];
-            if (!member.optional && isOptional(member.type)) paddingLines.push(`if (${i} <= ${k}) ${result}.push(undefined);`);
+            if (!member.optional && isOptional(member.type))
+                paddingLines.push(`if (${i} <= ${k}) ${append('undefined')}`);
         }
     }
     const padding = paddingLines.join('\n');
@@ -605,7 +662,8 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
         // deserializeTuple
         if (state.elementType && state.elementType !== ${BSONType.ARRAY}) ${throwInvalidBsonType({ kind: ReflectionKind.array, type: type }, state)}
         {
-            var ${result} = [];
+            var ${result} = ${initial};
+            let ${written} = 0;
             let ${length} = 0;
             const end = state.parser.eatUInt32() + state.parser.offset;
             const oldElementType = state.elementType;
@@ -627,6 +685,7 @@ export function deserializeTuple(type: TypeTuple, state: TemplateState) {
                 seekElementSize(elementType, state.parser);
             }
             ${padding}
+            ${hasRest ? '' : `if (${written} !== ${size}) ${result}.length = ${written};`}
             ${state.setter} = ${result};
             state.elementType = oldElementType;
         }
@@ -679,13 +738,17 @@ export function bsonTypeGuardTuple(type: TypeTuple, state: TemplateState) {
             lines.push(`
             //tuple item ${j}
             else if (${check}) {
-                ${member.optional ? `
+                ${
+                    member.optional
+                        ? `
                 //an undefined optional element is stored as null, see serializeTuple
                 if (${isNullable(member.type) ? `elementType === ${BSONType.UNDEFINED}` : `elementType === ${BSONType.NULL} || elementType === ${BSONType.UNDEFINED}`}) {
                     ${valid} = true;
                 } else {
                     ${elementGuard}
-                }` : elementGuard}
+                }`
+                        : elementGuard
+                }
                 if (!${valid}) {
                     break;
                 }
@@ -723,7 +786,10 @@ export function bsonTypeGuardTuple(type: TypeTuple, state: TemplateState) {
     const lengthChecks: string[] = [];
     if (range.min > 0) lengthChecks.push(`${i} < ${range.min}`);
     if (range.max !== Infinity) lengthChecks.push(`${i} > ${range.max}`);
-    const lengthCheck = !state.looseTupleLength && lengthChecks.length ? `if (${valid} && (${lengthChecks.join(' || ')})) ${valid} = false;` : '';
+    const lengthCheck =
+        !state.looseTupleLength && lengthChecks.length
+            ? `if (${valid} && (${lengthChecks.join(' || ')})) ${valid} = false;`
+            : '';
 
     state.addCode(`
         // bsonTypeGuardTuple
@@ -765,10 +831,13 @@ export function deserializeArray(type: TypeArray, state: TemplateState) {
     state.setContext({ digitByteSize });
 
     state.addCode(`
-        if (state.elementType && state.elementType !== ${BSONType.ARRAY}) ${throwInvalidBsonType({
-        kind: ReflectionKind.array,
-        type: elementType,
-    }, state)}
+        if (state.elementType && state.elementType !== ${BSONType.ARRAY}) ${throwInvalidBsonType(
+            {
+                kind: ReflectionKind.array,
+                type: elementType,
+            },
+            state,
+        )}
         {
             var ${result} = [];
             const end = state.parser.eatUInt32() + state.parser.offset;
@@ -839,9 +908,9 @@ export function bsonTypeGuardArray(type: TypeArray, state: TemplateState) {
     `);
 }
 
-export function getEmbeddedClassesForProperty(type: Type): { type: TypeClass, options: EmbeddedOptions }[] {
+export function getEmbeddedClassesForProperty(type: Type): { type: TypeClass; options: EmbeddedOptions }[] {
     if (type.kind === ReflectionKind.propertySignature || type.kind === ReflectionKind.property) type = type.type;
-    const res: { type: TypeClass, options: EmbeddedOptions }[] = [];
+    const res: { type: TypeClass; options: EmbeddedOptions }[] = [];
 
     if (type.kind === ReflectionKind.union) {
         for (const t of type.types) {
@@ -945,15 +1014,24 @@ export function deserializeObjectLiteral(type: TypeClass | TypeObjectLiteral, st
         const staticDefault = getStaticDefaultCodeForProperty(member, setter, state);
         let throwInvalidTypeError = '';
         if (!isOptional(member) && !hasDefaultValue(member)) {
-            throwInvalidTypeError = state.fork().extendPath(member.name).throwCode(member.type as Type, '', `'undefined value'`);
+            throwInvalidTypeError = state
+                .fork()
+                .extendPath(member.name)
+                .throwCode(member.type as Type, '', `'undefined value'`);
         }
         setDefaults.push(`if (!${valueSetVar}) { ${staticDefault || throwInvalidTypeError} } `);
 
         let seekOnExplicitUndefined = '';
         //handle explicitly set `undefined`, by jumping over the registered deserializers. if `null` is given and the property has no null type, we treat it as undefined.
         if (isOptional(member) || hasDefaultValue(member)) {
-            const setUndefined = isOptional(member) ? `${setter} = undefined;` : hasDefaultValue(member) ? `` : `${setter} = undefined;`;
-            const check = isNullable(member) ? `elementType === ${BSONType.UNDEFINED}` : `elementType === ${BSONType.UNDEFINED} || elementType === ${BSONType.NULL}`;
+            const setUndefined = isOptional(member)
+                ? `${setter} = undefined;`
+                : hasDefaultValue(member)
+                  ? ``
+                  : `${setter} = undefined;`;
+            const check = isNullable(member)
+                ? `elementType === ${BSONType.UNDEFINED}`
+                : `elementType === ${BSONType.UNDEFINED} || elementType === ${BSONType.NULL}`;
             seekOnExplicitUndefined = `
             if (${check}) {
                 ${setUndefined}
@@ -1017,7 +1095,11 @@ export function deserializeObjectLiteral(type: TypeClass | TypeObjectLiteral, st
             for (const parameter of constructor.getParameters()) {
                 const name = getNameExpression(parameter.getName(), state);
                 //a parameter passed on to a parent constructor, like `constructor(id: number) { super(id); }`, is a property as well
-                constructorArguments.push(parameter.getVisibility() === undefined && !memberNames.includes(parameter.getName()) ? 'undefined' : `${object}[${name}]`);
+                constructorArguments.push(
+                    parameter.getVisibility() === undefined && !memberNames.includes(parameter.getName())
+                        ? 'undefined'
+                        : `${object}[${name}]`,
+                );
             }
 
             const constructorProperties = getDeepConstructorProperties(type).map(v => String(v.name));
@@ -1025,10 +1107,13 @@ export function deserializeObjectLiteral(type: TypeClass | TypeObjectLiteral, st
             // most of the time of deserializing a class. Keys of an index signature aren't known in advance, though.
             const assignRemaining = signatures.length
                 ? `${constructorProperties.map(v => `delete ${object}.${v};`).join('\n')}\nObject.assign(${state.setter}, ${object});`
-                : memberNames.filter(v => !constructorProperties.includes(String(v))).map(v => {
-                    const key = JSON.stringify(v);
-                    return `if (${key} in ${object}) ${state.setter}[${key}] = ${object}[${key}];`;
-                }).join('\n');
+                : memberNames
+                      .filter(v => !constructorProperties.includes(String(v)))
+                      .map(v => {
+                          const key = JSON.stringify(v);
+                          return `if (${key} in ${object}) ${state.setter}[${key}] = ${object}[${key}];`;
+                      })
+                      .join('\n');
 
             createClassInstance = `
                 ${state.setter} = new ${state.compilerContext.reserveConst(type.classType, 'classType')}(${constructorArguments.join(', ')});
@@ -1132,7 +1217,9 @@ export function bsonTypeGuardObjectLiteral(type: TypeClass | TypeObjectLiteral, 
         let seekOnExplicitUndefined = '';
         //handle explicitly set `undefined`, by jumping over the registered deserializers. if `null` is given and the property has no null type, we treat it as undefined.
         if (isOptional(member) || hasDefaultValue(member)) {
-            const check = isNullable(member) ? `elementType === ${BSONType.UNDEFINED}` : `elementType === ${BSONType.UNDEFINED} || elementType === ${BSONType.NULL}`;
+            const check = isNullable(member)
+                ? `elementType === ${BSONType.UNDEFINED}`
+                : `elementType === ${BSONType.UNDEFINED} || elementType === ${BSONType.NULL}`;
             seekOnExplicitUndefined = `
             if (${check}) {
                 seekElementSize(elementType, state.parser);
@@ -1269,11 +1356,15 @@ export function bsonTypeGuardLiteral(type: TypeLiteral, state: TemplateState) {
 export function bsonTypeGuardTemplateLiteral(type: TypeTemplateLiteral, state: TemplateState) {
     state.setContext({ extendTemplateLiteral: extendTemplateLiteral });
     const typeVar = state.setVariable('type', type);
-    state.addSetter(`state.elementType === ${BSONType.STRING} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: state.parser.read(state.elementType)}, ${typeVar})`);
+    state.addSetter(
+        `state.elementType === ${BSONType.STRING} && extendTemplateLiteral({kind: ${ReflectionKind.literal}, literal: state.parser.read(state.elementType)}, ${typeVar})`,
+    );
     if (state.isValidation()) {
         //the value is not parsed yet, so the BSON type is named, like in `Cannot convert bson type INT to X`
         state.setContext({ ValidationErrorItem, BSONType });
         const message = JSON.stringify(`Expected ${stringifyShortResolvedType(type)}, got bson type `);
-        state.addCodeForSetter(`if (!${state.setter} && state.errors) state.errors.push(new ValidationErrorItem(${collapsePath(state.path)}, 'type', ${message} + BSONType[state.elementType], undefined));`);
+        state.addCodeForSetter(
+            `if (!${state.setter} && state.errors) state.errors.push(new ValidationErrorItem(${collapsePath(state.path)}, 'type', ${message} + BSONType[state.elementType], undefined));`,
+        );
     }
 }

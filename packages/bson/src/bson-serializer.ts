@@ -7,12 +7,40 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { CompilerContext, createBuffer, hasProperty, isArray, isIterable, isObject, toFastProperties } from '@deepkit/core';
 import {
-    binaryBigIntAnnotation,
+    CompilerContext,
+    createBuffer,
+    hasProperty,
+    isArray,
+    isIterable,
+    isObject,
+    toFastProperties,
+} from '@deepkit/core';
+import {
     BinaryBigIntType,
     ContainerAccessor,
+    JitStack,
+    MongoId,
+    NamingStrategy,
+    ReceiveType,
+    ReflectionClass,
+    ReflectionKind,
+    RuntimeCode,
+    Serializer,
+    TemplateRegistry,
+    TemplateState,
+    Type,
+    TypeArray,
+    TypeBigInt,
+    TypeClass,
+    TypeGuardRegistry,
+    TypeIndexSignature,
+    TypeLiteral,
+    TypeObjectLiteral,
+    TypeTuple,
+    UUID,
+    UnpopulatedCheck,
+    binaryBigIntAnnotation,
     createReference,
     excludedAnnotation,
     executeTemplates,
@@ -34,45 +62,25 @@ import {
     isReferenceInstance,
     isReferenceType,
     isUUIDType,
-    JitStack,
     memberNameToString,
-    MongoId,
     mongoIdAnnotation,
-    NamingStrategy,
-    ReceiveType,
     referenceAnnotation,
-    ReflectionClass,
-    ReflectionKind,
     resolveReceiveType,
     resolveTypeMembers,
-    RuntimeCode,
-    Serializer,
     sortSignatures,
-    TemplateRegistry,
-    TemplateState,
-    Type,
-    TypeArray,
-    TypeBigInt,
-    TypeClass,
-    TypeGuardRegistry,
-    TypeIndexSignature,
-    TypeLiteral,
-    TypeObjectLiteral,
     typeOf,
     typeSettings,
-    TypeTuple,
-    UnpopulatedCheck,
     unpopulatedSymbol,
-    UUID,
     uuidAnnotation,
 } from '@deepkit/type';
+
 import {
     bsonTypeGuardArray,
+    bsonTypeGuardBooleanLoose,
     bsonTypeGuardForBsonTypes,
     bsonTypeGuardLiteral,
     bsonTypeGuardObjectLiteral,
     bsonTypeGuardTemplateLiteral,
-    bsonTypeGuardBooleanLoose,
     bsonTypeGuardTuple,
     deserializeAny,
     deserializeArray,
@@ -92,7 +100,16 @@ import {
     deserializeUnion,
 } from './bson-deserializer-templates.js';
 import { seekElementSize } from './continuation.js';
-import { BSON_BINARY_SUBTYPE_DEFAULT, BSON_BINARY_SUBTYPE_UUID, BSONType, commentSafe, digitByteSize, isSerializable, TWO_PWR_32_DBL_N, utf8Bytes } from './utils.js';
+import {
+    BSONType,
+    BSON_BINARY_SUBTYPE_DEFAULT,
+    BSON_BINARY_SUBTYPE_UUID,
+    TWO_PWR_32_DBL_N,
+    commentSafe,
+    digitByteSize,
+    isSerializable,
+    utf8Bytes,
+} from './utils.js';
 
 // BSON MAX VALUES
 const BSON_INT32_MAX = 0x7fffffff;
@@ -132,9 +149,9 @@ export function stringByteLength(str: string): number {
         const c = str.charCodeAt(i);
 
         // surrogate pair
-        if (c >= 0xD800 && c <= 0xDBFF && i + 1 < str.length) {
+        if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
             const lo = str.charCodeAt(i + 1);
-            if (lo >= 0xDC00 && lo <= 0xDFFF) {
+            if (lo >= 0xdc00 && lo <= 0xdfff) {
                 // surrogate pair is a 4-byte character in UTF-8
                 size += 4;
                 // move past the low surrogate since it's part of the character
@@ -178,7 +195,9 @@ export function getValueSize(value: any): number {
             return 12;
         } else if (isBinaryBigIntType(value.type)) {
             const binaryBigInt = binaryBigIntAnnotation.getFirst(value.type)!;
-            return binaryBigInt === BinaryBigIntType.unsigned ? getBinaryBigIntSize(value.value) : getSignedBinaryBigIntSize(value.value);
+            return binaryBigInt === BinaryBigIntType.unsigned
+                ? getBinaryBigIntSize(value.value)
+                : getSignedBinaryBigIntSize(value.value);
         }
         return getValueSize(value.value);
     } else if ('boolean' === typeof value) {
@@ -228,12 +247,14 @@ export function getValueSize(value: any): number {
         size += value.buffer.byteLength;
         return size;
     } else if (value instanceof RegExp) {
-        return stringByteLength(value.source) + 1
-            +
+        return (
+            stringByteLength(value.source) +
+            1 +
             (value.global ? 1 : 0) +
             (value.ignoreCase ? 1 : 0) +
             (value.multiline ? 1 : 0) +
-            1;
+            1
+        );
     } else if (isObject(value)) {
         let size = 4; //object size
         for (let i in value) {
@@ -250,9 +271,10 @@ export function getValueSize(value: any): number {
 }
 
 export class ValueWithBSONSerializer {
-    constructor(public value: any, public type: Type) {
-
-    }
+    constructor(
+        public value: any,
+        public type: Type,
+    ) {}
 }
 
 export function wrapValue<T>(value: any, type?: ReceiveType<T>) {
@@ -330,8 +352,7 @@ export class AutoBuffer {
         private initialSize: number = 256,
         private maxSmallSize: number = 256 * 1024,
         private largeRetention: number = 5000,
-    ) {
-    }
+    ) {}
 
     get buffer() {
         return this._buffer.subarray(0, this.size);
@@ -358,17 +379,33 @@ export class AutoBuffer {
         if (this._buffer !== this.small) this.largeUsed = true;
 
         writer.offset = this.prepend;
-        serializer(data, this.state);
+        this.serializeInBuffer(serializer, data);
         // the offset includes the prepended bytes, and counts on although writes past the end are dropped
         const size = writer.offset;
         if (size > this._buffer.byteLength) {
             this.use(this.bufferFor(size));
             writer.reset();
             writer.offset = this.prepend;
-            serializer(data, this.state);
+            this.serializeInBuffer(serializer, data);
         } else if (this._buffer !== this.small && size <= this.small.byteLength) {
             // this message still needs the large buffer, the next one can use the small one again
             this.returnToSmall = true;
+        }
+    }
+
+    /**
+     * A serializer that throws leaves its state behind. The state object lives as long as this buffer, so the
+     * circular reference check of the next message would see the objects of this one, and skip them if they are reused.
+     */
+    private serializeInBuffer(serializer: AutoBufferSerializer, data: any): void {
+        const unpopulatedCheck = typeSettings.unpopulatedCheck;
+        try {
+            serializer(data, this.state);
+        } catch (error) {
+            (this.state as any)._stack = undefined;
+            this.state.writer.typeOffset = 0;
+            typeSettings.unpopulatedCheck = unpopulatedCheck;
+            throw error;
         }
     }
 
@@ -432,8 +469,10 @@ export class AutoBuffer {
 export class Writer {
     public typeOffset: number = 0;
 
-    constructor(public buffer: Uint8Array, public offset: number = 0) {
-    }
+    constructor(
+        public buffer: Uint8Array,
+        public offset: number = 0,
+    ) {}
 
     reset() {
         this.offset = 0;
@@ -540,12 +579,12 @@ export class Writer {
             const c = str.charCodeAt(i);
 
             // surrogate pairs for characters outside the BMP
-            if (c >= 0xD800 && c <= 0xDBFF && i + 1 < str.length) {
+            if (c >= 0xd800 && c <= 0xdbff && i + 1 < str.length) {
                 const hi = c;
                 const lo = str.charCodeAt(i + 1);
-                if (lo >= 0xDC00 && lo <= 0xDFFF) {
+                if (lo >= 0xdc00 && lo <= 0xdfff) {
                     // combine the surrogate pair and subtract 0x10000 for UTF-8 encoding
-                    const codePoint = ((hi - 0xD800) * 0x400) + (lo - 0xDC00) + 0x10000;
+                    const codePoint = (hi - 0xd800) * 0x400 + (lo - 0xdc00) + 0x10000;
 
                     this.buffer[this.offset++] = (codePoint >> 18) | 240;
                     this.buffer[this.offset++] = ((codePoint >> 12) & 63) | 128;
@@ -562,7 +601,7 @@ export class Writer {
                 this.buffer[this.offset++] = c;
             } else if (c > 127 && c < 2048) {
                 this.buffer[this.offset++] = (c >> 6) | 192;
-                this.buffer[this.offset++] = ((c & 63) | 128);
+                this.buffer[this.offset++] = (c & 63) | 128;
             } else {
                 this.buffer[this.offset++] = (c >> 12) | 224;
                 this.buffer[this.offset++] = ((c >> 6) & 63) | 128;
@@ -583,8 +622,8 @@ export class Writer {
 
     writeBigIntLong(value: bigint) {
         if (value < 0) {
-            this.writeInt32(~Number(-value % BigInt(TWO_PWR_32_DBL_N)) + 1 | 0); //low
-            this.writeInt32(~(Number(-value / BigInt(TWO_PWR_32_DBL_N))) | 0); //high
+            this.writeInt32((~Number(-value % BigInt(TWO_PWR_32_DBL_N)) + 1) | 0); //low
+            this.writeInt32(~Number(-value / BigInt(TWO_PWR_32_DBL_N)) | 0); //high
         } else {
             this.writeInt32(Number(value % BigInt(TWO_PWR_32_DBL_N)) | 0); //low
             this.writeInt32(Number(value / BigInt(TWO_PWR_32_DBL_N)) | 0); //high
@@ -638,10 +677,10 @@ export class Writer {
         if (value < -9223372036854775807) value = -9223372036854775807;
 
         if (value < 0) {
-            this.writeInt32(~(-value % TWO_PWR_32_DBL_N) + 1 | 0); //low
+            this.writeInt32((~(-value % TWO_PWR_32_DBL_N) + 1) | 0); //low
             this.writeInt32(~(-value / TWO_PWR_32_DBL_N) | 0); //high
         } else {
-            this.writeInt32((value % TWO_PWR_32_DBL_N) | 0); //low
+            this.writeInt32(value % TWO_PWR_32_DBL_N | 0); //low
             this.writeInt32((value / TWO_PWR_32_DBL_N) | 0); //high
         }
     }
@@ -810,7 +849,10 @@ export class Writer {
     }
 
     writeArrayBuffer(value: ArrayBuffer | ArrayBufferView) {
-        let view = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+        let view =
+            value instanceof ArrayBuffer
+                ? new Uint8Array(value)
+                : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
         if ((value as any)['_bsontype'] === 'Binary') {
             view = (value as any).buffer;
         }
@@ -818,7 +860,11 @@ export class Writer {
         this.writeUint32(value.byteLength);
         this.writeByte(BSON_BINARY_SUBTYPE_DEFAULT);
 
-        if (value.byteLength >= 64 && view.byteLength === value.byteLength && this.offset + value.byteLength <= this.buffer.byteLength) {
+        if (
+            value.byteLength >= 64 &&
+            view.byteLength === value.byteLength &&
+            this.offset + value.byteLength <= this.buffer.byteLength
+        ) {
             this.buffer.set(view, this.offset);
             this.offset += value.byteLength;
             return;
@@ -846,7 +892,11 @@ function sizerObjectLiteral(type: TypeClass | TypeObjectLiteral, state: Template
     handleObjectLiteral(type, state, 'sizer', options);
 }
 
-function serializeObjectLiteral(type: TypeClass | TypeObjectLiteral, state: TemplateState, options: BSONSerializerOptions) {
+function serializeObjectLiteral(
+    type: TypeClass | TypeObjectLiteral,
+    state: TemplateState,
+    options: BSONSerializerOptions,
+) {
     handleObjectLiteral(type, state, 'serialization', options);
 }
 
@@ -949,7 +999,9 @@ function handleObjectLiteral(
         const propertyState = state.fork('', accessor).extendPath(propertyName);
         const setUndefined = isOptional(member)
             ? executeTemplates(propertyState.fork(), { kind: ReflectionKind.undefined })
-            : isNullable(member) ? executeTemplates(propertyState.fork(), { kind: ReflectionKind.null }) : '';
+            : isNullable(member)
+              ? executeTemplates(propertyState.fork(), { kind: ReflectionKind.null })
+              : '';
 
         const template = executeTemplates(propertyState.fork(), member.type);
         if (!template) {
@@ -1007,7 +1059,9 @@ function handleObjectLiteral(
             const propertyState = state.fork(undefined, accessor).extendPath(new RuntimeCode(i));
             const setUndefined = isOptional(signature.type)
                 ? executeTemplates(propertyState.fork(), { kind: ReflectionKind.undefined })
-                : isNullable(signature.type) ? executeTemplates(propertyState.fork(), { kind: ReflectionKind.null }) : '';
+                : isNullable(signature.type)
+                  ? executeTemplates(propertyState.fork(), { kind: ReflectionKind.null })
+                  : '';
 
             let nameWriter = ``;
             if (target === 'serialization') {
@@ -1082,7 +1136,13 @@ function propertyNameWrite(propertyName?: string | RuntimeCode) {
     return '';
 }
 
-function serializePropertyNameAware(type: Type, state: TemplateState, bsonType: BSONType, typeChecker: string, code: string): void {
+function serializePropertyNameAware(
+    type: Type,
+    state: TemplateState,
+    bsonType: BSONType,
+    typeChecker: string,
+    code: string,
+): void {
     state.template = `
         //serializer for ${type.kind}, via propertyName="${commentSafe(getPropertyNameString(state.propertyName))}"
         ${typeChecker ? `if (!(${typeChecker})) ${state.throwCode(type)}` : ''}
@@ -1118,62 +1178,111 @@ function serializeAny(type: Type, state: TemplateState) {
 }
 
 function sizerBoolean(type: Type, state: TemplateState) {
-    sizerPropertyNameAware(type, state, `typeof ${state.accessor} === 'boolean'`, `
+    sizerPropertyNameAware(
+        type,
+        state,
+        `typeof ${state.accessor} === 'boolean'`,
+        `
         state.size += 1;
-    `);
+    `,
+    );
 }
 
 function sizerNumber(type: Type, state: TemplateState) {
     state.setContext({ getValueSize });
     //per default bigint will be serialized as long, to be compatible with default mongo driver and mongo database.
     //We should add a new annotation, maybe like `bigint & Binary` to make it binary (unlimited size)
-    sizerPropertyNameAware(type, state, `typeof ${state.accessor} === 'bigint' || (typeof ${state.accessor} === 'number' && !Number.isNaN(${state.accessor}))`, `
+    sizerPropertyNameAware(
+        type,
+        state,
+        `typeof ${state.accessor} === 'bigint' || (typeof ${state.accessor} === 'number' && !Number.isNaN(${state.accessor}))`,
+        `
         state.size += getValueSize(${state.accessor});
-    `);
+    `,
+    );
 }
 
 function serializeBoolean(type: Type, state: TemplateState) {
-    serializePropertyNameAware(type, state, BSONType.BOOLEAN, `typeof ${state.accessor} === 'boolean'`, `
+    serializePropertyNameAware(
+        type,
+        state,
+        BSONType.BOOLEAN,
+        `typeof ${state.accessor} === 'boolean'`,
+        `
         state.writer.writeByte(${state.accessor} ? 1 : 0);
-    `);
+    `,
+    );
 }
 
 function serializeString(type: Type, state: TemplateState) {
     if (uuidAnnotation.getFirst(type)) {
-        serializePropertyNameAware(type, state, BSONType.BINARY, `typeof ${state.accessor} === 'string' && ${state.accessor}.length === 36`, `state.writer.writeUUID(${state.accessor});`);
+        serializePropertyNameAware(
+            type,
+            state,
+            BSONType.BINARY,
+            `typeof ${state.accessor} === 'string' && ${state.accessor}.length === 36`,
+            `state.writer.writeUUID(${state.accessor});`,
+        );
         return;
     }
     if (mongoIdAnnotation.getFirst(type)) {
-        serializePropertyNameAware(type, state, BSONType.OID, `typeof ${state.accessor} === 'string' && ${state.accessor}.length === 24`, `state.writer.writeObjectId(${state.accessor});`);
+        serializePropertyNameAware(
+            type,
+            state,
+            BSONType.OID,
+            `typeof ${state.accessor} === 'string' && ${state.accessor}.length === 24`,
+            `state.writer.writeObjectId(${state.accessor});`,
+        );
         return;
     }
     const start = state.compilerContext.reserveName('start');
-    serializePropertyNameAware(type, state, BSONType.STRING, `typeof ${state.accessor} === 'string'`, `
+    serializePropertyNameAware(
+        type,
+        state,
+        BSONType.STRING,
+        `typeof ${state.accessor} === 'string'`,
+        `
         var ${start} = state.writer.offset;
         state.writer.offset += 4; //size placeholder
         state.writer.writeString(${state.accessor});
         state.writer.writeByte(0); //null
         state.writer.writeDelayedSize(state.writer.offset - ${start} - 4, ${start});
-    `);
+    `,
+    );
 }
 
 function sizeString(type: Type, state: TemplateState) {
     if (uuidAnnotation.getFirst(type)) {
-        sizerPropertyNameAware(type, state, `typeof ${state.accessor} === 'string' && ${state.accessor}.length === 36`, `
+        sizerPropertyNameAware(
+            type,
+            state,
+            `typeof ${state.accessor} === 'string' && ${state.accessor}.length === 36`,
+            `
             state.size += 4 + 1 + 16;
-        `);
+        `,
+        );
         return;
     }
     if (mongoIdAnnotation.getFirst(type)) {
-        sizerPropertyNameAware(type, state, `typeof ${state.accessor} === 'string' && ${state.accessor}.length === 24`, `
+        sizerPropertyNameAware(
+            type,
+            state,
+            `typeof ${state.accessor} === 'string' && ${state.accessor}.length === 24`,
+            `
             state.size += 12;
-        `);
+        `,
+        );
         return;
     }
     state.setContext({ getValueSize });
-    sizerPropertyNameAware(type, state, `typeof ${state.accessor} === 'string'`, `
+    sizerPropertyNameAware(
+        type,
+        state,
+        `typeof ${state.accessor} === 'string'`,
+        `
         state.size += getValueSize(${state.accessor});
-    `);
+    `,
+    );
 }
 
 function serializeNumber(type: Type, state: TemplateState) {
@@ -1203,12 +1312,18 @@ function sizerBigInt(type: TypeBigInt, state: TemplateState) {
 
     if (binaryBigInt !== undefined) {
         state.setContext({ getBinaryBigIntSize, getSignedBinaryBigIntSize });
-        const bigIntSize = binaryBigInt === BinaryBigIntType.unsigned ? 'getBinaryBigIntSize' : 'getSignedBinaryBigIntSize';
+        const bigIntSize =
+            binaryBigInt === BinaryBigIntType.unsigned ? 'getBinaryBigIntSize' : 'getSignedBinaryBigIntSize';
         //per default bigint will be serialized as long, to be compatible with default mongo driver and mongo database.
         //We should add a new annotation, maybe like `bigint & Binary` to make it binary (unlimited size)
-        sizerPropertyNameAware(type, state, `typeof ${state.accessor} === 'bigint' || (typeof ${state.accessor} === 'number' && !Number.isNaN(${state.accessor}))`, `
+        sizerPropertyNameAware(
+            type,
+            state,
+            `typeof ${state.accessor} === 'bigint' || (typeof ${state.accessor} === 'number' && !Number.isNaN(${state.accessor}))`,
+            `
             state.size += ${bigIntSize}(${state.accessor});
-        `);
+        `,
+        );
     } else {
         sizerNumber(type, state);
     }
@@ -1218,7 +1333,8 @@ function serializeBigInt(type: TypeBigInt, state: TemplateState) {
     const binaryBigInt = binaryBigIntAnnotation.getFirst(type);
 
     if (binaryBigInt !== undefined) {
-        const writeBigInt = binaryBigInt === BinaryBigIntType.unsigned ? 'writeBigIntBinary' : 'writeSignedBigIntBinary';
+        const writeBigInt =
+            binaryBigInt === BinaryBigIntType.unsigned ? 'writeBigIntBinary' : 'writeSignedBigIntBinary';
         state.addCode(`
         if ('bigint' === typeof ${state.accessor} || ('number' === typeof ${state.accessor} && !Number.isNaN(${state.accessor}))) {
             //long
@@ -1234,25 +1350,36 @@ function serializeBigInt(type: TypeBigInt, state: TemplateState) {
 
 function sizerRegExp(type: Type, state: TemplateState) {
     state.setContext({ stringByteLength });
-    sizerPropertyNameAware(type, state, `${state.accessor} instanceof RegExp`, `
+    sizerPropertyNameAware(
+        type,
+        state,
+        `${state.accessor} instanceof RegExp`,
+        `
         state.size += stringByteLength(${state.accessor}.source) + 1
             +
             (${state.accessor}.global ? 1 : 0) +
             (${state.accessor}.ignoreCase ? 1 : 0) +
             (${state.accessor}.multiline ? 1 : 0) +
             1;
-    `);
+    `,
+    );
 }
 
 function serializeRegExp(type: Type, state: TemplateState) {
-    serializePropertyNameAware(type, state, BSONType.REGEXP, `${state.accessor} instanceof RegExp`, `
+    serializePropertyNameAware(
+        type,
+        state,
+        BSONType.REGEXP,
+        `${state.accessor} instanceof RegExp`,
+        `
         state.writer.writeString(${state.accessor}.source);
         state.writer.writeNull();
         if (${state.accessor}.ignoreCase) state.writer.writeString('i');
         if (${state.accessor}.global) state.writer.writeString('s'); //BSON does not use the RegExp flag format
         if (${state.accessor}.multiline) state.writer.writeString('m');
         state.writer.writeNull();
-    `);
+    `,
+    );
 }
 
 function sizerLiteral(type: TypeLiteral, state: TemplateState) {
@@ -1281,16 +1408,27 @@ function serializeLiteral(type: TypeLiteral, state: TemplateState) {
 
 function sizerBinary(type: TypeClass, state: TemplateState) {
     state.setContext({ ArrayBuffer });
-    sizerPropertyNameAware(type, state, `${state.accessor} instanceof ArrayBuffer || ArrayBuffer.isView(${state.accessor})`, `
+    sizerPropertyNameAware(
+        type,
+        state,
+        `${state.accessor} instanceof ArrayBuffer || ArrayBuffer.isView(${state.accessor})`,
+        `
         state.size += 4  + 1 + ${state.accessor}.byteLength;
-    `);
+    `,
+    );
 }
 
 function serializeBinary(type: TypeClass, state: TemplateState) {
     state.setContext({ ArrayBuffer });
-    serializePropertyNameAware(type, state, BSONType.BINARY, `${state.accessor} instanceof ArrayBuffer || ArrayBuffer.isView(${state.accessor})`, `
+    serializePropertyNameAware(
+        type,
+        state,
+        BSONType.BINARY,
+        `${state.accessor} instanceof ArrayBuffer || ArrayBuffer.isView(${state.accessor})`,
+        `
         state.writer.writeArrayBuffer(${state.accessor});
-    `);
+    `,
+    );
 }
 
 function sizerArray(type: TypeArray, state: TemplateState) {
@@ -1302,7 +1440,11 @@ function sizerArray(type: TypeArray, state: TemplateState) {
     state.setContext({ digitByteSize });
 
     const memberState = state.fork('', item).extendPath(new RuntimeCode(i));
-    sizerPropertyNameAware(elementType, state, `isIterable(${state.accessor})`, `
+    sizerPropertyNameAware(
+        elementType,
+        state,
+        `isIterable(${state.accessor})`,
+        `
         state.size += 4; //array size
 
         let ${i} = 0;
@@ -1314,7 +1456,8 @@ function sizerArray(type: TypeArray, state: TemplateState) {
         }
 
         state.size += 1; //null
-    `);
+    `,
+    );
 }
 
 function serializeArray(elementType: Type, state: TemplateState) {
@@ -1323,7 +1466,12 @@ function serializeArray(elementType: Type, state: TemplateState) {
     const start = state.compilerContext.reserveName('start');
     const i = state.compilerContext.reserveName('arrayIndex');
     const item = state.compilerContext.reserveName('item');
-    serializePropertyNameAware(elementType, state, BSONType.ARRAY, `isIterable(${state.accessor})`, `
+    serializePropertyNameAware(
+        elementType,
+        state,
+        BSONType.ARRAY,
+        `isIterable(${state.accessor})`,
+        `
         var ${start} = state.writer.offset;
         state.writer.offset += 4; //size
 
@@ -1341,7 +1489,8 @@ function serializeArray(elementType: Type, state: TemplateState) {
 
         state.writer.writeNull();
         state.writer.writeDelayedSize(state.writer.offset - ${start}, ${start});
-    `);
+    `,
+    );
 }
 
 function serializeTuple(type: TypeTuple, state: TemplateState) {
@@ -1401,7 +1550,12 @@ function serializeTuple(type: TypeTuple, state: TemplateState) {
     const start = state.compilerContext.reserveName('start');
     state.setContext({ isArray });
 
-    serializePropertyNameAware(type, state, BSONType.ARRAY, `isArray(${state.accessor})`, `
+    serializePropertyNameAware(
+        type,
+        state,
+        BSONType.ARRAY,
+        `isArray(${state.accessor})`,
+        `
         let ${i} = 0;
         var ${start} = state.writer.offset;
         state.writer.offset += 4; //size
@@ -1410,7 +1564,8 @@ function serializeTuple(type: TypeTuple, state: TemplateState) {
 
         state.writer.writeNull();
         state.writer.writeDelayedSize(state.writer.offset - ${start}, ${start});
-    `);
+    `,
+    );
 }
 
 function sizerTuple(type: TypeTuple, state: TemplateState) {
@@ -1460,14 +1615,19 @@ function sizerTuple(type: TypeTuple, state: TemplateState) {
     }
 
     state.setContext({ isArray });
-    sizerPropertyNameAware(type, state, `isArray(${state.accessor})`, `
+    sizerPropertyNameAware(
+        type,
+        state,
+        `isArray(${state.accessor})`,
+        `
         let ${i} = 0;
         state.size += 4; //array size, for tuple
 
         ${lines.join('\n')}
 
         state.size += 1; //null
-    `);
+    `,
+    );
 }
 
 interface BSONSerializerOptions {
@@ -1506,12 +1666,16 @@ export class BSONBinarySerializer extends Serializer {
         this.sizerRegistry.register(ReflectionKind.object, sizerAny);
         this.sizerRegistry.register(ReflectionKind.unknown, sizerAny);
         this.sizerRegistry.register(ReflectionKind.never, () => undefined);
-        this.sizerRegistry.register(ReflectionKind.class, (type, state) => sizerObjectLiteral(type, state, this.options));
-        this.sizerRegistry.register(ReflectionKind.objectLiteral, (type, state) => sizerObjectLiteral(type, state, this.options));
+        this.sizerRegistry.register(ReflectionKind.class, (type, state) =>
+            sizerObjectLiteral(type, state, this.options),
+        );
+        this.sizerRegistry.register(ReflectionKind.objectLiteral, (type, state) =>
+            sizerObjectLiteral(type, state, this.options),
+        );
         this.sizerRegistry.register(ReflectionKind.string, sizeString);
         this.sizerRegistry.register(ReflectionKind.templateLiteral, sizeString);
         this.sizerRegistry.register(ReflectionKind.boolean, sizerBoolean);
-        this.sizerRegistry.register(ReflectionKind.promise, ((type, state) => executeTemplates(state, type.type)));
+        this.sizerRegistry.register(ReflectionKind.promise, (type, state) => executeTemplates(state, type.type));
         this.sizerRegistry.register(ReflectionKind.number, sizerNumber);
         this.sizerRegistry.register(ReflectionKind.bigint, sizerBigInt);
         this.sizerRegistry.register(ReflectionKind.literal, sizerLiteral);
@@ -1520,10 +1684,18 @@ export class BSONBinarySerializer extends Serializer {
         this.sizerRegistry.register(ReflectionKind.tuple, sizerTuple);
         this.sizerRegistry.registerClass(Map, forwardMapToArray);
         this.sizerRegistry.registerClass(Set, forwardSetToArray);
-        this.sizerRegistry.registerClass(Date, (type, state) => sizerPropertyNameAware(type, state, `${state.accessor} instanceof Date`, `state.size += 8;`));
-        this.sizerRegistry.register(ReflectionKind.undefined, (type, state) => sizerPropertyNameAware(type, state, `${state.accessor} === undefined || ${state.accessor} === null`, ``));
-        this.sizerRegistry.register(ReflectionKind.void, (type, state) => sizerPropertyNameAware(type, state, `${state.accessor} === undefined || ${state.accessor} === null`, ``));
-        this.sizerRegistry.register(ReflectionKind.null, (type, state) => sizerPropertyNameAware(type, state, `${state.accessor} === undefined || ${state.accessor} === null`, ``));
+        this.sizerRegistry.registerClass(Date, (type, state) =>
+            sizerPropertyNameAware(type, state, `${state.accessor} instanceof Date`, `state.size += 8;`),
+        );
+        this.sizerRegistry.register(ReflectionKind.undefined, (type, state) =>
+            sizerPropertyNameAware(type, state, `${state.accessor} === undefined || ${state.accessor} === null`, ``),
+        );
+        this.sizerRegistry.register(ReflectionKind.void, (type, state) =>
+            sizerPropertyNameAware(type, state, `${state.accessor} === undefined || ${state.accessor} === null`, ``),
+        );
+        this.sizerRegistry.register(ReflectionKind.null, (type, state) =>
+            sizerPropertyNameAware(type, state, `${state.accessor} === undefined || ${state.accessor} === null`, ``),
+        );
         this.sizerRegistry.registerBinary(sizerBinary);
         this.sizerRegistry.register(ReflectionKind.union, handleUnion);
         this.sizerRegistry.register(ReflectionKind.promise, (type, state) => executeTemplates(state, type.type));
@@ -1535,28 +1707,68 @@ export class BSONBinarySerializer extends Serializer {
         this.bsonSerializeRegistry.register(ReflectionKind.object, serializeAny);
         this.bsonSerializeRegistry.register(ReflectionKind.unknown, serializeAny);
         this.bsonSerializeRegistry.register(ReflectionKind.never, () => undefined);
-        this.bsonSerializeRegistry.register(ReflectionKind.class, (type, state) => serializeObjectLiteral(type, state, this.options));
-        this.bsonSerializeRegistry.register(ReflectionKind.objectLiteral, (type, state) => serializeObjectLiteral(type, state, this.options));
+        this.bsonSerializeRegistry.register(ReflectionKind.class, (type, state) =>
+            serializeObjectLiteral(type, state, this.options),
+        );
+        this.bsonSerializeRegistry.register(ReflectionKind.objectLiteral, (type, state) =>
+            serializeObjectLiteral(type, state, this.options),
+        );
         this.bsonSerializeRegistry.register(ReflectionKind.string, serializeString);
         this.bsonSerializeRegistry.register(ReflectionKind.templateLiteral, serializeString);
         this.bsonSerializeRegistry.register(ReflectionKind.boolean, serializeBoolean);
-        this.bsonSerializeRegistry.register(ReflectionKind.promise, ((type, state) => executeTemplates(state, type.type)));
+        this.bsonSerializeRegistry.register(ReflectionKind.promise, (type, state) =>
+            executeTemplates(state, type.type),
+        );
         this.bsonSerializeRegistry.register(ReflectionKind.number, serializeNumber);
         this.bsonSerializeRegistry.register(ReflectionKind.bigint, serializeBigInt);
         this.bsonSerializeRegistry.register(ReflectionKind.literal, serializeLiteral);
         this.bsonSerializeRegistry.register(ReflectionKind.regexp, serializeRegExp);
         this.bsonSerializeRegistry.register(ReflectionKind.array, (type, state) => serializeArray(type.type, state));
         this.bsonSerializeRegistry.register(ReflectionKind.tuple, serializeTuple);
-        this.bsonSerializeRegistry.register(ReflectionKind.promise, (type, state) => executeTemplates(state, type.type));
-        this.bsonSerializeRegistry.register(ReflectionKind.enum, (type, state) => executeTemplates(state, type.indexType));
+        this.bsonSerializeRegistry.register(ReflectionKind.promise, (type, state) =>
+            executeTemplates(state, type.type),
+        );
+        this.bsonSerializeRegistry.register(ReflectionKind.enum, (type, state) =>
+            executeTemplates(state, type.indexType),
+        );
         this.bsonSerializeRegistry.registerClass(Map, forwardMapToArray);
         this.bsonSerializeRegistry.registerClass(Set, forwardSetToArray);
         this.bsonSerializeRegistry.registerClass(Date, (type, state) => {
-            serializePropertyNameAware(type, state, BSONType.DATE, `${state.accessor} instanceof Date`, `state.writer.writeLong(${state.accessor}.valueOf());`);
+            serializePropertyNameAware(
+                type,
+                state,
+                BSONType.DATE,
+                `${state.accessor} instanceof Date`,
+                `state.writer.writeLong(${state.accessor}.valueOf());`,
+            );
         });
-        this.bsonSerializeRegistry.register(ReflectionKind.undefined, (type, state) => serializePropertyNameAware(type, state, BSONType.NULL, `${state.accessor} === undefined || ${state.accessor} === null`, ``));
-        this.bsonSerializeRegistry.register(ReflectionKind.void, (type, state) => serializePropertyNameAware(type, state, BSONType.NULL, `${state.accessor} === undefined || ${state.accessor} === null`, ``));
-        this.bsonSerializeRegistry.register(ReflectionKind.null, (type, state) => serializePropertyNameAware(type, state, BSONType.NULL, `${state.accessor} === null || ${state.accessor} === undefined`, ``));
+        this.bsonSerializeRegistry.register(ReflectionKind.undefined, (type, state) =>
+            serializePropertyNameAware(
+                type,
+                state,
+                BSONType.NULL,
+                `${state.accessor} === undefined || ${state.accessor} === null`,
+                ``,
+            ),
+        );
+        this.bsonSerializeRegistry.register(ReflectionKind.void, (type, state) =>
+            serializePropertyNameAware(
+                type,
+                state,
+                BSONType.NULL,
+                `${state.accessor} === undefined || ${state.accessor} === null`,
+                ``,
+            ),
+        );
+        this.bsonSerializeRegistry.register(ReflectionKind.null, (type, state) =>
+            serializePropertyNameAware(
+                type,
+                state,
+                BSONType.NULL,
+                `${state.accessor} === null || ${state.accessor} === undefined`,
+                ``,
+            ),
+        );
         this.bsonSerializeRegistry.registerBinary(serializeBinary);
         this.bsonSerializeRegistry.register(ReflectionKind.union, handleUnion);
     }
@@ -1583,19 +1795,29 @@ export class BSONBinarySerializer extends Serializer {
         this.bsonTypeGuards.register(1, ReflectionKind.boolean, bsonTypeGuardForBsonTypes([BSONType.BOOLEAN]));
         this.bsonTypeGuards.register(1, ReflectionKind.undefined, bsonTypeGuardForBsonTypes([BSONType.UNDEFINED]));
         this.bsonTypeGuards.register(1, ReflectionKind.void, bsonTypeGuardForBsonTypes([BSONType.UNDEFINED]));
-        this.bsonTypeGuards.register(1, ReflectionKind.bigint, bsonTypeGuardForBsonTypes([...numberTypes, BSONType.BINARY]));
+        this.bsonTypeGuards.register(
+            1,
+            ReflectionKind.bigint,
+            bsonTypeGuardForBsonTypes([...numberTypes, BSONType.BINARY]),
+        );
         this.bsonTypeGuards.register(1, ReflectionKind.null, bsonTypeGuardForBsonTypes([BSONType.NULL]));
         this.bsonTypeGuards.register(1, ReflectionKind.literal, bsonTypeGuardLiteral);
         this.bsonTypeGuards.register(1, ReflectionKind.templateLiteral, bsonTypeGuardTemplateLiteral);
         this.bsonTypeGuards.register(1, ReflectionKind.regexp, bsonTypeGuardForBsonTypes([BSONType.REGEXP]));
 
-        this.bsonTypeGuards.register(1, ReflectionKind.union, (type, state) => deserializeUnion(this.bsonTypeGuards, type, state));
+        this.bsonTypeGuards.register(1, ReflectionKind.union, (type, state) =>
+            deserializeUnion(this.bsonTypeGuards, type, state),
+        );
         this.bsonTypeGuards.register(1, ReflectionKind.array, bsonTypeGuardArray);
         this.bsonTypeGuards.register(1, ReflectionKind.tuple, bsonTypeGuardTuple);
         this.bsonTypeGuards.register(1, ReflectionKind.promise, (type, state) => executeTemplates(state, type.type));
         this.bsonTypeGuards.register(1, ReflectionKind.enum, (type, state) => executeTemplates(state, type.indexType));
 
-        this.bsonTypeGuards.registerClass(1, Date, bsonTypeGuardForBsonTypes([...numberTypes, BSONType.DATE, BSONType.TIMESTAMP]));
+        this.bsonTypeGuards.registerClass(
+            1,
+            Date,
+            bsonTypeGuardForBsonTypes([...numberTypes, BSONType.DATE, BSONType.TIMESTAMP]),
+        );
         this.bsonTypeGuards.registerBinary(1, bsonTypeGuardForBsonTypes([BSONType.BINARY]));
         this.bsonTypeGuards.registerClass(1, Map, forwardMapToArray);
         this.bsonTypeGuards.registerClass(1, Set, forwardSetToArray);
@@ -1603,11 +1825,48 @@ export class BSONBinarySerializer extends Serializer {
         //many deserializes support other types as well as fallback, we register them under specificality > 1
         this.bsonTypeGuards.register(1.5, ReflectionKind.undefined, bsonTypeGuardForBsonTypes([BSONType.NULL]));
         this.bsonTypeGuards.register(1.5, ReflectionKind.void, bsonTypeGuardForBsonTypes([BSONType.NULL]));
-        this.bsonTypeGuards.register(2, ReflectionKind.string, bsonTypeGuardForBsonTypes([BSONType.TIMESTAMP, BSONType.STRING, BSONType.NULL, BSONType.UNDEFINED, BSONType.BOOLEAN, BSONType.OID, ...numberTypes]));
-        this.bsonTypeGuards.register(2, ReflectionKind.number, bsonTypeGuardForBsonTypes([BSONType.TIMESTAMP, BSONType.STRING, BSONType.NULL, BSONType.UNDEFINED, BSONType.BOOLEAN, BSONType.BINARY]));
-        this.bsonTypeGuards.register(2, ReflectionKind.bigint, bsonTypeGuardForBsonTypes([BSONType.TIMESTAMP, BSONType.STRING, BSONType.NULL, BSONType.UNDEFINED, BSONType.BOOLEAN]));
+        this.bsonTypeGuards.register(
+            2,
+            ReflectionKind.string,
+            bsonTypeGuardForBsonTypes([
+                BSONType.TIMESTAMP,
+                BSONType.STRING,
+                BSONType.NULL,
+                BSONType.UNDEFINED,
+                BSONType.BOOLEAN,
+                BSONType.OID,
+                ...numberTypes,
+            ]),
+        );
+        this.bsonTypeGuards.register(
+            2,
+            ReflectionKind.number,
+            bsonTypeGuardForBsonTypes([
+                BSONType.TIMESTAMP,
+                BSONType.STRING,
+                BSONType.NULL,
+                BSONType.UNDEFINED,
+                BSONType.BOOLEAN,
+                BSONType.BINARY,
+            ]),
+        );
+        this.bsonTypeGuards.register(
+            2,
+            ReflectionKind.bigint,
+            bsonTypeGuardForBsonTypes([
+                BSONType.TIMESTAMP,
+                BSONType.STRING,
+                BSONType.NULL,
+                BSONType.UNDEFINED,
+                BSONType.BOOLEAN,
+            ]),
+        );
         this.bsonTypeGuards.register(2, ReflectionKind.boolean, bsonTypeGuardBooleanLoose);
-        this.bsonTypeGuards.register(2, ReflectionKind.literal, bsonTypeGuardForBsonTypes([BSONType.NULL, BSONType.UNDEFINED]));
+        this.bsonTypeGuards.register(
+            2,
+            ReflectionKind.literal,
+            bsonTypeGuardForBsonTypes([BSONType.NULL, BSONType.UNDEFINED]),
+        );
         this.bsonTypeGuards.registerClass(2, Date, bsonTypeGuardForBsonTypes([...numberTypes]));
 
         this.bsonTypeGuards.getRegistry(1).addDecorator(isReferenceType, (type, state) => {
@@ -1643,10 +1902,16 @@ export class BSONBinarySerializer extends Serializer {
         this.bsonDeserializeRegistry.register(ReflectionKind.literal, deserializeLiteral);
         this.bsonDeserializeRegistry.register(ReflectionKind.regexp, deserializeRegExp);
         this.bsonDeserializeRegistry.register(ReflectionKind.tuple, deserializeTuple);
-        this.bsonDeserializeRegistry.register(ReflectionKind.union, (type, state) => deserializeUnion(this.bsonTypeGuards, type, state));
+        this.bsonDeserializeRegistry.register(ReflectionKind.union, (type, state) =>
+            deserializeUnion(this.bsonTypeGuards, type, state),
+        );
         this.bsonDeserializeRegistry.register(ReflectionKind.array, deserializeArray);
-        this.bsonDeserializeRegistry.register(ReflectionKind.promise, (type, state) => executeTemplates(state, type.type));
-        this.bsonDeserializeRegistry.register(ReflectionKind.enum, (type, state) => executeTemplates(state, type.indexType));
+        this.bsonDeserializeRegistry.register(ReflectionKind.promise, (type, state) =>
+            executeTemplates(state, type.type),
+        );
+        this.bsonDeserializeRegistry.register(ReflectionKind.enum, (type, state) =>
+            executeTemplates(state, type.indexType),
+        );
         this.bsonDeserializeRegistry.registerClass(Date, deserializeDate);
         this.bsonDeserializeRegistry.registerBinary(deserializeBinary);
         this.bsonDeserializeRegistry.registerClass(Map, (type, state) => {
@@ -1659,12 +1924,18 @@ export class BSONBinarySerializer extends Serializer {
         });
 
         this.bsonDeserializeRegistry.addDecorator(
-            type => isReferenceType(type) || isBackReferenceType(type) || (type.parent !== undefined && isBackReferenceType(type.parent)),
+            type =>
+                isReferenceType(type) ||
+                isBackReferenceType(type) ||
+                (type.parent !== undefined && isBackReferenceType(type.parent)),
             (type, state) => {
                 if (type.kind !== ReflectionKind.class && type.kind !== ReflectionKind.objectLiteral) return;
                 state.setContext({ isObject, createReference, isReferenceHydrated });
                 const reflection = ReflectionClass.from(type);
-                const referenceClassTypeVar = state.setVariable('referenceClassType', type.kind === ReflectionKind.class ? type.classType : Object);
+                const referenceClassTypeVar = state.setVariable(
+                    'referenceClassType',
+                    type.kind === ReflectionKind.class ? type.classType : Object,
+                );
                 // in deserialization a reference is created when only the primary key is provided (no object given)
                 state.template = `
                     if (state.elementType === ${BSONType.OBJECT}) {
@@ -1675,14 +1946,20 @@ export class BSONBinarySerializer extends Serializer {
                         ${state.setter} = createReference(${referenceClassTypeVar}, {${JSON.stringify(reflection.getPrimary().getName())}: pk});
                     }
                 `;
-            });
+            },
+        );
     }
-
 }
 
 export const bsonBinarySerializer = new BSONBinarySerializer();
 
-function createBSONSerializer(type: Type, serializer: BSONBinarySerializer, namingStrategy: NamingStrategy = new NamingStrategy(), path: string = '', jitStack: JitStack = new JitStack()): BSONSerializer {
+function createBSONSerializer(
+    type: Type,
+    serializer: BSONBinarySerializer,
+    namingStrategy: NamingStrategy = new NamingStrategy(),
+    path: string = '',
+    jitStack: JitStack = new JitStack(),
+): BSONSerializer {
     const compiler = new CompilerContext();
     compiler.context.set('typeSettings', typeSettings);
     compiler.context.set('Writer', Writer);
@@ -1691,7 +1968,9 @@ function createBSONSerializer(type: Type, serializer: BSONBinarySerializer, nami
     compiler.context.set('sizer', getBSONSizer(serializer, type));
     compiler.context.set('UnpopulatedCheck', UnpopulatedCheck);
 
-    const state = new TemplateState('', 'data', compiler, serializer.bsonSerializeRegistry, namingStrategy, jitStack, [path]).disableSetter();
+    const state = new TemplateState('', 'data', compiler, serializer.bsonSerializeRegistry, namingStrategy, jitStack, [
+        path,
+    ]).disableSetter();
 
     const code = `
         state = state || {};
@@ -1710,7 +1989,11 @@ function createBSONSerializer(type: Type, serializer: BSONBinarySerializer, nami
     return compiler.build(code, 'data', 'state');
 }
 
-export function createBSONSizer<T>(type?: ReceiveType<T>, serializer: BSONBinarySerializer = bsonBinarySerializer, jitStack: JitStack = new JitStack()): (data: object) => number {
+export function createBSONSizer<T>(
+    type?: ReceiveType<T>,
+    serializer: BSONBinarySerializer = bsonBinarySerializer,
+    jitStack: JitStack = new JitStack(),
+): (data: object) => number {
     const compiler = new CompilerContext();
     type = resolveReceiveType(type);
     compiler.context.set('typeSettings', typeSettings);
@@ -1718,7 +2001,15 @@ export function createBSONSizer<T>(type?: ReceiveType<T>, serializer: BSONBinary
     compiler.context.set('UnpopulatedCheck', UnpopulatedCheck);
     compiler.context.set('seekElementSize', seekElementSize);
 
-    const state = new TemplateState('', 'data', compiler, serializer.sizerRegistry, new NamingStrategy(), jitStack, []).disableSetter();
+    const state = new TemplateState(
+        '',
+        'data',
+        compiler,
+        serializer.sizerRegistry,
+        new NamingStrategy(),
+        jitStack,
+        [],
+    ).disableSetter();
 
     const code = `
         state = state || {loosely: false};
@@ -1748,7 +2039,10 @@ export type BSONSerializerState = { writer?: Writer };
 export type BSONSerializer = (data: any, state?: BSONSerializerState) => Uint8Array;
 export type BSONSizer = (data: any) => number;
 
-export function getBSONSerializer<T>(serializer: BSONBinarySerializer = bsonBinarySerializer, receiveType?: ReceiveType<T>): BSONSerializer {
+export function getBSONSerializer<T>(
+    serializer: BSONBinarySerializer = bsonBinarySerializer,
+    receiveType?: ReceiveType<T>,
+): BSONSerializer {
     const type = resolveReceiveType(receiveType);
 
     const jit = getTypeJitContainer(type);
@@ -1759,7 +2053,10 @@ export function getBSONSerializer<T>(serializer: BSONBinarySerializer = bsonBina
     return jit[serializer.serializeId];
 }
 
-export function getBSONSizer<T>(serializer: BSONBinarySerializer = bsonBinarySerializer, receiveType?: ReceiveType<T>): BSONSizer {
+export function getBSONSizer<T>(
+    serializer: BSONBinarySerializer = bsonBinarySerializer,
+    receiveType?: ReceiveType<T>,
+): BSONSizer {
     const type = resolveReceiveType(receiveType);
     const jit = getTypeJitContainer(type);
     if (jit[serializer.sizerId]) return jit[serializer.sizerId];
@@ -1769,7 +2066,11 @@ export function getBSONSizer<T>(serializer: BSONBinarySerializer = bsonBinarySer
     return jit[serializer.sizerId];
 }
 
-export function serializeBSON<T>(data: T, serializer: BSONBinarySerializer = bsonBinarySerializer, receiveType?: ReceiveType<T>): Uint8Array {
+export function serializeBSON<T>(
+    data: T,
+    serializer: BSONBinarySerializer = bsonBinarySerializer,
+    receiveType?: ReceiveType<T>,
+): Uint8Array {
     const serialize = getBSONSerializer(serializer, receiveType);
     return serialize(data);
 }

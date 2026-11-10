@@ -268,6 +268,35 @@ test('a wrong size is an error', () => {
     expect(() => new BsonStreamReader(() => undefined).feed(data)).toThrow('message size wrong');
 });
 
+test('messages over several chunks share one reused buffer', () => {
+    const received: Uint8Array[] = [];
+    const reader = new BsonStreamReader(v => received.push(v));
+    for (const fill of [1, 2]) {
+        const data = message(100, fill);
+        reader.feed(data.subarray(0, 50));
+        reader.feed(data.subarray(50));
+    }
+    expect(received[0].buffer).toBe(received[1].buffer);
+    expect(received[0].byteOffset).toBe(received[1].byteOffset);
+});
+
+test('a reused buffer holds the whole message and keeps the rest of the chunk', () => {
+    const sizes = [100, 50, 5000, 20, 400_000, 30];
+    for (const cut of [3, 7, 64]) {
+        const received: Buffer[] = [];
+        const reader = new BsonStreamReader(v => received.push(Buffer.from(v)));
+        const joined = new Uint8Array(sizes.reduce((a, b) => a + b, 0));
+        let offset = 0;
+        sizes.forEach((size, i) => {
+            joined.set(message(size, i + 1), offset);
+            offset += size;
+        });
+        for (let i = 0; i < joined.length; i += cut) reader.feed(joined.subarray(i, i + cut));
+        expect(received.map((v, i) => v.compare(message(sizes[i], i + 1)))).toEqual(sizes.map(() => 0));
+        expect(reader.emptyBuffer()).toBe(true);
+    }
+});
+
 test('a message in many chunks is copied once', () => {
     const size = 2_000_000;
     const data = message(size, 5);

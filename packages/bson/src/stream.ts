@@ -1,5 +1,4 @@
-import { createBuffer } from '@deepkit/core';
-
+import { AutoBuffer, AutoBufferSerializerState } from './bson-serializer.js';
 import { BSONError } from './model.js';
 
 function readSize(buffer: Uint8Array, offset: number): number {
@@ -9,12 +8,31 @@ function readSize(buffer: Uint8Array, offset: number): number {
 /**
  * Reads BSON messages from a stream and emits them as Uint8Array.
  *
- * Accepts chunks of any size. A message that is complete within one chunk is emitted without a copy,
- * and a message spread over several chunks is copied only once, when it is complete.
+ * Accepts chunks of any size. A message that is complete within one chunk is emitted without a copy.
+ * A message spread over several chunks is copied once into a buffer that is reused for the next such message,
+ * so the emitted array is only valid during the callback. Copy it to keep it.
  */
 export class BsonStreamReader {
     protected chunks: Uint8Array[] = [];
     protected total: number = 0;
+    protected spanning?: AutoBuffer;
+
+    /**
+     * Skips the bytes when they don't fit yet, AutoBuffer then calls this again with a large enough buffer.
+     */
+    protected copyChunks = (size: number, state: AutoBufferSerializerState): void => {
+        const writer = state.writer!;
+        if (size <= writer.buffer.byteLength) {
+            let written = 0;
+            for (let index = 0; written < size; index++) {
+                const chunk = this.chunks[index];
+                const toCopy = Math.min(size - written, chunk.byteLength);
+                writer.buffer.set(toCopy === chunk.byteLength ? chunk : chunk.subarray(0, toCopy), written);
+                written += toCopy;
+            }
+        }
+        writer.offset += size;
+    };
 
     constructor(
         protected readonly onMessage: (response: Uint8Array) => void,
@@ -60,13 +78,13 @@ export class BsonStreamReader {
         const first = this.chunks[0];
         if (first.byteLength >= 4) return readSize(first, 0);
 
-        const header = new Uint8Array(4);
+        let size = 0;
         let copied = 0;
         for (const chunk of this.chunks) {
-            for (let i = 0; i < chunk.byteLength && copied < 4; i++) header[copied++] = chunk[i];
+            for (let i = 0; i < chunk.byteLength && copied < 4; i++) size |= chunk[i] << (copied++ * 8);
             if (copied === 4) break;
         }
-        return readSize(header, 0);
+        return size;
     }
 
     protected consume(size: number): Uint8Array {
@@ -81,22 +99,22 @@ export class BsonStreamReader {
             return first.subarray(0, size);
         }
 
-        //the same type as the chunks of a socket, a mix of both makes all element access slower
-        const result = createBuffer(size);
-        let written = 0;
+        const spanning = (this.spanning ??= new AutoBuffer());
+        spanning.apply(this.copyChunks, size);
+
+        let remaining = size;
         let index = 0;
-        while (written < size) {
+        while (remaining > 0) {
             const chunk = this.chunks[index];
-            const toCopy = Math.min(size - written, chunk.byteLength);
-            result.set(toCopy === chunk.byteLength ? chunk : chunk.subarray(0, toCopy), written);
-            written += toCopy;
-            if (toCopy === chunk.byteLength) {
+            if (chunk.byteLength <= remaining) {
+                remaining -= chunk.byteLength;
                 index++;
             } else {
-                this.chunks[index] = chunk.subarray(toCopy);
+                this.chunks[index] = chunk.subarray(remaining);
+                remaining = 0;
             }
         }
         this.chunks.splice(0, index);
-        return result;
+        return spanning.buffer;
     }
 }

@@ -1,11 +1,11 @@
-import { expect, test } from '@jest/globals';
+import { expect, jest, test } from '@jest/globals';
 import bson, { Binary } from 'bson';
 import { deserializeBSON, getBSONDeserializer } from '../src/bson-deserializer.js';
 import { BinaryBigInt, copyAndSetParent, MinLength, MongoId, nodeBufferToArrayBuffer, PrimaryKey, Reference, ReflectionKind, SerializedTypes, SignedBinaryBigInt, TypeObjectLiteral, typeOf, uuid, UUID } from '@deepkit/type';
 import { getClassName } from '@deepkit/core';
 import { getBSONSerializer, serializeBSON, serializeBSONWithoutOptimiser } from '../src/bson-serializer.js';
 import { BSONType } from '../src/utils';
-import { deserializeBSONWithoutOptimiser } from '../src/bson-parser';
+import { BaseParser, deserializeBSONWithoutOptimiser } from '../src/bson-parser';
 import { getBsonEncoder } from '../src/encoder.js';
 
 const { deserialize, serialize } = bson;
@@ -978,4 +978,83 @@ test('union errors are the same as in validate()', () => {
     expect(() => deserializeBSON<Shape>(serialize({ v: [1] }))).toThrow('v(type): Expected Circle | Square, got array');
     expect(() => deserializeBSON<{ v: 'a' | 'b' }>(serialize({ v: 3 }))).toThrow(`v(type): Expected 'a' | 'b', got number`);
     expect(() => deserializeBSON<{ v: string[] | number }>(serialize({ v: ['a', 2] }))).toThrow('v.1(type): Not a string');
+});
+
+test('binary is copied once into a plain Uint8Array', () => {
+    const data = Buffer.from([5, 0, 0, 0, 0, 1, 2, 3, 4, 5]);
+    const parser = new BaseParser(data);
+    const slice = jest.spyOn(ArrayBuffer.prototype, 'slice');
+    let result: Uint8Array;
+    try {
+        result = parser.parseBinary(typeOf<Uint8Array>());
+        expect(slice).not.toHaveBeenCalled();
+    } finally {
+        slice.mockRestore();
+    }
+    expect(result!.constructor).toBe(Uint8Array);
+    expect([...result!]).toEqual([1, 2, 3, 4, 5]);
+    data[5] = 99;
+    expect(result![0]).toBe(1);
+    expect(parser.offset).toBe(10);
+});
+
+test('binary of other typed arrays and ArrayBuffer', () => {
+    const data = Buffer.from([8, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0]);
+    const arrayBuffer: ArrayBuffer = new BaseParser(data).parseBinary(typeOf<ArrayBuffer>());
+    // not the shared memory of a pool
+    expect(arrayBuffer.byteLength).toBe(8);
+    expect([...new Uint32Array(arrayBuffer)]).toEqual([1, 2]);
+    expect([...(new BaseParser(data).parseBinary(typeOf<Uint32Array>()) as Uint32Array)]).toEqual([1, 2]);
+});
+
+test('binary larger than the remaining bytes does not allocate its claimed size', () => {
+    const data = Buffer.from([0xff, 0xff, 0xff, 0x7f, 0, 1, 2]);
+    const result = new BaseParser(data).parseBinary(typeOf<Uint8Array>());
+    expect([...result]).toEqual([1, 2]);
+});
+
+function binary(size: number, fill: number): Buffer {
+    const data = Buffer.alloc(size + 5, fill);
+    data.writeUInt32LE(size, 0);
+    data[4] = 0;
+    return data;
+}
+
+test('binary above 64 bytes shares a pool and stays independent', () => {
+    const a = new BaseParser(binary(100, 1)).parseBinary(typeOf<Uint8Array>()) as Uint8Array;
+    const b = new BaseParser(binary(100, 2)).parseBinary(typeOf<Uint8Array>()) as Uint8Array;
+    expect(a.constructor).toBe(Uint8Array);
+    expect(a.buffer).toBe(b.buffer);
+    expect(a.byteLength).toBe(100);
+    expect(a.every(v => v === 1)).toBe(true);
+    expect(b.every(v => v === 2)).toBe(true);
+});
+
+test('binary that is small or very large gets its own memory', () => {
+    for (const size of [64, 40_000]) {
+        const value = new BaseParser(binary(size, 1)).parseBinary(typeOf<Uint8Array>()) as Uint8Array;
+        expect(value.buffer.byteLength).toBe(size);
+    }
+});
+
+test('binary without a type is a plain copy', () => {
+    const data = binary(195, 3);
+    const result = new BaseParser(data).parseBinary();
+    expect(result.constructor).toBe(Uint8Array);
+    expect(result.byteLength).toBe(195);
+    data[5] = 9;
+    expect(result[0]).toBe(3);
+});
+
+test('parseBinaryView returns a view on the buffer', () => {
+    for (const data of [
+        Buffer.from([3, 0, 0, 0, 0, 7, 8, 9, 1]),
+        Buffer.from([7, 0, 0, 0, 2, 3, 0, 0, 0, 7, 8, 9, 1]),
+    ]) {
+        const parser = new BaseParser(data);
+        const view = parser.parseBinaryView();
+        expect([...view]).toEqual([7, 8, 9]);
+        expect(view.buffer).toBe(data.buffer);
+        expect(data[parser.offset]).toBe(1);
+    }
 });
