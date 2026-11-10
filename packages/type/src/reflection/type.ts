@@ -2162,7 +2162,9 @@ export const typeDecorators: TypeDecorator[] = [
                 const optionsType = meta.options;
                 if (!optionsType || optionsType.kind !== ReflectionKind.objectLiteral) return false;
                 const options = typeToObject(optionsType);
-                indexAnnotation.replace(annotations, [options]);
+                // Unique and Index are both index annotations, a later one adds to the options of an earlier one
+                const existing = annotations[indexAnnotation.symbol]?.[0] as IndexOptions | undefined;
+                indexAnnotation.replace(annotations, [{ ...existing, ...options }]);
                 return true;
             }
             case 'database': {
