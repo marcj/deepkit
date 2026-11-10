@@ -49,6 +49,7 @@ const whitelist = [
     'h6',
     'img',
     'table',
+    'thead',
     'tbody',
     'tr',
     'td',
