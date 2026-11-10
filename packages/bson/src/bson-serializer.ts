@@ -362,6 +362,9 @@ export class AutoBuffer {
     }
 }
 
+/** From this length on strings are written with node's Buffer.utf8Write. Below, the call costs more than it saves. */
+const nativeStringLength = 32;
+
 export class Writer {
     public typeOffset: number = 0;
 
@@ -459,6 +462,12 @@ export class Writer {
         if (typeof str !== 'string') return;
         const buffer = this.buffer;
         const length = str.length;
+        // node encodes longer strings natively several times faster. Only when the bytes fit for sure:
+        // the offset has to count on past the end of the buffer, so that AutoBuffer can retry with a larger one.
+        if (length >= nativeStringLength && (buffer as any).utf8Write !== undefined && this.offset + length * 3 <= buffer.byteLength) {
+            this.offset += (buffer as any).utf8Write(str, this.offset);
+            return;
+        }
         let offset = this.offset;
         let i = 0;
         for (; i < length; i++) {
