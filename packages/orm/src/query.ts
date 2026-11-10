@@ -1218,6 +1218,7 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
             if (!hasEvents) {
                 query = this.onQueryResolve(query);
                 await this.resolver.patch(query.model, changes, patchResult);
+                if (query.model.withIdentityMap) this.applyPatchToIdentityMap(changes, patchResult);
                 return patchResult;
             }
 
@@ -1237,25 +1238,7 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
             query = this.onQueryResolve(query);
             await event.query.resolver.patch(event.query.model, changes, patchResult);
 
-            if (query.model.withIdentityMap) {
-                const pkHashGenerator = getSimplePrimaryKeyHashGenerator(this.classSchema);
-                for (let i = 0; i < patchResult.primaryKeys.length; i++) {
-                    const item = this.session.identityMap.getByHash(
-                        this.classSchema,
-                        pkHashGenerator(patchResult.primaryKeys[i]),
-                    );
-                    if (!item) continue;
-
-                    if (changes.$set)
-                        for (const name in changes.$set) {
-                            (item as any)[name] = (changes.$set as any)[name];
-                        }
-
-                    for (const name in patchResult.returning) {
-                        (item as any)[name] = (patchResult.returning as any)[name][i];
-                    }
-                }
-            }
+            if (query.model.withIdentityMap) this.applyPatchToIdentityMap(changes, patchResult);
 
             if (this.session.eventDispatcher.hasListeners(Query.onPatchPost)) {
                 const eventFrame = this.session.stopwatch ? this.session.stopwatch.start('Events Post') : undefined;
@@ -1273,6 +1256,24 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
             throw error;
         } finally {
             if (frame) frame.end();
+        }
+    }
+
+    /** Brings the instances this session already loaded up to date with a patch that was executed. */
+    protected applyPatchToIdentityMap(changes: Changes<T>, patchResult: PatchResult<T>): void {
+        const pkHashGenerator = getSimplePrimaryKeyHashGenerator(this.classSchema);
+        for (let i = 0; i < patchResult.primaryKeys.length; i++) {
+            const item = this.session.identityMap.getByHash(this.classSchema, pkHashGenerator(patchResult.primaryKeys[i]));
+            if (!item) continue;
+
+            if (changes.$set)
+                for (const name in changes.$set) {
+                    (item as any)[name] = (changes.$set as any)[name];
+                }
+
+            for (const name in patchResult.returning) {
+                (item as any)[name] = (patchResult.returning as any)[name][i];
+            }
         }
     }
 
