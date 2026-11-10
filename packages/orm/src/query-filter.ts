@@ -67,6 +67,11 @@ function convertProperty(
                         break;
                     }
                 } else if (key === '$not') {
+                    // { $not: /an/ } keeps its RegExp, the converter turned it into a string
+                    if (value instanceof RegExp) {
+                        fieldNamesMap[name] = true;
+                        continue;
+                    }
                     fieldValue[key] = convertProperty(schema, type, value, name, converter, fieldNamesMap, customMapping);
                 } else if (key === '$all') {
                     if (isArray(value[0])) {

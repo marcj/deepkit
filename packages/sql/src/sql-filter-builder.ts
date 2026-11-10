@@ -51,7 +51,7 @@ export class SQLFilterBuilder {
     }
 
     convert(filter: Filter): string {
-        return this.conditions(filter, 'AND').trim();
+        return this.conditions(filter).trim();
     }
 
     protected bindParam(value: any): string {
@@ -73,7 +73,7 @@ export class SQLFilterBuilder {
         const sql: string[] = [];
 
         for (const filter of filters) {
-            sql.push(this.conditions(filter, 'AND'));
+            sql.push(this.conditions(filter));
         }
 
         if (sql.length > 1) return '(' + sql.join(` ${join} `) + ')';
@@ -161,18 +161,29 @@ export class SQLFilterBuilder {
         for (const i in filter) {
             if (!filter.hasOwnProperty(i)) continue;
 
-            if (i === '$or') return this.conditionsArray(filter[i], 'OR');
-            if (i === '$and') return this.conditionsArray(filter[i], 'AND');
-            if (i === '$not') return `NOT ` + this.conditionsArray(filter[i], 'AND');
-
-            if (i === '$exists') sql.push(this.adapter.platform.quoteValue(this.schema.hasProperty(i)));
+            // pushed, not returned: other keys of the same filter object were dropped
+            if (i === '$or') sql.push(this.conditionsArray(filter[i], 'OR'));
+            else if (i === '$and') sql.push(this.conditionsArray(filter[i], 'AND'));
+            else if (i === '$nor') sql.push(`NOT (${this.conditionsArray(filter[i], 'OR')})`);
+            else if (i === '$not') {
+                const value = filter[i];
+                if (fieldName === undefined || isArray(value)) {
+                    // root level: { $not: [filter, ...] }
+                    sql.push(`NOT (${this.conditionsArray(value, 'AND')})`);
+                } else {
+                    // field level: { name: { $not: /an/ } }, { age: { $not: { $gt: 3 } } }
+                    sql.push(`NOT (${this.condition(fieldName, value, value instanceof RegExp ? 'regex' : 'eq')})`);
+                }
+            } else if (i === '$exists') sql.push(this.adapter.platform.quoteValue(this.schema.hasProperty(i)));
             else if (i[0] === '$') sql.push(this.condition(fieldName, filter[i], i.substring(1)));
             else if (filter[i] instanceof RegExp) sql.push(this.condition(i, filter[i], 'regex'));
             else sql.push(this.condition(i, filter[i], 'eq'));
         }
 
-        if (sql.length > 1) return '(' + sql.join(` AND `) + ')';
-        return sql.join(` AND `);
+        // an empty $or/$and matches everything and adds no condition
+        const conditions = sql.filter(v => v !== '');
+        if (conditions.length > 1) return '(' + conditions.join(` AND `) + ')';
+        return conditions.join(` AND `);
     }
 }
 
