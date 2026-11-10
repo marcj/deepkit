@@ -328,8 +328,36 @@ export function createTypeGuardFunction(type: Type, stateIn?: Partial<TemplateSt
 
 export class SerializationError extends CustomError {
     constructor(public originalMessage: string, public code: string = '', public path: string = '') {
-        super(`Serialization failed. ${!path ? '' : (path && path.startsWith('.') ? path.slice(1) : path) + ': '}` + originalMessage);
+        super(serializationErrorMessage(originalMessage, path));
     }
+}
+
+function serializationErrorMessage(originalMessage: string, path: string): string {
+    return `Serialization failed. ${!path ? '' : (path && path.startsWith('.') ? path.slice(1) : path) + ': '}` + originalMessage;
+}
+
+/**
+ * Inserts the path segment of a nested value into the paths of an error thrown while it was serialized. The nested
+ * serializer was called with the path of the parent, which every path of the error starts with.
+ *
+ * @internal
+ */
+export function nestErrorPath(error: unknown, parent: string, suffix: string): unknown {
+    const nest = (path: string) => (path.startsWith(parent) ? parent + suffix + path.slice(parent.length) : path);
+    if (error instanceof SerializationError) {
+        error.path = nest(error.path);
+        error.message = serializationErrorMessage(error.originalMessage, error.path);
+    } else if (error instanceof ValidationError) {
+        for (const item of error.errors) {
+            // the item has the path without its leading dot, all paths built from a parent path have one
+            const path = item.path ? '.' + item.path : '';
+            const nested = nest(path);
+            if (nested !== path) (item as { path: string }).path = nested[0] === '.' ? nested.slice(1) : nested;
+        }
+        const start = error.message.indexOf(':\n');
+        if (start !== -1) error.message = error.message.slice(0, start + 2) + error.errors.map(v => v.toString()).join(',\n');
+    }
+    return error;
 }
 
 export class RuntimeCode {
@@ -848,12 +876,34 @@ export function callExtractedFunctionIfAvailable(state: TemplateState, type: Typ
     const jit = state.jitStack.get(getJitStackKey(state), type);
     if (!jit) return false;
     const withSetter = !state.setterDisabled && state.setter;
-    // type guards need the path only for error messages, building it for every call is expensive
-    const path = state.typeGuard && state.path.length > 1 ? `state.errors ? ${collapsePath(state.path)} : _path` : collapsePath(state.path);
-    state.addCode(`
-    //call jit=${jit.id} for setter="${state.setter}" via propertyName ${state.propertyName ? collapsePath([state.propertyName]) : ''}
-    ${withSetter ? `${state.setter} = ` : ''}${state.setVariable('jit', jit)}.fn(${state.accessor || 'undefined'}, state, ${path});
-    `);
+    const call = (path: string) => `${withSetter ? `${state.setter} = ` : ''}${state.setVariable('jit', jit)}.fn(${state.accessor || 'undefined'}, state, ${path});`;
+    const comment = `//call jit=${jit.id} for setter="${state.setter}" via propertyName ${state.propertyName ? collapsePath([state.propertyName]) : ''}`;
+    const segments = state.path.slice(1).filter(v => !!v);
+    const rootIsPath = state.path[0] instanceof RuntimeCode && state.path[0].code === '_path';
+    if (state.typeGuard && state.path.length > 1) {
+        // type guards need the path only for error messages, building it for every call is expensive
+        state.addCode(`${comment}\n${call(`state.errors ? ${collapsePath(state.path)} : _path`)}`);
+    } else if (rootIsPath && segments.length) {
+        // The path of each element of an array or nested object is only needed when it throws: the call gets the
+        // path of the parent and the error gets the rest of the path. Building it for every call allocated a string
+        // per element. Errors collected in state.errors are not thrown, they need the whole path right away.
+        const suffix = `'.'+${collapsePath(segments)}`;
+        state.setContext({ nestErrorPath });
+        state.addCode(`
+        ${comment}
+        if (state.errors) {
+            ${call(collapsePath(state.path))}
+        } else {
+            try {
+                ${call('_path')}
+            } catch (error) {
+                throw nestErrorPath(error, _path, ${suffix});
+            }
+        }
+        `);
+    } else {
+        state.addCode(`${comment}\n${call(collapsePath(state.path))}`);
+    }
     if (withSetter) state.accessor = state.setter;
     return true;
 }
