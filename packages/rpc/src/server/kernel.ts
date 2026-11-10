@@ -60,6 +60,8 @@ import {
     helloOffset,
     readUint16LE,
     readUint32LE,
+    releaseMessageBuffer,
+    releaseMessageBufferIfLarge,
     routeMask,
     rpcEncodeError,
     rpcProtocolVersion,
@@ -300,8 +302,12 @@ export abstract class RpcKernelBaseConnection implements RpcFastHost {
     /** The handshake is not a message of the application and does not count in the statistics. */
     protected sendHelloFrame(size: number): void {
         const socket = this.transportConnection.binarySocket;
-        if (socket?.writeRange) socket.writeRange(frameMemory(), 0, size);
-        else if (this.transportConnection.writeBinary)
+        if (socket?.writeRange) {
+            socket.writeRange(frameMemory(), 0, size);
+            // node holds on to a large hello it could not write at once, the next frame must not overwrite it
+            if (socket.writableLength > 0) releaseMessageBuffer();
+            else releaseMessageBufferIfLarge();
+        } else if (this.transportConnection.writeBinary)
             this.transportConnection.writeBinary(copyFrame(frameMemory(), 0, size));
     }
 
@@ -589,19 +595,24 @@ export class RpcKernelConnection extends RpcKernelBaseConnection {
         switch (op) {
             case ControlOp.Ping:
                 return this.sendAck(id);
-            case ControlOp.ClientId:
-                return this.sendFrame(
-                    frameMemory(),
-                    writeResultFrameTransient(id, this.routeFlag, writeClientId, this.id, this.routeData),
-                );
+            case ControlOp.ClientId: {
+                // the size first: writing a small frame after a large one switches the frame memory
+                const size = writeResultFrameTransient(id, this.routeFlag, writeClientId, this.id, this.routeData);
+                return this.sendFrame(frameMemory(), size);
+            }
             case ControlOp.Authenticate: {
                 const token = readOneValue(buffer, offset, end)[0];
                 this.authenticate(token).then(
-                    username =>
-                        this.sendFrame(
-                            frameMemory(),
-                            writeResultFrameTransient(id, this.routeFlag, writeUsername, username, this.routeData),
-                        ),
+                    username => {
+                        const size = writeResultFrameTransient(
+                            id,
+                            this.routeFlag,
+                            writeUsername,
+                            username,
+                            this.routeData,
+                        );
+                        this.sendFrame(frameMemory(), size);
+                    },
                     error => this.sendError(id, this.security.transformError(error)),
                 );
                 return;

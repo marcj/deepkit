@@ -137,7 +137,9 @@ export class TransportBinaryMessageChunkWriter {
             let offset = 0;
             let currentResolve: undefined | ((active: boolean) => void);
             progress?.abortController.signal.addEventListener('abort', () => {
-                writer(copyFrame(frameMemory(), 0, writeChunkControlFrameTransient(id, route, ChunkOp.Abort)));
+                // the size first: writing the frame can switch the frame memory
+                const size = writeChunkControlFrameTransient(id, route, ChunkOp.Abort);
+                writer(copyFrame(frameMemory(), 0, size));
                 currentResolve?.(false);
             });
             let sequence = 0;
