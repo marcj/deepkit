@@ -9,7 +9,7 @@
 //
 // Each file runs in its own process, so the JIT state of one suite doesn't influence the next.
 import { execFileSync, spawnSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { cpus, hostname, tmpdir } from 'os';
 import { dirname, join, relative } from 'path';
 
@@ -20,6 +20,8 @@ interface BenchmarkEntry {
     rme: number;
     mean: number;
     iterations: number;
+    /** Only the load benchmarks: throughput is in hz, this has latency percentiles and the state of the processes */
+    load?: unknown;
 }
 
 /** Compile result of a codebase with the type compiler off or on */
@@ -63,7 +65,10 @@ const root = join(import.meta.dirname, '..');
 /** The installed versions of the libraries the comparisons run against, from their package.json in node_modules. */
 function libraryVersions(): { [name: string]: string } {
     const benchmarksPackage = JSON.parse(readFileSync(join(root, 'benchmarks', 'package.json'), 'utf8'));
-    const names = [...Object.keys({ ...benchmarksPackage.dependencies, ...benchmarksPackage.devDependencies }), 'better-sqlite3'];
+    const names = [
+        ...Object.keys({ ...benchmarksPackage.dependencies, ...benchmarksPackage.devDependencies }),
+        'better-sqlite3',
+    ];
     const versions: { [name: string]: string } = {};
     for (const name of names.filter(v => !v.startsWith('@deepkit/')).sort()) {
         for (const dir of [join(root, 'benchmarks', 'node_modules'), join(root, 'node_modules')]) {
@@ -113,21 +118,55 @@ function git(...args: string[]): string {
 function prepareTarget(version: string, files: string[]): string {
     const dir = join(tmpdir(), 'deepkit-bench-' + version);
     //older versions don't declare all @deepkit packages they import, so all core packages are installed
-    const packages = new Set(['run', 'type-compiler', 'type-spec', 'type', 'core', 'core-rxjs', 'injector', 'event', 'app', 'logger', 'stopwatch', 'workflow', 'bson', 'rpc', 'http', 'template', 'orm', 'sql', 'sqlite', 'mongo'].map(v => '@deepkit/' + v));
+    const packages = new Set(
+        [
+            'run',
+            'type-compiler',
+            'type-spec',
+            'type',
+            'core',
+            'core-rxjs',
+            'injector',
+            'event',
+            'app',
+            'logger',
+            'stopwatch',
+            'workflow',
+            'bson',
+            'rpc',
+            'http',
+            'template',
+            'orm',
+            'sql',
+            'sqlite',
+            'mongo',
+        ].map(v => '@deepkit/' + v),
+    );
     for (const file of files) {
-        for (const match of readFileSync(join(root, file), 'utf8').matchAll(/from '(@deepkit\/[a-z-]+)/g)) packages.add(match[1]);
+        for (const match of readFileSync(join(root, file), 'utf8').matchAll(/from '(@deepkit\/[a-z-]+)/g))
+            packages.add(match[1]);
     }
     packages.delete('@deepkit/bench');
     //@deepkit/run brings its own TypeScript if it needs another version, and that copy would not have the type compiler installed
     const [major, minor] = version.split('.').map(Number);
-    const typescript = major > 1 || (major === 1 && minor >= 1) ? JSON.parse(readFileSync(join(root, 'packages', 'run', 'package.json'), 'utf8')).dependencies.typescript : '~5.8.3';
+    const typescript =
+        major > 1 || (major === 1 && minor >= 1)
+            ? JSON.parse(readFileSync(join(root, 'packages', 'run', 'package.json'), 'utf8')).dependencies.typescript
+            : '~5.8.3';
     const dependencies: { [name: string]: string } = { typescript, rxjs: '^7.8.0' };
     for (const name of packages) dependencies[name] = version;
 
     const packageFile = join(dir, 'package.json');
     //drivers that older versions can't build on the current Node.js version, e.g. better-sqlite3 before 12.11 on Node.js 26
-    const overrides = { 'better-sqlite3': JSON.parse(readFileSync(join(root, 'packages', 'sqlite', 'package.json'), 'utf8')).dependencies['better-sqlite3'] };
-    const packageJson = JSON.stringify({ name: 'deepkit-bench-target', private: true, type: 'module', dependencies, overrides }, null, 2);
+    const overrides = {
+        'better-sqlite3': JSON.parse(readFileSync(join(root, 'packages', 'sqlite', 'package.json'), 'utf8'))
+            .dependencies['better-sqlite3'],
+    };
+    const packageJson = JSON.stringify(
+        { name: 'deepkit-bench-target', private: true, type: 'module', dependencies, overrides },
+        null,
+        2,
+    );
     if (!existsSync(packageFile) || readFileSync(packageFile, 'utf8') !== packageJson) {
         mkdirSync(dir, { recursive: true });
         writeFileSync(packageFile, packageJson);
@@ -135,17 +174,34 @@ function prepareTarget(version: string, files: string[]): string {
         execFileSync('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: dir, stdio: 'inherit' });
         execFileSync('npx', ['deepkit-type-install'], { cwd: dir, stdio: 'inherit' });
     }
-    writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({
-        compilerOptions: { target: 'es2022', module: 'es2022', moduleResolution: 'bundler', experimentalDecorators: true, emitDecoratorMetadata: true, skipLibCheck: true },
-        reflection: true,
-    }, null, 2));
+    writeFileSync(
+        join(dir, 'tsconfig.json'),
+        JSON.stringify(
+            {
+                compilerOptions: {
+                    target: 'es2022',
+                    module: 'es2022',
+                    moduleResolution: 'bundler',
+                    experimentalDecorators: true,
+                    emitDecoratorMetadata: true,
+                    skipLibCheck: true,
+                },
+                reflection: true,
+            },
+            null,
+            2,
+        ),
+    );
 
     //the libraries of the comparison benchmarks are linked from the workspace, so both runs use the same versions
-    const devDependencies = JSON.parse(readFileSync(join(root, 'benchmarks', 'package.json'), 'utf8')).devDependencies || {};
+    const devDependencies =
+        JSON.parse(readFileSync(join(root, 'benchmarks', 'package.json'), 'utf8')).devDependencies || {};
     for (const name of Object.keys(devDependencies)) {
         //ttsc and the native TypeScript only generate the typia code, which is committed
         if (name.startsWith('@deepkit/') || name === 'ttsc' || name === 'typescript-native') continue;
-        const source = [join(root, 'benchmarks', 'node_modules', name), join(root, 'node_modules', name)].find(v => existsSync(v));
+        const source = [join(root, 'benchmarks', 'node_modules', name), join(root, 'node_modules', name)].find(v =>
+            existsSync(v),
+        );
         if (!source) throw new Error(`${name} is not installed in the workspace, run yarn`);
         const link = join(dir, 'node_modules', name);
         rmSync(link, { recursive: true, force: true });
@@ -160,7 +216,13 @@ function prepareTarget(version: string, files: string[]): string {
     //the benchmark folders with their helpers (e.g. models.ts, generated code, tsconfig.json)
     rmSync(join(dir, 'benchmarks'), { recursive: true, force: true });
     rmSync(join(dir, 'packages'), { recursive: true, force: true });
-    const folders = new Set(files.map(file => file.startsWith('benchmarks/') ? 'benchmarks/comparison' : file.slice(0, file.indexOf('/benchmarks/') + '/benchmarks'.length)));
+    const folders = new Set(
+        files.map(file =>
+            file.startsWith('benchmarks/')
+                ? 'benchmarks/comparison'
+                : file.slice(0, file.indexOf('/benchmarks/') + '/benchmarks'.length),
+        ),
+    );
     for (const folder of [...folders, 'benchmarks/run-file.ts', 'benchmarks/tsconfig.json']) {
         cpSync(join(root, folder), join(dir, folder), { recursive: true });
     }
@@ -173,18 +235,29 @@ function prepareTarget(version: string, files: string[]): string {
  * third-party is installed: dependencies resolve to what the workspace (or the --target) has.
  */
 function buildBenchmarks(cwd: string): { [codebase: string]: BuildEntry } {
-    const { ref, codebases } = JSON.parse(readFileSync(join(root, 'benchmarks', 'build', 'codebases.json'), 'utf8')) as { ref: string; codebases: { [name: string]: string[] } };
+    const { ref, codebases } = JSON.parse(
+        readFileSync(join(root, 'benchmarks', 'build', 'codebases.json'), 'utf8'),
+    ) as { ref: string; codebases: { [name: string]: string[] } };
     const builds: { [codebase: string]: BuildEntry } = {};
     for (const [name, paths] of Object.entries(codebases)) {
         const dir = join(cwd, 'benchmarks', '.codebases', ref.slice(0, 9), name);
         if (!existsSync(dir)) {
             mkdirSync(dir, { recursive: true });
-            const archive = execFileSync('git', ['archive', '--format=tar', ref, ...paths], { cwd: root, maxBuffer: 1024 * 1024 * 512 });
+            const archive = execFileSync('git', ['archive', '--format=tar', ref, ...paths], {
+                cwd: root,
+                maxBuffer: 1024 * 1024 * 512,
+            });
             execFileSync('tar', ['-x', '-C', dir], { input: archive });
         }
 
         console.log(`\n▶ build ${name}`);
-        const measure = (reflection: 'true' | 'never') => JSON.parse(execFileSync(process.execPath, [join(root, 'benchmarks', 'build', 'measure.cjs'), dir, reflection], { encoding: 'utf8', maxBuffer: 1024 * 1024 * 16 }));
+        const measure = (reflection: 'true' | 'never') =>
+            JSON.parse(
+                execFileSync(process.execPath, [join(root, 'benchmarks', 'build', 'measure.cjs'), dir, reflection], {
+                    encoding: 'utf8',
+                    maxBuffer: 1024 * 1024 * 16,
+                }),
+            );
         const runs: { plain: any[]; reflected: any[] } = { plain: [], reflected: [] };
         //alternating, so a slower phase of the machine hits both sides
         for (let i = 0; i < buildRepetitions; i++) {
@@ -192,15 +265,28 @@ function buildBenchmarks(cwd: string): { [codebase: string]: BuildEntry } {
             runs.reflected.push(measure('true'));
         }
         const summarize = (values: any[]): BuildMeasurement => {
-            if (new Set(values.map(v => v.bytes)).size !== 1) console.error(`  ✗ ${name}: the emitted size differs between runs`);
+            if (new Set(values.map(v => v.bytes)).size !== 1)
+                console.error(`  ✗ ${name}: the emitted size differs between runs`);
             const times = values.map(v => v.time).sort((a, b) => a - b);
             const median = times[Math.floor(times.length / 2)];
-            const rme = Math.max(...times.map(v => Math.abs(v - median))) / median * 100;
-            return { bytes: values[0].bytes, gzip: values[0].gzip, time: Math.round(median * 10) / 10, rme: Math.round(rme * 100) / 100 };
+            const rme = (Math.max(...times.map(v => Math.abs(v - median))) / median) * 100;
+            return {
+                bytes: values[0].bytes,
+                gzip: values[0].gzip,
+                time: Math.round(median * 10) / 10,
+                rme: Math.round(rme * 100) / 100,
+            };
         };
-        builds[name] = { files: runs.plain[0].files, lines: runs.plain[0].lines, plain: summarize(runs.plain), reflected: summarize(runs.reflected) };
+        builds[name] = {
+            files: runs.plain[0].files,
+            lines: runs.plain[0].lines,
+            plain: summarize(runs.plain),
+            reflected: summarize(runs.reflected),
+        };
         const { plain, reflected } = builds[name];
-        console.log(`  ${plain.bytes} -> ${reflected.bytes} bytes (+${percent(plain.bytes, reflected.bytes)}%), ${plain.time} -> ${reflected.time} ms (+${percent(plain.time, reflected.time)}%)`);
+        console.log(
+            `  ${plain.bytes} -> ${reflected.bytes} bytes (+${percent(plain.bytes, reflected.bytes)}%), ${plain.time} -> ${reflected.time} ms (+${percent(plain.time, reflected.time)}%)`,
+        );
     }
     return builds;
 }
@@ -226,7 +312,10 @@ function run(args: string[]) {
     const cwd = target ? prepareTarget(target, files) : root;
 
     const version = target || JSON.parse(readFileSync(join(root, 'lerna.json'), 'utf8')).version;
-    const commit = target ? undefined : git('rev-parse', '--short=9', 'HEAD') + (git('status', '--porcelain', '--', 'packages').length ? '-dirty' : '');
+    const commit = target
+        ? undefined
+        : git('rev-parse', '--short=9', 'HEAD') +
+          (git('status', '--porcelain', '--', 'packages').length ? '-dirty' : '');
     //lerna.json keeps the last released version until the release, so workspace runs are named by commit
     const label = target || commit!;
     const result: ResultFile = {
@@ -235,7 +324,13 @@ function run(args: string[]) {
         version,
         commit,
         date: new Date().toISOString(),
-        machine: { hostname: hostname(), cpu: cpus()[0]?.model.trim() || '', cores: cpus().length, platform: `${process.platform} ${process.arch}`, node: process.version },
+        machine: {
+            hostname: hostname(),
+            cpu: cpus()[0]?.model.trim() || '',
+            cores: cpus().length,
+            platform: `${process.platform} ${process.arch}`,
+            node: process.version,
+        },
         libraries: libraryVersions(),
         files: {},
     };
@@ -243,10 +338,21 @@ function run(args: string[]) {
     const tmpResult = join(tmpdir(), `deepkit-bench-result-${process.pid}.json`);
     for (const file of files) {
         console.log(`\n▶ ${file} (${label})`);
-        const status = spawnSync(process.execPath, ['--expose-gc', '--import', '@deepkit/run', join(cwd, 'benchmarks', 'run-file.ts'), join(cwd, file), tmpResult], {
-            cwd: configDir(join(cwd, file)),
-            stdio: 'inherit',
-        }).status;
+        const status = spawnSync(
+            process.execPath,
+            [
+                '--expose-gc',
+                '--import',
+                '@deepkit/run',
+                join(cwd, 'benchmarks', 'run-file.ts'),
+                join(cwd, file),
+                tmpResult,
+            ],
+            {
+                cwd: configDir(join(cwd, file)),
+                stdio: 'inherit',
+            },
+        ).status;
         if (status !== 0 || !existsSync(tmpResult)) {
             console.error(`✗ ${file} failed (exit code ${status})`);
             continue;
@@ -257,7 +363,13 @@ function run(args: string[]) {
         for (const [suite, benchmarks] of Object.entries<any>(suites)) {
             result.files[file][suite] = {};
             for (const [name, v] of Object.entries<any>(benchmarks)) {
-                result.files[file][suite][name] = { hz: Math.round(v.hz * 100) / 100, rme: Math.round(v.rme * 100) / 100, mean: v.mean, iterations: v.iterations };
+                result.files[file][suite][name] = {
+                    hz: Math.round(v.hz * 100) / 100,
+                    rme: Math.round(v.rme * 100) / 100,
+                    mean: v.mean,
+                    iterations: v.iterations,
+                    load: v.load,
+                };
             }
         }
     }
@@ -290,23 +402,38 @@ function compare(fileA: string, fileB: string) {
         for (const [suite, benchmarks] of Object.entries(suites)) {
             for (const [name, entry] of Object.entries(benchmarks)) {
                 const before = a.files[file]?.[suite]?.[name];
-                const change = before ? ((entry.hz / before.hz - 1) * 100) : undefined;
+                const change = before ? (entry.hz / before.hz - 1) * 100 : undefined;
                 // differences within the measurement error are noise
                 const noise = before && change !== undefined && Math.abs(change) <= Math.max(before.rme, entry.rme) * 2;
-                const changeText = change === undefined ? 'new' : `${change > 0 ? '+' : ''}${change.toFixed(1)}%${noise ? ' (noise)' : ''}`;
-                console.log(`| ${suite}: ${name} | ${before ? formatHz(before.hz) : '–'} | ${formatHz(entry.hz)} | ${changeText} |`);
+                const changeText =
+                    change === undefined
+                        ? 'new'
+                        : `${change > 0 ? '+' : ''}${change.toFixed(1)}%${noise ? ' (noise)' : ''}`;
+                console.log(
+                    `| ${suite}: ${name} | ${before ? formatHz(before.hz) : '–'} | ${formatHz(entry.hz)} | ${changeText} |`,
+                );
             }
         }
     }
 
     for (const [name, entry] of Object.entries(b.builds || {})) {
         const before = a.builds?.[name];
-        const overhead = (v: BuildEntry, key: 'bytes' | 'gzip' | 'time') => `+${percent(v.plain[key], v.reflected[key])}%`;
+        const overhead = (v: BuildEntry, key: 'bytes' | 'gzip' | 'time') =>
+            `+${percent(v.plain[key], v.reflected[key])}%`;
         const timeChange = before ? (entry.reflected.time / before.reflected.time - 1) * 100 : undefined;
-        const noise = timeChange !== undefined && Math.abs(timeChange) <= Math.max(before!.reflected.rme, entry.reflected.rme) * 2;
-        const timeText = timeChange === undefined ? 'new' : `${timeChange > 0 ? '+' : ''}${timeChange.toFixed(1)}%${noise ? ' (noise)' : ''}`;
-        console.log(`| build ${name}: size overhead | ${before ? overhead(before, 'bytes') : '–'} | ${overhead(entry, 'bytes')} | |`);
-        console.log(`| build ${name}: build time | ${before ? before.reflected.time + ' ms' : '–'} | ${entry.reflected.time} ms | ${timeText} |`);
+        const noise =
+            timeChange !== undefined &&
+            Math.abs(timeChange) <= Math.max(before!.reflected.rme, entry.reflected.rme) * 2;
+        const timeText =
+            timeChange === undefined
+                ? 'new'
+                : `${timeChange > 0 ? '+' : ''}${timeChange.toFixed(1)}%${noise ? ' (noise)' : ''}`;
+        console.log(
+            `| build ${name}: size overhead | ${before ? overhead(before, 'bytes') : '–'} | ${overhead(entry, 'bytes')} | |`,
+        );
+        console.log(
+            `| build ${name}: build time | ${before ? before.reflected.time + ' ms' : '–'} | ${entry.reflected.time} ms | ${timeText} |`,
+        );
     }
 }
 

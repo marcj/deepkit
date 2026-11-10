@@ -141,6 +141,10 @@ const libraryPackages: { [label: string]: string } = {
     'TypeORM': 'typeorm',
     'MikroORM': '@mikro-orm/core',
     'gRPC': '@grpc/grpc-js',
+    'Redis (ioredis)': 'ioredis',
+    'Redis (node-redis)': 'redis',
+    'Valkey (ioredis)': 'ioredis',
+    'NATS': '@nats-io/transport-node',
     'tRPC': '@trpc/server',
     'Socket.IO': 'socket.io',
     'ws (no framework)': 'ws',
@@ -206,7 +210,9 @@ export interface ChartEntry {
                     <div class="bar-container">
                         <div class="track"><div class="bar" [style.width.%]="entry.width"></div></div>
                         <div class="value">
-                            @if (compact()) {
+                            @if (throughput()) {
+                                {{ entry.ops }} ops/s
+                            } @else if (compact()) {
                                 {{ entry.time }}
                             } @else {
                                 {{ entry.ops }} ops/s <span class="time">{{ entry.time }}</span>
@@ -315,6 +321,8 @@ export class BenchmarkChartComponent {
     data = input.required<ChartEntry[]>();
     /** narrow: only the time per operation */
     compact = input(false);
+    /** Total operations per second of many clients. The time of one operation doesn't follow from it. */
+    throughput = input(false);
 
     entries = computed(() => {
         const entries = this.data().slice().sort((a, b) => b.hz - a.hz);
@@ -563,6 +571,16 @@ const rpcOperations: { name: string; title: string; description: string }[] = [
     { name: 'receive 100 objects', title: 'List of 100 objects', description: 'One number as argument, 100 user objects as result.' },
 ];
 
+/** The broker comparison, see benchmarks/comparison/load/broker-load.ts. */
+const brokerLevel = '64 connections x 8 in flight';
+
+const brokerOperations: { name: string; title: string; description: string }[] = [
+    { name: 'read an object', title: 'Read an object', description: 'A user object by its key.' },
+    { name: 'write an object', title: 'Write an object', description: 'A user object under a key.' },
+    { name: 'increment a counter', title: 'Increment', description: 'A counter under a key.' },
+    { name: 'publish and receive', title: 'Publish and receive', description: 'A user object, until the subscriber received it.' },
+];
+
 /** Benchmarks of whole operations, shown over time. */
 const trends: { title: string; items: { suite: string; name: string; label: string }[] }[] = [
     {
@@ -798,6 +816,26 @@ const suiteTitles: { [name: string]: string } = {
                     <div class="charts three">
                         @for (chart of rpc(); track chart.title) {
                             <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                        }
+                    </div>
+                </section>
+            }
+
+            @if (broker().length) {
+                <section class="bm-card">
+                    <h2>Broker</h2>
+                    <p class="intro">
+                        Key-value and pub/sub with 64 connections and 8 in-flight calls per connection, spread over 5
+                        client processes. Operations per second over all clients, higher is better. Each server runs
+                        in its own process, in-memory and with its default threading: the Deepkit broker is one Node.js
+                        process, Redis and Valkey are native servers. The Redis, Valkey and NATS clients exchange JSON,
+                        Deepkit binary encoded from the types. NATS only has the pub/sub workload, since its key-value
+                        store needs JetStream, which persists.
+                        <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/load">Benchmark source code on GitHub</a>
+                    </p>
+                    <div class="charts">
+                        @for (chart of broker(); track chart.title) {
+                            <benchmark-chart class="panel" [compact]="true" [throughput]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
                         }
                     </div>
                 </section>
@@ -1290,6 +1328,22 @@ export class BenchmarksComponent {
                 const baseline = rpcBaselines.includes(library);
                 const label = baseline ? library + ' (no framework)' : library;
                 entries.push({ label, hz, highlight: library.startsWith('Deepkit'), baseline, version: libraryVersion(label, index) });
+            }
+            return { title: operation.title, description: operation.description, entries };
+        }).filter(v => v.entries.length);
+    });
+
+    protected broker = computed(() => {
+        const index = this.latestIndex();
+        const suite = data.suites.find(v => v.name === 'comparison/broker-load');
+        if (!suite) return [];
+        return brokerOperations.map(operation => {
+            const entries: ChartEntry[] = [];
+            for (const benchmark of suite.benchmarks) {
+                const [library, name] = benchmark.name.split(': ');
+                const hz = benchmark.hz[index];
+                if (name !== `${operation.name}, ${brokerLevel}` || !hz) continue;
+                entries.push({ label: library, hz, highlight: library.startsWith('Deepkit'), version: libraryVersion(library, index) });
             }
             return { title: operation.title, description: operation.description, entries };
         }).filter(v => v.entries.length);
