@@ -532,11 +532,17 @@ function binaryExpression(type: number): string {
     return textExpression(type);
 }
 
-export type RowDecoder = (d: Uint8Array, o: number) => any;
+/** Decodes a row. In RowMode.reuse it writes into target and returns it. */
+export type RowDecoder = (d: Uint8Array, o: number, target?: any) => any;
 
 export enum RowMode {
     object = 0,
     array = 1,
+    /**
+     * Every row is written into the same object, which is only valid until the next row is decoded.
+     * For queryMapped(), which turns each row into something else right away.
+     */
+    reuse = 2,
 }
 
 /** Decodes a DataRow starting at its first column, without an intermediate value for each field. */
@@ -554,6 +560,9 @@ function compileDecoder(columns: PostgresColumn[], mode: RowMode, binary: boolea
     }
     if (mode === RowMode.array) {
         code += 'return [' + columns.map((_, i) => 'v' + i).join(', ') + '];';
+    } else if (mode === RowMode.reuse && !columns.some(column => column.name === '__proto__')) {
+        // an assignment to __proto__ would set the prototype, such rows are new objects instead
+        code += columns.map((column, i) => `t[${JSON.stringify(column.name)}] = v${i};`).join('\n') + '\nreturn t;';
     } else {
         const properties = columns.map((column, i) => {
             const key = column.name === '__proto__' ? '["__proto__"]' : JSON.stringify(column.name);
@@ -561,7 +570,7 @@ function compileDecoder(columns: PostgresColumn[], mode: RowMode, binary: boolea
         });
         code += 'return {' + properties.join(', ') + '};';
     }
-    return context.build(code, 'd', 'o');
+    return context.build(code, 'd', 'o', 't');
 }
 
 export interface PostgresColumn {
@@ -589,7 +598,7 @@ function readInt16(d: Uint8Array, o: number): number {
  */
 export class RowShape {
     readonly columns: PostgresColumn[];
-    private readonly decoders: (RowDecoder | undefined)[] = [undefined, undefined, undefined, undefined];
+    private readonly decoders: (RowDecoder | undefined)[] = [undefined, undefined, undefined, undefined, undefined, undefined];
     private formats?: Uint8Array;
 
     constructor(readonly bytes: Uint8Array) {

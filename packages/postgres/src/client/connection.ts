@@ -80,6 +80,10 @@ class QueryRequest {
     mode: RowMode = RowMode.object;
     resolution: Resolution = Resolution.result;
     rows: any[] | undefined = undefined;
+    /** Turns each row into the value collected in rows, see queryMapped(). */
+    map: ((row: any) => any) | undefined = undefined;
+    /** The object the rows are decoded into in RowMode.reuse. */
+    target: any = undefined;
     rowCount: number | null = null;
     commands: number = 0;
     error: any = undefined;
@@ -103,6 +107,8 @@ class QueryRequest {
         this.decode = undefined;
         this.shape = undefined;
         this.rows = undefined;
+        this.map = undefined;
+        this.target = undefined;
         this.rowCount = null;
         this.commands = 0;
         this.error = undefined;
@@ -601,7 +607,8 @@ export class PostgresClientConnection implements PoolableConnection, PostgresMes
     onDataRow(data: Uint8Array, start: number): void {
         const request = this.current!;
         try {
-            const row = request.decode!(data, start + 7);
+            let row = request.decode!(data, start + 7, request.target);
+            if (request.map !== undefined) row = request.map(row);
             if (request.rows === undefined) request.rows = [row];
             else request.rows.push(row);
         } catch (error) {
@@ -859,6 +866,7 @@ export class PostgresClientConnection implements PoolableConnection, PostgresMes
         mode: RowMode,
         reusable: boolean,
         resolution: Resolution,
+        map?: (row: any) => any,
     ): Promise<any> {
         if (this.phase !== Phase.ready) return this.unavailable();
         if (params !== undefined && params.length > 65535) {
@@ -867,6 +875,10 @@ export class PostgresClientConnection implements PoolableConnection, PostgresMes
             );
         }
         const request = this.take(sql, params, mode, resolution);
+        if (map !== undefined) {
+            request.map = map;
+            request.target = {};
+        }
         const promise = new Promise<any>(request.executor);
         try {
             this.enqueue(request);
@@ -905,6 +917,15 @@ export class PostgresClientConnection implements PoolableConnection, PostgresMes
     /** Like query, but resolves with only the rows. */
     queryRows(sql: string, params?: any[], mode: RowMode = RowMode.object, reusable: boolean = false): Promise<any[]> {
         return this.execute(sql, params, mode, reusable, Resolution.rows);
+    }
+
+    /**
+     * Like queryRows, but resolves with what map returns for each row. The row is only valid during the call, all
+     * rows are decoded into the same object: a query allocates no object per row besides what map creates.
+     * When map throws, the query fails with that error.
+     */
+    queryMapped<T>(sql: string, params: any[] | undefined, map: (row: any) => T, reusable: boolean = false): Promise<T[]> {
+        return this.execute(sql, params, RowMode.reuse, reusable, Resolution.rows, map);
     }
 
     /** Like query, but resolves with only the first row, undefined if there is none. */

@@ -1169,3 +1169,51 @@ describe('binary array parameters', () => {
         });
     });
 });
+
+describe('queryMapped', () => {
+    test('maps each row, decoded into the same object', async () => {
+        await withConnection(async conn => {
+            const seen = new Set<object>();
+            const sql = 'SELECT i AS id, i::text AS name FROM generate_series(1, $1::int) i';
+            for (const reusable of [false, true, true]) {
+                const rows = await conn.queryMapped(
+                    sql,
+                    [50],
+                    row => {
+                        seen.add(row);
+                        return { id: row.id, name: row.name };
+                    },
+                    reusable,
+                );
+                expect(rows.length).toBe(50);
+                expect(rows[0]).toEqual({ id: 1, name: '1' });
+                expect(rows[49]).toEqual({ id: 50, name: '50' });
+            }
+            // one object per query, not per row
+            expect(seen.size).toBe(3);
+
+            // without parameters, over the simple protocol
+            expect(await conn.queryMapped('SELECT 1 AS a UNION ALL SELECT 2', undefined, row => row.a * 10)).toEqual([10, 20]);
+        });
+    });
+
+    test('a map that throws fails only its query', async () => {
+        await withConnection(async conn => {
+            await expect(
+                conn.queryMapped('SELECT i FROM generate_series(1, 10) i', undefined, row => {
+                    if (row.i === 5) throw new Error('map failed');
+                    return row.i;
+                }),
+            ).rejects.toThrow('map failed');
+            expect(await conn.queryRows('SELECT 1 AS ok')).toEqual([{ ok: 1 }]);
+        });
+    });
+
+    test('a column named __proto__ does not set the prototype', async () => {
+        await withConnection(async conn => {
+            const rows = await conn.queryMapped('SELECT 1 AS "__proto__", 2 AS b', undefined, row => ({ ...row, own: Object.getOwnPropertyNames(row) }));
+            expect(rows[0].own).toEqual(['__proto__', 'b']);
+            expect(rows[0].b).toBe(2);
+        });
+    });
+});
