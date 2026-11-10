@@ -156,11 +156,13 @@ export function isNumber(obj: any): obj is number {
  * isNumeric('12.3'); //true
  * isNumeric('12.3 '); //false
  * isNumeric('12px'); //false
+ * isNumeric(''); //false
  * ```
  */
 export function isNumeric(s: string | number): boolean {
     if ('number' === typeof s) return true;
     let points = 0;
+    let digits = 0;
     for (let i = s.length - 1; i >= 0; i--) {
         const d = s.charCodeAt(i);
         if (d === 46) {
@@ -169,8 +171,10 @@ export function isNumeric(s: string | number): boolean {
             continue;
         }
         if (d < 48 || d > 57) return false;
+        digits++;
     }
-    return true;
+    // '' and '.' have no digit: '' in a `string | number` union became 0
+    return digits > 0;
 }
 
 export const isInteger: (obj: any) => obj is number = Number.isInteger as any || function(obj: any) {
