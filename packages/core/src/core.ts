@@ -504,7 +504,7 @@ export function getObjectKeysSize(obj: object): number {
 
 export function getParentClass(classType: ClassType): ClassType | undefined {
     const parent = Object.getPrototypeOf(classType);
-    if (parent === Object.prototype || Object.getPrototypeOf(parent) === Object.prototype) return;
+    if (!parent || parent === Object.prototype || Object.getPrototypeOf(parent) === Object.prototype) return;
     return parent;
 }
 

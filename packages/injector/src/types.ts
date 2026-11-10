@@ -45,8 +45,9 @@ export function nominalCompatibility(token: Type, provider: Type): number {
 
         if (current.kind === ReflectionKind.class) {
             const parent = getParentClass(current.classType);
-            if (parent && (parent as any).__type) {
-                const next = reflect(parent);
+            if (parent) {
+                // a parent with @reflection never has no type, but can still be the token
+                const next = (parent as any).__type ? reflect(parent) : { kind: ReflectionKind.class, classType: parent, types: [] } as Type;
                 stack.push({ spec: entry.spec + 1, type: next });
             }
         }
