@@ -3781,6 +3781,17 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@deepkit/net@workspace:packages/net":
+  version: 0.0.0-use.local
+  resolution: "@deepkit/net@workspace:packages/net"
+  dependencies:
+    "@deepkit/core": "npm:^1.1.0"
+    "@types/node": "npm:^22.13.1"
+  peerDependencies:
+    "@deepkit/core": ^1.1.0
+  languageName: unknown
+  linkType: soft
+
 "@deepkit/orm-browser-api@npm:^1.1.0, @deepkit/orm-browser-api@workspace:packages/orm-browser-api":
   version: 0.0.0-use.local
   resolution: "@deepkit/orm-browser-api@workspace:packages/orm-browser-api"

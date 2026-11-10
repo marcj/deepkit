@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist/cjs",
+    "types": ["node"]
+  },
+  "include": ["src", "index.ts", "node.ts"],
+  "exclude": ["tests"],
+  "references": [{ "path": "../core/tsconfig.json" }]
+}

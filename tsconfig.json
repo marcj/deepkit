@@ -41,6 +41,9 @@
       "path": "./packages/event/tsconfig.json"
     },
     {
+      "path": "./packages/net/tsconfig.json"
+    },
+    {
       "path": "./packages/example-app/tsconfig.json"
     },
     {
