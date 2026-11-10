@@ -26,7 +26,8 @@ export default async function () {
     return ormSuite('sqlite', 'TypeORM', {
         findOne: id => users.findOneBy({ id }),
         findAll: () => users.find(),
-        insertMany: async rows => void (await inserted.insert(rows)),
+        insertMany: rows => inserted.createQueryBuilder().insert().values(rows).updateEntity(false).execute(),
+        insertEntities: async rows => (await inserted.insert(rows)).identifiers.map(v => v?.id),
         deleteInserted: () => inserted.clear(),
         close: () => dataSource.destroy(),
     });

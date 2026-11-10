@@ -24,6 +24,7 @@ export default async function () {
         findOne: id => User.findByPk(id),
         findAll: () => User.findAll(),
         insertMany: async rows => void (await Inserted.bulkCreate(rows)),
+        insertEntities: async rows => (await Inserted.bulkCreate(rows, { returning: ['id'] })).map(v => v.get('id')),
         deleteInserted: async () => void (await Inserted.destroy({ where: {} })),
         close: () => sequelize.close(),
     });

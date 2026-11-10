@@ -36,10 +36,12 @@ export default async function () {
     return ormSuite('mongo', 'MikroORM', {
         findOne: id => orm.em.fork().findOne(User, id),
         findAll: () => orm.em.fork().find(User, {}),
-        insertMany: async (rows: Row[]) => {
+        insertMany: (rows: Row[]) => orm.em.fork().insertMany(Inserted, rows.map(v => ({ ...v }))),
+        insertEntities: async (rows: Row[]) => {
             const em = orm.em.fork();
-            for (const row of rows) em.create(Inserted, row);
+            const items = rows.map(row => em.create(Inserted, row));
             await em.flush();
+            return items.map((v: any) => v._id);
         },
         deleteInserted: async () => void (await orm.em.fork().nativeDelete(Inserted, {})),
         close: () => orm.close(),

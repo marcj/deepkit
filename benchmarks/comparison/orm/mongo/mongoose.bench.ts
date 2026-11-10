@@ -15,6 +15,7 @@ export default async function () {
         findOne: id => User.findById(id).exec(),
         findAll: () => User.find().exec(),
         insertMany: async rows => void (await Inserted.insertMany(rows)),
+        insertEntities: async rows => (await Inserted.insertMany(rows)).map(v => v._id),
         deleteInserted: async () => void (await Inserted.deleteMany({})),
         close: () => connection.close(),
     });

@@ -559,7 +559,8 @@ const databaseSuites: { suite: string; title: string; drivers: string[] }[] = [
 const databaseOperations: { name: string; title: string; description: string }[] = [
     { name: 'findOne by id', title: 'findOne by id', description: 'A row by its primary key.' },
     { name: 'find 10,000 rows', title: 'Load 10,000 rows', description: 'All rows of the table as objects.' },
-    { name: 'insert 1,000 rows', title: 'Insert 1,000 rows', description: 'In one unit of work or batch.' },
+    { name: 'insert 1,000 rows', title: 'Insert 1,000 rows', description: 'All rows in one call, nothing returned.' },
+    { name: 'insert 1,000 entities', title: 'Insert 1,000 entities', description: 'Through the ORM, generated primary keys are returned.' },
 ];
 
 /** The RPC comparison, see benchmarks/comparison/rpc. */

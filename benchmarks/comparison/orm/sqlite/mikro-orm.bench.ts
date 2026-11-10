@@ -37,15 +37,17 @@ export default async function () {
 
     const insert = async (entity: typeof User | typeof Inserted, rows: Row[]) => {
         const em = orm.em.fork();
-        for (const row of rows) em.create(entity, row);
+        const items = rows.map(row => em.create(entity, row));
         await em.flush();
+        return items.map((v: any) => v.id);
     };
     await insert(User, createRows(rowCount));
 
     return ormSuite('sqlite', 'MikroORM', {
         findOne: id => orm.em.fork().findOne(User, id),
         findAll: () => orm.em.fork().find(User, {}),
-        insertMany: rows => insert(Inserted, rows),
+        insertMany: rows => orm.em.fork().insertMany(Inserted, rows),
+        insertEntities: rows => insert(Inserted, rows),
         deleteInserted: async () => void (await orm.em.fork().nativeDelete(Inserted, {})),
         close: () => orm.close(),
     });

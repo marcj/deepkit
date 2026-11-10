@@ -28,8 +28,10 @@ export interface OrmOperations {
     findOne(id: number): Promise<{ name: string } | null | undefined>;
     /** all rows of the table */
     findAll(): Promise<unknown[]>;
-    /** inserts the rows into the insert table */
-    insertMany(rows: Row[]): Promise<void>;
+    /** inserts the rows into the insert table in the fastest way of the library, nothing is returned */
+    insertMany(rows: Row[]): Promise<unknown>;
+    /** inserts the rows as entities of an ORM and returns the generated primary key of each, not for raw drivers */
+    insertEntities?(rows: Row[]): Promise<unknown[]>;
     /** deletes all rows of the insert table */
     deleteInserted(): Promise<void>;
     close?(): Promise<void>;
@@ -58,6 +60,13 @@ export async function ormSuite(database: string, library: string, operations: Or
 
     const suite = new BenchSuite('comparison/orm-' + database);
     const insertRows = createRows(insertCount, 'Inserted');
+    if (operations.insertEntities) {
+        const keys = await operations.insertEntities(insertRows);
+        if (keys.length !== insertCount || keys.some(v => v === undefined || v === null || v === 0 || v === '')) {
+            throw new Error(`${library}: insertEntities returned ${keys.length} keys, first ${String(keys[0])}`);
+        }
+        await operations.deleteInserted();
+    }
     let id = 0;
 
     suite.add(`${library}: findOne by id`, async () => {
@@ -69,6 +78,12 @@ export async function ormSuite(database: string, library: string, operations: Or
     suite.add(`${library}: insert 1,000 rows`, async () => {
         await operations.insertMany(insertRows);
     }, { afterEach: operations.deleteInserted });
+    if (operations.insertEntities) {
+        const insertEntities = operations.insertEntities;
+        suite.add(`${library}: insert 1,000 entities`, async () => {
+            await insertEntities(insertRows);
+        }, { afterEach: operations.deleteInserted });
+    }
 
     if (operations.close) {
         const runAsync = suite.runAsync.bind(suite);

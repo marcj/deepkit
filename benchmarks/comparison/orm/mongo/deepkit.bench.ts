@@ -11,7 +11,7 @@ const { Database } = require('@deepkit/orm') as typeof import('@deepkit/orm');
 const { entity } = require('@deepkit/type') as typeof import('@deepkit/type');
 const { MongoDatabaseAdapter } = require('@deepkit/mongo') as typeof import('@deepkit/mongo');
 
-import { createRowsWithId, mongoUrl, ormSuite, resetMongo, rowCount } from '../shared.js';
+import { createRowsWithId, mongoUrl, ormSuite, resetMongo, rowCount, Row } from '../shared.js';
 
 @entity.name('bench_user')
 class User {
@@ -38,17 +38,27 @@ export default async function (): Promise<BenchSuite> {
     for (const row of createRowsWithId(rowCount)) session.add(Object.assign(new User(row._id, row.name), row));
     await session.commit();
 
+    const insertEntities = async (rows: Row[]) => {
+        // no change detection afterwards, the other libraries only insert too. Older versions don't have this.
+        const session = database.createSession();
+        session.disableChangeDetection?.();
+        const items = rows.map(row => Object.assign(new Inserted(row.name), row));
+        session.add(...items);
+        await session.commit();
+        return items.map(v => v._id);
+    };
+
     return ormSuite('mongo', 'Deepkit', {
         findOne: _id => database.query(User).filter({ _id }).findOneOrUndefined(),
         // no change detection afterwards, the other libraries only load too
         findAll: () => database.query(User).disableChangeDetection().find(),
         insertMany: async rows => {
-            // no change detection afterwards, the other libraries only insert too. Older versions don't have this.
-            const session = database.createSession();
-            session.disableChangeDetection?.();
-            for (const row of rows) session.add(Object.assign(new Inserted(row.name), row));
-            await session.commit();
+            // older versions don't have this and go through a session
+            const query: any = database.query(Inserted);
+            if (query.insertMany) return query.insertMany(rows.map(v => ({ ...v })));
+            return insertEntities(rows);
         },
+        insertEntities,
         deleteInserted: async () => void (await database.query(Inserted).deleteMany()),
         close: async () => database.disconnect(),
     });

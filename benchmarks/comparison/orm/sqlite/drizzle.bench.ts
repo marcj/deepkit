@@ -28,6 +28,7 @@ export default async function () {
         findOne: async id => db.select().from(users).where(eq(users.id, id)).get(),
         findAll: async () => db.select().from(users).all(),
         insertMany: async rows => void (await db.insert(inserted).values(rows)),
+        insertEntities: async rows => (await db.insert(inserted).values(rows).returning({ id: inserted.id })).map(v => v.id),
         deleteInserted: async () => void (await db.delete(inserted)),
         close: async () => sqlite.close(),
     });
