@@ -1,39 +1,29 @@
 import { expect, test } from '@jest/globals';
-import pg from 'pg';
 import { assertInstanceOf } from '@deepkit/core';
 import { Database, DatabaseError, DatabaseInsertError, UniqueConstraintFailure } from '@deepkit/orm';
 import { sql } from '@deepkit/sql';
 import { AutoIncrement, cast, DatabaseField, entity, PrimaryKey, Reference, Unique, UUID, uuid } from '@deepkit/type';
 
+import { PostgresClient, RowMode } from '../src/client/index.js';
 import { PostgresDatabaseAdapter } from '../src/postgres-adapter.js';
 import { databaseFactory } from './factory.js';
 import { ConsoleLogger } from '@deepkit/logger';
 
 
-test('count', async () => {
-    const pool = new pg.Pool({
-        host: 'localhost',
-        database: 'postgres',
-        user: 'postgres',
-    });
-
-    pg.types.setTypeParser(1700, parseFloat);
-    pg.types.setTypeParser(20, BigInt);
-
-    (BigInt.prototype as any).toJSON = function() {
-        return this.toString();
-    };
-
-    const connection = await pool.connect();
-
-    {
-        const count = (await connection.query('SELECT 1.55 as count')).rows[0].count;
-        expect(count).toBe(1.55);
-    }
-
-    {
-        const count = (await connection.query('SELECT COUNT(*) as count FROM (select 1) as tmp')).rows[0].count;
-        expect(count).toBe(1n);
+test('numeric and count come back as numbers', async () => {
+    const client = new PostgresClient({ host: 'localhost', database: 'postgres', user: 'postgres' });
+    const connection = await client.acquire();
+    try {
+        // the first run is unprepared, the ones after it use the prepared statement and its binary decoders
+        for (const reusable of [false, true, true]) {
+            const numeric = await connection.queryRow('SELECT 1.55 as count', [], RowMode.object, reusable);
+            expect(numeric.count).toBe(1.55);
+            const count = await connection.queryRow('SELECT COUNT(*) as count FROM (select 1) as tmp', [], RowMode.object, reusable);
+            expect(count.count).toBe(1);
+        }
+    } finally {
+        client.release(connection);
+        client.close();
     }
 });
 
