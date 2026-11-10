@@ -1,11 +1,13 @@
-import { AutoIncrement, BackReference, deserialize, Index, PrimaryKey, Reference, UUID, uuid } from '@deepkit/type';
 import { expect, test } from '@jest/globals';
-import { assert, IsExact } from 'conditional-type-checks';
+import { IsExact, assert } from 'conditional-type-checks';
+
+import { AutoIncrement, BackReference, Index, PrimaryKey, Reference, UUID, deserialize, uuid } from '@deepkit/type';
+
 import { Database } from '../src/database.js';
+import { getInstanceStateFromItem } from '../src/identity-map.js';
 import { MemoryDatabaseAdapter, MemoryQuery } from '../src/memory-db.js';
 import { AnyQuery, BaseQuery, Query } from '../src/query.js';
 import { OrmEntity } from '../src/type.js';
-import { getInstanceStateFromItem } from '../src/identity-map.js';
 
 test('types do not interfere with type check', () => {
     class Books {
@@ -15,11 +17,13 @@ test('types do not interfere with type check', () => {
     const database = new Database(new MemoryDatabaseAdapter());
 
     function get(bookId: UUID) {
-        return database
-            .query(Books)
-            // this should just compile and not error
-            .filter({ bookId })
-            .findOneOrUndefined();
+        return (
+            database
+                .query(Books)
+                // this should just compile and not error
+                .filter({ bookId })
+                .findOneOrUndefined()
+        );
     }
 });
 
@@ -37,14 +41,14 @@ test('query select', async () => {
         const item = await database.query(s).findOne();
         expect(item.username).toBe('Peter');
         assert<IsExact<InstanceType<typeof s>, typeof item>>(true);
-        assert<IsExact<{ id: number & PrimaryKey, username: string }, typeof item>>(true);
+        assert<IsExact<{ id: number & PrimaryKey; username: string }, typeof item>>(true);
     }
 
     {
         const item = await database.query(s).select('username').findOne();
         expect(item.username).toBe('Peter');
         assert<IsExact<InstanceType<typeof s>, typeof item>>(false);
-        assert<IsExact<{ id: number & PrimaryKey, username: string }, typeof item>>(false);
+        assert<IsExact<{ id: number & PrimaryKey; username: string }, typeof item>>(false);
         assert<IsExact<{ username: string }, typeof item>>(true);
     }
 });
@@ -61,29 +65,43 @@ test('query filter', async () => {
     await database.persist(deserialize<s>({ id: 3, score: 3 }));
 
     {
-        const results = await database.query(s).filter({ score: { $gt: 1 } }).find();
+        const results = await database
+            .query(s)
+            .filter({ score: { $gt: 1 } })
+            .find();
         expect(results).toHaveLength(2);
         expect(results).toMatchObject([{ id: 2 }, { id: 3 }]);
     }
 
     {
-        const results = await database.query(s).filter({ score: { $gt: 1 } }).filter({ score: { $lt: 3 } }).find();
+        const results = await database
+            .query(s)
+            .filter({ score: { $gt: 1 } })
+            .filter({ score: { $lt: 3 } })
+            .find();
         expect(results).toHaveLength(1);
         expect(results).toMatchObject([{ id: 2 }]);
     }
 
     {
-        const results = await database.query(s).filter({ score: { $gt: 1 } }).filterField('score', { $lt: 3 }).find();
+        const results = await database
+            .query(s)
+            .filter({ score: { $gt: 1 } })
+            .filterField('score', { $lt: 3 })
+            .find();
         expect(results).toHaveLength(1);
         expect(results).toMatchObject([{ id: 2 }]);
     }
 
     {
-        const results = await database.query(s).filter({ score: { $gt: 1 } }).clearFilter().find();
+        const results = await database
+            .query(s)
+            .filter({ score: { $gt: 1 } })
+            .clearFilter()
+            .find();
         expect(results).toHaveLength(3);
         expect(results).toMatchObject([{ id: 1 }, { id: 2 }, { id: 3 }]);
     }
-
 });
 
 test('query lift', async () => {
@@ -172,12 +190,12 @@ test('query lift', async () => {
 
     {
         const items = await q.lift(UserQuery).find();
-        assert<IsExact<{ username: string, openBillings: number, id: number & PrimaryKey, image?: UserImage & Reference }[], typeof items>>(true);
+        assert<IsExact<{ username: string; openBillings: number; id: number & PrimaryKey; image?: UserImage & Reference }[], typeof items>>(true);
     }
 
     {
         const items = await q.lift(UserQuery).find();
-        assert<IsExact<{ username: string, openBillings: number, id: number & PrimaryKey, image?: UserImage & Reference }[], typeof items>>(true);
+        assert<IsExact<{ username: string; openBillings: number; id: number & PrimaryKey; image?: UserImage & Reference }[], typeof items>>(true);
     }
 
     {
@@ -187,7 +205,7 @@ test('query lift', async () => {
 
     {
         const items = await UserQuery.from(q).find();
-        assert<IsExact<{ username: string, openBillings: number, id: number & PrimaryKey, image?: UserImage & Reference }[], typeof items>>(true);
+        assert<IsExact<{ username: string; openBillings: number; id: number & PrimaryKey; image?: UserImage & Reference }[], typeof items>>(true);
     }
 
     {
@@ -207,7 +225,7 @@ test('query lift', async () => {
 
     {
         const lifted = q.lift(UserQuery).lift(BilligQuery);
-        assert<IsExact<UserQuery<any>['findAllUserNames'], typeof lifted['findAllUserNames']>>(true);
+        assert<IsExact<UserQuery<any>['findAllUserNames'], (typeof lifted)['findAllUserNames']>>(true);
     }
 
     // {
@@ -288,22 +306,19 @@ test('join with maintains model', () => {
 
     const database = new Database(new MemoryDatabaseAdapter());
     {
-        const query = database.query(Property)
-            .joinWith('flats').joinWith('tenants');
+        const query = database.query(Property).joinWith('flats').joinWith('tenants');
 
         expect(query.model.joins[0].populate).toBe(true);
         expect(query.model.joins[1].populate).toBe(true);
     }
 
     {
-        const query = database.query(Property)
-            .joinWith('flats').useJoinWith('tenants').sort({ name: 'desc' }).end();
+        const query = database.query(Property).joinWith('flats').useJoinWith('tenants').sort({ name: 'desc' }).end();
 
         expect(query.model.joins[0].populate).toBe(true);
         expect(query.model.joins[1].populate).toBe(true);
     }
 });
-
 
 // test('query aggregate', async () => {
 //     const product = t.schema({
@@ -330,31 +345,25 @@ test('join with maintains model', () => {
 //     // await database.persist(deserialize<s>({ id: 0, username: 'Peter' }));
 // });
 
-
 test('optional join', () => {
     class User {
-        constructor(public id: number & PrimaryKey, public name: string) {
-        }
+        constructor(
+            public id: number & PrimaryKey,
+            public name: string,
+        ) {}
 
         userAuth?: UserAuth & BackReference;
     }
 
     class UserAuth {
-        constructor(
-            public id: number & PrimaryKey,
-        ) {
-        }
+        constructor(public id: number & PrimaryKey) {}
 
         type!: string;
     }
 
     const database = new Database(new MemoryDatabaseAdapter());
 
-    database
-        .query(User)
-        .useInnerJoinWith('userAuth')
-        .filter({ type: 'bar' })
-        .end();
+    database.query(User).useInnerJoinWith('userAuth').filter({ type: 'bar' }).end();
 });
 
 test('disableChangeDetection survives further query calls', async () => {
@@ -387,7 +396,11 @@ test('memory adapter reports deleted items as modified', async () => {
     const database = new Database(new MemoryDatabaseAdapter(), [Item]);
     await database.persist(new Item('a'), new Item('b'), new Item('c'));
 
-    const many = await database.query(Item).filter({ name: { $in: ['a', 'b'] } }).returnPrimaryKeys().deleteMany();
+    const many = await database
+        .query(Item)
+        .filter({ name: { $in: ['a', 'b'] } })
+        .returnPrimaryKeys()
+        .deleteMany();
     expect(many.modified).toBe(2);
     expect(many.primaryKeys.length).toBe(2);
 
@@ -396,4 +409,75 @@ test('memory adapter reports deleted items as modified', async () => {
 
     const none = await database.query(Item).filter({ name: 'x' }).deleteMany();
     expect(none.modified).toBe(0);
+});
+
+test('queries do not share what they add to the model', () => {
+    class Item {
+        id: number & PrimaryKey = 0;
+        name: string = '';
+        age: number = 0;
+    }
+
+    const database = new Database(new MemoryDatabaseAdapter(), [Item]);
+    const base = database.query(Item);
+
+    const lazy = base.lazyLoad('name');
+    const aggregated = base.withSum('age', 'total');
+    const selected = base.select('name');
+    const grouped = base.groupBy('name');
+    const withParameter = base.parameter('a', 1);
+
+    expect(base.model.lazyLoad.size).toBe(0);
+    expect(base.model.aggregate.size).toBe(0);
+    expect(base.model.select.size).toBe(0);
+    expect(base.model.groupBy.size).toBe(0);
+    expect(base.model.parameters).toEqual({});
+    expect(database.query(Item).model.lazyLoad.size).toBe(0);
+    expect(database.query(Item).model.aggregate.size).toBe(0);
+
+    expect([...lazy.model.lazyLoad]).toEqual(['name']);
+    expect([...aggregated.model.aggregate.keys()]).toEqual(['total']);
+    expect([...selected.model.select]).toEqual(['name']);
+    expect([...grouped.model.groupBy]).toEqual(['name']);
+
+    // a clone has its own copies once something is in them
+    const more = lazy.lazyLoad('age');
+    expect([...lazy.model.lazyLoad]).toEqual(['name']);
+    expect([...more.model.lazyLoad]).toEqual(['name', 'age']);
+    const moreAggregated = aggregated.withSum('id', 'ids');
+    expect([...aggregated.model.aggregate.keys()]).toEqual(['total']);
+    expect([...moreAggregated.model.aggregate.keys()]).toEqual(['total', 'ids']);
+    expect(withParameter.parameter('b', 2).model.parameters).toEqual({ a: 1, b: 2 });
+    expect(withParameter.model.parameters).toEqual({ a: 1 });
+});
+
+test('the shared empty collections of a model can not be written to', () => {
+    class Item {
+        id: number & PrimaryKey = 0;
+    }
+
+    const model = new Database(new MemoryDatabaseAdapter(), [Item]).query(Item).model;
+    expect(() => model.select.add('id')).toThrow('shared');
+    expect(() => model.groupBy.add('id')).toThrow('shared');
+    expect(() => model.lazyLoad.add('id')).toThrow('shared');
+    expect(() => model.aggregate.set('id', {} as any)).toThrow('shared');
+    expect(model.select.size).toBe(0);
+});
+
+test('a lift does not change the query it was made from', () => {
+    class Item {
+        id: number & PrimaryKey = 0;
+    }
+
+    class Lifted<T extends OrmEntity> extends Query<T> {
+        lifted() {
+            return true;
+        }
+    }
+
+    const base = new Database(new MemoryDatabaseAdapter(), [Item]).query(Item);
+    const lifted = base.lift(Lifted);
+    expect(Query.is(lifted, Lifted)).toBe(true);
+    expect(Query.is(base, Lifted)).toBe(false);
+    expect(Query.is(lifted.filter({ id: 1 }), Lifted)).toBe(true);
 });
