@@ -605,7 +605,8 @@ export class PostgresSQLQueryResolver<T extends OrmEntity> extends SQLQueryResol
                     this.platform.serializer.deserializeRegistry,
                 ),
             };
-            select.push(`(${this.platform.quoteIdentifier(i)} ) as ${this.platform.quoteIdentifier(i)}`);
+            // the values come from the UPDATE's RETURNING (the new values); selecting
+            // them in _b as well made the name ambiguous when the field was patched
         }
 
         if (changes.$inc)

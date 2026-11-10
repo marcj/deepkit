@@ -576,17 +576,20 @@ export class SQLiteQueryResolver<T extends OrmEntity> extends SQLQueryResolver<T
             select.push(`NULL as ${this.platform.quoteIdentifier(i)}`);
         }
 
-        for (const i of model.returning) {
-            aggregateFields[i] = { converted: getSerializeFunction(resolvePath(i, this.classSchema.type), this.platform.serializer.deserializeRegistry) };
-            select.push(`(${this.platform.quoteIdentifier(i)} ) as ${this.platform.quoteIdentifier(i)}`);
-        }
-
         if (changes.$inc) for (const i in changes.$inc) {
             if (!changes.$inc.hasOwnProperty(i)) continue;
             fieldsSet[i] = 1;
             aggregateFields[i] = { converted: getSerializeFunction(resolvePath(i, this.classSchema.type), this.platform.serializer.serializeRegistry) };
 
             select.push(`(${this.platform.getColumnAccessor('', i)} + ${this.platform.quoteValue(changes.$inc[i])}) as ${this.platform.quoteIdentifier(asAliasName(i))}`);
+        }
+
+        for (const i of model.returning) {
+            aggregateFields[i] = { converted: getSerializeFunction(resolvePath(i, this.classSchema.type), this.platform.serializer.deserializeRegistry) };
+            // a patched field's new value and the primary key are already selected;
+            // selecting them twice returned the old value (SQLite) or failed (MySQL)
+            if (fieldsSet[i] || i === primaryKey.name) continue;
+            select.push(`(${this.platform.quoteIdentifier(i)} ) as ${this.platform.quoteIdentifier(i)}`);
         }
 
         const set: string[] = [];
