@@ -884,6 +884,8 @@ export class RpcKernel {
         injector.set(InjectorContext, injector);
         injector.set(RpcKernelConnection, connection);
         injector.set(RpcKernelBaseConnection, connection);
+        // a custom injector doesn't have to provide it, the framework binds it on its own
+        if (this.autoInjector) injector.set(SessionState, connection.sessionState);
         for (const on of this.onConnectionListeners) on(connection, injector, this.logger);
         this.getEventDispatcher().dispatch(onRpcConnection, { context: { connection, injector } });
         return connection;

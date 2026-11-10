@@ -3,7 +3,7 @@ import { Observable, lastValueFrom } from 'rxjs';
 import { AsyncDirectClient, DirectClient } from '../src/client/client-direct.js';
 import { rpc } from '../src/decorators.js';
 import { RpcKernel, RpcKernelBaseConnection, RpcKernelConnection } from '../src/server/kernel.js';
-import { RpcControllerAccess, RpcKernelSecurity, Session } from '../src/server/security.js';
+import { RpcControllerAccess, RpcKernelSecurity, Session, SessionState } from '../src/server/security.js';
 import { AuthenticationError } from '../src/model.js';
 import { rpcEncodeError, rpcErrorSettings } from '../src/protocol.js';
 import { Logger, MemoryLoggerTransport } from '@deepkit/logger';
@@ -343,4 +343,29 @@ describe('stack traces of errors', () => {
             rpcErrorSettings.exposeStack = false;
         }
     });
+});
+
+test('an injected SessionState is the authenticated session of the connection', async () => {
+    class TokenSecurity extends RpcKernelSecurity {
+        override async authenticate(token: string): Promise<Session> {
+            return new Session(token, token);
+        }
+    }
+
+    @rpc.controller('account')
+    class AccountController {
+        constructor(private state: SessionState) {}
+
+        @rpc.action()
+        username(): string {
+            return this.state.getSession().username;
+        }
+    }
+
+    const kernel = new RpcKernel([{ provide: RpcKernelSecurity, useClass: TokenSecurity, scope: 'rpc' }]);
+    kernel.registerController(AccountController);
+    const client = new DirectClient(kernel);
+    client.token.set('alice');
+
+    expect(await client.controller<AccountController>('account').username()).toBe('alice');
 });
