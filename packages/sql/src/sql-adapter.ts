@@ -156,6 +156,17 @@ export abstract class SQLConnection {
             stmt.release();
         }
     }
+
+    /**
+     * Returns what map returns for each row. The row is only valid during the call: drivers that can, decode all
+     * rows into the same object.
+     */
+    async execAndMapAll<T>(sql: string, params: any[] | undefined, map: (row: any) => T): Promise<T[]> {
+        const rows = await this.execAndReturnAll(sql, params);
+        const result: T[] = [];
+        for (const row of rows) result.push(map(row)); //mysql returns not a real array, so we have to iterate
+        return result;
+    }
 }
 
 export abstract class SQLConnectionPool {
@@ -346,6 +357,34 @@ export class SQLQueryResolver<T extends OrmEntity> extends GenericQueryResolver<
             model.limit !== undefined,
         );
         if (connectionFrame) connectionFrame.end();
+
+        if (!this.session.stopwatch && !model.hasJoins() && !model.isAggregate() && !model.sqlSelect) {
+            // Each row becomes its entity while it is read, the rows themselves are not kept. An error of the
+            // formatter is not an error of the query, so it is thrown as it is after the query.
+            const formatter = this.createFormatter(model.withIdentityMap);
+            let formatterError: unknown;
+            let items: T[];
+            try {
+                items = await connection.execAndMapAll(sql.sql, sql.params, row => {
+                    if (formatterError !== undefined) return undefined as any;
+                    try {
+                        return formatter.hydrate(model, row);
+                    } catch (error) {
+                        formatterError = error;
+                        return undefined as any;
+                    }
+                });
+            } catch (error: any) {
+                error = this.handleSpecificError(error);
+                throw new DatabaseError(`Could not query ${this.classSchema.getClassName()} due to SQL error ${error}`, {
+                    cause: error,
+                });
+            } finally {
+                connection.release();
+            }
+            if (formatterError !== undefined) throw formatterError;
+            return items;
+        }
 
         let rows: any[] = [];
         try {

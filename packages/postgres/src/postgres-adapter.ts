@@ -180,6 +180,11 @@ export class PostgresConnection extends SQLConnection {
         return this.connection.queryRows(sql, params, RowMode.object, !!params && params.length > 0);
     }
 
+    override execAndMapAll<T>(sql: string, params: any[] | undefined, map: (row: any) => T): Promise<T[]> {
+        if (this.isObserved()) return super.execAndMapAll(sql, params, map);
+        return this.connection.queryMapped(sql, params, map, !!params && params.length > 0);
+    }
+
     async run(sql: string, params: any[] = [], reusable: boolean = false) {
         const frame = this.stopwatch ? this.stopwatch.start('Query', FrameCategory.databaseQuery) : undefined;
         try {
