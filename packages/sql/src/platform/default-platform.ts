@@ -396,7 +396,13 @@ export abstract class DefaultPlatform {
                     }
                 }
 
-                const isNullable = property.isNullable() || property.isOptional();
+                // any and unknown include null, storing it failed with "violates not-null constraint"
+                const propertyKind = property.getType().kind;
+                const isNullable =
+                    property.isNullable() ||
+                    property.isOptional() ||
+                    propertyKind === ReflectionKind.any ||
+                    propertyKind === ReflectionKind.unknown;
                 column.isNotNull = !isNullable;
                 column.isPrimaryKey = property.isPrimaryKey();
                 if (property.isAutoIncrement()) {

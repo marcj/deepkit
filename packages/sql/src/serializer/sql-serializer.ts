@@ -32,7 +32,7 @@ import {
     TypeUnion,
     uuidAnnotation,
 } from '@deepkit/type';
-import { typeRequiresJSONCast } from '../platform/default-platform.js';
+import { typeRequiresJSONCast, typeResolvesToBigInt, typeResolvesToDate } from '../platform/default-platform.js';
 
 export const hexTable: string[] = [];
 for (let i = 0; i < 256; i++) {
@@ -163,14 +163,34 @@ function deserializeSqlObjectLiteral(type: TypeClass | TypeObjectLiteral, state:
     }
 }
 
-function serializeSqlUnion(type: TypeUnion, state: TemplateState) {
-    // // usually DB return JSON string, which we need to convert to objects first so the default union handler can work.
-    // if (isDirectPropertyOfEntity(state) && typeRequiresJSONCast(type)) {
-    //     state.setContext({ stringify: JSON.stringify });
-    //     state.addSetter(`stringify(${state.accessor})`);
-    // }
+function unionMemberToJson(value: any): string {
+    return 'bigint' === typeof value ? value.toString() : JSON.stringify(value);
+}
 
+/** Whether the platforms store this union as JSON, see the type mappings of the platforms (jsonb is the fallback). */
+function unionIsJsonColumn(type: TypeUnion): boolean {
+    // `Date | null`, `Uint8Array | undefined`: the column type of the member
+    if (type.types.filter(v => v.kind !== ReflectionKind.null && v.kind !== ReflectionKind.undefined).length <= 1) return false;
+    if (typeResolvesToDate(type) || typeResolvesToBigInt(type)) return false;
+    return typeRequiresJSONCast(type);
+}
+
+function serializeSqlUnion(type: TypeUnion, state: TemplateState) {
+    if (!isDirectPropertyOfEntity(state) || !unionIsJsonColumn(type)) {
+        handleUnion(type, state);
+        return;
+    }
+
+    // The column is JSON (see deserializeSqlUnion). Objects and arrays of the union are stringified by their own
+    // serializer; a string member was written as it is, so 'text' in a `string | number` column was invalid JSON.
+    // null and undefined stay SQL NULL.
+    const primitive = state.compilerContext.reserveName('unionPrimitive');
+    state.setContext({ unionMemberToJson });
+    state.addCode(
+        `var ${primitive} = ${state.accessor} !== null && ${state.accessor} !== undefined && ('object' !== typeof ${state.accessor} || ${state.accessor} instanceof Date);`,
+    );
     handleUnion(type, state);
+    state.addCode(`if (${primitive} && ${state.setter} !== undefined) ${state.setter} = unionMemberToJson(${state.setter});`);
 }
 
 function deserializeSqlUnion(type: TypeUnion, state: TemplateState) {

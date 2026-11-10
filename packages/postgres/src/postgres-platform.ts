@@ -28,6 +28,7 @@ import {
 import { postgresSerializer } from './postgres-serializer.js';
 import {
     isReferenceType,
+    isBinaryBigIntType,
     isUUIDType,
     ReflectionClass,
     ReflectionKind,
@@ -93,6 +94,8 @@ export class PostgresPlatform extends DefaultPlatform {
         this.addType(typeResolvesToNumber, 'double precision');
         this.addType(typeResolvesToInteger, 'integer');
         this.addType(typeResolvesToBigInt, 'bigint');
+        // values without a size limit: bigint holds 64 bit, a larger value failed with "out of range for type bigint"
+        this.addType(isBinaryBigIntType, 'numeric');
         this.addType(typeResolvesToBoolean, 'boolean');
         this.addType(typeResolvesToString, 'text');
 

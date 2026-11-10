@@ -109,7 +109,10 @@ export class SQLFilterBuilder {
         else if (comparison === 'in') cmpSign = 'IN';
         else if (comparison === 'nin') cmpSign = 'NOT IN';
         else if (comparison === 'like') cmpSign = 'LIKE';
-        else if (comparison === 'regex') return this.regexpComparator(this.quoteIdWithTable(fieldName), value);
+        else if (comparison === 'regex') {
+            // { $regex: '^a' } like Mongo: the comparators read source and flags of a RegExp
+            return this.regexpComparator(this.quoteIdWithTable(fieldName), value instanceof RegExp ? value : new RegExp(String(value)));
+        }
         else throw new Error(`Comparator ${comparison} not supported.`);
 
         let rvalue = '';
