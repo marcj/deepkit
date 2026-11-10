@@ -3,13 +3,12 @@ import { expect, test } from '@jest/globals';
 import { deserializeBSONWithoutOptimiser } from '../src/bson-parser.js';
 import { getBSONSerializer, serializeBSONWithoutOptimiser } from '../src/bson-serializer.js';
 
-// serializers without a writer hand out views of a shared slab for small messages and copies for large ones
+// serializers without a writer write into reused memory and return copies
 test('messages without a writer stay intact when more are serialized', () => {
     type T = { id: number; name: string; tags: string[] };
     const serialize = getBSONSerializer<T>();
     const messages: Uint8Array[] = [];
     const values: T[] = [];
-    // more than fits into one slab, so it wraps around to new memory
     for (let i = 0; i < 2000; i++) {
         const value = { id: i, name: 'name ' + i, tags: Array.from({ length: i % 7 }, (_, j) => 'tag' + j) };
         values.push(value);

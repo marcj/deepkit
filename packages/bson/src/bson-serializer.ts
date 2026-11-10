@@ -1540,102 +1540,63 @@ function createBSONSerializer(
         return state.writer.buffer;
     `;
 
-    const fn = compiler.build(code, 'data', 'state');
-    // the size of the last message without a writer, see serializeStandalone
-    fn.lastSize = 0;
-    return fn;
+    return compiler.build(code, 'data', 'state');
 }
 
 /** The memory of serializers that are called without a writer. */
 /**
- * Serializers called without a writer write small messages into the free part of a slab and return a view of what
- * they wrote, like Buffer.allocUnsafe hands out small buffers: no copy and no allocation besides the view. Larger
- * messages are written into reused memory and copied out. Which one a serializer uses depends on the size of its
- * last message, so that a large message isn't tried in the slab first.
+ * Serializers called without a writer write into reused memory, always from its start, and return a copy of the
+ * exact size. Writing each message to the same memory keeps it in the cache: handing out views of a slab, written at
+ * a moving offset, made nested objects 25% slower. A message larger than the memory is written a second time into
+ * larger memory (the writer counts on past the end), so there is no pass that computes the size first.
  */
-const slabSize = 16 * 1024;
-const slabMessageSize = slabSize >> 2;
-/** Reused memory up to this size is kept for the next message. */
-const largeKeep = 1024 * 1024;
-let slab: Uint8Array | undefined;
-let slabOffset = 0;
-let large: Uint8Array | undefined;
 let standaloneState: { writer: Writer; _stack?: unknown } | undefined;
 let standaloneBusy = false;
+/** Memory up to this size is kept for the next message. */
+const standaloneKeep = 1024 * 1024;
 
-/**
- * Serializes and returns the message. A message larger than the memory is written a second time into larger memory
- * (the writer counts on past the end), so there is no pass that computes the size first.
- */
-function serializeStandalone(serializer: AutoBufferSerializer & { lastSize: number }, data: any): Uint8Array {
+function serializeStandalone(serializer: AutoBufferSerializer, data: any): Uint8Array {
     // a serializer called while another one runs (from a getter, for example) needs its own memory
     if (standaloneBusy) return serializeInOwnMemory(serializer, data);
-    const state = (standaloneState ??= { writer: new Writer((slab = createBuffer(slabSize))) });
+    const state = (standaloneState ??= { writer: new Writer(createBuffer(16 * 1024)) });
     const writer = state.writer;
     standaloneBusy = true;
     const unpopulatedCheck = typeSettings.unpopulatedCheck;
     try {
-        if (serializer.lastSize <= slabMessageSize) {
-            const start = slabOffset;
-            writer.offset = start;
-            serializer(data, state);
-            const end = writer.offset;
-            const size = end - start;
-            if (size <= slabMessageSize) {
-                if (end > slab!.byteLength) {
-                    slab = writer.buffer = createBuffer(slabSize);
-                    writer.offset = 0;
-                    writer.typeOffset = 0;
-                    serializer(data, state);
-                    slabOffset = (size + 7) & ~7;
-                    standaloneBusy = false;
-                    return slab.subarray(0, size);
-                }
-                // the next message starts 8-byte aligned
-                slabOffset = (end + 7) & ~7;
-                standaloneBusy = false;
-                return slab!.subarray(start, end);
-            }
-            serializer.lastSize = size;
+        writer.offset = 0;
+        serializer(data, state);
+        let size = writer.offset;
+        if (size > writer.buffer.byteLength) {
+            writer.buffer = createBuffer(Math.max(size, writer.buffer.byteLength * 2));
+            writer.offset = 0;
             writer.typeOffset = 0;
+            serializer(data, state);
+            size = writer.offset;
         }
-        const message = serializeLarge(serializer, data, state);
+        const message = createBuffer(size);
+        copyBytes(writer.buffer, message, size);
+        if (writer.buffer.byteLength > standaloneKeep) writer.buffer = createBuffer(16 * 1024);
         standaloneBusy = false;
         return message;
     } catch (error) {
         // a serializer that throws leaves its state behind
         state._stack = undefined;
         writer.typeOffset = 0;
-        writer.buffer = slab!;
         typeSettings.unpopulatedCheck = unpopulatedCheck;
         standaloneBusy = false;
         throw error;
     }
 }
 
-/** Writes into reused memory and copies the message out. */
-function serializeLarge(serializer: AutoBufferSerializer & { lastSize: number }, data: any, state: { writer: Writer }): Uint8Array {
-    const writer = state.writer;
-    if (!large || large.byteLength < serializer.lastSize) large = createBuffer(Math.max(serializer.lastSize, 64 * 1024));
-    writer.buffer = large;
-    writer.offset = 0;
-    serializer(data, state);
-    let size = writer.offset;
-    if (size > large.byteLength) {
-        large = writer.buffer = createBuffer(Math.max(size, large.byteLength * 2));
-        writer.offset = 0;
-        writer.typeOffset = 0;
-        serializer(data, state);
-        size = writer.offset;
+/** Copies without the view that TypedArray.set() needs: byte by byte for small sizes, Buffer.copy in node. */
+function copyBytes(from: Uint8Array, to: Uint8Array, size: number): void {
+    if (size <= 64) {
+        for (let i = 0; i < size; i++) to[i] = from[i];
+    } else if ((from as any).copy !== undefined) {
+        (from as any).copy(to, 0, 0, size);
+    } else {
+        to.set(from.subarray(0, size));
     }
-    serializer.lastSize = size;
-    const message = createBuffer(size);
-    if ((large as any).copy !== undefined) (large as any).copy(message, 0, 0, size);
-    else message.set(large.subarray(0, size));
-    if (large.byteLength > largeKeep) large = undefined;
-    // the writer doesn't hold on to large memory
-    writer.buffer = slab!;
-    return message;
 }
 
 function serializeInOwnMemory(serializer: AutoBufferSerializer, data: any): Uint8Array {
@@ -1647,7 +1608,6 @@ function serializeInOwnMemory(serializer: AutoBufferSerializer, data: any): Uint
 function writeAny(data: any, state: AutoBufferSerializerState): void {
     state.writer!.write(data);
 }
-writeAny.lastSize = 0;
 
 /** Serializes without a type, from the values themselves. */
 export function serializeBSONWithoutOptimiser(data: any): Uint8Array {
