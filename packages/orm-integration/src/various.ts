@@ -20,6 +20,50 @@ import { randomBytes } from 'crypto';
 Error.stackTraceLimit = 20;
 
 export const variousTests = {
+    async queryInsertMany(databaseFactory: DatabaseFactory) {
+        @entity.name('test_query_insert_many')
+        class Item {
+            id: number & PrimaryKey & AutoIncrement = 0;
+            note?: string;
+
+            constructor(public name: string, public amount: number = 0) {}
+        }
+
+        const database = await databaseFactory([Item]);
+        await database.query(Item).deleteMany();
+
+        await database.query(Item).insertMany([]);
+        expect(await database.query(Item).count()).toBe(0);
+
+        const rows = [{ name: 'a', amount: 1 }, { name: 'b', amount: 2, note: 'with "quote"' }, { name: 'c', amount: 3 }];
+        await database.query(Item).insertMany(rows);
+        await database.query(Item).insertOne({ name: 'd', amount: 4 });
+
+        const items = await database.query(Item).orderBy('amount').find();
+        expect(items.map(v => [v.name, v.amount, v.note])).toEqual([
+            ['a', 1, undefined],
+            ['b', 2, 'with "quote"'],
+            ['c', 3, undefined],
+            ['d', 4, undefined],
+        ]);
+        expect(new Set(items.map(v => v.id)).size).toBe(4);
+
+        const session = database.createSession();
+        await session.query(Item).insertOne({ name: 'not tracked', amount: 5 });
+        await session.commit();
+        expect(await database.query(Item).filter({ name: 'not tracked' }).count()).toBe(1);
+
+        if (database.adapter.getName() !== 'memory') {
+            const transaction = database.createSession();
+            transaction.useTransaction();
+            await transaction.query(Item).insertOne({ name: 'rolled back', amount: 6 });
+            await transaction.rollback();
+            expect(await database.query(Item).filter({ name: 'rolled back' }).count()).toBe(0);
+        }
+
+        database.disconnect();
+    },
+
     async deletePrimaryKeysAreOptIn(databaseFactory: DatabaseFactory) {
         @entity.name('test_delete_primary_keys')
         class Item {

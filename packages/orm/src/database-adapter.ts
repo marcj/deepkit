@@ -38,7 +38,10 @@ export interface DatabasePersistenceChangeSet<T extends object> {
 export abstract class DatabasePersistence {
     abstract remove<T extends OrmEntity>(classSchema: ReflectionClass<T>, items: T[]): Promise<void>;
 
-    abstract insert<T extends OrmEntity>(classSchema: ReflectionClass<T>, items: T[]): Promise<void>;
+    /**
+     * @param options.returnPrimaryKeys Whether generated primary keys are read back into the items, default true.
+     */
+    abstract insert<T extends OrmEntity>(classSchema: ReflectionClass<T>, items: T[], options?: { returnPrimaryKeys?: boolean }): Promise<void>;
 
     abstract update<T extends OrmEntity>(classSchema: ReflectionClass<T>, changeSets: DatabasePersistenceChangeSet<T>[]): Promise<void>;
 

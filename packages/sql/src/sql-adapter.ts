@@ -896,9 +896,17 @@ export class SQLPersistence extends DatabasePersistence {
 
     protected populateAutoIncrementFields<T>(classSchema: ReflectionClass<T>, items: T[]) {}
 
-    async insert<T extends OrmEntity>(classSchema: ReflectionClass<T>, items: T[]): Promise<void> {
-        await this.prepareAutoIncrement(classSchema, items.length);
-        await this.doInsert(classSchema, items);
+    /** False during an insert that doesn't read generated primary keys back. */
+    protected returnInsertedKeys: boolean = true;
+
+    async insert<T extends OrmEntity>(classSchema: ReflectionClass<T>, items: T[], options?: { returnPrimaryKeys?: boolean }): Promise<void> {
+        this.returnInsertedKeys = options?.returnPrimaryKeys !== false;
+        try {
+            if (this.returnInsertedKeys) await this.prepareAutoIncrement(classSchema, items.length);
+            await this.doInsert(classSchema, items);
+        } finally {
+            this.returnInsertedKeys = true;
+        }
     }
 
     async update<T extends OrmEntity>(
@@ -922,12 +930,12 @@ export class SQLPersistence extends DatabasePersistence {
 
         if (batchSize > items.length) {
             await this.batchInsert(classSchema, items);
-            await this.populateAutoIncrementFields(classSchema, items);
+            if (this.returnInsertedKeys) await this.populateAutoIncrementFields(classSchema, items);
         } else {
             for (let i = 0; i < items.length; i += batchSize) {
                 const batched = items.slice(i, i + batchSize);
                 await this.batchInsert(classSchema, batched);
-                await this.populateAutoIncrementFields(classSchema, batched);
+                if (this.returnInsertedKeys) await this.populateAutoIncrementFields(classSchema, batched);
             }
         }
     }

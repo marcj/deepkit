@@ -29,9 +29,11 @@ import { DatabaseAdapter } from './database-adapter.js';
 import { DatabaseSession } from './database-session.js';
 import {
     DatabaseErrorEvent,
+    DatabaseErrorInsertEvent,
     QueryDatabaseDeleteEvent,
     QueryDatabaseEvent,
     QueryDatabasePatchEvent,
+    UnitOfWorkEvent,
     onDatabaseError,
 } from './event.js';
 import { DatabaseError, DeleteResult, OrmEntity, PatchResult } from './type.js';
@@ -1287,6 +1289,44 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
                 if (name in current) snapshot[name] = current[name];
             }
         }
+    }
+
+    /**
+     * Inserts rows directly into the database, without a unit of work, change detection or snapshots.
+     * Generated primary keys are not read back, use a session if you need them. Rows are not validated,
+     * and the filter of the query is not used. In MongoDB generated keys are still set on the given rows.
+     *
+     * @throws DatabaseInsertError
+     */
+    public async insertMany(rows: DeepPartial<T>[]): Promise<void> {
+        if (!rows.length) return;
+        const items = rows as T[];
+        const persistence = this.session.adapter.createPersistence(this.session);
+        const dispatcher = this.session.eventDispatcher;
+        try {
+            if (dispatcher.hasListeners(DatabaseSession.onInsertPre)) {
+                const event = new UnitOfWorkEvent<T>(this.classSchema, this.session, items);
+                await dispatcher.dispatch(DatabaseSession.onInsertPre, event);
+                if (event.defaultPrevented) return;
+            }
+            await persistence.insert(this.classSchema, items, { returnPrimaryKeys: false });
+            if (dispatcher.hasListeners(DatabaseSession.onInsertPost)) {
+                await dispatcher.dispatch(DatabaseSession.onInsertPost, new UnitOfWorkEvent<T>(this.classSchema, this.session, items));
+            }
+        } catch (error: any) {
+            await dispatcher.dispatch(
+                onDatabaseError,
+                Object.assign(new DatabaseErrorInsertEvent(error, this.session, this.classSchema), { inserts: items }),
+            );
+            throw error;
+        } finally {
+            persistence.release();
+        }
+    }
+
+    /** See insertMany. */
+    public async insertOne(row: DeepPartial<T>): Promise<void> {
+        await this.insertMany([row]);
     }
 
     /**

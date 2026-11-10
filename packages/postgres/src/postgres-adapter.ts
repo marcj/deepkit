@@ -493,7 +493,7 @@ export class PostgresPersistence extends SQLPersistence {
 
         const placeholder = new this.platform.placeholderStrategy();
         const arrays = fields.map(v => v.sqlTypeCast(placeholder.getPlaceholder()) + '[]').join(', ');
-        const autoIncrement = classSchema.getAutoIncrement();
+        const autoIncrement = this.returnInsertedKeys ? classSchema.getAutoIncrement() : undefined;
         const returning = autoIncrement ? ` RETURNING ${this.platform.quoteIdentifier(autoIncrement.name)}` : '';
         const names = fields.map(v => v.columnNameEscaped).join(', ');
         const table = this.platform.getTableIdentifier(classSchema);
@@ -502,7 +502,7 @@ export class PostgresPersistence extends SQLPersistence {
     }
 
     protected getInsertSQL(classSchema: ReflectionClass<any>, fields: string[], values: string[]): string {
-        const autoIncrement = classSchema.getAutoIncrement();
+        const autoIncrement = this.returnInsertedKeys ? classSchema.getAutoIncrement() : undefined;
         const returning = autoIncrement ? ` RETURNING ${this.platform.quoteIdentifier(autoIncrement.name)}` : '';
 
         if (fields.length === 0) {
