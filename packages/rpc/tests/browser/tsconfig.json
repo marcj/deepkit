@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "target": "es2022",
+        "module": "es2022",
+        "moduleResolution": "bundler",
+        "experimentalDecorators": true,
+        "useDefineForClassFields": false,
+        "lib": ["es2022", "dom", "webworker"],
+        "skipLibCheck": true
+    },
+    "reflection": true
+}

@@ -40,8 +40,22 @@ const waitTimeout = 50;
 /** Up to this size copying byte by byte is cheaper than creating the view that TypedArray.set() needs. */
 const smallCopySize = 128;
 
-/** setImmediate of node, polling is not supported without it */
-const scheduleImmediate: ((callback: () => void) => unknown) | undefined = (globalThis as any).setImmediate;
+/**
+ * Runs the callback in the next turn of the event loop, after I/O: setImmediate in node, a message to itself in
+ * browsers (setTimeout waits at least 4ms when nested).
+ */
+const scheduleImmediate: ((callback: () => void) => unknown) | undefined = (() => {
+    const global = globalThis as any;
+    if (global.setImmediate) return global.setImmediate;
+    if (!global.MessageChannel) return undefined;
+    const channel = new global.MessageChannel();
+    const callbacks: (() => void)[] = [];
+    channel.port1.onmessage = () => callbacks.shift()?.();
+    return (callback: () => void) => {
+        callbacks.push(callback);
+        channel.port2.postMessage(undefined);
+    };
+})();
 
 /** node's queueMicrotask() creates an AsyncResource and a bound function for each call, then() on this one doesn't. */
 const resolved = Promise.resolve();
@@ -78,7 +92,7 @@ export interface SharedMemoryChannelOptions {
     /**
      * How long the receiving side polls for new data, in each turn of the event loop, before it goes to sleep, in
      * microseconds. An answer that arrives meanwhile is read right away instead of after a wake-up of the thread,
-     * which takes 20-30µs. The core is busy while polling. Only in node, 0 disables it. Default 100.
+     * which takes 20-30µs. The core is busy while polling. 0 disables it. Default 100.
      */
     spin?: number;
 }
