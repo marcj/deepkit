@@ -4,9 +4,9 @@ Deepkit RPC supports several transport protocols. WebSockets is the protocol tha
 
 ## HTTP
 
-Deepkit's RPC HTTP protocol is a variant that is particularly easy to debug in the browser, as each function call is an HTTP request, but has its limitations such as no support for RxJS streaming.
+Every action call is an HTTP request with a JSON response. It works without a persistent connection, for example with server-side rendering, serverless platforms or proxies that don't pass WebSockets, and each call is easy to debug in the browser. Streaming results like RxJS Observables and Collections need a connection, so they are not available over HTTP.
 
-TODO: Not implemented yet.
+Enable it with `httpRpcBasePath` of the `FrameworkModule` and use `RpcHttpClientAdapter` on the client. See [RPC over HTTP](./http).
 
 ## WebSockets
 

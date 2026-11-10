@@ -1,6 +1,8 @@
 # Errors
 
-Thrown errors are automatically forwarded to the client with all its information like the error message and also the stacktrace.
+Thrown errors are automatically forwarded to the client with their message, and the properties of registered error classes.
+
+The stack trace and `error.cause` are only sent when the `debug` option of the `FrameworkModule` is enabled, since they show internal details like file paths or the database error a public error wraps. Without the framework, set `rpcErrorSettings.exposeStack` and `rpcErrorSettings.exposeCause` of `@deepkit/rpc`. A cause arrives as error again, so `error.cause` works on the client like on the server.
 
 If nominal instances for the error object is import (because you use instanceof), it is required to use `@entity.name('@error:unique-name')` so that the given error class is registered in the runtime and reused.
 

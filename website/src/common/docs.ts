@@ -211,6 +211,7 @@ export const docs = [
             { path: 'rpc/security', title: 'Security' },
             { path: 'rpc/errors', title: 'Errors' },
             { path: 'rpc/transport', title: 'Transport' },
+            { path: 'rpc/http', title: 'RPC over HTTP' },
         ],
     },
     {
