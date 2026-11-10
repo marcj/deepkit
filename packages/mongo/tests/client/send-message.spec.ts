@@ -1,7 +1,8 @@
 import { afterEach, expect, jest, test } from '@jest/globals';
-import { createServer, Server, Socket } from 'net';
+import { Server, Socket, createServer } from 'net';
 
-import { bsonBinarySerializer, deserializeBSONWithoutOptimiser, getBSONSerializer, Writer } from '@deepkit/bson';
+import { Writer, bsonBinarySerializer, deserializeBSONWithoutOptimiser, getBSONSerializer } from '@deepkit/bson';
+import { SocketWriter } from '@deepkit/net/node';
 import { getTypeJitContainer, typeOf } from '@deepkit/type';
 
 import { MongoClientConfig } from '../../src/client/config.js';
@@ -38,7 +39,16 @@ async function setup(): Promise<{ peer: Socket; received: Buffer[] }> {
     const port = (server!.address() as any).port;
     const config = new MongoClientConfig(`mongodb://127.0.0.1:${port}/test`);
     const host = { id: 1, hostname: '127.0.0.1', port, stats: {}, type: 0 } as any;
-    connection = new MongoConnection(1, host, config, bsonBinarySerializer, () => undefined, () => undefined, () => undefined, () => undefined);
+    connection = new MongoConnection(
+        1,
+        host,
+        config,
+        bsonBinarySerializer,
+        () => undefined,
+        () => undefined,
+        () => undefined,
+        () => undefined,
+    );
     connection.connect().catch(() => undefined);
     await connected;
     await new Promise<void>(resolve => (connection.socket.connecting ? connection.socket.once('connect', resolve) : resolve()));
@@ -47,7 +57,7 @@ async function setup(): Promise<{ peer: Socket; received: Buffer[] }> {
 
 function parseFrames(data: Buffer): { length: number; requestId: number; opCode: number; flags: number; kind: number; body: any }[] {
     const frames: any[] = [];
-    for (let offset = 0; offset < data.length;) {
+    for (let offset = 0; offset < data.length; ) {
         const length = data.readInt32LE(offset);
         expect(offset + length).toBeLessThanOrEqual(data.length);
         frames.push({
@@ -87,6 +97,15 @@ test('messages are framed correctly, also when one outgrows the buffer', async (
     const ids = frames.map(v => v.requestId);
     expect(ids).toEqual(ids.slice().sort((a, b) => a - b));
     expect(new Set(ids).size).toBe(ids.length);
+});
+
+test('a message is passed to the socket writer as a range, without a view', async () => {
+    await setup();
+    const write = jest.spyOn(SocketWriter.prototype, 'write');
+    const range = jest.spyOn(SocketWriter.prototype, 'writeRange');
+    connection.sendMessage(typeOf<Message>(), { seq: 1, payload: 'a' });
+    expect(range).toHaveBeenCalledTimes(1);
+    expect(write).not.toHaveBeenCalled();
 });
 
 test('no size pass and no copy of the message', async () => {

@@ -308,9 +308,8 @@ export class MongoQueryResolver<T extends OrmEntity> extends GenericQueryResolve
     }
 
     public async findOneOrUndefined(model: MongoQueryModel<T>): Promise<T | undefined> {
-        const connection = await this.client.getConnection(model.getCommandOptions(), this.session.assignedTransaction);
-
         const command = this.createFindCommand(model, true);
+        const connection = await this.client.getConnection({ ...model.getCommandOptions(), pipeline: command.pipelinable() && !this.session.assignedTransaction }, this.session.assignedTransaction);
 
         try {
             const items = await connection.execute(command);
@@ -332,7 +331,9 @@ export class MongoQueryResolver<T extends OrmEntity> extends GenericQueryResolve
         const formatter = this.createFormatter(model.withIdentityMap);
 
         const command = this.createFindCommand(model, false);
-        const connection = await this.client.getConnection(model.getCommandOptions(), this.session.assignedTransaction);
+        // without a limit it can run for long, and everything behind it on this connection would have to wait
+        const pipeline = command.pipelinable() && !!model.limit && !this.session.assignedTransaction;
+        const connection = await this.client.getConnection({ ...model.getCommandOptions(), pipeline }, this.session.assignedTransaction);
 
         try {
             const items = await connection.execute(command);

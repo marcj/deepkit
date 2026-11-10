@@ -30,6 +30,10 @@ type AggregateMessage = {
 } & TransactionalMessage & WriteConcernMessage & ReadPreferenceMessage;
 
 export class AggregateCommand<T, R = BaseResponse> extends Command<R[]> {
+    override pipelinable(): boolean {
+        return false;
+    }
+
     partial: boolean = false;
 
     constructor(

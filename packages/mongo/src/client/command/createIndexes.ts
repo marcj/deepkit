@@ -31,6 +31,10 @@ type RequestSchema = {
 } & WriteConcernMessage;
 
 export class CreateIndexesCommand<T extends ReflectionClass<any>> extends Command<void> {
+    override pipelinable(): boolean {
+        return false;
+    }
+
     constructor(
         public schema: T,
         public indexes: CreateIndex[],

@@ -42,6 +42,9 @@
     },
     {
       "path": "../logger/tsconfig.json"
+    },
+    {
+      "path": "../net/tsconfig.json"
     }
   ]
 }

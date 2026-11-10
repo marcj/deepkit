@@ -21,6 +21,10 @@ type RequestSchema = {
 } & WriteConcernMessage;
 
 export class DropIndexesCommand<T extends ReflectionClass<any>> extends Command<void> {
+    override pipelinable(): boolean {
+        return false;
+    }
+
     constructor(
         public schema: T,
         public names: string[],

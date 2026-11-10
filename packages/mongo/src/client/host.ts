@@ -8,6 +8,7 @@
  * You should have received a copy of the MIT License along with this program.
  */
 
+import { HostConnections } from '@deepkit/net';
 import type { MongoConnection } from './connection.js';
 
 export type HostType =
@@ -59,7 +60,11 @@ export class Host {
 
     protected typeSetAt?: Date;
 
-    readonly connections: MongoConnection[] = [];
+    readonly pool = new HostConnections<MongoConnection>();
+
+    get connections(): MongoConnection[] {
+        return this.pool.all;
+    }
 
     replicaSetName?: string;
 

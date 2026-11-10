@@ -95,6 +95,7 @@ export class MongoClient {
         transaction?: MongoDatabaseTransaction
     ): Promise<ReturnType<T['execute']>> {
         if (command.needsWritableHost()) request.writable = true;
+        if (!transaction && request.pipeline === undefined) request.pipeline = command.pipelinable();
 
         const maxRetries = 10;
         for (let i = 1; i <= maxRetries; i++) {

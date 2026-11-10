@@ -28,6 +28,7 @@
     "@deepkit/core": "^1.1.0",
     "@deepkit/event": "^1.1.0",
     "@deepkit/logger": "^1.1.0",
+    "@deepkit/net": "^1.1.0",
     "@deepkit/orm": "^1.1.0",
     "@deepkit/type": "^1.1.0"
   },
@@ -36,6 +37,7 @@
     "@deepkit/core": "^1.1.0",
     "@deepkit/event": "^1.1.0",
     "@deepkit/logger": "^1.1.0",
+    "@deepkit/net": "^1.1.0",
     "@deepkit/orm": "^1.1.0",
     "@deepkit/orm-integration": "^1.0.1",
     "@deepkit/type": "^1.1.0",

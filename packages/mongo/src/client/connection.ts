@@ -7,23 +7,26 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import type { Socket } from 'net';
+import type { TLSSocket, ConnectionOptions as TlsConnectionOptions } from 'tls';
 
+import { AutoBuffer, BSONBinarySerializer, getBSONSerializer } from '@deepkit/bson';
 import { arrayRemoveItem, asyncOperation, formatError } from '@deepkit/core';
-import { Host } from './host.js';
-import { createConnection, Socket } from 'net';
-import { connect as createTLSConnection, TLSSocket } from 'tls';
-import { Command, TransactionalMessage } from './command/command.js';
-import { stringifyType, Type, uuid } from '@deepkit/type';
-import { AutoBuffer, BSONBinarySerializer, BsonStreamReader, getBSONSerializer } from '@deepkit/bson';
-import { HandshakeCommand } from './command/handshake.js';
-import { detectTopology, MongoClientConfig, updateKnownHosts, updateStaleness } from './config.js';
-import { MongoConnectionError, MongoError } from './error.js';
-import { DatabaseTransaction } from '@deepkit/orm';
-import { CommitTransactionCommand } from './command/commitTransaction.js';
-import { AbortTransactionCommand } from './command/abortTransaction.js';
 import { DataEvent, EventDispatcher, EventTokenSync } from '@deepkit/event';
-import { IsMasterCommand } from './command/ismaster.js';
 import { Logger } from '@deepkit/logger';
+import { Int32LEFrameReader, RequestQueue } from '@deepkit/net';
+import { SocketWriter, connectSocket } from '@deepkit/net/node';
+import { DatabaseTransaction } from '@deepkit/orm';
+import { Type, stringifyType, uuid } from '@deepkit/type';
+
+import { AbortTransactionCommand } from './command/abortTransaction.js';
+import { Command, TransactionalMessage } from './command/command.js';
+import { CommitTransactionCommand } from './command/commitTransaction.js';
+import { HandshakeCommand } from './command/handshake.js';
+import { IsMasterCommand } from './command/ismaster.js';
+import { MongoClientConfig, detectTopology, updateKnownHosts, updateStaleness } from './config.js';
+import { MongoConnectionError, MongoError } from './error.js';
+import { Host } from './host.js';
 import { CommandOptions, ConnectionOptions } from './options.js';
 
 export enum MongoConnectionStatus {
@@ -47,6 +50,12 @@ export interface ConnectionRequest {
     readPreference: ConnectionOptions['readPreference'];
 
     readPreferenceTags?: ConnectionOptions['readPreferenceTags'];
+
+    /**
+     * When true the connection may be shared: others can send commands on it while it is in use, so it
+     * must only be used for one short command. Default is false, the connection is exclusive until released.
+     */
+    pipeline?: boolean;
 }
 
 export class MongoStats {
@@ -76,9 +85,11 @@ export class MongoStats {
     topologyChanges: number = 0;
 }
 
-export const onMongoTopologyChange = new EventTokenSync<DataEvent<{ pool: MongoConnectionPool }>>('mongo.topologyChange');
+export const onMongoTopologyChange = new EventTokenSync<DataEvent<{ pool: MongoConnectionPool }>>(
+    'mongo.topologyChange',
+);
 
-export const onMongoNewHost = new EventTokenSync<DataEvent<{ pool: MongoConnectionPool, host: Host }>>('mongo.newHost');
+export const onMongoNewHost = new EventTokenSync<DataEvent<{ pool: MongoConnectionPool; host: Host }>>('mongo.newHost');
 
 interface QueueEntry {
     resolve: (connection: MongoConnection) => void;
@@ -96,7 +107,9 @@ export class MongoConnectionPool {
      */
     public connections: MongoConnection[] = [];
 
-    protected queue: QueueEntry[] = [];
+    protected queue = new RequestQueue<QueueEntry>();
+
+    protected idleTimer?: ReturnType<typeof setInterval>;
 
     protected lastError?: Error;
 
@@ -108,7 +121,7 @@ export class MongoConnectionPool {
     }
 
     protected connectPromise?: Promise<void>;
-    protected connectPromiseHandles?: { resolve: () => void, reject: (error: Error) => void };
+    protected connectPromiseHandles?: { resolve: () => void; reject: (error: Error) => void };
 
     constructor(
         protected config: MongoClientConfig,
@@ -143,10 +156,10 @@ export class MongoConnectionPool {
         }
 
         // wait for topology change: we need at least one secondary or primary online
-        return this.connectPromise = asyncOperation<void>((resolve, reject) => {
+        return (this.connectPromise = asyncOperation<void>((resolve, reject) => {
             this.connectPromiseHandles = { resolve, reject };
             this.heartbeat();
-        });
+        }));
     }
 
     protected createErrorForUnmetRequest(request: ConnectionRequest): MongoConnectionError {
@@ -186,11 +199,11 @@ export class MongoConnectionPool {
                 this.eventDispatcher.dispatch(onMongoTopologyChange, { pool: this });
             }
 
-            const queue = this.queue.splice(0, this.queue.length);
+            const queue = this.queue.drain();
             for (const waiter of queue) {
                 const host = this.findHostForRequest(waiter.request);
                 if (host) {
-                    const connection = this.getConnectionForHost(host);
+                    const connection = this.getConnectionForHost(host, !waiter.request.pipeline);
                     if (connection) {
                         waiter.resolve(connection);
                         continue;
@@ -206,7 +219,11 @@ export class MongoConnectionPool {
                 if (this.isConnected()) {
                     this.connectPromiseHandles.resolve();
                 } else {
-                    this.connectPromiseHandles.reject(new MongoConnectionError('Connection failed: no hosts available. ' + this.config.shortSummary()));
+                    this.connectPromiseHandles.reject(
+                        new MongoConnectionError(
+                            'Connection failed: no hosts available. ' + this.config.shortSummary(),
+                        ),
+                    );
                 }
                 this.connectPromiseHandles = undefined;
             }
@@ -251,10 +268,11 @@ export class MongoConnectionPool {
         for (const connection of connections) {
             connection.close();
         }
-        for (const waiter of this.queue) {
+        for (const waiter of this.queue.drain()) {
             waiter.reject(new MongoConnectionError('Connection pool closed'));
         }
-        this.queue = [];
+        clearInterval(this.idleTimer);
+        this.idleTimer = undefined;
         this.lastError = undefined;
         this.connections = [];
         this.lastHeartbeat = new Date(0);
@@ -271,13 +289,13 @@ export class MongoConnectionPool {
         const topologyId = this.config.topologyId;
 
         this.activeHeartbeats++;
-        host.lastUpdatePromise = new Promise<void>(async (resolve) => {
+        host.lastUpdatePromise = new Promise<void>(async resolve => {
             let connection = this.getConnectionForHost(host);
             if (!connection) {
                 // we force create a connection to this host, ignoring limits
                 // as we don't want to wait for busy connections to be released.
                 connection = this.createConnection(host);
-                connection.reserved = true;
+                host.pool.reserve(connection, true);
                 host.stats.connectionsReserved++;
             }
 
@@ -295,7 +313,7 @@ export class MongoConnectionPool {
                     return;
                 }
 
-                host.lastUpdateTime = new Date;
+                host.lastUpdateTime = new Date();
                 host.latency = Date.now() - start;
                 host.dead = false;
                 host.setType(host.getTypeFromIsMasterResult(data));
@@ -317,7 +335,9 @@ export class MongoConnectionPool {
                 host.subsequentHeartbeatErrors++;
                 if (host.subsequentHeartbeatErrors <= 10) {
                     const errors = `${host.subsequentHeartbeatErrors}/10`;
-                    this.scopedLogger.warn(`Mongo heartbeat connection error for host ${host.label} (${errors}): ${formatError(error)}}}`);
+                    this.scopedLogger.warn(
+                        `Mongo heartbeat connection error for host ${host.label} (${errors}): ${formatError(error)}}}`,
+                    );
                 }
                 host.status = 'heartbeat(): ' + formatError(error);
                 host.dead = true;
@@ -327,13 +347,15 @@ export class MongoConnectionPool {
                 connection.release();
                 resolve();
             }
-        }).catch((error) => {
-            this.scopedLogger.log(`Mongo heartbeat general error for host ${host.label}: ${formatError(error)}`);
-        }).finally(() => {
-            this.activeHeartbeats--;
-            host.lastUpdatePromise = undefined;
-            this.onTopologyProgress('host');
-        });
+        })
+            .catch(error => {
+                this.scopedLogger.log(`Mongo heartbeat general error for host ${host.label}: ${formatError(error)}`);
+            })
+            .finally(() => {
+                this.activeHeartbeats--;
+                host.lastUpdatePromise = undefined;
+                this.onTopologyProgress('host');
+            });
     }
 
     /**
@@ -347,22 +369,26 @@ export class MongoConnectionPool {
 
         this.scopedLogger.debug(`Heartbeat start ${this.stats.heartbeats}`);
 
-        this.config.getHosts().then((hosts) => {
-            if (this.closed) return;
-            for (const host of hosts) {
-                this.heartbeatHost(host);
-            }
-        }).catch((error) => {
-            this.stats.heartbeatsFailed++;
-            this.scopedLogger.error(`Mongo heartbeat error: ${formatError(error)}`);
-        }).finally(() => {
-            if (this.closed) return;
-            // exactly one scheduled heartbeat, and it always runs: unforced, a timer that fires a millisecond
-            // early (setTimeout vs. Date.now()) would return without scheduling the next one, and the
-            // topology would never be explored again.
-            clearTimeout(this.heartbeatTimer);
-            this.heartbeatTimer = setTimeout(() => this.heartbeat(true), this.config.options.heartbeatFrequencyMS);
-        });
+        this.config
+            .getHosts()
+            .then(hosts => {
+                if (this.closed) return;
+                for (const host of hosts) {
+                    this.heartbeatHost(host);
+                }
+            })
+            .catch(error => {
+                this.stats.heartbeatsFailed++;
+                this.scopedLogger.error(`Mongo heartbeat error: ${formatError(error)}`);
+            })
+            .finally(() => {
+                if (this.closed) return;
+                // exactly one scheduled heartbeat, and it always runs: unforced, a timer that fires a millisecond
+                // early (setTimeout vs. Date.now()) would return without scheduling the next one, and the
+                // topology would never be explored again.
+                clearTimeout(this.heartbeatTimer);
+                this.heartbeatTimer = setTimeout(() => this.heartbeat(true), this.config.options.heartbeatFrequencyMS);
+            });
     }
 
     protected findHostForRequest(request: ConnectionRequest): Host | undefined {
@@ -445,89 +471,120 @@ export class MongoConnectionPool {
         this.stats.connectionsCreated++;
         host.stats.connectionsCreated++;
         host.stats.connectionsAlive++;
-        const connection = new MongoConnection(this.connectionId++, host, this.config, this.serializer, (connection) => {
-            arrayRemoveItem(host.connections, connection);
-            arrayRemoveItem(this.connections, connection);
-            if (connection.status === MongoConnectionStatus.error) {
-                this.stats.connectionsError++;
-                host.stats.connectionsError++;
-            }
-            host.stats.connectionsAlive--;
-            if (connection.reserved) {
-                host.stats.connectionsReserved--;
-            }
-            // onClose does not automatically reconnect. Only new commands re-establish connections.
-        }, (connection) => {
-            this.release(connection);
-        }, (bytesSent) => {
-            host.stats.bytesSent += bytesSent;
-            this.stats.bytesSent += bytesSent;
-        }, (bytesReceived) => {
-            host.stats.bytesReceived += bytesReceived;
-            this.stats.bytesReceived += bytesReceived;
-        });
-        connection.connect().catch((error) => {
+        const connection = new MongoConnection(
+            this.connectionId++,
+            host,
+            this.config,
+            this.serializer,
+            connection => {
+                host.pool.remove(connection);
+                arrayRemoveItem(this.connections, connection);
+                if (connection.status === MongoConnectionStatus.error) {
+                    this.stats.connectionsError++;
+                    host.stats.connectionsError++;
+                }
+                host.stats.connectionsAlive--;
+                if (connection.reserved) {
+                    host.stats.connectionsReserved--;
+                }
+                // onClose does not automatically reconnect. Only new commands re-establish connections.
+            },
+            connection => {
+                this.release(connection);
+            },
+            bytesSent => {
+                host.stats.bytesSent += bytesSent;
+                this.stats.bytesSent += bytesSent;
+            },
+            bytesReceived => {
+                host.stats.bytesReceived += bytesReceived;
+                this.stats.bytesReceived += bytesReceived;
+            },
+        );
+        connection.connect().catch(error => {
             host.status = 'connect(): ' + formatError(error);
         });
-        host.connections.push(connection);
+        host.pool.add(connection);
         this.connections.push(connection);
+        this.startIdleTimer();
         return connection;
     }
 
-    protected handleQueueEntry(i: number, host: Host): boolean {
-        const waiter = this.queue[i];
+    /**
+     * One timer for the pool, instead of one for each release of a connection.
+     */
+    protected startIdleTimer(): void {
+        if (this.idleTimer || this.config.options.maxIdleTimeMS <= 0) return;
+        const maxIdle = this.config.options.maxIdleTimeMS;
+        this.idleTimer = setInterval(
+            () => {
+                const before = Date.now() - maxIdle;
+                for (const host of this.config.hosts) {
+                    for (const connection of host.pool.takeExpired(before, this.config.options.minPoolSize))
+                        connection.close();
+                }
+            },
+            Math.max(100, maxIdle / 4),
+        );
+        this.idleTimer.unref?.();
+    }
+
+    /**
+     * Whether the waiter at the position can use the connection, of which it would get a share.
+     * A waiter that timed out is rejected and removed, the position then holds the next waiter.
+     */
+    protected handleQueueEntry(i: number, connection: MongoConnection): boolean | undefined {
+        const waiter = this.queue.at(i);
         if (!waiter) return false;
 
         // check if timed out
-        if (this.config.options.waitQueueTimeoutMS && Date.now() - waiter.time > this.config.options.waitQueueTimeoutMS) {
-            this.queue.splice(i, 1);
-            waiter.reject(new MongoConnectionError(`Connection acquisition timed out after ${Date.now() - waiter.time}ms (max ${this.config.options.waitQueueTimeoutMS}ms)`));
-            return false;
+        if (
+            this.config.options.waitQueueTimeoutMS &&
+            Date.now() - waiter.time > this.config.options.waitQueueTimeoutMS
+        ) {
+            this.queue.removeAt(i);
+            waiter.reject(
+                new MongoConnectionError(
+                    `Connection acquisition timed out after ${Date.now() - waiter.time}ms (max ${this.config.options.waitQueueTimeoutMS}ms)`,
+                ),
+            );
+            return undefined;
         }
 
+        const host = connection.host;
         if (!host.isUsable()) return false;
         if (waiter.request.writable && !host.isWritable()) return false;
         if (waiter.request.readPreference === 'primary' && !host.isWritable()) return false;
         if (waiter.request.readPreference === 'secondary' && !host.isReadable()) return false;
+        // an exclusive waiter needs the connection for itself
+        if (!waiter.request.pipeline && connection.load > 1) return false;
 
         return true;
     }
 
     protected release(connection: MongoConnection) {
-        for (let i = 0; i < this.queue.length; i++) {
-            const waiter = this.queue[i];
-
-            if (!this.handleQueueEntry(i, connection.host)) {
+        for (let i = 0; i < this.queue.size; i++) {
+            const match = this.handleQueueEntry(i, connection);
+            if (match === undefined) {
+                i--;
                 continue;
             }
+            if (!match) continue;
 
+            const waiter = this.queue.at(i)!;
             connection.host.stats.connectionsReused++;
             this.stats.connectionsReused++;
+            if (connection.load === 1) connection.exclusive = !waiter.request.pipeline;
 
-            this.queue.splice(i, 1);
+            this.queue.removeAt(i);
             waiter.resolve(connection);
-            // we don't set reserved/set cleanupTimeout,
-            // since the connection is already reserved and the timeout
-            // is only set when the connection actually starting idling.
-            // as soon a connection becomes reserved, the timer is stopped.
+            // the waiter takes over the share of the releasing user
             return;
         }
 
-        connection.reserved = false;
-        connection.host.stats.connectionsReserved--;
-
-        // the connection might have closed already
-        if (!connection.closed) {
-            if (connection.cleanupTimeout) clearTimeout(connection.cleanupTimeout);
-
-            connection.cleanupTimeout = setTimeout(() => {
-                if (this.connections.length <= this.config.options.minPoolSize) {
-                    return;
-                }
-
-                connection.close();
-            }, this.config.options.maxIdleTimeMS);
-        }
+        const host = connection.host;
+        host.pool.release(connection, Date.now());
+        if (connection.load === 0) host.stats.connectionsReserved--;
     }
 
     protected applyRequestDefaults(request: Partial<ConnectionRequest>): ConnectionRequest {
@@ -553,15 +610,25 @@ export class MongoConnectionPool {
         const host = this.findHostForRequest(request);
 
         if (host) {
-            const connection = this.getConnectionForHost(host);
+            const exclusive = !request.pipeline;
+            const connection = this.getConnectionForHost(host, exclusive);
             if (connection) return connection;
 
             if (host.connections.length < this.config.options.maxPoolSize) {
                 const connection = this.createConnection(host);
                 host.stats.connectionsReserved++;
-                connection.reserved = true;
+                host.pool.reserve(connection, exclusive);
                 await connection.connect();
                 return connection;
+            }
+
+            if (request.pipeline && this.config.options.maxPipelineDepth > 1) {
+                const connection = host.pool.acquirePipelined(this.config.options.maxPipelineDepth);
+                if (connection) {
+                    this.stats.connectionsReused++;
+                    host.stats.connectionsReused++;
+                    return connection;
+                }
             }
             host.stats.connectionsQueued++;
         } else {
@@ -577,32 +644,18 @@ export class MongoConnectionPool {
         });
     }
 
-    protected getConnectionForHost(host: Host): MongoConnection | undefined {
-        for (const connection of host.connections) {
-            if (!connection.isConnected()) {
-                continue;
-            }
-            if (connection.reserved) {
-                continue;
-            }
-
-            this.stats.connectionsReused++;
-            host.stats.connectionsReused++;
-            host.stats.connectionsReserved++;
-            connection.reserved = true;
-            if (connection.cleanupTimeout) {
-                clearTimeout(connection.cleanupTimeout);
-                connection.cleanupTimeout = undefined;
-            }
-
-            return connection;
-        }
-        return;
+    protected getConnectionForHost(host: Host, exclusive: boolean = true): MongoConnection | undefined {
+        const connection = host.pool.acquireIdle(exclusive);
+        if (!connection) return undefined;
+        this.stats.connectionsReused++;
+        host.stats.connectionsReused++;
+        host.stats.connectionsReserved++;
+        return connection;
     }
 }
 
 export function readUint32LE(buffer: Uint8Array | ArrayBuffer, offset: number = 0): number {
-    return buffer[offset] + (buffer[offset + 1] * 2 ** 8) + (buffer[offset + 2] * 2 ** 16) + (buffer[offset + 3] * 2 ** 24);
+    return buffer[offset] + buffer[offset + 1] * 2 ** 8 + buffer[offset + 2] * 2 ** 16 + buffer[offset + 3] * 2 ** 24;
 }
 
 /**
@@ -614,18 +667,23 @@ export class MongoDatabaseTransactionMonitor {
         connection: MongoConnection;
         lsid: { id: string };
         txnNumber: bigint;
-    }>((value) => {
-        this.logger.scoped('mongo').warn(`Leaking transaction detected. Automatically rollback transaction ${value.txnNumber}`);
-        value.connection.execute(new AbortTransactionCommand({ ...value, autocommit: false }))
-            .catch((error) => {
-                this.logger.scoped('mongo').error(`Could not rollback transaction ${value.txnNumber}: ${formatError(error)}`);
-            }).finally(() => {
-            value.connection.release();
-        });
+    }>(value => {
+        this.logger
+            .scoped('mongo')
+            .warn(`Leaking transaction detected. Automatically rollback transaction ${value.txnNumber}`);
+        value.connection
+            .execute(new AbortTransactionCommand({ ...value, autocommit: false }))
+            .catch(error => {
+                this.logger
+                    .scoped('mongo')
+                    .error(`Could not rollback transaction ${value.txnNumber}: ${formatError(error)}`);
+            })
+            .finally(() => {
+                value.connection.release();
+            });
     });
 
-    constructor(public logger: Logger) {
-    }
+    constructor(public logger: Logger) {}
 
     setLogger(logger: Logger) {
         this.logger = logger;
@@ -655,7 +713,11 @@ export class MongoDatabaseTransaction extends DatabaseTransaction {
         if (!this.started && !cmd.abortTransaction && !cmd.commitTransaction) {
             this.started = true;
             cmd.startTransaction = true;
-            this.monitor.finalizer.register(this, { connection: this.connection, lsid: this.lsid, txnNumber: this.txnNumber });
+            this.monitor.finalizer.register(this, {
+                connection: this.connection,
+                lsid: this.lsid,
+                txnNumber: this.txnNumber,
+            });
         }
         if (this.started) {
             cmd.lsid = this.lsid;
@@ -708,19 +770,24 @@ export class MongoConnection {
     status: MongoConnectionStatus = MongoConnectionStatus.pending;
 
     public connectingPromise?: Promise<void>;
-    public lastCommand?: { command: Command<unknown>, promise?: Promise<any> };
+    /** Commands waiting for their answer, answers arrive in the order the commands were sent. */
+    protected inFlight = new RequestQueue<Command<unknown>>();
+    /** The running command of a connection that is not shared, as those run one after the other. */
+    protected running?: Promise<any>;
 
     public activeCommands: number = 0;
     public executedCommands: number = 0;
     public activeTransaction: boolean = false;
-    public reserved: boolean = false;
-    public cleanupTimeout?: ReturnType<typeof setTimeout>;
+    public load: number = 0;
+    public exclusive: boolean = false;
+    public idleSince: number = 0;
 
     protected socket: Socket | TLSSocket;
 
     public transaction?: WeakRef<MongoDatabaseTransaction>;
 
-    responseParser: BsonStreamReader;
+    responseParser: Int32LEFrameReader;
+    protected writer: SocketWriter;
     error?: Error;
 
     bytesReceived: number = 0;
@@ -741,15 +808,11 @@ export class MongoConnection {
         protected onSent: (bytes: number) => void,
         protected onReceived: (bytes: number) => void,
     ) {
-        this.responseParser = new BsonStreamReader(this.onResponse.bind(this));
+        this.responseParser = new Int32LEFrameReader(this.onResponse.bind(this));
 
+        let tls: TlsConnectionOptions | undefined = undefined;
         if (this.config.options.ssl === true) {
-            const options: { [name: string]: any } = {
-                host: host.hostname,
-                port: host.port,
-                timeout: config.options.socketTimeoutMS,
-                servername: host.hostname,
-            };
+            tls = { servername: host.hostname };
             const optional = {
                 ca: config.options.tlsCAFile,
                 key: config.options.tlsCertificateKeyFile || config.options.tlsCertificateFile,
@@ -762,44 +825,19 @@ export class MongoConnection {
             };
 
             for (const i in optional) {
-                if (optional[i]) options[i] = optional[i];
+                if ((optional as any)[i]) (tls as any)[i] = (optional as any)[i];
             }
-
-            this.socket = createTLSConnection(options);
-            this.socket.on('data', (data) => {
-                this.bytesReceived += data.byteLength;
-                this.onReceived(data.byteLength);
-                this.responseParser.feed(data);
-            });
-        } else {
-            this.socket = createConnection({
-                host: host.hostname,
-                port: host.port,
-                timeout: config.options.socketTimeoutMS,
-            });
-
-            this.socket.on('data', (data) => {
-                this.bytesReceived += data.byteLength;
-                this.onReceived(data.byteLength);
-                this.responseParser.feed(data);
-            });
-
-            // const socket = this.socket = turbo.connect(host.port, host.hostname);
-            // // this.socket.setNoDelay(true);
-            // const buffer = Buffer.allocUnsafe(this.bufferSize);
-            //
-            // function read() {
-            //     socket.read(buffer, onRead);
-            // }
-            //
-            // function onRead(err: any, buf: Buffer, bytes: number) {
-            //     if (!bytes) return;
-            //     responseParser.feed(buf, bytes);
-            //     read();
-            // }
-            //
-            // read();
         }
+
+        this.socket = connectSocket(
+            { host: host.hostname, port: host.port, timeout: config.options.socketTimeoutMS, tls },
+            (data, length) => {
+                this.bytesReceived += length;
+                this.onReceived(length);
+                this.responseParser.feed(data, length);
+            },
+        );
+        this.writer = new SocketWriter(this.socket);
 
         this.connectingPromise = asyncOperation(async (resolve, reject) => {
             let timeout: ReturnType<typeof setTimeout> | undefined = undefined;
@@ -816,26 +854,22 @@ export class MongoConnection {
 
             this.socket.on('close', () => {
                 clearTimeout(timeout);
-                clearTimeout(this.cleanupTimeout);
-                this.cleanupTimeout = undefined;
                 if (this.closed) return;
                 this.status = MongoConnectionStatus.disconnected;
                 this.connectingPromise = undefined;
                 this.closed = true;
-                if (this.lastCommand) {
-                    this.lastCommand.command.reject(this.error || new MongoConnectionError('Connection closed'));
-                    this.lastCommand = undefined;
-                }
+                this.rejectInFlight(this.error || new MongoConnectionError('Connection closed'));
                 this.onClose(this);
                 reject(new MongoConnectionError('Connection closed'));
                 this.socket.destroy();
             });
 
-            this.socket.on('error', (error) => {
+            this.socket.on('error', error => {
                 this.status = MongoConnectionStatus.error;
                 this.connectingPromise = undefined;
                 this.closed = true;
                 this.error = new MongoConnectionError(`Connection failed ${formatError(error.message)}`);
+                this.rejectInFlight(this.error);
                 this.onClose(this);
                 reject(this.error);
                 this.socket.destroy();
@@ -870,10 +904,12 @@ export class MongoConnection {
         return this.status === MongoConnectionStatus.connecting;
     }
 
+    get reserved(): boolean {
+        return this.load > 0;
+    }
+
     close() {
         this.status = MongoConnectionStatus.disconnected;
-        clearTimeout(this.cleanupTimeout);
-        this.cleanupTimeout = undefined;
         this.socket.destroy();
     }
 
@@ -889,40 +925,62 @@ export class MongoConnection {
     /**
      * When a full message from the server was received.
      */
-    protected onResponse(response: Uint8Array) {
-        //we remove the header for the command
-        const size = readUint32LE(response);
-        const offset = 16 + 4 + 1; //MSG response
-        // const offset = 16 + 4 + 8 + 4 + 4; //QUERY_REPLY
-        const message = response.slice(offset, size);
+    protected onResponse(buffer: Uint8Array, start: number, end: number) {
+        const command = this.inFlight.shift();
+        if (!command) {
+            this.fail(new MongoConnectionError('Got a server response without active command'));
+            return;
+        }
 
-        if (!this.lastCommand) throw new MongoError(`Got a server response without active command`);
+        const responseTo =
+            buffer[start + 8] | (buffer[start + 9] << 8) | (buffer[start + 10] << 16) | (buffer[start + 11] << 24);
+        if (responseTo !== command.requestId) {
+            command.reject(
+                new MongoConnectionError(`Got a response to message ${responseTo}, expected ${command.requestId}`),
+            );
+            this.fail(new MongoConnectionError('Responses do not match the requests'));
+            return;
+        }
 
-        this.lastCommand.command.handleResponse(message);
+        command.handleResponse(buffer, start + 16 + 4 + 1); //skip header and OP_MSG flags and kind
+    }
+
+    protected rejectInFlight(error: Error): void {
+        while (this.inFlight.size > 0) this.inFlight.shift()!.reject(error);
     }
 
     /**
-     * Puts a command on the queue and executes it when queue is empty.
-     * A promises is return that is resolved with the  when executed successfully, or rejected
+     * The stream can not be trusted anymore, so everything waiting on it fails.
+     */
+    protected fail(error: Error): void {
+        this.error = error;
+        this.rejectInFlight(error);
+        this.socket.destroy();
+    }
+
+    /**
+     * Sends the command, without waiting for commands that are already on the way.
+     * A promise is returned that is resolved when executed successfully, or rejected
      * when timed out, parser error, or any other error.
      */
     public async execute<T extends Command<unknown>>(command: T): Promise<ReturnType<T['execute']>> {
         await this.connectingPromise;
         if (this.status === MongoConnectionStatus.disconnected) throw new MongoError('Connection already disconnected');
 
-        if (this.lastCommand && this.lastCommand.promise) {
-            await this.lastCommand.promise;
+        // A connection that is not shared, as in a transaction, keeps its strict order of commands.
+        while (this.exclusive && this.running) {
+            await this.running.catch(() => undefined);
         }
 
-        this.lastCommand = { command };
         this.activeCommands++;
         this.executedCommands++;
         this.host.stats.commandsActive++;
         this.host.stats.commandsExecuted++;
         command.sender = this.boundSendMessage;
+        const promise = command.execute(this.config, this.host, this.transaction?.deref()) as Promise<any>;
+        if (this.exclusive) this.running = promise;
         try {
-            this.lastCommand.promise = command.execute(this.config, this.host, this.transaction?.deref());
-            return await this.lastCommand.promise;
+            return await promise;
         } catch (error) {
             // if error suggests that the topology changed, we need to re-try
             // this.config.invalidate()
@@ -930,40 +988,46 @@ export class MongoConnection {
             (error as Error).message += ', on connection ' + this.host.id + ' (' + this.host.type + ')';
             throw error;
         } finally {
-            this.lastCommand = undefined;
+            if (this.running === promise) this.running = undefined;
             this.activeCommands--;
             this.host.stats.commandsActive--;
         }
     }
 
-    protected sendMessage<T>(type: Type, message: T) {
+    protected sendMessage<T>(type: Type, message: T, command?: Command<unknown>) {
+        if (this.socket.destroyed) throw new MongoConnectionError('Connection closed');
+
         const messageBuffer = this.messageBuffer;
 
         try {
             messageBuffer.apply(getBSONSerializer(this.serializer, type), message);
-            const buffer = messageBuffer.buffer;
+            const size = messageBuffer.size;
 
             //header, 16 bytes + OP_MSG, 5 bytes
             const writer = messageBuffer.state.writer;
             writer.offset = 0;
-            writer.writeInt32(buffer.byteLength); //messageLength, 4
-            writer.writeInt32(++this.messageId); //requestID, 4
+            writer.writeInt32(size); //messageLength, 4
+            const messageId = ++this.messageId;
+            writer.writeInt32(messageId); //requestID, 4
             writer.writeInt32(0); //responseTo, 4
             writer.writeInt32(2013); //OP_MSG, 4
             writer.writeUint32(0); //message flags, 4
             writer.writeByte(0); //kind 0, 1
 
             //detect backPressure
-            this.bytesSent += buffer.byteLength;
-            this.onSent(buffer.byteLength);
-            this.socket.write(buffer);
+            this.bytesSent += size;
+            this.onSent(size);
+            if (command) {
+                command.requestId = messageId;
+                this.inFlight.push(command);
+            }
 
-            // The kernel copies what it accepts during write(), so the buffer can be used for the next message.
-            // Only what it did not accept stays queued, and then node still needs this memory.
-            if (this.socket.writableLength > 0) {
+            // Small messages are copied into the batch of this tick. Large ones go directly to the socket,
+            // and if it could not take everything node still needs this memory.
+            if (this.writer.writeRange(messageBuffer._buffer, 0, size)) {
                 messageBuffer.dispose();
                 this.messageBuffer = createMessageBuffer();
-            } else if (buffer.byteLength > maxRetainedMessageBuffer) {
+            } else if (size > maxRetainedMessageBuffer) {
                 messageBuffer.releaseLarge();
             }
         } catch (error) {

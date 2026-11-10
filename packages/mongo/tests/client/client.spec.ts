@@ -228,8 +228,9 @@ test('connection pool 10', async () => {
         c1.release();
         c2.release();
 
+        // the most recently used one, so that rarely needed connections stay idle long enough to be closed
         const c3 = await client.pool.getConnection();
-        expect(c3 === c1).toBe(true);
+        expect(c3 === c2).toBe(true);
         c3.release();
     }
 
@@ -266,12 +267,12 @@ test('connection pool 10', async () => {
         let c11: any;
         client.pool.getConnection().then((c) => {
             c11 = c;
-            expect(c11.id).toBe(0);
+            expect(c11).toBe(c1);
         });
         let c12: any;
         client.pool.getConnection().then((c) => {
             c12 = c;
-            expect(c12.id).toBe(1);
+            expect(c12).toBe(c2);
         });
         await sleep(0.01);
         expect(c11).toBe(undefined);

@@ -52,12 +52,18 @@ export class ConnectionOptions {
      * If this limit is reached, the connection acquisition waits until a connection is released.
      * See also `connectionAcquisitionTimeout`.
      */
-    maxPoolSize: number = 100;
+    maxPoolSize: number = 20;
 
     /**
      * The minimum number of connections in the connection pool.
      */
     minPoolSize: number = 0;
+
+    /**
+     * How many commands may be in flight on one connection. When all connections of a host are in use, commands
+     * are sent on a busy connection instead of waiting for a free one. 1 disables pipelining.
+     */
+    maxPipelineDepth: number = 64;
 
     /**
      * The maximum time in milliseconds that a thread can wait for a connection to become available

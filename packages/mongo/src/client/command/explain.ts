@@ -58,6 +58,10 @@ type ExplainSchema = {
 } & TransactionalMessage & ReadPreferenceMessage;
 
 export class ExplainCommand extends Command<MongoExplain> {
+    override pipelinable(): boolean {
+        return false;
+    }
+
     constructor(
         public command: FindCommand<any> | AggregateCommand<any, any> | UpdateCommand<any> | FindAndModifyCommand<any> | CountCommand<any>,
         public verbosity: string,

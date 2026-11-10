@@ -20,6 +20,10 @@ interface RequestSchema {
 }
 
 export class CreateCollectionCommand<T extends ReflectionClass<any>> extends Command<void> {
+    override pipelinable(): boolean {
+        return false;
+    }
+
     constructor(
         public schema: T,
     ) {

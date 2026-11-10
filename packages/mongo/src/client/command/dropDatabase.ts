@@ -19,6 +19,10 @@ type DropDatabase = {
 } & WriteConcernMessage;
 
 export class DropDatabaseCommand<T> extends Command<void> {
+    override pipelinable(): boolean {
+        return false;
+    }
+
     constructor(protected dbName: any) {
         super();
     }

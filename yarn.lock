@@ -3743,6 +3743,7 @@ __metadata:
     "@deepkit/core": "npm:^1.1.0"
     "@deepkit/event": "npm:^1.1.0"
     "@deepkit/logger": "npm:^1.1.0"
+    "@deepkit/net": "npm:^1.1.0"
     "@deepkit/orm": "npm:^1.1.0"
     "@deepkit/orm-integration": "npm:^1.0.1"
     "@deepkit/type": "npm:^1.1.0"
@@ -3754,6 +3755,7 @@ __metadata:
     "@deepkit/core": ^1.1.0
     "@deepkit/event": ^1.1.0
     "@deepkit/logger": ^1.1.0
+    "@deepkit/net": ^1.1.0
     "@deepkit/orm": ^1.1.0
     "@deepkit/type": ^1.1.0
   languageName: unknown
@@ -3781,7 +3783,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@deepkit/net@workspace:packages/net":
+"@deepkit/net@npm:^1.1.0, @deepkit/net@workspace:packages/net":
   version: 0.0.0-use.local
   resolution: "@deepkit/net@workspace:packages/net"
   dependencies:

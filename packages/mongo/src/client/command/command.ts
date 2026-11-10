@@ -82,7 +82,17 @@ export abstract class Command<T> {
     options: CommandOptions = {};
     protected current?: { responseType?: Type, resolve: Function, reject: Function };
 
-    public sender?: <T>(schema: Type, message: T) => void;
+    public sender?: <T>(schema: Type, message: T, command: Command<unknown>) => void;
+
+    /** The id of the message this command currently waits for an answer to. */
+    public requestId: number = 0;
+
+    /**
+     * Whether commands of others may wait behind this one on the same connection, which means it is expected to be short.
+     */
+    pipelinable(): boolean {
+        return true;
+    }
 
     reject(error: Error): void {
         this.current?.reject(error);
@@ -92,7 +102,7 @@ export abstract class Command<T> {
         message: T, messageType?: ReceiveType<T>, responseType?: ReceiveType<R>,
     ): Promise<R> {
         if (!this.sender) throw new Error(`No sender set in command ${getClassName(this)}`);
-        this.sender(resolveReceiveType(messageType), message);
+        this.sender(resolveReceiveType(messageType), message, this);
 
         return asyncOperation((resolve, reject) => {
             this.current = {
@@ -109,14 +119,14 @@ export abstract class Command<T> {
         return false;
     }
 
-    handleResponse(response: Uint8Array): void {
+    handleResponse(response: Uint8Array, offset: number = 0): void {
         if (!this.current) throw new Error('Got handleResponse without active command');
         const deserializer: BSONDeserializer<BaseResponse> = this.current.responseType ? getBSONDeserializer(mongoBinarySerializer, this.current.responseType) : deserializeBSONWithoutOptimiser;
 
         const oldCheck = typeSettings.unpopulatedCheck;
         try {
             typeSettings.unpopulatedCheck = UnpopulatedCheck.None;
-            const message = deserializer(response);
+            const message = deserializer(response, offset);
             const error = handleErrorResponse(message);
             if (error) {
                 this.current.reject(error);
@@ -131,7 +141,7 @@ export abstract class Command<T> {
         } catch (error: any) {
             if (error instanceof ValidationError || error instanceof SerializationError) {
                 if (this.current.responseType) {
-                    const raw = deserializeBSONWithoutOptimiser(response);
+                    const raw = deserializeBSONWithoutOptimiser(response, offset);
                     if (raw.errmsg && raw.ok === 0) {
                         const error = handleErrorResponse(raw);
                         if (error) {
