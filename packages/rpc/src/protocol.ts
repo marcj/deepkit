@@ -666,10 +666,14 @@ export type EncodedErrorTuple = [
     properties: { [name: string]: any },
     stack: string,
     message: string,
+    /** The tuple of error.cause, only when rpcErrorSettings.exposeCause is set. Older peers ignore it. */
+    cause?: any,
 ];
 
 function toErrorTuple(error: EncodedError): EncodedErrorTuple {
-    return [error.classType, error.properties || {}, error.stack, error.message];
+    const tuple: EncodedErrorTuple = [error.classType, error.properties || {}, error.stack, error.message];
+    if (error.cause) tuple.push(toErrorTuple(error.cause));
+    return tuple;
 }
 
 let errorTupleType: Type | undefined;
@@ -688,7 +692,9 @@ export function readErrorTuple(buffer: Uint8Array, offset: number, end: number):
 
 export function errorFromTuple(error: EncodedErrorTuple): EncodedError {
     const properties = Object.keys(error[1]).length ? error[1] : undefined;
-    return { classType: error[0], properties, stack: error[2], message: error[3] };
+    const encoded: EncodedError = { classType: error[0], properties, stack: error[2], message: error[3] };
+    if (Array.isArray(error[4])) encoded.cause = errorFromTuple(error[4] as EncodedErrorTuple);
+    return encoded;
 }
 
 export function writeErrorFrameTransient(
@@ -1048,6 +1054,7 @@ export interface EncodedError {
     message: string;
     stack: string;
     properties?: { [name: string]: any };
+    cause?: EncodedError;
 }
 
 export const rpcErrorSettings = {
@@ -1056,9 +1063,19 @@ export const rpcErrorSettings = {
      * it is off by default. The framework enables it when its `debug` option is set.
      */
     exposeStack: false,
+
+    /**
+     * Whether error.cause is sent to the client. Causes are often internal errors that a public error wraps
+     * (a failed authentication, the SQL error of a failed query), so it is off by default like the stack.
+     * The framework enables it when its `debug` option is set.
+     */
+    exposeCause: false,
 };
 
-export function rpcEncodeError(error: Error | string): EncodedError {
+/** How many causes of an error are sent at most. */
+const maxErrorCauses = 5;
+
+export function rpcEncodeError(error: Error | string, depth: number = 0): EncodedError {
     let classType = '';
     let stack = '';
     let properties: { [name: string]: any } | undefined;
@@ -1074,12 +1091,17 @@ export function rpcEncodeError(error: Error | string): EncodedError {
         }
     }
 
-    return {
+    const encoded: EncodedError = {
         classType,
         properties,
         stack,
         message: 'string' === typeof error ? error : error.message || '',
     };
+    if (rpcErrorSettings.exposeCause && 'string' !== typeof error && error.cause !== undefined && depth < maxErrorCauses) {
+        const cause = error.cause;
+        encoded.cause = rpcEncodeError(cause instanceof Error ? cause : String(cause), depth + 1);
+    }
+    return encoded;
 }
 
 export function rpcDecodeError(error: EncodedError): Error {
@@ -1094,12 +1116,15 @@ export function rpcDecodeError(error: EncodedError): Error {
         const schema = ReflectionClass.from(entity);
         if (error.properties) {
             const e = deserialize(error.properties, undefined, undefined, undefined, schema.type) as Error;
+            // message is a property of Error, not of the class, so it is not part of the properties:
+            // a constructor taking it got undefined and the error arrived without its message
+            if (!e.message && error.message) e.message = error.message;
             e.stack = error.stack === '' ? '' : error.stack + '\nat ___SERVER___';
-            return e;
+            return withCause(e, error);
         }
 
         const classType = schema.getClassType()! as ClassType<Error>;
-        return new classType(error.message);
+        return withCause(new classType(error.message), error);
     }
 
     const e = new RpcError(error.message);
@@ -1109,5 +1134,10 @@ export function rpcDecodeError(error: EncodedError): Error {
         e.stack = '';
     }
 
+    return withCause(e, error);
+}
+
+function withCause(e: Error, error: EncodedError): Error {
+    if (error.cause) e.cause = rpcDecodeError(error.cause);
     return e;
 }
