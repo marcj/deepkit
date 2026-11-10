@@ -15,7 +15,8 @@ test('test lock competing', async () => {
     const lock1 = await locker.acquireLock('test-lock1', 2);
 
     const lock2 = await locker.acquireLock('test-lock1', 1);
-    expect(+new Date - started).toBeGreaterThanOrEqual(2000);
+    // timers run on a monotonic clock, measured with Date the 2s timeout can end a millisecond early
+    expect(+new Date - started).toBeGreaterThanOrEqual(1990);
 });
 
 test('test lock early release', async () => {
