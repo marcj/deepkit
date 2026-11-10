@@ -43,6 +43,26 @@ function floatText(d: Uint8Array, start: number, end: number): number {
     return parseFloat(latin1Slice.call(d, start, end));
 }
 
+/**
+ * A numeric with up to 15 digits is a number, which holds it exactly. A longer one lost its digits as number:
+ * a whole number becomes a bigint (like int8), others a string with all digits.
+ */
+function numericText(d: Uint8Array, start: number, end: number): number | bigint | string {
+    if (end - start <= 16) return parseFloat(latin1Slice.call(d, start, end));
+    const text = latin1Slice.call(d, start, end);
+    let digits = 0;
+    let whole = true;
+    for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        if (c >= 48 && c <= 57) digits++;
+        else if (c !== 45) whole = false;
+    }
+    if (digits <= 15) return parseFloat(text);
+    // NaN, Infinity
+    if (digits === 0) return parseFloat(text);
+    return whole ? BigInt(text) : text;
+}
+
 function boolText(d: Uint8Array, start: number, end: number): boolean {
     return d[start] === 116;
 }
@@ -369,6 +389,7 @@ const helpers = {
     decodeText,
     intText,
     int8Text,
+    numericText,
     floatText,
     boolText,
     jsonText,
@@ -392,10 +413,13 @@ function elementFunction(type: number): string | undefined {
         case arrayInt4:
         case arrayOid:
             return 'intText';
+        case 1016: // int8, numbers and bigint like a single int8, they were strings
+            return 'int8Text';
         case arrayFloat4:
         case arrayFloat8:
-        case arrayNumeric:
             return 'floatText';
+        case arrayNumeric:
+            return 'numericText';
         case arrayBool:
             return 'boolText';
         case arrayDate:
@@ -419,7 +443,6 @@ function isTextArray(type: number): boolean {
         case 1003: // name
         case 1014: // bpchar
         case 1015: // varchar
-        case 1016: // int8, strings like the former driver
         case 1040: // macaddr
         case 1041: // inet
         case 651: // cidr
@@ -440,8 +463,9 @@ function textExpression(type: number): string {
             return 'int8Text(d, o, o + l)';
         case float4:
         case float8:
-        case numeric:
             return 'floatText(d, o, o + l)';
+        case numeric:
+            return 'numericText(d, o, o + l)';
         case bool:
             return 'd[o] === 116';
         case json:

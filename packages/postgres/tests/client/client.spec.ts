@@ -1101,7 +1101,8 @@ describe('binary array parameters', () => {
     const cases: [string, any[], any[] | undefined][] = [
         ['int4[]', [1, -2, null, 2147483647], undefined],
         ['int2[]', [1, -2, null], undefined],
-        ['int8[]', [1, -2, null], ['1', '-2', null]],
+        // numbers like a single int8, they were strings
+        ['int8[]', [1, -2, null, 9007199254740993n], [1, -2, null, 9007199254740993n]],
         ['float8[]', [1.5, -2, null, 0.1], undefined],
         ['float4[]', [1.5, -2, null], undefined],
         ['bool[]', [true, false, null], undefined],

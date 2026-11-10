@@ -142,6 +142,14 @@ function isStaleStatementError(error: any): boolean {
 }
 
 /**
+ * A prepared statement keeps the parameter types it was prepared with. When a column changes its type
+ * (ALTER COLUMN ... TYPE), the server plans it again with the old types: "operator does not exist: text = integer".
+ */
+function isChangedTypeError(error: any): boolean {
+    return error.code === '42883' || error.code === '42804';
+}
+
+/**
  * Opens a socket and negotiates TLS. Only for connections that are not used for pipelining.
  */
 function openTransport(
@@ -650,8 +658,12 @@ export class PostgresClientConnection implements PoolableConnection, PostgresMes
     protected finish(request: QueryRequest, status: number): void {
         const error = request.error;
         if (error !== undefined) {
-            if (request.statement !== undefined && isStaleStatementError(error)) {
-                this.forgetStatement(request.statement, true);
+            // a statement from the cache that ran before: a type error means the schema changed since
+            const stale =
+                request.statement !== undefined &&
+                (isStaleStatementError(error) || (!request.parsed && isChangedTypeError(error)));
+            if (stale) {
+                this.forgetStatement(request.statement!, true);
                 // in a transaction it already aborted it, so this is reported
                 if (status === idleStatus && !request.retried && !request.abandoned) {
                     this.resend(request);

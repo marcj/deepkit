@@ -1,4 +1,5 @@
 import { PostgresError } from './errors.js';
+import { localDateExactFrom } from './row-decoder.js';
 
 const initialCapacity = 16 * 1024;
 const maxRetainedCapacity = 16 * 1024 * 1024;
@@ -29,6 +30,25 @@ function pad(value: number, size: number): string {
     return String(value).padStart(size, '0');
 }
 
+/**
+ * Seconds east of UTC of the local wall clock of a date. Before 1972 a zone can have an offset with seconds
+ * (e.g. local mean time, Berlin +00:53:28 before 1893), which getTimezoneOffset() rounds to minutes.
+ */
+export function localOffsetSeconds(date: Date): number {
+    const time = date.getTime();
+    if (time >= localDateExactFrom) return -date.getTimezoneOffset() * 60;
+    const wallClock = new Date(0);
+    wallClock.setUTCFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+    wallClock.setUTCHours(date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds());
+    return Math.round((wallClock.getTime() - time) / 1000);
+}
+
+function offsetToText(seconds: number): string {
+    const absolute = Math.abs(seconds);
+    const text = (seconds < 0 ? '-' : '+') + pad(Math.floor(absolute / 3600), 2) + ':' + pad(Math.floor(absolute / 60) % 60, 2);
+    return absolute % 60 ? text + ':' + pad(absolute % 60, 2) : text;
+}
+
 /** Same as the fast path of writeDate. */
 function dateToText(date: Date, asUTC: boolean): string {
     if (isNaN(date.getTime())) return 'Invalid Date';
@@ -49,14 +69,13 @@ function dateToText(date: Date, asUTC: boolean): string {
         pad(asUTC ? date.getUTCSeconds() : date.getSeconds(), 2) +
         '.' +
         pad(asUTC ? date.getUTCMilliseconds() : date.getMilliseconds(), 3);
-    const offset = asUTC ? 0 : -date.getTimezoneOffset();
-    const absolute = Math.abs(offset);
-    text += (offset < 0 ? '-' : '+') + pad(Math.floor(absolute / 60), 2) + ':' + pad(absolute % 60, 2);
+    text += offsetToText(asUTC ? 0 : localOffsetSeconds(date));
     return bc ? text + ' BC' : text;
 }
 
 function scalarToText(value: any, asUTC: boolean): string {
     if (value instanceof Date) return dateToText(value, asUTC);
+    if (value === 0 && 1 / value < 0) return '-0';
     if ('object' === typeof value) return objectToText(value, asUTC);
     return String(value);
 }
@@ -228,12 +247,16 @@ export class PostgresEncoder {
         this.writeDigits(asUTC ? date.getUTCSeconds() : date.getSeconds(), 2);
         this.writeByte(46);
         this.writeDigits(asUTC ? date.getUTCMilliseconds() : date.getMilliseconds(), 3);
-        const offset = asUTC ? 0 : -date.getTimezoneOffset();
+        const offset = asUTC ? 0 : localOffsetSeconds(date);
         const absolute = Math.abs(offset);
         this.writeByte(offset < 0 ? 45 : 43);
-        this.writeDigits(Math.floor(absolute / 60), 2);
+        this.writeDigits(Math.floor(absolute / 3600), 2);
         this.writeByte(58);
-        this.writeDigits(Math.floor(absolute % 60), 2);
+        this.writeDigits(Math.floor(absolute / 60) % 60, 2);
+        if (absolute % 60) {
+            this.writeByte(58);
+            this.writeDigits(absolute % 60, 2);
+        }
         if (bc) this.writeUTF8(' BC');
     }
 
@@ -252,7 +275,8 @@ export class PostgresEncoder {
                 break;
             case 'number':
                 if (Number.isSafeInteger(value)) {
-                    if (value < 0) this.writeByte(45);
+                    // -0 too, a float column keeps its sign
+                    if (value < 0 || (value === 0 && 1 / value < 0)) this.writeByte(45);
                     this.writeDigits(value < 0 ? -value : value, 1);
                 } else {
                     this.writeUTF8('' + value);
