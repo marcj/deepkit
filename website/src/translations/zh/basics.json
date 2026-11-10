@@ -258,5 +258,8 @@
   "TypeScript ORM": "TypeScript ORM",
   "Deepkit: the high-performance TypeScript framework with runtime types": "Deepkit：具备运行时类型的高性能 TypeScript 框架",
   "High-Performance TypeScript, Driven by Your Types": "高性能 TypeScript，由你的类型驱动",
-  "Deepkit compiles your TypeScript types into specialized code for validation, serialization, the database and RPC, so checking every boundary of your application costs next to nothing. One type covers HTTP, RPC, database, configuration and CLI, and when code gets a type subtly wrong, whether you or an agent wrote it, it fails with an exact error at the boundary instead of passing bad data through.": "Deepkit 将你的 TypeScript 类型编译为用于验证、序列化、数据库和 RPC 的专用代码，因此检查应用程序的每一个边界几乎不产生任何开销。一个类型即可覆盖 HTTP、RPC、数据库、配置和 CLI；当代码在类型上出现细微错误时，无论是你还是智能体编写的代码，它都会在边界处以精确的错误失败，而不是让错误数据流入系统。"
+  "Deepkit compiles your TypeScript types into specialized code for validation, serialization, the database and RPC, so checking every boundary of your application costs next to nothing. One type covers HTTP, RPC, database, configuration and CLI, and when code gets a type subtly wrong, whether you or an agent wrote it, it fails with an exact error at the boundary instead of passing bad data through.": "Deepkit 将你的 TypeScript 类型编译为用于验证、序列化、数据库和 RPC 的专用代码，因此检查应用程序的每一个边界几乎不产生任何开销。一个类型即可覆盖 HTTP、RPC、数据库、配置和 CLI；当代码在类型上出现细微错误时，无论是你还是智能体编写的代码，它都会在边界处以精确的错误失败，而不是让错误数据流入系统。",
+  "TCP": "TCP",
+  "WebSocket": "WebSocket",
+  "IPC": "IPC"
 }

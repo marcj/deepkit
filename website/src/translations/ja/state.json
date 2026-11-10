@@ -53,11 +53,11 @@
   "http/events.md": "aa47d884f82e724f1dcb5b33b10624bef1e9a04b84f97c4db5a8d3f8da6bd33b",
   "http/middleware.md": "37cf30b012f59da53d4a2c24033454d38cc419488503c6a0b7b54e0f176e68b7",
   "http/security.md": "cde7cb77eb3b2aa51456d20d29a06ea7ab205b40ef9ad586dbfd136cd498019c",
-  "rpc.md": "fbfbd2e01ef4fbbc91458f0decee8ba2d11cdc51ec20ac3818893957b04fa828",
+  "rpc.md": "65200c06ea79018aafa85d8a9f587a556b6d78102a98c85b584a18d26f8fbb04",
   "rpc/getting-started.md": "b09000d9e2d9dfe6527b8a42cbec75ae2206284d4395b75e21a8e1c596430ba9",
   "rpc/dependency-injection.md": "c8e5218600779f3c3c4fcdccbe7ab8add343f8a8c7f2847dc3b80da96d1604e9",
   "rpc/security.md": "790bb3ff8ef236250d29d16b55e8b685be273f52accb3a368be71eed4a8e639d",
-  "rpc/errors.md": "7785519ce38ddd349353e71bcc62bb5ba74582f52c17378508f4c6e9051609a9",
+  "rpc/errors.md": "20f4f52fd170f23021b444f84c9c549822e8d4b504d30727932c20c38c178666",
   "orm.md": "e922d5a0e28aa3753e5332418f2802f1ae62596d17ae96f46d3deca59c4e7c0b",
   "orm/getting-started.md": "56e4f565f748aaf043ce8710fc5a58402fb5889366d1478a267e26628ff4e0f6",
   "orm/entity.md": "5fccac031df6723dc0e6bdc9ef7ecd4268631b3b14854661d8ce6dc918f9959c",
@@ -112,5 +112,9 @@
   "package/type-compiler.md": "819bcb710c7cc610238a69b37eb6809d693ccce84f3dc239642591d0cfcf9426",
   "package/vite.md": "df1a5256d86a3560f3f0384122779255b9afe038c0c0eca4f705a23c336b51e2",
   "package/workflow.md": "ebe03caf6abcd0ea512dd560ccf54c9fb34798b66c87780e6c24ce295cf8e76d",
-  "cli.md": "10de7840fbea1b343924a3ce82e62d3ea5c94a84ed244280e6707bda3d892760"
+  "cli.md": "10de7840fbea1b343924a3ce82e62d3ea5c94a84ed244280e6707bda3d892760",
+  "rpc/tcp.md": "3a0826b97c972295e5ab25823f4bafe6a2919bf3e371a62fdec6ce8e34b49e7c",
+  "rpc/websocket.md": "f83fdad4736d69810f2dacac2927e7972bdd6772ed1167523fce5b8268e7fe30",
+  "rpc/http.md": "a36b1563559d01217f9145eadc8cce6cc53f90bb492fb8b45108d5f5114c13ca",
+  "rpc/ipc.md": "d44bccafad07f3c3e9a77e402afecb1334d2d49da3c0a7324a4f9a9681eadae4"
 }

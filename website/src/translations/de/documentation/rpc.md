@@ -1,6 +1,6 @@
 # TypeScript RPC Framework
 
-Deepkit RPC ist ein typsicheres RPC-Framework für TypeScript. Sie schreiben eine normale Class auf dem Server und rufen deren Methoden vom Client aus auf. Parameter und Ergebnisse werden dabei anhand Ihrer TypeScript-Types validiert, ganz ohne Codegenerierung.
+Deepkit RPC ist ein typsicheres RPC-Framework für TypeScript. Sie schreiben eine normale Klasse auf dem Server und rufen deren Methoden vom Client aus auf, wobei Parameter und Ergebnisse anhand Ihrer TypeScript-Typen validiert werden und keine Code-Generierung nötig ist.
 
 ```typescript
 //server.ts
@@ -48,34 +48,34 @@ async function main() {
 main().catch(console.error);
 ```
 
-Der Client importiert nur den Type des Controllers, sodass kein Server-Code im Client-Bundle landet. Das `Date` kommt als echtes `Date` an, und der ungültige Aufruf wird abgelehnt, bevor die Methode ausgeführt wird. Die Installation wird unter [Erste Schritte](./rpc/getting-started.md) beschrieben.
+Der Client importiert nur den Typ des Controllers, sodass kein Server-Code im Client-Bundle landet. Das `Date` kommt als echtes `Date` an, und der ungültige Aufruf wird abgelehnt, bevor die Methode ausgeführt wird. Siehe [Erste Schritte](./rpc/getting-started.md) für die Installation.
 
 ## Vergleich mit tRPC und gRPC
 
-|                       | Deepkit RPC                             | tRPC                                     | gRPC                                   |
-| --------------------- | --------------------------------------- | ---------------------------------------- | -------------------------------------- |
-| API-Definition        | TypeScript-Class und -Types             | Router mit Procedures                    | `.proto`-Dateien                       |
-| Codegenerierung       | Keine                                   | Keine                                    | Erforderlich                           |
-| Laufzeitvalidierung   | Integriert, anhand der TypeScript-Types | Mit einer Schema-Bibliothek wie Zod      | Nur Nachrichtenstruktur                |
-| Wire-Format           | Binär (BSON)                            | JSON                                     | Binär (Protocol Buffers)               |
-| Transport             | WebSocket, TCP                          | HTTP, WebSocket                          | HTTP/2                                 |
-| Sprachen              | TypeScript                              | TypeScript                               | Viele                                  |
+|                         | Deepkit RPC                             | tRPC                                       | gRPC                                   |
+| ----------------------- | --------------------------------------- | ------------------------------------------ | -------------------------------------- |
+| API-Definition          | TypeScript-Klasse und -Typen            | Router mit Procedures                      | `.proto`-Dateien                       |
+| Code-Generierung        | Keine                                   | Keine                                      | Erforderlich                           |
+| Laufzeit-Validierung    | Eingebaut, aus den TypeScript-Typen     | Mit einer Schema-Bibliothek wie Zod        | Nur Nachrichtenstruktur                |
+| Übertragungsformat      | Binär (BSON)                            | JSON                                       | Binär (Protocol Buffers)               |
+| Transport               | WebSocket, TCP, HTTP, IPC               | HTTP, WebSocket                            | HTTP/2                                 |
+| Sprachen                | TypeScript                              | TypeScript                                 | Viele                                  |
 
-Deepkit RPC benötigt den [Deepkit Type-Compiler](./runtime-types/getting-started.md) in Ihrem Build, da es Ihre Types zur Laufzeit ausliest. Für eine API, die von anderen Unternehmen oder einfachen HTTP-Clients aufgerufen wird, verwenden Sie stattdessen [Deepkit HTTP](./http.md). Greifen Sie zu gRPC, wenn Services in mehreren Programmiersprachen miteinander kommunizieren müssen.
+Deepkit RPC benötigt den [Deepkit Type-Compiler](./runtime-types/getting-started.md) in Ihrem Build, da es Ihre Typen zur Laufzeit ausliest. Für eine API, die von anderen Unternehmen oder einfachen HTTP-Clients aufgerufen wird, verwenden Sie stattdessen [Deepkit HTTP](./http.md), und verwenden Sie gRPC, wenn Services in mehreren Programmiersprachen miteinander kommunizieren müssen.
 
 ## Was ist RPC?
 
-RPC steht für Remote Procedure Call und ermöglicht es, Funktionen auf einem entfernten Server so aufzurufen, als wären es lokale Funktionen. Im Gegensatz zur HTTP-Client-Server-Kommunikation, die HTTP-Methoden und eine URL für die Zuordnung verwendet, nutzt RPC dafür den Funktionsnamen. Die zu sendenden Daten werden als normale Funktionsargumente übergeben, und das Ergebnis des Funktionsaufrufs auf dem Server wird an den Client zurückgesendet.
+RPC, was für Remote Procedure Call steht, ermöglicht es, Funktionen auf einem entfernten Server so aufzurufen, als wären es lokale Funktionen. Im Gegensatz zur HTTP-Client-Server-Kommunikation, die HTTP-Methoden und eine URL für die Zuordnung verwendet, nutzt RPC den Funktionsnamen für die Zuordnung. Die zu sendenden Daten werden als normale Funktionsargumente übergeben, und das Ergebnis des Funktionsaufrufs auf dem Server wird an den Client zurückgesendet.
 
-Der Vorteil von RPC besteht darin, dass die Client-Server-Abstraktion schlank ist, da sie nicht mit Headern, URLs, Query-Strings oder Ähnlichem arbeitet. Der Nachteil ist, dass Funktionen auf einem Server über RPC nicht ohne Weiteres von einem Browser aufgerufen werden können und oft einen speziellen Client erfordern.
+Der Vorteil von RPC ist, dass die Client-Server-Abstraktion leichtgewichtig ist, da sie nicht mit Headern, URLs, Query-Strings oder Ähnlichem arbeitet. Der Nachteil ist, dass Funktionen auf einem Server über RPC nicht einfach von einem Browser aufgerufen werden können und oft einen speziellen Client erfordern.
 
-Ein wesentliches Merkmal von RPC ist, dass die Daten zwischen Client und Server automatisch serialisiert und deserialisiert werden. Daher sind typsichere RPC-Clients in der Regel möglich. Einige RPC-Frameworks zwingen Benutzer dazu, Types (Parameter-Types und Return-Types) in einem bestimmten Format anzugeben. Dies kann in Form einer DSL wie Protocol Buffers bei gRPC oder eines JavaScript-Schema-Builders geschehen. Zusätzliche Datenvalidierung kann ebenfalls vom RPC-Framework bereitgestellt werden, wird aber nicht von allen unterstützt.
+Ein zentrales Merkmal von RPC ist, dass die Daten zwischen Client und Server automatisch serialisiert und deserialisiert werden. Daher sind typsichere RPC-Clients in der Regel möglich. Einige RPC-Frameworks zwingen Benutzer dazu, Typen (Parametertypen und Rückgabetypen) in einem bestimmten Format bereitzustellen. Dies kann in Form einer DSL wie Protocol Buffers bei gRPC oder eines JavaScript-Schema-Builders geschehen. Zusätzliche Datenvalidierung kann ebenfalls vom RPC-Framework bereitgestellt werden, wird aber nicht von allen unterstützt.
 
-Deepkit RPC extrahiert die Types aus dem TypeScript-Code selbst. Sobald zusätzliche Einschränkungen unter [Validierung](./runtime-types/validation.md) definiert sind, werden sie automatisch validiert. Da RPC grundsätzlich auf asynchroner Kommunikation basiert, geben alle Funktionsaufrufe auf dem Client ein `Promise` zurück, und das Ergebnis wird mit `await` empfangen.
+Deepkit RPC extrahiert die Typen direkt aus dem TypeScript-Code. Sobald zusätzliche Einschränkungen in der [Validierung](./runtime-types/validation.md) definiert werden, werden sie automatisch validiert. Da RPC grundsätzlich auf asynchroner Kommunikation basiert, geben alle Funktionsaufrufe auf dem Client ein `Promise` zurück, und das Ergebnis wird mit `await` empfangen.
 
 ## Streaming mit RxJS
 
-Eine Action kann ein `Observable` zurückgeben. Auch der Client erhält ein solches, und jeder Wert kommt an, sobald der Server ihn ausgibt. Dadurch eignet sich Deepkit RPC für Echtzeitkommunikation.
+Eine Action kann ein `Observable` zurückgeben. Der Client erhält ebenfalls eines, und jeder Wert kommt an, sobald der Server ihn ausgibt, was Deepkit RPC für Echtzeitkommunikation geeignet macht.
 
 ```typescript
 import { rpc } from '@deepkit/rpc';
@@ -100,9 +100,9 @@ stream.subscribe(value => console.log(value)); // 3, 2, 1, 0
 
 ## Isomorphes TypeScript
 
-Wenn ein Projekt TypeScript sowohl auf dem Client (meist Frontend) als auch auf dem Server (Backend) verwendet, spricht man von isomorphem TypeScript. Ein typsicheres RPC-Framework, das auf den Types von TypeScript basiert, ist für ein solches Projekt besonders vorteilhaft, da Types zwischen Client und Server geteilt werden können.
+Wenn ein Projekt TypeScript sowohl auf dem Client (meist Frontend) als auch auf dem Server (Backend) verwendet, spricht man von isomorphem TypeScript. Ein typsicheres RPC-Framework, das auf den Typen von TypeScript basiert, ist für ein solches Projekt besonders vorteilhaft, da Typen zwischen Client und Server geteilt werden können.
 
-Um dies zu nutzen, sollten Types, die auf beiden Seiten verwendet werden, in eine eigene Datei oder ein eigenes Package ausgelagert werden.
+Um dies zu nutzen, sollten Typen, die auf beiden Seiten verwendet werden, in eine eigene Datei oder ein eigenes Package ausgelagert werden.
 
 ```typescript
 //shared.ts
@@ -132,11 +132,12 @@ const controller = client.controller<UserController>('/user');
 const user = await controller.getUser(2);
 ```
 
-Abwärtskompatibilität lässt sich auf die gleiche Weise umsetzen wie bei einer normalen lokalen API: Entweder werden neue Parameter als optional markiert oder es wird eine neue Methode hinzugefügt.
+Abwärtskompatibilität kann auf die gleiche Weise umgesetzt werden wie bei einer normalen lokalen API: Entweder werden neue Parameter als optional markiert oder es wird eine neue Methode hinzugefügt.
 
 ## Nächste Schritte
 
 - [Erste Schritte](./rpc/getting-started.md): Installation und ein vollständiges Beispiel
-- [Transport](./rpc/websocket.md): WebSocket, TCP und Ihr eigener Transport
+- [WebSocket](./rpc/websocket.md), [TCP](./rpc/tcp.md) und [HTTP](./rpc/http.md): die Transporte
+- [IPC](./rpc/ipc.md): Worker-Threads, Web Workers und Child-Prozesse, über Shared Memory, Message Ports und Pipes
 - [Fehler](./rpc/errors.md) und [Sicherheit](./rpc/security.md)
 - [Benchmarks](/benchmarks): Performance der Deepkit-Packages
