@@ -609,6 +609,17 @@ const ipcOperations: { name: string; title: string; description: string }[] = [
     { name: '64 calls at once', title: '64 calls at once', description: '64 small calls in flight, one operation is all of them.' },
 ];
 
+/** Short names of the channels, the benchmark names say where the server runs. */
+const ipcLabels: { [name: string]: string } = {
+    'Worker thread (shared memory)': 'Shared memory',
+    'Worker thread (shared memory, no polling)': 'Shared memory, no polling',
+    'Worker thread (MessagePort)': 'MessagePort',
+    'Child process (pipe)': 'Pipe',
+    'Child process (unix socket)': 'Unix socket',
+    'Child process (TCP)': 'TCP',
+    'Child process (process.send)': 'process.send',
+};
+
 /** The RPC load level summarised in text below the RPC charts, see benchmarks/comparison/load/rpc-load.ts. */
 const rpcLoadLevel = '64 connections x 8 in flight';
 const rpcLoadOperations: { name: string; title: string }[] = [
@@ -901,9 +912,10 @@ const suiteTitles: { [name: string]: string } = {
                         <p class="intro">
                             Deepkit RPC from the main thread to a server in a worker thread or child process, over the
                             <a href="/en/documentation/rpc/ipc">IPC channels</a> and, for comparison, a unix socket and TCP.
-                            Client and server run in parallel on two cores. Calls per second, the longer the bar the faster.
-                            Shared memory polls for the answer for 100 µs before it sleeps, without polling every call waits
-                            for the operating system to wake up the other thread.
+                            Shared memory and MessagePort go to a worker thread, the others to a child process. Client and
+                            server run in parallel on two cores. Time per call, the longer the bar the faster. Shared memory
+                            polls for the answer for 100 µs before it sleeps, without polling every call waits for the
+                            operating system to wake up the other thread.
                             <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/ipc">Benchmark source code on GitHub</a>
                         </p>
                     </div>
@@ -1496,7 +1508,8 @@ export class BenchmarksComponent {
                 const [channel, name] = benchmark.name.split(': ');
                 const hz = benchmark.hz[index];
                 if (name !== operation.name || !hz) continue;
-                entries.push({ label: channel, hz, highlight: channel === 'Worker thread (shared memory)' });
+                const label = ipcLabels[channel] || channel;
+                entries.push({ label, hz, highlight: label === 'Shared memory' });
             }
             return { title: operation.title, description: operation.description, entries };
         }).filter(v => v.entries.length);
@@ -1506,9 +1519,9 @@ export class BenchmarksComponent {
     protected ipcSummary = computed(() => {
         const small = this.ipc().find(v => v.title === 'Small call');
         const hz = (label: string) => small?.entries.find(v => v.label === label)?.hz || 0;
-        const shared = hz('Worker thread (shared memory)');
-        const unix = hz('Child process (unix socket)');
-        const tcp = hz('Child process (TCP)');
+        const shared = hz('Shared memory');
+        const unix = hz('Unix socket');
+        const tcp = hz('TCP');
         if (!shared || !unix || !tcp) return '';
         const micro = (value: number) => (1_000_000 / value).toFixed(1).replace(/\.0$/, '');
         return `A small call to a worker thread over shared memory takes ${micro(shared)} µs, ${(shared / unix).toFixed(1)}x faster than over a unix socket (${micro(unix)} µs) and ${(shared / tcp).toFixed(1)}x faster than over TCP (${micro(tcp)} µs).`;
