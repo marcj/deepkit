@@ -138,5 +138,6 @@ Backward compatibility can be implemented in the same way as with a normal local
 
 - [Getting Started](./rpc/getting-started.md): installation and a complete example
 - [WebSocket](./rpc/websocket.md), [TCP](./rpc/tcp.md) and [HTTP](./rpc/http.md): the transports
+- [IPC](./rpc/ipc.md): worker threads, Web Workers and child processes, over shared memory, message ports and pipes
 - [Errors](./rpc/errors.md) and [Security](./rpc/security.md)
 - [Benchmarks](/benchmarks): performance of Deepkit's packages

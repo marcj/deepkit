@@ -213,6 +213,7 @@ export const docs = [
             { path: 'rpc/tcp', title: 'TCP' },
             { path: 'rpc/websocket', title: 'WebSocket' },
             { path: 'rpc/http', title: 'HTTP' },
+            { path: 'rpc/ipc', title: 'IPC' },
         ],
     },
     {
