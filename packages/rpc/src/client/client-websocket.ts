@@ -105,20 +105,30 @@ export class RpcWebSocketClientAdapter implements ClientTransportAdapter {
 
         let errored = false;
         let connected = false;
+        let closed = false;
 
-        socket.onclose = (event) => {
-            const reason = `code ${event.code} reason ${event.reason || 'unknown'}`;
-            const message = connected ? `abnormal error: ${reason}` : `Could not connect: ${reason}`;
+        const onClose = (code: number, reason: string) => {
+            if (closed) return;
+            closed = true;
+            const details = `code ${code} reason ${reason || 'unknown'}`;
+            // the client prefixes errors of a connection attempt with 'Could not connect'
+            const message = connected ? `abnormal error: ${details}` : `${this.url} closed the connection: ${details}`;
             if (errored) {
                 connection.onError(new RpcError(message));
             } else {
-                connection.onClose(reason);
+                connection.onClose(details);
             }
         };
+
+        socket.onclose = (event) => onClose(event.code, event.reason);
 
         socket.onerror = (error: Event) => {
             // WebSocket onerror Event has no useful information, but onclose has
             errored = true;
+            // Some implementations (Node 23's WebSocket) fire no close event after a
+            // refused connection, which left the connection attempt pending forever.
+            // A failed connection closes with 1006 (abnormal closure).
+            if (!connected) setTimeout(() => onClose(1006, ''), 0);
         };
 
         socket.onopen = async () => {
