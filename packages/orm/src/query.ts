@@ -35,6 +35,7 @@ import {
     onDatabaseError,
 } from './event.js';
 import { DatabaseError, DeleteResult, OrmEntity, PatchResult } from './type.js';
+import { getClassState, getInstanceState } from './identity-map.js';
 import { FieldName, FlattenIfArray, Replace, Resolve } from './utils.js';
 
 export type SORT_ORDER = 'asc' | 'desc' | any;
@@ -1262,6 +1263,8 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
     /** Brings the instances this session already loaded up to date with a patch that was executed. */
     protected applyPatchToIdentityMap(changes: Changes<T>, patchResult: PatchResult<T>): void {
         const pkHashGenerator = getSimplePrimaryKeyHashGenerator(this.classSchema);
+        const classState = getClassState(this.classSchema);
+        const patched = [...Object.keys(changes.$set || {}), ...Object.keys(patchResult.returning)];
         for (let i = 0; i < patchResult.primaryKeys.length; i++) {
             const item = this.session.identityMap.getByHash(this.classSchema, pkHashGenerator(patchResult.primaryKeys[i]));
             if (!item) continue;
@@ -1273,6 +1276,15 @@ export class Query<T extends OrmEntity> extends BaseQuery<T> {
 
             for (const name in patchResult.returning) {
                 (item as any)[name] = (patchResult.returning as any)[name][i];
+            }
+
+            // these values are in the database now, commit() must not see them as changes of the user.
+            // Only the patched fields, so that other unsaved changes of the item are still written.
+            const snapshot: any = getInstanceState(classState, item).snapshot;
+            if (!snapshot) continue;
+            const current: any = classState.snapshot(item);
+            for (const name of patched) {
+                if (name in current) snapshot[name] = current[name];
             }
         }
     }

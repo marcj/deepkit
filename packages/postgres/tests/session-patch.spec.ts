@@ -37,3 +37,44 @@ test('patchMany in a session updates all loaded entities', async () => {
     expect(notes.map(v => v.title)).toEqual(['c', 'c']);
     database.disconnect();
 });
+
+@entity.name('session_patch_article')
+class Article {
+    constructor(
+        public id: number & PrimaryKey,
+        public title: string,
+        public body: string = 'body',
+    ) {}
+}
+
+test('commit does not write back what a patch already wrote', async () => {
+    const database = await databaseFactory([Article]);
+    await database.persist(new Article(1, 'Draft'));
+
+    const session = database.createSession();
+    const article = await session.query(Article).filter({ id: 1 }).findOne();
+    await session.query(Article).filter({ id: 1 }).patchOne({ title: 'Published' });
+
+    await database.query(Article).filter({ id: 1 }).patchOne({ title: 'Changed elsewhere' });
+    await session.commit();
+
+    expect(article.title).toBe('Published');
+    expect((await database.query(Article).filter({ id: 1 }).findOne()).title).toBe('Changed elsewhere');
+    database.disconnect();
+});
+
+test('commit still writes other changes of a patched entity', async () => {
+    const database = await databaseFactory([Article]);
+    await database.persist(new Article(1, 'Draft'));
+
+    const session = database.createSession();
+    const article = await session.query(Article).filter({ id: 1 }).findOne();
+    article.body = 'edited';
+    await session.query(Article).filter({ id: 1 }).patchOne({ title: 'Published' });
+    await session.commit();
+
+    const stored = await database.query(Article).filter({ id: 1 }).findOne();
+    expect(stored.title).toBe('Published');
+    expect(stored.body).toBe('edited');
+    database.disconnect();
+});
