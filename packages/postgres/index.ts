@@ -13,3 +13,8 @@ export * from './src/postgres-adapter.js';
 export * from './src/postgres-platform.js';
 export * from './src/postgres-schema-parser.js';
 export * from './src/postgres-serializer.js';
+export * from './src/client/client.js';
+export * from './src/client/connection.js';
+export * from './src/client/errors.js';
+export * from './src/client/options.js';
+export { type PostgresColumn, RowMode } from './src/client/row-decoder.js';

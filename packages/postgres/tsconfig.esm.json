@@ -25,6 +25,9 @@
     },
     {
       "path": "../logger/tsconfig.esm.json"
+    },
+    {
+      "path": "../net/tsconfig.esm.json"
     }
   ]
 }

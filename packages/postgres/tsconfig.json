@@ -8,7 +8,7 @@
     ],
     "outDir": "./dist/cjs",
     "types": [
-      "pg"
+      "node"
     ]
   },
   "reflection": [
@@ -44,6 +44,9 @@
     },
     {
       "path": "../logger/tsconfig.json"
+    },
+    {
+      "path": "../net/tsconfig.json"
     }
   ]
 }

@@ -1,6 +1,8 @@
 import { ConnectionOptions } from 'tls';
-import { PoolConfig } from 'pg';
+
 import { cast } from '@deepkit/type';
+
+import { PostgresClientOptions } from './client/options.js';
 
 interface AdapterClientConfig {
     user?: string;
@@ -24,10 +26,10 @@ interface AdapterClientConfig {
     idleTimeoutMillis?: number;
 }
 
-export function parseConnectionString(url: string): PoolConfig {
+export function parseConnectionString(url: string): PostgresClientOptions {
     const parsed = new URL(url);
 
-    const options: {[name: string]: any} = {};
+    const options: { [name: string]: any } = {};
     for (const [key, value] of parsed.searchParams.entries()) {
         options[key] = value;
     }

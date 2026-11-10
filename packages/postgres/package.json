@@ -26,18 +26,16 @@
   "peerDependencies": {
     "@deepkit/core": "^1.1.0",
     "@deepkit/logger": "^1.1.0",
+    "@deepkit/net": "^1.1.0",
     "@deepkit/orm": "^1.1.0",
     "@deepkit/sql": "^1.1.0",
     "@deepkit/stopwatch": "^1.1.0",
     "@deepkit/type": "^1.1.0"
   },
-  "dependencies": {
-    "@types/pg": "^7.14.7",
-    "pg": "^8.5.1"
-  },
   "devDependencies": {
     "@deepkit/core": "^1.1.0",
     "@deepkit/logger": "^1.1.0",
+    "@deepkit/net": "^1.1.0",
     "@deepkit/orm": "^1.1.0",
     "@deepkit/orm-integration": "^1.0.1",
     "@deepkit/sql": "^1.1.0",

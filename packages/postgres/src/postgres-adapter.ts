@@ -7,30 +7,8 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import {
-    asAliasName,
-    DefaultPlatform,
-    getDeepTypeCaster,
-    getPreparedEntity,
-    LruCache,
-    createRows,
-    getRowFactory,
-    maxPreparedStatementLength,
-    prepareBatchUpdate,
-    PreparedEntity,
-    splitDotPath,
-    SqlBuilder,
-    SQLConnection,
-    SQLConnectionPool,
-    SQLDatabaseAdapter,
-    SQLDatabaseQuery,
-    SQLDatabaseQueryFactory,
-    SQLPersistence,
-    SQLQueryModel,
-    SQLQueryResolver,
-    SQLStatement,
-} from '@deepkit/sql';
+import { AbstractClassType, ClassType, empty } from '@deepkit/core';
+import { Logger, LoggerLevel } from '@deepkit/logger';
 import {
     DatabaseDeleteError,
     DatabaseError,
@@ -40,29 +18,50 @@ import {
     DatabaseTransaction,
     DatabaseUpdateError,
     DeleteResult,
-    ensureDatabaseError,
     OrmEntity,
     PatchResult,
-    primaryKeyObjectConverter,
     UniqueConstraintFailure,
+    ensureDatabaseError,
+    primaryKeyObjectConverter,
 } from '@deepkit/orm';
-import { PostgresPlatform } from './postgres-platform.js';
-import type { Pool, PoolClient, PoolConfig } from 'pg';
-import pg from 'pg';
-import { AbstractClassType, asyncOperation, ClassType, empty } from '@deepkit/core';
+import {
+    DefaultPlatform,
+    PreparedEntity,
+    SQLConnection,
+    SQLConnectionPool,
+    SQLDatabaseAdapter,
+    SQLDatabaseQuery,
+    SQLDatabaseQueryFactory,
+    SQLPersistence,
+    SQLQueryModel,
+    SQLQueryResolver,
+    SQLStatement,
+    SqlBuilder,
+    asAliasName,
+    getDeepTypeCaster,
+    getPreparedEntity,
+    prepareBatchUpdate,
+    splitDotPath,
+} from '@deepkit/sql';
 import { FrameCategory, Stopwatch } from '@deepkit/stopwatch';
 import {
     Changes,
-    getPatchSerializeFunction,
-    getSerializeFunction,
     ReceiveType,
     ReflectionClass,
     ReflectionKind,
     ReflectionProperty,
+    getPatchSerializeFunction,
+    getSerializeFunction,
     resolvePath,
 } from '@deepkit/type';
+
+import { PostgresClient } from './client/client.js';
+import { PostgresClientConnection } from './client/connection.js';
+import { PostgresError } from './client/errors.js';
+import { PostgresClientOptions } from './client/options.js';
+import { RowMode } from './client/row-decoder.js';
 import { parseConnectionString } from './config.js';
-import { Logger } from '@deepkit/logger';
+import { PostgresPlatform } from './postgres-platform.js';
 
 /**
  * Converts a specific database error to a more specific error, if possible.
@@ -71,9 +70,12 @@ function handleSpecificError(session: DatabaseSession, error: DatabaseError): Er
     let cause: any = error;
     while (cause) {
         if (cause instanceof Error) {
-            if (cause.message.includes('duplicate key value')
-                && 'table' in cause && 'string' === typeof cause.table
-                && 'detail' in cause && 'string' === typeof cause.detail
+            if (
+                cause.message.includes('duplicate key value') &&
+                'table' in cause &&
+                'string' === typeof cause.table &&
+                'detail' in cause &&
+                'string' === typeof cause.detail
             ) {
                 return new UniqueConstraintFailure(`${cause.message}: ${cause.detail}`, { cause: error });
             }
@@ -86,55 +88,25 @@ function handleSpecificError(session: DatabaseSession, error: DatabaseError): Er
 
 const scope = 'deepkit:orm:postgres';
 
-/** A statement the server keeps under a name. */
-interface PostgresReusableStatement {
-    name: string;
-
-    /** Removes it, so the next query prepares it again. */
-    forget(): void;
-}
-
-/** The server dropped the statement, or the result of its plan changed because a table changed. */
-function isStaleStatementError(error: any): boolean {
-    return error.code === '26000' || (error.code === '0A000' && String(error.message).includes('cached plan'));
+/**
+ * Created here instead of passing on the error of the client, because the client's error comes from the socket
+ * callback, whose stack doesn't show the caller. The error of the server is available as cause, like with pg.
+ */
+function createDatabaseError(error: any): Error {
+    return error instanceof PostgresError
+        ? new DatabaseError(error.message, { cause: error })
+        : ensureDatabaseError(error);
 }
 
 export class PostgresStatement extends SQLStatement {
-    protected released = false;
-
     constructor(
         protected logger: Logger,
         protected sql: string,
-        protected client: PoolClient,
+        protected client: PostgresClientConnection,
         protected stopwatch?: Stopwatch,
-        protected reusable?: PostgresReusableStatement,
-        protected inTransaction: boolean = false,
+        protected reusable: boolean = false,
     ) {
         super();
-    }
-
-    protected query(params: any[], rowMode?: 'array'): Promise<any> {
-        //postgres driver does not maintain error.stack when they throw errors, so
-        //we have to manually convert it using asyncOperation.
-        return asyncOperation<any>((resolve, reject) => {
-            const result = this.client.query<any, any[]>({ name: this.reusable?.name, text: this.sql, values: params, rowMode } as any);
-            result.then(resolve).catch(reject);
-        });
-    }
-
-    protected async execute(params: any[], rowMode?: 'array'): Promise<any> {
-        if (!this.reusable) return this.query(params, rowMode);
-
-        try {
-            return await this.query(params, rowMode);
-        } catch (error: any) {
-            if (!isStaleStatementError(error)) throw error;
-            this.reusable.forget();
-            this.reusable = undefined;
-            //in a transaction this error already aborted it
-            if (this.inTransaction) throw error;
-            return await this.query(params, rowMode);
-        }
     }
 
     async get(params: any[] = []) {
@@ -142,10 +114,9 @@ export class PostgresStatement extends SQLStatement {
         try {
             if (frame) frame.data({ sql: this.sql, sqlParams: params });
             this.logger.scoped(scope).debug(this.sql, params);
-            const res = await this.execute(params);
-            return res.rows[0];
+            return await this.client.queryRow(this.sql, params, RowMode.object, this.reusable);
         } catch (error: any) {
-            error = ensureDatabaseError(error);
+            error = createDatabaseError(error);
             this.logger.scoped(scope).debug(error, this.sql, params);
             throw error;
         } finally {
@@ -158,12 +129,9 @@ export class PostgresStatement extends SQLStatement {
         try {
             if (frame) frame.data({ sql: this.sql, sqlParams: params });
             this.logger.scoped(scope).debug(this.sql, params);
-            const res = await this.execute(params, 'array');
-            //several statements at once return a list of results, and there is nothing to convert without rows
-            if (!res.rows?.length) return res.rows;
-            return createRows(res.rows, getRowFactory(res.fields.map((v: any) => v.name)));
+            return await this.client.queryRows(this.sql, params, RowMode.object, this.reusable);
         } catch (error: any) {
-            error = ensureDatabaseError(error);
+            error = createDatabaseError(error);
             this.logger.scoped(scope).debug(error, this.sql, params);
             throw error;
         } finally {
@@ -171,8 +139,7 @@ export class PostgresStatement extends SQLStatement {
         }
     }
 
-    release() {
-    }
+    release() {}
 }
 
 export class PostgresConnection extends SQLConnection {
@@ -181,7 +148,7 @@ export class PostgresConnection extends SQLConnection {
 
     constructor(
         connectionPool: PostgresConnectionPool,
-        public connection: PoolClient,
+        public connection: PostgresClientConnection,
         logger: Logger,
         transaction?: DatabaseTransaction,
         stopwatch?: Stopwatch,
@@ -194,27 +161,36 @@ export class PostgresConnection extends SQLConnection {
     }
 
     protected override async prepareReusable(sql: string, params?: any[]): Promise<PostgresStatement> {
-        //without parameters the driver uses the simple protocol, which can run several statements at once
-        if (!params || !params.length) return this.prepare(sql);
-        const reusable = (this.connectionPool as PostgresConnectionPool).getReusableStatement(this.connection, sql);
-        return new PostgresStatement(this.logger, sql, this.connection, this.stopwatch, reusable, !!this.transaction);
+        return new PostgresStatement(this.logger, sql, this.connection, this.stopwatch, !!params && params.length > 0);
+    }
+
+    /** Whether a query needs the statement objects, which measure and log it. */
+    protected isObserved(): boolean {
+        return !!this.stopwatch || this.logger.scoped(scope).is(LoggerLevel.debug);
+    }
+
+    // Not async like in the base class, so that a query doesn't create promises for the layers it passes.
+    override execAndReturnSingle(sql: string, params?: any[]): Promise<any> {
+        if (this.isObserved()) return super.execAndReturnSingle(sql, params);
+        return this.connection.queryRow(sql, params, RowMode.object, !!params && params.length > 0);
+    }
+
+    override execAndReturnAll(sql: string, params?: any[]): Promise<any> {
+        if (this.isObserved()) return super.execAndReturnAll(sql, params);
+        return this.connection.queryRows(sql, params, RowMode.object, !!params && params.length > 0);
     }
 
     async run(sql: string, params: any[] = []) {
         const frame = this.stopwatch ? this.stopwatch.start('Query', FrameCategory.databaseQuery) : undefined;
         try {
             if (frame) frame.data({ sql, sqlParams: params });
-            //postgres driver does not maintain error.stack when they throw errors, so
-            //we have to manually convert it using asyncOperation.
-            const res = await asyncOperation<any>((resolve, reject) => {
-                this.connection.query(sql, params).then(resolve).catch(reject);
-            });
-            this.logger.scoped('deepkit:orm:postgres').debug(sql, params);
+            const res = await this.connection.query(sql, params);
+            this.logger.scoped(scope).debug(sql, params);
             this.lastReturningRows = res.rows;
-            this.changes = res.rowCount;
+            this.changes = res.rowCount as number;
         } catch (error: any) {
-            error = ensureDatabaseError(error);
-            this.logger.scoped('deepkit:orm:postgres').debug(error, sql, params);
+            error = createDatabaseError(error);
+            this.logger.scoped(scope).debug(error, sql, params);
             throw error;
         } finally {
             if (frame) frame.end();
@@ -277,56 +253,45 @@ export class PostgresDatabaseTransaction extends DatabaseTransaction {
 }
 
 export class PostgresConnectionPool extends SQLConnectionPool {
-    protected statements = new WeakMap<PoolClient, LruCache<PostgresReusableStatement>>();
-    protected statementId = 0;
-
     constructor(
-        protected pool: Pool,
+        protected client: PostgresClient,
         protected logger: Logger,
         protected stopwatch?: Stopwatch,
     ) {
         super(logger);
     }
 
-    protected removeStatement(client: PoolClient, name: string): void {
-        delete (client as any).connection.parsedStatements[name];
-        //fails when the server has no such statement, or the transaction is aborted. Then there is nothing to do
-        client.query(`DEALLOCATE "${name}"`).catch(() => undefined);
-    }
-
-    getReusableStatement(client: PoolClient, sql: string): PostgresReusableStatement | undefined {
-        if (!this.maxPreparedStatements || sql.length > maxPreparedStatementLength) return undefined;
-
-        let statements = this.statements.get(client);
-        if (!statements) {
-            statements = new LruCache(this.maxPreparedStatements, (key, statement) => this.removeStatement(client, statement.name));
-            this.statements.set(client, statements);
-        }
-
-        let statement = statements.get(sql);
-        if (!statement) {
-            const name = 'deepkit_' + ++this.statementId;
-            statement = {
-                name,
-                forget: () => {
-                    statements.delete(sql);
-                    this.removeStatement(client, name);
-                },
-            };
-            statements.set(sql, statement);
-        }
-        return statement;
-    }
-
-    async getConnection(transaction?: PostgresDatabaseTransaction): Promise<PostgresConnection> {
+    /**
+     * @param shared The connection is only used for short queries and may be shared with others when
+     * all connections are busy. Anything else holds a connection for itself, as everything queued behind
+     * a slow query on a connection has to wait for it.
+     */
+    override getConnection(
+        transaction?: PostgresDatabaseTransaction,
+        shared: boolean = false,
+    ): Promise<PostgresConnection> {
         //when a transaction object is given, it means we make the connection sticky exclusively to that transaction
         //and only release the connection when the transaction is commit/rollback is executed.
+        if (transaction && transaction.connection) return Promise.resolve(transaction.connection);
 
-        if (transaction && transaction.connection) return transaction.connection;
+        this.client.maxPreparedStatements = this.maxPreparedStatements;
+        const exclusive = !!transaction || !shared;
+        const available = this.client.tryAcquire(exclusive);
+        if (available && !transaction) {
+            this.activeConnections++;
+            return Promise.resolve(new PostgresConnection(this, available, this.logger, undefined, this.stopwatch));
+        }
+        return this.acquire(available, exclusive, transaction);
+    }
 
-        const poolClient = await this.pool.connect();
+    protected async acquire(
+        available: PostgresClientConnection | undefined,
+        exclusive: boolean,
+        transaction?: PostgresDatabaseTransaction,
+    ): Promise<PostgresConnection> {
+        const client = available || (await this.client.acquire(exclusive));
         this.activeConnections++;
-        const connection = new PostgresConnection(this, poolClient, this.logger, transaction, this.stopwatch);
+        const connection = new PostgresConnection(this, client, this.logger, transaction, this.stopwatch);
         if (transaction) {
             transaction.connection = connection;
             try {
@@ -344,9 +309,10 @@ export class PostgresConnectionPool extends SQLConnectionPool {
         //connections attached to a transaction are not automatically released.
         //only with commit/rollback actions
         if (connection.transaction && !connection.transaction.ended) return;
+        if (connection.released) return;
 
         super.release(connection);
-        connection.connection.release();
+        this.client.release(connection.connection);
     }
 }
 
@@ -360,7 +326,11 @@ function typeSafeDefaultValue(property: ReflectionProperty): any {
 }
 
 export class PostgresPersistence extends SQLPersistence {
-    constructor(protected platform: DefaultPlatform, public connectionPool: PostgresConnectionPool, session: DatabaseSession<any>) {
+    constructor(
+        protected platform: DefaultPlatform,
+        public connectionPool: PostgresConnectionPool,
+        session: DatabaseSession<any>,
+    ) {
         super(platform, connectionPool, session);
     }
 
@@ -368,7 +338,10 @@ export class PostgresPersistence extends SQLPersistence {
         return handleSpecificError(this.session, error);
     }
 
-    async batchUpdate<T extends OrmEntity>(entity: PreparedEntity, changeSets: DatabasePersistenceChangeSet<T>[]): Promise<void> {
+    async batchUpdate<T extends OrmEntity>(
+        entity: PreparedEntity,
+        changeSets: DatabasePersistenceChangeSet<T>[],
+    ): Promise<void> {
         const prepared = prepareBatchUpdate(this.platform, entity, changeSets);
         if (!prepared) return;
 
@@ -388,10 +361,18 @@ export class PostgresPersistence extends SQLPersistence {
             params.push(prepared.primaryKeys[i]);
             let pkValue = entity.primaryKey.sqlTypeCast(placeholderStrategy.getPlaceholder());
 
-            valuesValues.push('(' + pkValue + ',' + prepared.changedProperties.map(property => {
-                params.push(prepared.values[property.name][i]);
-                return property.sqlTypeCast(placeholderStrategy.getPlaceholder());
-            }).join(',') + ')');
+            valuesValues.push(
+                '(' +
+                    pkValue +
+                    ',' +
+                    prepared.changedProperties
+                        .map(property => {
+                            params.push(prepared.values[property.name][i]);
+                            return property.sqlTypeCast(placeholderStrategy.getPlaceholder());
+                        })
+                        .join(',') +
+                    ')',
+            );
         }
 
         for (let i = 0; i < changeSets.length; i++) {
@@ -502,7 +483,10 @@ export class PostgresSQLQueryResolver<T extends OrmEntity> extends SQLQueryResol
     async delete(model: SQLQueryModel<T>, deleteResult: DeleteResult<T>): Promise<void> {
         const primaryKey = this.classSchema.getPrimary();
         const pkField = this.platform.quoteIdentifier(primaryKey.name);
-        const primaryKeyConverted = primaryKeyObjectConverter(this.classSchema, this.platform.serializer.deserializeRegistry);
+        const primaryKeyConverted = primaryKeyObjectConverter(
+            this.classSchema,
+            this.platform.serializer.deserializeRegistry,
+        );
 
         const sqlBuilder = new SqlBuilder(this.adapter);
         const tableName = this.platform.getTableIdentifier(this.classSchema);
@@ -544,50 +528,73 @@ export class PostgresSQLQueryResolver<T extends OrmEntity> extends SQLQueryResol
         const entity = getPreparedEntity(this.session.adapter as SQLDatabaseAdapter, this.classSchema);
         const tableName = entity.tableNameEscaped;
         const primaryKey = this.classSchema.getPrimary();
-        const primaryKeyConverted = primaryKeyObjectConverter(this.classSchema, this.platform.serializer.deserializeRegistry);
+        const primaryKeyConverted = primaryKeyObjectConverter(
+            this.classSchema,
+            this.platform.serializer.deserializeRegistry,
+        );
 
         const fieldsSet: { [name: string]: 1 } = {};
         const aggregateFields: { [name: string]: { converted: (v: any) => any } } = {};
 
-        const patchSerialize = getPatchSerializeFunction(this.classSchema.type, this.platform.serializer.serializeRegistry);
+        const patchSerialize = getPatchSerializeFunction(
+            this.classSchema.type,
+            this.platform.serializer.serializeRegistry,
+        );
         const $set = changes.$set ? patchSerialize(changes.$set, undefined) : undefined;
         const set: string[] = [];
 
-        if ($set) for (const i in $set) {
-            if (!$set.hasOwnProperty(i)) continue;
-            if ($set[i] === undefined || $set[i] === null) {
-                set.push(`${this.platform.quoteIdentifier(i)} = NULL`);
-            } else {
-                fieldsSet[i] = 1;
-                select.push(`$${selectParams.length + 1} as ${this.platform.quoteIdentifier(asAliasName(i))}`);
-                selectParams.push($set[i]);
+        if ($set)
+            for (const i in $set) {
+                if (!$set.hasOwnProperty(i)) continue;
+                if ($set[i] === undefined || $set[i] === null) {
+                    set.push(`${this.platform.quoteIdentifier(i)} = NULL`);
+                } else {
+                    fieldsSet[i] = 1;
+                    select.push(`$${selectParams.length + 1} as ${this.platform.quoteIdentifier(asAliasName(i))}`);
+                    selectParams.push($set[i]);
+                }
             }
-        }
 
-        if (changes.$unset) for (const i in changes.$unset) {
-            if (!changes.$unset.hasOwnProperty(i)) continue;
-            fieldsSet[i] = 1;
-            select.push(`NULL as ${this.platform.quoteIdentifier(i)}`);
-        }
+        if (changes.$unset)
+            for (const i in changes.$unset) {
+                if (!changes.$unset.hasOwnProperty(i)) continue;
+                fieldsSet[i] = 1;
+                select.push(`NULL as ${this.platform.quoteIdentifier(i)}`);
+            }
 
         for (const i of model.returning) {
-            aggregateFields[i] = { converted: getSerializeFunction(resolvePath(i, this.classSchema.type), this.platform.serializer.deserializeRegistry) };
+            aggregateFields[i] = {
+                converted: getSerializeFunction(
+                    resolvePath(i, this.classSchema.type),
+                    this.platform.serializer.deserializeRegistry,
+                ),
+            };
             select.push(`(${this.platform.quoteIdentifier(i)} ) as ${this.platform.quoteIdentifier(i)}`);
         }
 
-        if (changes.$inc) for (const i in changes.$inc) {
-            if (!changes.$inc.hasOwnProperty(i)) continue;
-            fieldsSet[i] = 1;
-            aggregateFields[i] = { converted: getSerializeFunction(resolvePath(i, this.classSchema.type), this.platform.serializer.serializeRegistry) };
-            const sqlTypeCast = getDeepTypeCaster(entity, i);
-            select.push(`(${sqlTypeCast('(' + this.platform.getColumnAccessor('', i) + ')')} + ${this.platform.quoteValue(changes.$inc[i])}) as ${this.platform.quoteIdentifier(asAliasName(i))}`);
-        }
+        if (changes.$inc)
+            for (const i in changes.$inc) {
+                if (!changes.$inc.hasOwnProperty(i)) continue;
+                fieldsSet[i] = 1;
+                aggregateFields[i] = {
+                    converted: getSerializeFunction(
+                        resolvePath(i, this.classSchema.type),
+                        this.platform.serializer.serializeRegistry,
+                    ),
+                };
+                const sqlTypeCast = getDeepTypeCaster(entity, i);
+                select.push(
+                    `(${sqlTypeCast('(' + this.platform.getColumnAccessor('', i) + ')')} + ${this.platform.quoteValue(changes.$inc[i])}) as ${this.platform.quoteIdentifier(asAliasName(i))}`,
+                );
+            }
 
         for (const i in fieldsSet) {
             if (i.includes('.')) {
                 let [firstPart, secondPart] = splitDotPath(i);
                 const path = '{' + secondPart.replace(/\./g, ',').replace(/[\]\[]/g, '') + '}';
-                set.push(`${this.platform.quoteIdentifier(firstPart)} = jsonb_set(${this.platform.quoteIdentifier(firstPart)}, '${path}', to_jsonb(_b.${this.platform.quoteIdentifier(asAliasName(i))}))`);
+                set.push(
+                    `${this.platform.quoteIdentifier(firstPart)} = jsonb_set(${this.platform.quoteIdentifier(firstPart)}, '${path}', to_jsonb(_b.${this.platform.quoteIdentifier(asAliasName(i))}))`,
+                );
             } else {
                 const property = entity.fieldMap[i];
                 const ref = '_b.' + this.platform.quoteIdentifier(asAliasName(i));
@@ -641,7 +648,13 @@ export class PostgresSQLQueryResolver<T extends OrmEntity> extends SQLQueryResol
                 }
             }
         } catch (error: any) {
-            error = new DatabasePatchError(this.classSchema, model, changes, `Could not patch ${this.classSchema.getClassName()} in database`, { cause: error });
+            error = new DatabasePatchError(
+                this.classSchema,
+                model,
+                changes,
+                `Could not patch ${this.classSchema.getClassName()} in database`,
+                { cause: error },
+            );
             throw this.handleSpecificError(error);
         } finally {
             connection.release();
@@ -649,34 +662,40 @@ export class PostgresSQLQueryResolver<T extends OrmEntity> extends SQLQueryResol
     }
 }
 
-export class PostgresSQLDatabaseQuery<T extends OrmEntity> extends SQLDatabaseQuery<T> {
-}
+export class PostgresSQLDatabaseQuery<T extends OrmEntity> extends SQLDatabaseQuery<T> {}
 
 export class PostgresSQLDatabaseQueryFactory extends SQLDatabaseQueryFactory {
-    createQuery<T extends OrmEntity>(type?: ReceiveType<T> | ClassType<T> | AbstractClassType<T> | ReflectionClass<T>): PostgresSQLDatabaseQuery<T> {
-        return new PostgresSQLDatabaseQuery<T>(ReflectionClass.from(type), this.databaseSession,
-            new PostgresSQLQueryResolver<T>(this.connectionPool, this.platform, ReflectionClass.from(type), this.databaseSession.adapter, this.databaseSession),
+    createQuery<T extends OrmEntity>(
+        type?: ReceiveType<T> | ClassType<T> | AbstractClassType<T> | ReflectionClass<T>,
+    ): PostgresSQLDatabaseQuery<T> {
+        return new PostgresSQLDatabaseQuery<T>(
+            ReflectionClass.from(type),
+            this.databaseSession,
+            new PostgresSQLQueryResolver<T>(
+                this.connectionPool,
+                this.platform,
+                ReflectionClass.from(type),
+                this.databaseSession.adapter,
+                this.databaseSession,
+            ),
         );
     }
 }
 
 export class PostgresDatabaseAdapter extends SQLDatabaseAdapter {
-    protected options: PoolConfig;
-    protected pool: pg.Pool;
-    public connectionPool : PostgresConnectionPool;
+    protected options: PostgresClientOptions;
+    protected client: PostgresClient;
+    public connectionPool: PostgresConnectionPool;
     public platform = new PostgresPlatform();
     closed = false;
 
-    constructor(options: PoolConfig | string, additional: Partial<PoolConfig> = {}) {
+    constructor(options: PostgresClientOptions | string, additional: Partial<PostgresClientOptions> = {}) {
         super();
-        const defaults: PoolConfig = {};
+        const defaults: PostgresClientOptions = {};
         options = 'string' === typeof options ? parseConnectionString(options) : options;
         this.options = Object.assign(defaults, options, additional);
-        this.pool = new pg.Pool(this.options);
-        this.connectionPool = new PostgresConnectionPool(this.pool, this.logger, this.stopwatch);
-
-        pg.types.setTypeParser(1700, parseFloat);
-        pg.types.setTypeParser(20, parseInt);
+        this.client = new PostgresClient(this.options);
+        this.connectionPool = new PostgresConnectionPool(this.client, this.logger, this.stopwatch);
     }
 
     setLogger(logger: Logger) {
@@ -698,7 +717,7 @@ export class PostgresDatabaseAdapter extends SQLDatabaseAdapter {
     }
 
     createTransaction(session: DatabaseSession<this>): PostgresDatabaseTransaction {
-        return new PostgresDatabaseTransaction;
+        return new PostgresDatabaseTransaction();
     }
 
     queryFactory(session: DatabaseSession<any>): SQLDatabaseQueryFactory {
@@ -708,6 +727,6 @@ export class PostgresDatabaseAdapter extends SQLDatabaseAdapter {
     disconnect(force?: boolean): void {
         if (this.closed) return;
         this.closed = true;
-        this.pool.end().catch(console.error);
+        this.client.close();
     }
 }
