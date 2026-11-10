@@ -217,9 +217,12 @@ export function createSerializeFunction(type: Type, registry: TemplateRegistry, 
     compiler.context.set('SerializationError', SerializationError);
     compiler.context.set('ValidationErrorItem', ValidationErrorItem);
 
+    // Without circular reference (state._stack) the generated code changes no state, so a call without one shares
+    // an empty one instead of allocating it, see createTypeGuardFunction.
+    const stateFallback = hasCircularReference(type) ? '{}' : compiler.reserveConst({}, 'emptyState');
     const code = `
         var result;
-        state = state ? state : {};
+        state = state ? state : ${stateFallback};
         var oldUnpopulatedCheck = typeSettings.unpopulatedCheck;
         typeSettings.unpopulatedCheck = UnpopulatedCheckReturnSymbol;
         ${executeTemplates(state, type)}

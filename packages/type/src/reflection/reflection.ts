@@ -216,9 +216,11 @@ export function hasCircularReference(type: Type) {
     if (jit.hasCircularReference !== undefined) return jit.hasCircularReference;
 
     let hasCircular = false;
+    // Methods are not data: the constructor of every class returns the class, which made each class with a constructor
+    // circular, and so its serializers tracked every object they visited.
     visit(type, () => undefined, () => {
         hasCircular = true;
-    });
+    }, true);
 
     return jit.hasCircularReference = hasCircular;
 }
@@ -235,7 +237,12 @@ function extendPath(path: string, member: Type): string {
     return String(name);
 }
 
-export function visit(type: Type, visitor: (type: Type, path: string) => false | void, onCircular?: () => void): void {
+/**
+ * Visits the type and all types it contains, breadth first.
+ *
+ * @param dataOnly Skips the parameters and return types of functions and methods.
+ */
+export function visit(type: Type, visitor: (type: Type, path: string) => false | void, onCircular?: () => void, dataOnly: boolean = false): void {
     const stack: { type: Type, depth: number, path: string }[] = [];
     stack.push({ type, depth: 0, path: '' });
     const stackId: number = visitStackId++;
@@ -277,6 +284,7 @@ export function visit(type: Type, visitor: (type: Type, path: string) => false |
             case ReflectionKind.function:
             case ReflectionKind.method:
             case ReflectionKind.methodSignature:
+                if (dataOnly) break;
                 stack.push({ type: type.return, depth: entry.depth + 1, path: entry.path });
                 for (const member of type.parameters) stack.push({
                     type: member,
