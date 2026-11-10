@@ -255,5 +255,8 @@
   "TypeScript RPC framework": "TypeScript RPC 프레임워크",
   "TypeScript CLI framework": "TypeScript CLI 프레임워크",
   "TypeScript dependency injection": "TypeScript 의존성 주입",
-  "TypeScript ORM": "TypeScript ORM"
+  "TypeScript ORM": "TypeScript ORM",
+  "Deepkit: the high-performance TypeScript framework with runtime types": "Deepkit: 런타임 타입을 갖춘 고성능 TypeScript 프레임워크",
+  "High-Performance TypeScript, Driven by Your Types": "타입으로 구동되는 고성능 TypeScript",
+  "Deepkit compiles your TypeScript types into specialized code for validation, serialization, the database and RPC, so checking every boundary of your application costs next to nothing. One type covers HTTP, RPC, database, configuration and CLI, and when code gets a type subtly wrong, whether you or an agent wrote it, it fails with an exact error at the boundary instead of passing bad data through.": "Deepkit은 TypeScript 타입을 유효성 검사, 직렬화, 데이터베이스 및 RPC를 위한 특화된 코드로 컴파일하므로, 애플리케이션의 모든 경계를 검사하는 데 드는 비용이 거의 없습니다. 하나의 타입으로 HTTP, RPC, 데이터베이스, 설정 및 CLI를 모두 처리하며, 직접 작성했든 에이전트가 작성했든 코드에서 타입이 미묘하게 잘못된 경우 잘못된 데이터를 그대로 통과시키는 대신 경계에서 정확한 오류와 함께 실패합니다."
 }

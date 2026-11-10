@@ -207,18 +207,16 @@ export interface ChartEntry {
                             <span class="version">{{ entry.version }}</span>
                         }
                     </div>
-                    <div class="bar-container">
-                        <div class="track"><div class="bar" [style.width.%]="entry.width"></div></div>
-                        <div class="value">
-                            @if (throughput()) {
-                                {{ entry.ops }} ops/s
-                            } @else if (compact()) {
-                                {{ entry.time }}
-                            } @else {
-                                {{ entry.ops }} ops/s <span class="time">{{ entry.time }}</span>
-                            }
-                        </div>
+                    <div class="value" [attr.title]="entry.ops + ' ops/s, ' + entry.time">
+                        @if (throughput()) {
+                            {{ entry.ops }} ops/s
+                        } @else if (compact()) {
+                            {{ entry.time }}
+                        } @else {
+                            {{ entry.ops }} ops/s
+                        }
                     </div>
+                    <div class="track"><div class="bar" [style.width.%]="entry.width"></div></div>
                 </div>
             }
         </div>
@@ -242,43 +240,39 @@ export interface ChartEntry {
         .chart {
             display: flex;
             flex-direction: column;
-            gap: 7px;
+            gap: 9px;
         }
-        :host(.compact) .row {
-            grid-template-columns: 168px 1fr;
-        }
+        /* name and value in one line, the bar below them over the whole width */
         .row {
             display: grid;
-            grid-template-columns: 190px 1fr;
-            gap: 10px;
-            align-items: center;
+            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-areas:
+                'label value'
+                'track track';
+            column-gap: 8px;
+            row-gap: 3px;
+            align-items: baseline;
             font-size: 13px;
+            line-height: 1.35;
         }
         .label {
-            text-align: right;
+            grid-area: label;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
             color: #9aa1a9;
         }
-        .bar-container {
-            display: grid;
-            grid-template-columns: minmax(40px, 1fr) auto;
-            align-items: center;
-            gap: 8px;
-            min-width: 0;
-        }
         .track {
-            min-width: 0;
+            grid-area: track;
         }
         .bar {
-            height: 16px;
+            height: 5px;
             min-width: 3px;
-            border-radius: 4px;
+            border-radius: 3px;
             background: #2c323b;
         }
         .highlight .bar {
-            background: linear-gradient(90deg, #c2401a, var(--color-orange));
+            background: linear-gradient(90deg, #8f3314, #b8471f);
         }
         .highlight .label {
             color: white;
@@ -296,22 +290,11 @@ export interface ChartEntry {
             font-style: italic;
         }
         .value {
+            grid-area: value;
             white-space: nowrap;
             font-size: 12px;
             color: #cfd3d8;
-        }
-        .time {
-            color: #80878f;
-            margin-left: 2px;
-        }
-        @media (max-width: 640px) {
-            .row {
-                grid-template-columns: 1fr;
-                gap: 2px;
-            }
-            .label {
-                text-align: left;
-            }
+            font-variant-numeric: tabular-nums;
         }
     `,
 })
@@ -766,78 +749,94 @@ const suiteTitles: { [name: string]: string } = {
                 </div>
             </section>
 
-            <section class="bm-card">
-                <h2>Compared with other libraries</h2>
-                <p class="intro">
-                    Operations per second, higher is better. Deepkit reads the TypeScript types at runtime, so there is no
-                    schema to write: the validators check a plain <code>interface User</code>. typia also uses TypeScript
-                    types, but generates its code at build time.
-                    <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison">Benchmark source code on GitHub</a>
-                </p>
+            <section class="bm-wide">
+                <div class="bm-card bm-head">
+                    <h2>Compared with other libraries</h2>
+                    <p class="intro">
+                        Operations per second, higher is better. Deepkit reads the TypeScript types at runtime, so there is no
+                        schema to write: the validators check a plain <code>interface User</code>. typia also uses TypeScript
+                        types, but generates its code at build time.
+                        <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison">Benchmark source code on GitHub</a>
+                    </p>
+                </div>
+                <div class="bm-body">
                 <div class="charts">
-                    @for (chart of charts(); track chart.title) {
-                        <benchmark-chart class="panel" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
-                    }
+                        @for (chart of charts(); track chart.title) {
+                            <benchmark-chart class="panel" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                        }
+                    </div>
                 </div>
             </section>
 
             @if (databases().length) {
-                <section class="bm-card">
-                    <h2>Databases</h2>
-                    <p class="intro">
-                        Complete ORM operations against a real database on the same machine: a table with
-                        10,000 rows, read as entities or objects of each library. Time per operation, the longer the bar the
-                        faster. The raw drivers (striped) are the lower bound of what an ORM on top of them can reach.
-                        <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/orm">Benchmark source code on GitHub</a>
-                    </p>
+                <section class="bm-wide">
+                    <div class="bm-card bm-head">
+                        <h2>Databases</h2>
+                        <p class="intro">
+                            Complete ORM operations against a real database on the same machine: a table with
+                            10,000 rows, read as entities or objects of each library. Time per operation, the longer the bar the
+                            faster. The raw drivers (striped) are the lower bound of what an ORM on top of them can reach.
+                            <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/orm">Benchmark source code on GitHub</a>
+                        </p>
+                    </div>
+                    <div class="bm-body">
                     @for (database of databases(); track database.name) {
-                        <h3>{{ database.title }}</h3>
-                        <div class="charts three">
-                            @for (chart of database.charts; track chart.title) {
-                                <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
-                            }
-                        </div>
-                    }
-                </section>
-            }
-
-            @if (rpc().length) {
-                <section class="bm-card">
-                    <h2>RPC</h2>
-                    <p class="intro">
-                        Complete calls over a local socket, with client and server in one process. Time per call, the
-                        longer the bar the faster. The libraries do different amounts of work: Deepkit validates the
-                        arguments from their types and uses binary BSON over TCP or WebSocket (TCP in these
-                        measurements), tRPC validates with Zod and uses
-                        JSON over HTTP, gRPC uses Protocol Buffers over HTTP/2 and only checks the message
-                        structure, and Socket.IO sends JSON without validation. Plain ws (striped) sends JSON
-                        with no framework at all, as a reference point.
-                        <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/rpc">Benchmark source code on GitHub</a>
-                    </p>
-                    <div class="charts three">
-                        @for (chart of rpc(); track chart.title) {
-                            <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                            <h3>{{ database.title }}</h3>
+                            <div class="charts three">
+                                @for (chart of database.charts; track chart.title) {
+                                    <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                                }
+                            </div>
                         }
                     </div>
                 </section>
             }
 
+            @if (rpc().length) {
+                <section class="bm-wide">
+                    <div class="bm-card bm-head">
+                        <h2>RPC</h2>
+                        <p class="intro">
+                            Complete calls over a local socket, with client and server in one process. Time per call, the
+                            longer the bar the faster. The libraries do different amounts of work: Deepkit validates the
+                            arguments from their types and uses binary BSON over TCP or WebSocket (TCP in these
+                            measurements), tRPC validates with Zod and uses
+                            JSON over HTTP, gRPC uses Protocol Buffers over HTTP/2 and only checks the message
+                            structure, and Socket.IO sends JSON without validation. Plain ws (striped) sends JSON
+                            with no framework at all, as a reference point.
+                            <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/rpc">Benchmark source code on GitHub</a>
+                        </p>
+                    </div>
+                    <div class="bm-body">
+                    <div class="charts three">
+                            @for (chart of rpc(); track chart.title) {
+                                <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                            }
+                        </div>
+                    </div>
+                </section>
+            }
+
             @if (broker().length) {
-                <section class="bm-card">
-                    <h2>Broker</h2>
-                    <p class="intro">
-                        Key-value and pub/sub with 64 connections and 8 in-flight calls per connection, spread over 5
-                        client processes. Operations per second over all clients, higher is better. Each server runs
-                        in its own process, in-memory and with its default threading: the Deepkit broker is one Node.js
-                        process, Redis and Valkey are native servers. The Redis, Valkey and NATS clients exchange JSON,
-                        Deepkit binary encoded from the types. NATS only has the pub/sub workload, since its key-value
-                        store needs JetStream, which persists.
-                        <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/load">Benchmark source code on GitHub</a>
-                    </p>
+                <section class="bm-wide">
+                    <div class="bm-card bm-head">
+                        <h2>Broker</h2>
+                        <p class="intro">
+                            Key-value and pub/sub with 64 connections and 8 in-flight calls per connection, spread over 5
+                            client processes. Operations per second over all clients, higher is better. Each server runs
+                            in its own process, in-memory and with its default threading: the Deepkit broker is one Node.js
+                            process, Redis and Valkey are native servers. The Redis, Valkey and NATS clients exchange JSON,
+                            Deepkit binary encoded from the types. NATS only has the pub/sub workload, since its key-value
+                            store needs JetStream, which persists.
+                            <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/load">Benchmark source code on GitHub</a>
+                        </p>
+                    </div>
+                    <div class="bm-body">
                     <div class="charts">
-                        @for (chart of broker(); track chart.title) {
-                            <benchmark-chart class="panel" [compact]="true" [throughput]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
-                        }
+                            @for (chart of broker(); track chart.title) {
+                                <benchmark-chart class="panel" [compact]="true" [throughput]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                            }
+                        </div>
                     </div>
                 </section>
             }
@@ -1092,17 +1091,43 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
         a.chip:hover {
             color: white;
         }
+        /* The head of a chart section keeps the width of the page, the charts below it get the width of the window,
+           so that all charts of a topic fit in one row. Both have the same background and read as one shape. */
+        .bm-wide {
+            --wide: max(100%, min(calc(100vw - 48px), 1800px));
+            display: flex;
+            flex-direction: column;
+        }
+        .bm-head {
+            border-bottom: none;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            padding-bottom: 16px;
+            position: relative;
+            z-index: 1;
+            margin-bottom: -1px;
+        }
+        .bm-body {
+            width: var(--wide);
+            margin-left: calc((100% - var(--wide)) / 2);
+            box-sizing: border-box;
+            background: var(--color-content-text-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 24px 30px 28px;
+        }
+        .bm-body > h3:first-child {
+            margin-top: 0;
+        }
+        /* all charts of a topic in one row: each chart puts its bars below the names, so it can be narrow */
         .charts {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-            gap: 16px;
-        }
-        .charts.three {
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px;
         }
         .panel {
-            background: rgba(255, 255, 255, 0.025);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.012);
+            border: 1px solid rgba(255, 255, 255, 0.03);
             border-radius: 10px;
             padding: 18px 20px;
             margin: 0;

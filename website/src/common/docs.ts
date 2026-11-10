@@ -36,12 +36,12 @@ export const texts = {
     chapters: 'Chapters',
 
     // start page
-    startTitle: 'Deepkit: the TypeScript framework with runtime types',
+    startTitle: 'Deepkit: the high-performance TypeScript framework with runtime types',
     startDescription:
         'Deepkit is a high-performance TypeScript framework with runtime types: one TypeScript type for validation, serialization, database, HTTP, RPC and dependency injection. No schemas, no decorators for DI, no code generation.',
-    heroTitle: 'Your TypeScript Types, Enforced at Runtime',
+    heroTitle: 'High-Performance TypeScript, Driven by Your Types',
     heroText:
-        'One TypeScript type validates and serializes every boundary of your application: HTTP, RPC, database, configuration and CLI. When code gets a type subtly wrong, whether you or an agent wrote it, it fails with an exact error at the boundary instead of passing bad data through.',
+        'Deepkit compiles your TypeScript types into specialized code for validation, serialization, the database and RPC, so checking every boundary of your application costs next to nothing. One type covers HTTP, RPC, database, configuration and CLI, and when code gets a type subtly wrong, whether you or an agent wrote it, it fails with an exact error at the boundary instead of passing bad data through.',
     pillarOneTypeTitle: 'One type, the whole stack',
     pillarOneTypeText:
         'The type is the validator, the JSON format, the database schema and the API documentation. No Zod schema, class-validator DTO or Prisma model to keep in sync.',
