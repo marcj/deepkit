@@ -31,6 +31,8 @@ jest.mock('http', () => ({
         on: jest.fn(),
         listen: jest.fn(),
         close: jest.fn(),
+        // start() waits for a server to listen
+        listening: true,
     })),
 }));
 
@@ -250,7 +252,7 @@ describe('application-server', () => {
             await applicationServer.start();
 
             expect(require('ws').Server).toHaveBeenCalledTimes(1);
-            expect(new (require('ws').Server)().on).toHaveBeenCalledTimes(1);
+            expect(new (require('ws').Server)().on).toHaveBeenCalledWith('connection', expect.any(Function));
 
             await applicationServer.close();
         });

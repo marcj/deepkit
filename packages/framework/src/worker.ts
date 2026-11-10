@@ -113,6 +113,9 @@ export class RpcServer implements RpcServerInterface {
         const { Server }: { Server: { new (options: WebSocketServerOptions): WebSocketServer } } = ws;
 
         const server = new Server(options);
+        // ws repeats the errors of the HTTP server it is attached to, which start() of the worker reports;
+        // without a listener the repeated one was thrown as an uncaught exception
+        server.on('error', () => undefined);
 
         server.on('connection', (ws, req: HttpRequest) => {
             const connection = createRpcConnection(
@@ -217,6 +220,23 @@ export function createRpcConnection(
     return connection;
 }
 
+/** Before, start() returned right after listen(), so a port in use was only reported after "HTTP listening at". */
+function whenListening(server: http.Server | https.Server): Promise<void> {
+    if (server.listening) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+        const onError = (error: Error) => {
+            server.off('listening', onListening);
+            reject(error);
+        };
+        const onListening = () => {
+            server.off('error', onError);
+            resolve();
+        };
+        server.once('error', onError);
+        server.once('listening', onListening);
+    });
+}
+
 export class WebWorker {
     protected rpcListener?: RpcServerListener;
     protected server?: http.Server | https.Server;
@@ -281,7 +301,9 @@ export class WebWorker {
             server.maxRequestsPerSocket = config.maxRequestsPerSocket;
     }
 
-    start() {
+    /** Resolves when the servers listen, rejects when one can't (e.g. the port is in use). */
+    start(): Promise<void> {
+        const listening: Promise<void>[] = [];
         if (this.options.server) {
             this.server = this.options.server as Server;
             this.server.on('request', this.handleRequest);
@@ -322,6 +344,7 @@ export class WebWorker {
                 );
                 this.servers.requestTimeout;
                 this.servers.listen(this.options.httpsPort || this.options.port, this.options.host);
+                listening.push(whenListening(this.servers));
             }
 
             const startHttpServer = !this.servers || (this.servers && this.options.httpsPort);
@@ -331,6 +354,7 @@ export class WebWorker {
                     this.handleRequest as any,
                 );
                 this.server.listen(this.options.port, this.options.host);
+                listening.push(whenListening(this.server));
             }
         }
 
@@ -338,6 +362,7 @@ export class WebWorker {
         if (this.server) this.applyServerSettings(this.server);
 
         this.startRpc();
+        return Promise.all(listening).then(() => undefined);
     }
 
     private startRpc() {
@@ -396,5 +421,7 @@ export class WebWorker {
 }
 
 export class WebMemoryWorker extends WebWorker {
-    start() {}
+    start(): Promise<void> {
+        return Promise.resolve();
+    }
 }

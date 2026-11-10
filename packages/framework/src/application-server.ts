@@ -296,7 +296,7 @@ export class ApplicationServer {
                 await this.eventDispatcher.dispatch(onServerWorkerBootstrap, new ServerBootstrapEvent());
                 if (this.needsHttpWorker) {
                     this.httpWorker = this.webWorkerFactory.create(cluster.worker!.id, this.config);
-                    this.httpWorker.start();
+                    await this.httpWorker.start();
                 }
                 await this.eventDispatcher.dispatch(onServerBootstrapDone, new ServerBootstrapEvent());
                 await this.eventDispatcher.dispatch(onServerWorkerBootstrapDone, new ServerBootstrapEvent());
@@ -332,7 +332,7 @@ export class ApplicationServer {
             await this.eventDispatcher.dispatch(onServerMainBootstrap, new ServerBootstrapEvent());
             if (this.needsHttpWorker && startHttpServer) {
                 this.httpWorker = this.webWorkerFactory.create(1, this.config);
-                this.httpWorker.start();
+                await this.httpWorker.start();
             }
             await this.eventDispatcher.dispatch(onServerBootstrapDone, new ServerBootstrapEvent());
             await this.eventDispatcher.dispatch(onServerMainBootstrapDone, new ServerBootstrapEvent());
