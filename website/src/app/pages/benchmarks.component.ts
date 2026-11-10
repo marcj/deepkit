@@ -526,6 +526,65 @@ const databaseSuites: { suite: string; title: string; drivers: string[] }[] = [
     { suite: 'comparison/orm-mongo', title: 'MongoDB', drivers: ['mongodb'] },
 ];
 
+/** The load level summarised in text below the database charts, see benchmarks/comparison/load/orm-load.ts. */
+const databaseLoadLevel = '128 users, 4 processes x pool 10';
+const databaseLoadOperations: { name: string; text: (hz: string) => string }[] = [
+    { name: 'findOne by id', text: hz => `Deepkit answers ${hz} findOne queries per second` },
+    { name: 'find 100 rows', text: hz => `Loading 100 rows per query, it reaches ${hz} per second` },
+];
+
+function formatRatio(ratio: number): string {
+    return (ratio >= 10 ? Math.round(ratio).toString() : ratio.toFixed(1)) + '×';
+}
+
+/**
+ * How many times the operations per second of the others Deepkit does,
+ * e.g. "4.1× as many as TypeORM, 4.5× Drizzle, … and 1.7× the pg driver".
+ */
+function loadComparison(
+    deepkit: number,
+    others: { library: string; hz: number; driver: boolean }[],
+    baselineName: (library: string) => string = library => `the ${library} driver`,
+): string {
+    const sorted = [...others].sort((a, b) => Number(a.driver) - Number(b.driver) || b.hz - a.hz);
+    const parts = sorted.map((v, i) => {
+        const ratio = deepkit / v.hz;
+        const name = v.driver ? baselineName(v.library) : v.library;
+        if (ratio < 0.95) return `${formatRatio(v.hz / deepkit)} fewer than ${name}`;
+        if (ratio < 1.05) return `as many as ${name}`;
+        return `${formatRatio(ratio)}${i === 0 ? ' as many as' : ''} ${name}`;
+    });
+    return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts.join('');
+}
+
+/**
+ * The closing sentence of a database, only claimed when the charts back it:
+ * Deepkit ahead of every other ORM in every chart, and where it is, ahead of the raw driver.
+ */
+function databaseVerdict(database: { title: string; drivers: string[] }, charts: { title: string; entries: ChartEntry[] }[]): string {
+    let minOrmLead = Infinity;
+    let driverAll = true;
+    let driverReads = true;
+    for (const chart of charts) {
+        const deepkit = chart.entries.find(v => v.highlight);
+        if (!deepkit) return '';
+        const orms = chart.entries.filter(v => !v.highlight && !v.baseline);
+        const drivers = chart.entries.filter(v => v.baseline);
+        for (const orm of orms) minOrmLead = Math.min(minOrmLead, deepkit.hz / orm.hz);
+        const aheadOfDrivers = drivers.every(v => deepkit.hz > v.hz * 1.05);
+        if (!aheadOfDrivers) {
+            driverAll = false;
+            if (!chart.title.toLowerCase().includes('insert')) driverReads = false;
+        }
+    }
+    if (minOrmLead <= 1) return '';
+    const driverNames = database.drivers.join(' and ') + (database.drivers.length > 1 ? ' drivers' : ' driver');
+    let text = `That makes Deepkit ORM the fastest ${database.title} ORM for TypeScript${minOrmLead >= 1.25 ? ' by a wide margin' : ''}: ahead of every other ORM in every benchmark`;
+    if (driverAll) text += `, and even faster than the raw ${driverNames}`;
+    else if (driverReads) text += `, and when reading even faster than the raw ${driverNames}`;
+    return text + '.';
+}
+
 const databaseOperations: { name: string; title: string; description: string }[] = [
     { name: 'findOne by id', title: 'findOne by id', description: 'A row by its primary key.' },
     { name: 'find 10,000 rows', title: 'Load 10,000 rows', description: 'All rows of the table as objects.' },
@@ -540,6 +599,13 @@ const rpcOperations: { name: string; title: string; description: string }[] = [
     { name: 'add two numbers', title: 'Small call', description: 'Two numbers as arguments, one number as result.' },
     { name: 'send and receive an object', title: 'Object call', description: 'A user object as argument and as result.' },
     { name: 'receive 100 objects', title: 'List of 100 objects', description: 'One number as argument, 100 user objects as result.' },
+];
+
+/** The RPC load level summarised in text below the RPC charts, see benchmarks/comparison/load/rpc-load.ts. */
+const rpcLoadLevel = '64 connections x 8 in flight';
+const rpcLoadOperations: { name: string; title: string }[] = [
+    { name: 'add two numbers', title: 'small calls' },
+    { name: 'send and receive an object', title: 'object calls' },
 ];
 
 /** The broker comparison, see benchmarks/comparison/load/broker-load.ts. */
@@ -774,6 +840,14 @@ const suiteTitles: { [name: string]: string } = {
                                     <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
                                 }
                             </div>
+                            @if (database.load || database.verdict) {
+                                <p class="load">
+                                    {{ database.load }}
+                                    @if (database.verdict) {
+                                        <strong>{{ database.verdict }}</strong>
+                                    }
+                                </p>
+                            }
                         }
                     </div>
                 </section>
@@ -800,6 +874,14 @@ const suiteTitles: { [name: string]: string } = {
                                 <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
                             }
                         </div>
+                    @if (rpcSummary().load || rpcSummary().verdict) {
+                        <p class="load">
+                            {{ rpcSummary().load }}
+                            @if (rpcSummary().verdict) {
+                                <strong>{{ rpcSummary().verdict }}</strong>
+                            }
+                        </p>
+                    }
                     </div>
                 </section>
             }
@@ -1044,6 +1126,19 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
         p {
             margin: 0;
         }
+        .load strong {
+            color: #d5d9de;
+            font-weight: 600;
+        }
+
+        .load {
+            margin: 20px 0 0;
+            max-width: 820px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #9aa1a8;
+        }
+
         .intro {
             color: #9aa1a9;
             font-size: 14px;
@@ -1312,7 +1407,30 @@ export class BenchmarksComponent {
                 }
                 return { title: operation.title, description: operation.description, entries };
             }).filter(v => v.entries.length);
-            return charts.length ? [{ name: database.suite, title: database.title, charts }] : [];
+
+            // the load test as text: many users at once, which a chart per level would make too long
+            const loadSuite = data.suites.find(v => v.name === database.suite + '-load');
+            const loads: string[] = [];
+            if (loadSuite) {
+                for (const operation of databaseLoadOperations) {
+                    let deepkit = 0;
+                    const others: { library: string; hz: number; driver: boolean }[] = [];
+                    for (const benchmark of loadSuite.benchmarks) {
+                        const [library, name] = benchmark.name.split(': ');
+                        const hz = benchmark.hz[index];
+                        if (name !== `${operation.name}, ${databaseLoadLevel}` || !hz) continue;
+                        if (library === 'Deepkit') deepkit = hz;
+                        else others.push({ library, hz, driver: database.drivers.includes(library) });
+                    }
+                    if (deepkit && others.length) {
+                        loads.push(`${operation.text(Math.round(deepkit).toLocaleString('en-US'))}, ${loadComparison(deepkit, others)}.`);
+                    }
+                }
+            }
+            const load = loads.length
+                ? `Under load, with 128 users in 4 processes and a pool of 10 connections per process: ${loads.join(' ')}`
+                : '';
+            return charts.length ? [{ name: database.suite, title: database.title, charts, load, verdict: databaseVerdict(database, charts) }] : [];
         });
     });
 
@@ -1332,6 +1450,62 @@ export class BenchmarksComponent {
             }
             return { title: operation.title, description: operation.description, entries };
         }).filter(v => v.entries.length);
+    });
+
+    /** The RPC load test as text, and the closing sentence when the numbers back it. */
+    protected rpcSummary = computed(() => {
+        const index = this.latestIndex();
+        const suite = data.suites.find(v => v.name === 'comparison/rpc-load');
+        const hzOf = (library: string, operation: string) =>
+            suite?.benchmarks.find(v => v.name === `${library}: ${operation}, ${rpcLoadLevel}`)?.hz[index] || 0;
+        const libraries = [...new Set((suite?.benchmarks || []).map(v => v.name.split(': ')[0]))].filter(v => !v.startsWith('Deepkit'));
+        const plainWs = (library: string) => `plain ${library} without a framework`;
+
+        const sentences: string[] = [];
+        for (const [i, operation] of rpcLoadOperations.entries()) {
+            const tcp = hzOf('Deepkit (TCP)', operation.name);
+            const others = libraries.map(library => ({ library, hz: hzOf(library, operation.name), driver: rpcBaselines.includes(library) })).filter(v => v.hz);
+            if (!tcp || !others.length) continue;
+            const hz = Math.round(tcp).toLocaleString('en-US');
+            sentences.push(`${i === 0 ? 'Deepkit answers' : 'With an object as argument and result, it answers'} ${hz} ${i === 0 ? operation.title : 'calls'} per second over TCP, ${loadComparison(tcp, others, plainWs)}.`);
+        }
+        // over WebSocket, the transport of Socket.IO and ws
+        const webSocket = hzOf('Deepkit (WebSocket)', rpcLoadOperations[0].name);
+        const sameTransport = libraries
+            .filter(v => v === 'Socket.IO' || rpcBaselines.includes(v))
+            .map(library => ({ library, hz: hzOf(library, rpcLoadOperations[0].name), driver: rpcBaselines.includes(library) }))
+            .filter(v => v.hz);
+        if (webSocket && sameTransport.length) {
+            sentences.push(`Over WebSocket, the transport of Socket.IO and ws, it still answers ${Math.round(webSocket).toLocaleString('en-US')} small calls per second, ${loadComparison(webSocket, sameTransport, plainWs)}.`);
+        }
+        const load = sentences.length ? `Under load, with 64 connections and 8 calls in flight on each: ${sentences.join(' ')}` : '';
+
+        // the verdict: Deepkit ahead of every framework in every chart and load operation
+        let minLead = Infinity;
+        let aheadOfWs = true;
+        const compare = (deepkit: number, other: number, baseline: boolean) => {
+            if (baseline) aheadOfWs &&= deepkit > other * 1.05;
+            else minLead = Math.min(minLead, deepkit / other);
+        };
+        for (const chart of this.rpc()) {
+            const deepkit = Math.max(...chart.entries.filter(v => v.highlight).map(v => v.hz));
+            for (const entry of chart.entries) if (!entry.highlight) compare(deepkit, entry.hz, !!entry.baseline);
+        }
+        for (const operation of rpcLoadOperations) {
+            const deepkit = hzOf('Deepkit (TCP)', operation.name);
+            for (const library of libraries) {
+                const hz = hzOf(library, operation.name);
+                if (deepkit && hz) compare(deepkit, hz, rpcBaselines.includes(library));
+            }
+        }
+        let verdict = '';
+        if (minLead > 1 && minLead !== Infinity) {
+            const frameworks = libraries.filter(v => !rpcBaselines.includes(v));
+            verdict = `Deepkit RPC is the fastest RPC framework for TypeScript${minLead >= 1.25 ? ' by a wide margin' : ''}, ahead of ${frameworks.length > 1 ? frameworks.slice(0, -1).join(', ') + ' and ' + frameworks[frameworks.length - 1] : frameworks[0]} in every benchmark`;
+            if (aheadOfWs) verdict += ', and even faster than plain WebSocket messages without any framework';
+            verdict += '.';
+        }
+        return { load, verdict };
     });
 
     protected broker = computed(() => {
