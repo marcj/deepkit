@@ -877,6 +877,7 @@ export class RpcKernel {
     }
 
     createConnection(transport: TransportConnection, injector?: InjectorContext): RpcKernelBaseConnection {
+        const ownScope = !injector;
         if (!injector) injector = this.injector.createChildScope('rpc');
 
         this.buildActions();
@@ -897,8 +898,10 @@ export class RpcKernel {
         injector.set(InjectorContext, injector);
         injector.set(RpcKernelConnection, connection);
         injector.set(RpcKernelBaseConnection, connection);
-        // a custom injector doesn't have to provide it, the framework binds it on its own
-        if (this.autoInjector) injector.set(SessionState, connection.sessionState);
+        // A scope passed in is set up by its creator (the framework binds it on its own). When the kernel creates
+        // the scope (RpcTcpServer, RpcWebSocketServer with the kernel of an app), it sets it: controllers that
+        // injected SessionState could not be created.
+        if (this.autoInjector || ownScope) injector.set(SessionState, connection.sessionState);
         for (const on of this.onConnectionListeners) on(connection, injector, this.logger);
         this.getEventDispatcher().dispatch(onRpcConnection, { context: { connection, injector } });
         return connection;
