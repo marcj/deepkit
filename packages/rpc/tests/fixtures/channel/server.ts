@@ -1,6 +1,6 @@
 // An RPC server in a worker thread or child process, for channel.spec.ts. The first argument selects the channel.
 import { Socket } from 'node:net';
-import { parentPort, workerData } from 'node:worker_threads';
+import { parentPort, threadId, workerData } from 'node:worker_threads';
 import { Observable } from 'rxjs';
 
 import {
@@ -59,6 +59,19 @@ class TestController {
     @rpc.action()
     pid(): number {
         return process.pid;
+    }
+
+    @rpc.action()
+    thread(): number {
+        return threadId;
+    }
+
+    /** blocks the thread for the given milliseconds */
+    @rpc.action()
+    busy(milliseconds: number): number {
+        const end = Date.now() + milliseconds;
+        while (Date.now() < end);
+        return threadId;
     }
 }
 
