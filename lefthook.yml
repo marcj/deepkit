@@ -14,10 +14,21 @@ pre-commit:
       glob: '[*.{json,yml,yaml,html,ts,tsx,js,jsx},!./package-lock.json]'
       priority: 1
       run: ./node_modules/.bin/prettier --write {staged_files} && git add {staged_files}
-    # the staged sources must have passed the complete `npm run test` (see scripts/test.js),
-    # skipped when only the website changed
+    # on master, the staged sources must have passed the complete `npm run test` (see scripts/test.js);
+    # other branches commit freely, skipped when only the website changed
     test-certificate:
       priority: 2
       exclude:
         - 'website/**'
       run: node scripts/test.js check
+pre-merge-commit:
+  commands:
+    # a merge commit into master needs tested sources too
+    test-certificate:
+      run: node scripts/test.js check
+pre-push:
+  commands:
+    # a push to master (also after a fast-forward merge) needs tested sources
+    test-certificate:
+      use_stdin: true
+      run: node scripts/test.js check-push

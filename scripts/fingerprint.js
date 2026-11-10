@@ -107,4 +107,4 @@ function changedPaths(a, b) {
         .map(([path]) => path);
 }
 
-module.exports = { root, workingTreeFingerprint, stagedFingerprint, headFingerprint, distHash, changedPaths };
+module.exports = { root, git, fingerprintOfTree, workingTreeFingerprint, stagedFingerprint, headFingerprint, distHash, changedPaths };
