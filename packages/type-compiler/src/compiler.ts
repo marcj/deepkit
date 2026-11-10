@@ -1057,6 +1057,31 @@ export class ReflectionTransformer implements CustomTransformer {
 
                 const update: any = isNewExpression(node) ? this.f.updateNewExpression : this.f.updateCallExpression;
 
+                if (
+                    ts.isElementAccessExpression(node.expression)
+                    && node.expression.expression.kind !== SyntaxKind.SuperKeyword
+                    && (isIdentifier(node.expression.argumentExpression) || ts.isLiteralExpression(node.expression.argumentExpression))
+                ) {
+                    //e.g. service['get']<T>();
+                    //change to (Ωr = service, Ωr['get'].Ω = [], Ωr)['get'](), so that service is evaluated once
+                    const r = this.getTempResultIdentifier();
+                    const key = node.expression.argumentExpression;
+                    const receiver = this.f.createBinaryExpression(
+                        this.f.createBinaryExpression(
+                            this.f.createBinaryExpression(r, this.f.createToken(SyntaxKind.EqualsToken), node.expression.expression),
+                            this.f.createToken(SyntaxKind.CommaToken),
+                            this.f.createBinaryExpression(
+                                this.f.createPropertyAccessExpression(this.f.createElementAccessExpression(r, key), 'Ω'),
+                                this.f.createToken(SyntaxKind.EqualsToken),
+                                this.f.createArrayLiteralExpression(typeExpressions),
+                            ),
+                        ),
+                        this.f.createToken(SyntaxKind.CommaToken),
+                        r,
+                    );
+                    return update(node, this.f.createElementAccessExpression(this.f.createParenthesizedExpression(receiver), key), node.typeArguments, node.arguments);
+                }
+
                 if (isPropertyAccessExpression(node.expression)) {
                     //e.g. http.deep.response();
                     if (isCallExpression(node.expression.expression)) {
