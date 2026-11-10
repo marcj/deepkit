@@ -58,7 +58,7 @@ The client imports only the type of the controller, so no server code ends up in
 | Code generation    | None                                | None                                  | Required                               |
 | Runtime validation | Built in, from the TypeScript types | With a schema library such as Zod     | Message structure only                 |
 | Wire format        | Binary (BSON)                       | JSON                                  | Binary (Protocol Buffers)              |
-| Transport          | WebSocket, TCP                      | HTTP, WebSocket                       | HTTP/2                                 |
+| Transport          | WebSocket, TCP, HTTP, IPC           | HTTP, WebSocket                       | HTTP/2                                 |
 | Languages          | TypeScript                          | TypeScript                            | Many                                   |
 
 Deepkit RPC needs the [Deepkit type compiler](./runtime-types/getting-started.md) in your build, because it reads your types at runtime. For an API that other companies or plain HTTP clients call, use [Deepkit HTTP](./http.md) instead, and use gRPC when services in several programming languages have to talk to each other.
