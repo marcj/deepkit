@@ -601,6 +601,14 @@ const rpcOperations: { name: string; title: string; description: string }[] = [
     { name: 'receive 100 objects', title: 'List of 100 objects', description: 'One number as argument, 100 user objects as result.' },
 ];
 
+/** The IPC comparison of the RPC channels, see benchmarks/comparison/ipc. */
+const ipcOperations: { name: string; title: string; description: string }[] = [
+    { name: 'add two numbers', title: 'Small call', description: 'Two numbers as arguments, one number as result.' },
+    { name: 'send and receive an object', title: 'Object call', description: 'A user object as argument and as result.' },
+    { name: 'receive 100 objects', title: 'List of 100 objects', description: 'One number as argument, 100 user objects as result.' },
+    { name: '64 calls at once', title: '64 calls at once', description: '64 small calls in flight, one operation is all of them.' },
+];
+
 /** The RPC load level summarised in text below the RPC charts, see benchmarks/comparison/load/rpc-load.ts. */
 const rpcLoadLevel = '64 connections x 8 in flight';
 const rpcLoadOperations: { name: string; title: string }[] = [
@@ -882,6 +890,32 @@ const suiteTitles: { [name: string]: string } = {
                             }
                         </p>
                     }
+                    </div>
+                </section>
+            }
+
+            @if (ipc().length) {
+                <section class="bm-wide">
+                    <div class="bm-card bm-head">
+                        <h2>RPC between threads and processes</h2>
+                        <p class="intro">
+                            Deepkit RPC from the main thread to a server in a worker thread or child process, over the
+                            <a href="/en/documentation/rpc/ipc">IPC channels</a> and, for comparison, a unix socket and TCP.
+                            Client and server run in parallel on two cores. Calls per second, the longer the bar the faster.
+                            Shared memory polls for the answer for 100 µs before it sleeps, without polling every call waits
+                            for the operating system to wake up the other thread.
+                            <a href="https://github.com/deepkit/deepkit-framework/tree/master/benchmarks/comparison/ipc">Benchmark source code on GitHub</a>
+                        </p>
+                    </div>
+                    <div class="bm-body">
+                        <div class="charts">
+                            @for (chart of ipc(); track chart.title) {
+                                <benchmark-chart class="panel" [compact]="true" [title]="chart.title" [description]="chart.description" [data]="chart.entries" />
+                            }
+                        </div>
+                        @if (ipcSummary()) {
+                            <p class="load"><strong>{{ ipcSummary() }}</strong></p>
+                        }
                     </div>
                 </section>
             }
@@ -1450,6 +1484,34 @@ export class BenchmarksComponent {
             }
             return { title: operation.title, description: operation.description, entries };
         }).filter(v => v.entries.length);
+    });
+
+    protected ipc = computed(() => {
+        const index = this.latestIndex();
+        const suite = data.suites.find(v => v.name === 'comparison/ipc');
+        if (!suite) return [];
+        return ipcOperations.map(operation => {
+            const entries: ChartEntry[] = [];
+            for (const benchmark of suite.benchmarks) {
+                const [channel, name] = benchmark.name.split(': ');
+                const hz = benchmark.hz[index];
+                if (name !== operation.name || !hz) continue;
+                entries.push({ label: channel, hz, highlight: channel === 'Worker thread (shared memory)' });
+            }
+            return { title: operation.title, description: operation.description, entries };
+        }).filter(v => v.entries.length);
+    });
+
+    /** How much faster shared memory is than a unix socket for a small call, for the sentence below the IPC charts. */
+    protected ipcSummary = computed(() => {
+        const small = this.ipc().find(v => v.title === 'Small call');
+        const hz = (label: string) => small?.entries.find(v => v.label === label)?.hz || 0;
+        const shared = hz('Worker thread (shared memory)');
+        const unix = hz('Child process (unix socket)');
+        const tcp = hz('Child process (TCP)');
+        if (!shared || !unix || !tcp) return '';
+        const micro = (value: number) => (1_000_000 / value).toFixed(1).replace(/\.0$/, '');
+        return `A small call to a worker thread over shared memory takes ${micro(shared)} µs, ${(shared / unix).toFixed(1)}x faster than over a unix socket (${micro(unix)} µs) and ${(shared / tcp).toFixed(1)}x faster than over TCP (${micro(tcp)} µs).`;
     });
 
     /** The RPC load test as text, and the closing sentence when the numbers back it. */
