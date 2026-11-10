@@ -226,16 +226,16 @@ export interface ChartEntry {
             display: block;
         }
         h3 {
-            font-size: 15px;
-            font-weight: 700;
-            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            color: #d5d9de;
             margin: 0 0 2px;
         }
         .description {
             margin: 0 0 14px;
-            color: #80878f;
-            font-size: 13px;
-            line-height: 1.5;
+            color: #6f767e;
+            font-size: 12px;
+            line-height: 1.45;
         }
         .chart {
             display: flex;
@@ -481,7 +481,6 @@ const charts: ChartDefinition[] = [
             'arktype (valid)': 'ArkType',
             'zod safeParse (valid)': 'Zod',
             'valibot safeParse (valid)': 'Valibot',
-            'class-validator (valid)': 'class-validator',
         },
     },
     {
@@ -495,7 +494,6 @@ const charts: ChartDefinition[] = [
             'valibot safeParse (invalid)': 'Valibot',
             'typebox Errors (invalid)': 'TypeBox',
             'arktype (invalid)': 'ArkType',
-            'class-validator (invalid)': 'class-validator',
         },
     },
     {
@@ -516,17 +514,6 @@ const charts: ChartDefinition[] = [
             'JSON.stringify': 'JSON.stringify (no types)',
             'deepkit getSerializeFunction + JSON.stringify': 'Deepkit + JSON.stringify',
             'typia json.stringify': 'typia json.stringify',
-        },
-    },
-    {
-        title: 'BSON',
-        description: 'Encoding and decoding of the same object to BSON, compared with the official bson package of the MongoDB driver.',
-        suite: 'comparison/bson',
-        benchmarks: {
-            'deepkit serialize': 'Deepkit serialize',
-            'bson serialize': 'bson serialize',
-            'deepkit deserialize': 'Deepkit deserialize',
-            'bson deserialize': 'bson deserialize',
         },
     },
 ];
@@ -719,7 +706,7 @@ const suiteTitles: { [name: string]: string } = {
     template: `
         <app-title value="Benchmarks"></app-title>
         <app-description
-            value="Performance of Deepkit validation, serialization, BSON, ORM, HTTP, RPC and dependency injection, compared with typia, Zod, Valibot, ArkType, TypeBox, class-validator and the previous release."
+            value="Performance of Deepkit validation, serialization, BSON, ORM, HTTP, RPC and dependency injection, compared with typia, Zod, Valibot, ArkType, TypeBox and the previous release."
         ></app-description>
         <dw-header />
         <div class="bench-page">
@@ -751,7 +738,7 @@ const suiteTitles: { [name: string]: string } = {
 
             <section class="bm-wide">
                 <div class="bm-card bm-head">
-                    <h2>Compared with other libraries</h2>
+                    <h2>Validation and serialization</h2>
                     <p class="intro">
                         Operations per second, higher is better. Deepkit reads the TypeScript types at runtime, so there is no
                         schema to write: the validators check a plain <code>interface User</code>. typia also uses TypeScript
@@ -1045,11 +1032,14 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
             color: white;
             margin: 0 0 6px;
         }
+        /* the group inside a section, e.g. a database: clearly above the titles of the charts */
         h3 {
-            font-size: 15px;
+            font-size: 17px;
             font-weight: 700;
             color: white;
-            margin: 22px 0 10px;
+            margin: 36px 0 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
         p {
             margin: 0;
@@ -1091,30 +1081,18 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
         a.chip:hover {
             color: white;
         }
-        /* The head of a chart section keeps the width of the page, the charts below it get the width of the window,
-           so that all charts of a topic fit in one row. Both have the same background and read as one shape. */
+        /* A chart section is one card like the others, its head and charts only group the content. */
         .bm-wide {
-            --wide: max(100%, min(calc(100vw - 48px), 1800px));
-            display: flex;
-            flex-direction: column;
-        }
-        .bm-head {
-            border-bottom: none;
-            border-bottom-left-radius: 0;
-            border-bottom-right-radius: 0;
-            padding-bottom: 16px;
-            position: relative;
-            z-index: 1;
-            margin-bottom: -1px;
-        }
-        .bm-body {
-            width: var(--wide);
-            margin-left: calc((100% - var(--wide)) / 2);
-            box-sizing: border-box;
             background: var(--color-content-text-bg);
             border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 12px;
-            padding: 24px 30px 28px;
+            padding: 28px 30px;
+        }
+        .bm-wide .bm-head {
+            background: none;
+            border: none;
+            border-radius: 0;
+            padding: 0;
         }
         .bm-body > h3:first-child {
             margin-top: 0;
@@ -1122,14 +1100,11 @@ npm run bench -- --target 1.0.19      # the same benchmarks against a published 
         /* all charts of a topic in one row: each chart puts its bars below the names, so it can be narrow */
         .charts {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 14px;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 24px 32px;
         }
+        /* the charts stand on the card itself, only spacing separates them */
         .panel {
-            background: rgba(255, 255, 255, 0.012);
-            border: 1px solid rgba(255, 255, 255, 0.03);
-            border-radius: 10px;
-            padding: 18px 20px;
             margin: 0;
         }
         .trends {
