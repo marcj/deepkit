@@ -1080,6 +1080,12 @@ export class RpcServerAction {
         const cache = this.getCacheAction(controllerName, methodName);
         const { parameters, resultSchema } = cache.types;
         const value = await this.invoke(cache, cast(args, undefined, undefined, undefined, parameters) as any[]);
+        if (value instanceof Collection || isObservable(value)) {
+            // a request has one response: streams need a connection. This failed as a bare "Validation error"
+            throw new RpcError(
+                `${controllerName}.${methodName} returns ${value instanceof Collection ? 'a Collection' : 'an Observable'}, which needs a WebSocket or TCP connection. Over HTTP, actions return single values.`,
+            );
+        }
         return { value: { v: value }, type: resultSchema };
     }
 

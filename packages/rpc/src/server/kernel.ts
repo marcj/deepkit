@@ -651,11 +651,13 @@ export class RpcKernelConnection extends RpcKernelBaseConnection {
         };
 
         try {
-            if (request.headers['Authorization']) {
-                const auth = String(request.headers['Authorization']);
+            // node lowercases the names of incoming headers
+            const authorization = request.headers['authorization'] ?? request.headers['Authorization'];
+            if (authorization) {
+                const auth = String(authorization);
                 const token = auth.startsWith('Bearer ') ? auth.substring(7) : auth;
-                const session = await this.security.authenticate(token, this);
-                this.sessionState.setSession(session);
+                // like a connection: onRpcAuth events, and the reason of a failure stays on the server
+                await this.authenticate(token);
             }
 
             if (method.endsWith('.type')) {

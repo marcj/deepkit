@@ -21,7 +21,7 @@ import {
     TypePropertySignature,
     ValidationError,
     assertType,
-    cast,
+    deserialize,
     deserializeType,
     serialize,
     typeOf,
@@ -1454,7 +1454,9 @@ export class RpcActionClient {
         const types = await this.loadHttpTypes(http, controller, method, options);
         const json = serialize(args, undefined, undefined, undefined, types.parameters) as any[];
         const value = await http.requestCall(controller.controller, method, json, this.fastHost!.getToken?.());
-        return (cast({ v: value }, undefined, undefined, undefined, types.resultSchema) as { v: any }).v;
+        // deserialized like the binary path: validating it rejected class instances, the class built from the
+        // server's type description has the methods in its type but not on its instances
+        return (deserialize({ v: value }, undefined, undefined, undefined, types.resultSchema) as { v: any }).v;
     }
 
     protected async loadHttpTypes(

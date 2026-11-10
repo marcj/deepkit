@@ -66,7 +66,7 @@ import { BrokerConfig, FrameworkConfig } from './module.config.js';
 import { OrmBrowserController } from './orm-browser/controller.js';
 import { RpcControllers, RpcKernelWithStopwatch } from './rpc.js';
 import { normalizeDirectory } from './utils.js';
-import { RpcServer, WebWorkerFactory } from './worker.js';
+import { RpcServer, WebWorkerFactory, createRpcConnection } from './worker.js';
 import { Zone } from './zone.js';
 
 export class FrameworkModule extends createModuleClass({
@@ -243,7 +243,10 @@ export class FrameworkModule extends createModuleClass({
 
             @http.controller(rpcBaseUrl)
             class HttpRpcController {
-                constructor(protected rpcKernel: RpcKernel) {}
+                constructor(
+                    protected rpcKernel: RpcKernel,
+                    protected injectorContext: InjectorContext,
+                ) {}
 
                 @http.GET(':controller/:method')
                 @http.POST(':controller/:method')
@@ -253,15 +256,22 @@ export class FrameworkModule extends createModuleClass({
                     request: HttpRequest,
                     response: HttpResponse,
                 ) {
-                    const connection = this.rpcKernel.createConnection({
-                        bufferedAmount() {
-                            return 0;
+                    // the rpc scope like a WebSocket connection: without it, controllers that inject SessionState
+                    // or other rpc scoped providers could not be created
+                    const connection = createRpcConnection(
+                        this.injectorContext,
+                        this.rpcKernel,
+                        {
+                            bufferedAmount() {
+                                return 0;
+                            },
+                            close() {},
+                            clientAddress() {
+                                return request.socket.remoteAddress || '';
+                            },
                         },
-                        close() {},
-                        clientAddress() {
-                            return request.socket.remoteAddress || '';
-                        },
-                    });
+                        request,
+                    );
                     request.body = await request.readBody();
                     await connection.onRequest(rpcBaseUrl, request, response);
                     return response;
