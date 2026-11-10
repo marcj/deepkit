@@ -110,6 +110,7 @@ import {
     isSerializable,
     utf8Bytes,
 } from './utils.js';
+import { BSONError } from './model.js';
 
 // BSON MAX VALUES
 const BSON_INT32_MAX = 0x7fffffff;
@@ -120,7 +121,7 @@ export const JS_INT_MAX = 0x20000000000000; // Any integer up to 2^53 can be pre
 export const JS_INT_MIN = -0x20000000000000; // Any integer down to -2^53 can be precisely represented by a double.
 
 const LONG_MAX = 'undefined' !== typeof BigInt ? BigInt('9223372036854775807') : 9223372036854775807;
-const LONG_MIN = 'undefined' !== typeof BigInt ? BigInt('-9223372036854775807') : -9223372036854775807;
+const LONG_MIN = 'undefined' !== typeof BigInt ? BigInt('-9223372036854775808') : -9223372036854775808;
 
 // a table, because whether a digit is a letter is random in an id, which a branch can't predict
 const hexValues = new Uint8Array(256);
@@ -621,13 +622,17 @@ export class Writer {
     }
 
     writeBigIntLong(value: bigint) {
-        if (value < 0) {
-            this.writeInt32((~Number(-value % BigInt(TWO_PWR_32_DBL_N)) + 1) | 0); //low
-            this.writeInt32(~Number(-value / BigInt(TWO_PWR_32_DBL_N)) | 0); //high
-        } else {
-            this.writeInt32(Number(value % BigInt(TWO_PWR_32_DBL_N)) | 0); //low
-            this.writeInt32(Number(value / BigInt(TWO_PWR_32_DBL_N)) | 0); //high
+        // a bigint is a 64 bit long in BSON; larger values wrapped around silently
+        if (value > LONG_MAX || value < LONG_MIN) {
+            throw new BSONError(
+                `bigint ${value} does not fit into a 64 bit BSON long, use BinaryBigInt or SignedBinaryBigInt for larger values`,
+            );
         }
+        // two's complement of all 64 bits: complementing the halves on their own lost the carry of the low half,
+        // which wrote every negative multiple of 2^32 (e.g. -4294967296 and -2^63) wrong
+        const bits = BigInt.asUintN(64, value);
+        this.writeInt32(Number(bits & 0xffffffffn) | 0); //low
+        this.writeInt32(Number(bits >> 32n) | 0); //high
     }
 
     writeBigIntBinary(value: bigint) {
@@ -676,13 +681,11 @@ export class Writer {
         if (value > 9223372036854775807) value = 9223372036854775807;
         if (value < -9223372036854775807) value = -9223372036854775807;
 
-        if (value < 0) {
-            this.writeInt32((~(-value % TWO_PWR_32_DBL_N) + 1) | 0); //low
-            this.writeInt32(~(-value / TWO_PWR_32_DBL_N) | 0); //high
-        } else {
-            this.writeInt32(value % TWO_PWR_32_DBL_N | 0); //low
-            this.writeInt32((value / TWO_PWR_32_DBL_N) | 0); //high
-        }
+        // the high half rounded down and the rest as low half is the two's complement for negative values too;
+        // complementing the halves on their own lost the carry, e.g. a Date at -4294967296 ms came back 2^32 ms earlier
+        const high = Math.floor(value / TWO_PWR_32_DBL_N);
+        this.writeInt32((value - high * TWO_PWR_32_DBL_N) | 0); //low
+        this.writeInt32(high | 0); //high
     }
 
     writeUUID(value: string) {

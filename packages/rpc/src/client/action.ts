@@ -974,6 +974,7 @@ export class RpcActionClient {
         this.resolvers[id] = resolve;
         this.rejecters[id] = reject;
 
+        let sending = false;
         try {
             if (progress) host.registerDownloadProgress?.(id, progress.download);
             // calls to a peer and calls that arrive late can't take part in counting the ids
@@ -1017,12 +1018,15 @@ export class RpcActionClient {
                 });
             }
             this.releaseArgs(args);
+            sending = true;
             host.sendActionFrame(frameMemory(), size, progress?.upload);
         } catch (error: any) {
             this.releaseArgs(args);
             this.finishFastCall(id);
             contexts.release(id);
-            reject(error instanceof ValidationError ? error : new OfflineError(error, { cause: error }));
+            // only a failed send means the connection is gone; an argument that can't be serialized
+            // (e.g. a bigint beyond 64 bit) was reported as OfflineError
+            reject(sending && !(error instanceof ValidationError) ? new OfflineError(error, { cause: error }) : error);
         }
     }
 
