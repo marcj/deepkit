@@ -440,11 +440,12 @@ export class SqlBuilder {
         }
 
         for (const join of this.joins) {
-            if (!join.join.query.model.sort) continue;
+            if (!join.join.query.model.sort || !join.join.as) continue;
             const prepared = getPreparedEntity(this.adapter, join.join.query.classSchema);
             // @ts-ignore
             for (const [name, sort] of Object.entries(join.join.query.model.sort)) {
-                order.push(`${join.join.as}.${prepared.fieldMap[name]?.columnNameEscaped || this.platform.quoteIdentifier(name)} ${sort}`);
+                // quoted like the JOIN's alias, or PostgreSQL lowercases a camelCase one
+                order.push(`${this.platform.quoteIdentifier(join.join.as)}.${prepared.fieldMap[name]?.columnNameEscaped || this.platform.quoteIdentifier(name)} ${sort}`);
             }
         }
         if (order.length) sql.append(' ORDER BY ' + (order.join(', ')));
