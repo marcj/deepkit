@@ -1,135 +1,90 @@
 import { afterEach, expect, jest, test } from '@jest/globals';
-import { createServer, connect, Server, Socket } from 'net';
+import { Server, Socket, connect, createServer } from 'net';
 
-import { bsonBinarySerializer, deserializeBSONWithoutOptimiser } from '@deepkit/bson';
-import { getTypeJitContainer, typeOf } from '@deepkit/type';
+import { typeOf } from '@deepkit/type';
 
-import {
-    createRpcCompositeMessage,
-    createRpcCompositeMessageSourceDest,
-    createRpcMessage,
-    createRpcMessagePeer,
-    createRpcMessageSourceDest,
-    preSerialize,
-    readBinaryRpcMessage,
-    RpcBinaryMessageReader,
-    RpcMessageRouteType,
-    serializeBinaryRpcMessage,
-    serializeBinaryRpcMessageTransient,
-} from '../src/protocol.js';
-import { TransportBinaryMessageChunkWriter, TransportOptions } from '../src/transport.js';
+import { getBodyCodec } from '../src/action.js';
+import { RpcTransportStats } from '../src/model.js';
+import { ControlOp, MessageFlag, RpcBinaryMessageReader, copyWrittenFrame, frameMemory, getActionOffset, getPeerId, writeControlFrameTransient, writeHelloFrameTransient } from '../src/protocol.js';
+import { TransportBinaryMessageChunkWriter, TransportOptions, createFrameSender } from '../src/transport.js';
 
 jest.setTimeout(60000);
 
 type Body = { name: string };
-const source = new Uint8Array(16).fill(1);
-const destination = new Uint8Array(16).fill(2);
+const codec = getBodyCodec(typeOf<Body>());
+
+const routeTo = new Uint8Array(32).fill(1);
+
+function frame(id: number, body?: Body, routeData?: Uint8Array, route: any = MessageFlag.RouteClient): Uint8Array {
+    return copyWrittenFrame(writeControlFrameTransient(id, route, ControlOp.CollectionModel, body ? codec.serialize : undefined, body, routeData));
+}
+
+function readBody(buffer: Uint8Array, start = 0, end = buffer.byteLength): Body {
+    return codec.deserialize(buffer, getActionOffset(buffer, start) + 1, end);
+}
 
 function expectFramed(buffer: Uint8Array) {
     expect(new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength).getUint32(0, true)).toBe(buffer.byteLength);
 }
 
 test('single body', () => {
-    const buffer = serializeBinaryRpcMessage(createRpcMessage<Body>(7, 3, { name: 'peter' }));
+    const buffer = frame(7, { name: 'peter' });
     expectFramed(buffer);
-    const message = readBinaryRpcMessage(buffer);
-    expect(message.id).toBe(7);
-    expect(message.type).toBe(3);
-    expect(message.routeType).toBe(RpcMessageRouteType.client);
-    expect(message.parseBody<Body>()).toEqual({ name: 'peter' });
+    expect(readBody(buffer)).toEqual({ name: 'peter' });
 });
 
 test('no body', () => {
-    const buffer = serializeBinaryRpcMessage(createRpcMessage(7, 3));
-    expect(buffer.byteLength).toBe(12);
+    const buffer = frame(7);
+    expect(buffer.byteLength).toBe(8);
     expectFramed(buffer);
 });
 
 test('no body on every route', () => {
-    for (const routeType of [RpcMessageRouteType.client, RpcMessageRouteType.server]) {
-        const buffer = serializeBinaryRpcMessage(createRpcMessage(9, 4, undefined, routeType));
-        expectFramed(buffer);
-        const message = readBinaryRpcMessage(buffer);
-        expect(message.id).toBe(9);
-        expect(message.type).toBe(4);
-        expect(message.routeType).toBe(routeType);
-        expect(message.composite).toBe(false);
-        expect(message.bodySize).toBe(0);
+    for (const route of [MessageFlag.RouteClient, MessageFlag.RouteServer]) {
+        expect(frame(7, undefined, undefined, route)[4] & 0b11).toBe(route);
+        expectFramed(frame(7, undefined, undefined, route));
     }
-    expectFramed(serializeBinaryRpcMessage(createRpcMessageSourceDest(7, 3, source, destination)));
-    expectFramed(serializeBinaryRpcMessage(createRpcMessagePeer(7, 3, source, 'peer1')));
 });
 
 test('source and destination', () => {
-    const buffer = serializeBinaryRpcMessage(createRpcMessageSourceDest<Body>(7, 3, source, destination, { name: 'peter' }));
+    const buffer = frame(7, { name: 'peter' }, routeTo, MessageFlag.RouteSourceDest);
     expectFramed(buffer);
-    const message = readBinaryRpcMessage(buffer);
-    expect([...message.getSource()]).toEqual([...source]);
-    expect([...message.getDestination()]).toEqual([...destination]);
-    expect(message.parseBody<Body>()).toEqual({ name: 'peter' });
+    expect(buffer.subarray(5, 37).every(v => v === 1)).toBe(true);
+    expect(readBody(buffer)).toEqual({ name: 'peter' });
 });
 
 test('peer', () => {
-    const buffer = serializeBinaryRpcMessage(createRpcMessagePeer<Body>(7, 3, source, 'peer1', { name: 'peter' }));
+    const route = new Uint8Array(16 + 5 + 1).fill(2);
+    route.set(
+        [...'peer1'].map(v => v.charCodeAt(0)),
+        16,
+    );
+    route[21] = 0;
+    const buffer = frame(7, { name: 'peter' }, route, MessageFlag.RoutePeer);
     expectFramed(buffer);
-    const message = readBinaryRpcMessage(buffer);
-    expect(message.getPeerId()).toBe('peer1');
-    expect(message.parseBody<Body>()).toEqual({ name: 'peter' });
+    expect(getPeerId(buffer)).toBe('peer1');
+    expect(readBody(buffer)).toEqual({ name: 'peter' });
 });
-
-const composite = [
-    { type: 5, schema: typeOf<Body>(), body: { name: 'first' } },
-    { type: 6 },
-    { type: 7, schema: typeOf<Body>(), body: { name: 'x'.repeat(5000) } },
-];
-
-function expectComposite(buffer: Uint8Array) {
-    expectFramed(buffer);
-    const message = readBinaryRpcMessage(buffer);
-    const bodies = message.getBodies();
-    expect(bodies.map(v => v.type)).toEqual([5, 6, 7]);
-    expect(bodies[0].parseBody<Body>()).toEqual({ name: 'first' });
-    expect(bodies[1].bodySize).toBe(0);
-    expect(bodies[2].parseBody<Body>()).toEqual({ name: 'x'.repeat(5000) });
-}
-
-test('composite', () => expectComposite(serializeBinaryRpcMessage(createRpcCompositeMessage(7, 3, composite))));
-test('composite with source and destination', () => expectComposite(serializeBinaryRpcMessage(createRpcCompositeMessageSourceDest(7, source, destination, 3, composite))));
 
 test('a body larger than the buffer is complete', () => {
     const name = 'y'.repeat(3_000_000);
-    const buffer = serializeBinaryRpcMessage(createRpcMessage<Body>(7, 3, { name }));
+    const buffer = frame(7, { name });
     expectFramed(buffer);
-    expect(readBinaryRpcMessage(buffer).parseBody<Body>()).toEqual({ name });
+    expect(readBody(buffer)).toEqual({ name });
 });
 
-test('the size of a body is never computed up front', () => {
-    const type = typeOf<Body & { sizerTrap: 1 }>();
-    getTypeJitContainer(type)[bsonBinarySerializer.sizerId] = () => {
-        throw new TypeError('sizer must not be called');
-    };
-    const body = { name: 'a', sizerTrap: 1 };
-    expect(() => serializeBinaryRpcMessage(createRpcMessage(1, 1, body, undefined, type))).not.toThrow();
-    expect(() => serializeBinaryRpcMessage(createRpcCompositeMessage(1, 1, [{ type: 1, schema: type, body }]))).not.toThrow();
+test('frames are written in place', () => {
+    // the one before may have been large and needed the large buffer
+    writeControlFrameTransient(1, MessageFlag.RouteClient, ControlOp.CollectionModel, codec.serialize, { name: 'first' });
+    writeControlFrameTransient(1, MessageFlag.RouteClient, ControlOp.CollectionModel, codec.serialize, { name: 'first' });
+    const memory = frameMemory();
+    writeControlFrameTransient(2, MessageFlag.RouteClient, ControlOp.CollectionModel, codec.serialize, { name: 'other' });
+    expect(frameMemory() === memory).toBe(true);
 });
 
-test('a serialized message keeps its own memory', () => {
-    const first = serializeBinaryRpcMessage(createRpcMessage<Body>(1, 1, { name: 'first' }));
-    const copy = first.slice();
-    serializeBinaryRpcMessage(createRpcMessage<Body>(2, 2, { name: 'other' }));
-    expect(first).toEqual(copy);
-});
-
-test('a transient message is written in place', () => {
-    const first = serializeBinaryRpcMessageTransient(createRpcMessage<Body>(1, 1, { name: 'first' }))!;
-    const second = serializeBinaryRpcMessageTransient(createRpcMessage<Body>(2, 1, { name: 'other' }))!;
-    expect(first.buffer).toBe(second.buffer);
-    expect(readBinaryRpcMessage(second).parseBody<Body>()).toEqual({ name: 'other' });
-});
-
-test('a pre serialized message is not transient, a transport may remember the buffer', () => {
-    const pre = preSerialize<string>('value');
-    expect(serializeBinaryRpcMessageTransient(createRpcMessage<{ v: string }>(1, 1, { v: pre as any }))).toBeUndefined();
+test('hello is a frame of the shared buffer too', () => {
+    const size = writeHelloFrameTransient(5);
+    expect(size).toBe(10);
 });
 
 let server: Server | undefined;
@@ -160,21 +115,23 @@ async function socketPair() {
 }
 
 function parseFrames(data: Buffer) {
-    const bodies: any[] = [];
-    for (let offset = 0; offset < data.length;) {
+    const bodies: Body[] = [];
+    for (let offset = 0; offset < data.length; ) {
         const size = data.readUInt32LE(offset);
-        bodies.push(deserializeBSONWithoutOptimiser(data.subarray(offset + 12, offset + size)));
+        bodies.push(readBody(data.subarray(offset, offset + size)));
         offset += size;
     }
     return bodies;
 }
 
-test('a message the kernel did not take yet is not overwritten by the next one', async () => {
+test('a frame the kernel did not take yet is not overwritten by the next one', async () => {
     const peer = await socketPair();
     peer.pause();
     const received: Buffer[] = [];
     peer.on('data', v => received.push(v));
-    const writer = new TransportBinaryMessageChunkWriter(new RpcBinaryMessageReader(() => undefined), new TransportOptions());
+    const options = new TransportOptions();
+    const writer = new TransportBinaryMessageChunkWriter(new RpcBinaryMessageReader(), options);
+    const send = createFrameSender({ binarySocket: client!, close() {} }, writer, options, new RpcTransportStats())!;
 
     const size = 90_000;
     const names: string[] = [];
@@ -183,7 +140,9 @@ test('a message the kernel did not take yet is not overwritten by the next one',
     for (let seq = 0; seq < 3000 && extra < 32; seq++) {
         const name = String.fromCharCode(97 + (seq % 26)).repeat(size);
         names.push(name);
-        bytes += writer.writeToSocket(client!, createRpcMessage<Body>(seq, 1, { name }));
+        const length = writeControlFrameTransient(seq + 1, MessageFlag.RouteClient, ControlOp.CollectionModel, codec.serialize, { name });
+        send(frameMemory(), length);
+        bytes += length;
         if (client!.writableLength > 0) extra++;
     }
     expect(extra).toBeGreaterThan(1);
@@ -196,13 +155,16 @@ test('a message the kernel did not take yet is not overwritten by the next one',
     for (let i = 0; i < bodies.length; i++) expect(bodies[i].name === names[i]).toBe(true);
 });
 
-test('a message above the chunk size goes through the chunk writer with its own memory', async () => {
+test('a frame above the chunk size goes through the chunk writer with its own memory', async () => {
     await socketPair();
-    const writer = new TransportBinaryMessageChunkWriter(new RpcBinaryMessageReader(() => undefined), new TransportOptions());
+    const options = new TransportOptions();
+    const writer = new TransportBinaryMessageChunkWriter(new RpcBinaryMessageReader(), options);
     const write = jest.spyOn(writer, 'write').mockImplementation(() => undefined);
-    writer.writeToSocket(client!, createRpcMessage<Body>(1, 1, { name: 'x'.repeat(200_000) }));
+    const send = createFrameSender({ binarySocket: client!, close() {} }, writer, options, new RpcTransportStats())!;
+    const length = writeControlFrameTransient(1, MessageFlag.RouteClient, ControlOp.CollectionModel, codec.serialize, { name: 'x'.repeat(200_000) });
+    send(frameMemory(), length);
     expect(write).toHaveBeenCalledTimes(1);
     const buffer = write.mock.calls[0][1] as Uint8Array;
-    serializeBinaryRpcMessage(createRpcMessage<Body>(2, 1, { name: 'other' }));
-    expect(readBinaryRpcMessage(buffer).parseBody<Body>()).toEqual({ name: 'x'.repeat(200_000) });
+    frame(2, { name: 'other' });
+    expect(readBody(buffer)).toEqual({ name: 'x'.repeat(200_000) });
 });

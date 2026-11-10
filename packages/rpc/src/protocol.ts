@@ -7,290 +7,323 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import {
+    AutoBuffer,
+    AutoBufferSerializer,
+    AutoBufferSerializerState,
+    BSONType,
+    BaseParser,
+    Writer,
+    getBSONSerializer,
+    seekElementSize,
+} from '@deepkit/bson';
+import { ClassType, bufferConcat, createBuffer } from '@deepkit/core';
+import { FrameReader } from '@deepkit/net';
+import {
+    ReceiveType,
+    ReflectionClass,
+    ReflectionKind,
+    Type,
+    TypeObjectLiteral,
+    deserialize,
+    resolveReceiveType,
+    serialize,
+    typeOf,
+    typeSettings,
+} from '@deepkit/type';
 
-import { AutoBuffer, AutoBufferSerializer, AutoBufferSerializerState, BsonStreamReader, deserializeBSONWithoutOptimiser, getBSONDeserializer, getBSONSerializer, Writer } from '@deepkit/bson';
-import { bufferConcat, ClassType, createBuffer } from '@deepkit/core';
-import { rpcChunk, RpcError, rpcError, RpcTypes } from './model.js';
+import { BodySerializer, PreSerialized, createReturnDeserializer, createReturnSerializer } from './action.js';
+import { RpcError } from './model.js';
 import type { SingleProgress } from './progress.js';
-import { deserialize, ReceiveType, ReflectionClass, ReflectionKind, resolveReceiveType, serialize, Type, TypeObjectLiteral, typeOf, typeSettings } from '@deepkit/type';
 
-export enum RpcMessageRouteType {
-    client = 0,
-    server = 1,
-    sourceDest = 2,
-    peer = 3,
-}
-
-export interface BodyDecoder<T> {
-    type: Type;
-
-    (buffer: Uint8Array, offset: number): T;
-}
-
-export function createBodyDecoder<T>(type?: ReceiveType<T>): BodyDecoder<T> {
-    type = resolveReceiveType(type);
-    const deserialize = getBSONDeserializer<T>(undefined, type);
-    const fn = (buffer: Uint8Array, offset: number) => {
-        return deserialize(buffer, offset);
-    };
-    fn.type = type;
-    return fn;
-}
-
-/*
- * A message is binary data and has the following structure:
+/**
+ * Every frame on the wire is:
  *
- * <size> <version> <id> <route>[<routeConfig>] <composite> <messageBody>
+ * <size:uint32le> <flag:uint8> [routeData] [contextId:uint16le] [typeHeader] [body]
  *
- * size: uint32 //total message size
- * version: uint8
- * id: uint32 //message id
+ * size includes everything. flag has 2 bits route, 2 bits context and 3 bits type.
  *
- * //type of routing:
- * //0=client (context from client -> server), //client initiated a message context (message id created on client)
- * //1=server (context from server -> client), //server initiated a message context (message id created on server)
- * //2=sourceDest //route this message to a specific client using its client id
- * //4=peer //route this message to a client using a peer alias (the peer alias needs to be registered). replies will be rewritten to sourceDest
+ * routeData is <source:16><destination:16> for sourceDest, <source:16><peerId:ascii>\0 for peer and absent otherwise.
+ * The context id exists for ContextExisting and ContextEnd. For ContextNew it is implicit: see TypeAction.
  *
- * //when route=0
- * routeConfig: not defined
- *
- * //when route=1
- * routeConfig: not defined
- *
- * //when route=2
- * routeConfig: <source><destination>, each 16 bytes, uuid v4
- *
- * //when route=3
- * routeConfig: <source><peerId> //where source=uuid v4, and peerId=ascii string (terminated by \0)
- *
- * composite: uint8 //when 1 then there are multiple messageBody, each prefixed with uint32 for their size
- *
- * composite=0 then messageBody=<type><body>:
- *   type: uint8 (256 types supported) //supported type
- *   body: BSON|any //arbitrary payload passed to type
- *
- * composite=1 then messageBody=<size><type><body>:
- *   size: uint32
- *   type: uint8 (256 types supported) //supported type
- *   body: BSON|any //arbitrary payload passed to type
- *
+ * - TypeAction: typeHeader <action:uint16le>, body is the arguments as positional values, see action.ts. This is the hot path.
+ *   Replies can arrive in any order, so ids can't be mirrored by reusing freed ones. Instead both sides count: with ContextNew the
+ *   id is the last one plus 1. ContextEnd carries an id and continues counting from it (the ids wrapped or one was skipped),
+ *   ContextExisting carries an id and leaves the counting alone (chunked calls and calls to peers).
+ * - TypeResult: body is the value, see action.ts. ContextEnd.
+ * - TypeAck: no body. ContextEnd, the action returned nothing.
+ * - TypeError: body is the positional values of an EncodedErrorTuple. ContextEnd.
+ * - TypeSchema: handshake with the protocol version and the action ids, see writeHelloFrameTransient().
+ * - TypeChannel: typeHeader <sub:uint8>. Up to ChannelSubType.Reserved it says what kind of stream the action returned,
+ *   no body. Above that it is one value of the stream, read without creating anything: sub is the
+ *   subscription plus Reserved + 1, or 0xFF followed by a uint32le subscription. The body is the value.
+ *   With ContextNone it is a value the server pushes on the connection, sub is the push channel,
+ *   see writePushFrameTransient.
+ * - TypeControl: typeHeader <op:uint8>, see ControlOp, each with a layout of its own.
+ * - TypeChunk: typeHeader <op:uint8>, see ChunkOp, a piece of a larger frame or the answer to one.
  */
-export class RpcMessage {
-    protected peerId?: string;
-    protected source?: string;
-    protected destination?: string;
+export enum MessageFlag {
+    RouteClient = 0b0000_00,
+    RouteServer = 0b0000_01,
+    RouteSourceDest = 0b0000_10,
+    RoutePeer = 0b0000_11,
 
-    constructor(
-        public id: number,
-        public composite: boolean,
-        public type: number,
-        public routeType: RpcMessageRouteType,
-        public bodyOffset: number = 0,
-        public bodySize: number = 0,
-        public buffer?: Uint8Array,
-    ) {
-    }
+    ContextNone = 0b00_00,
+    ContextNew = 0b01_00,
+    ContextExisting = 0b10_00,
+    ContextEnd = 0b11_00,
 
-    debug() {
-        return {
-            type: this.type,
-            typeString: RpcTypes[this.type],
-            id: this.id,
-            date: new Date,
-            composite: this.composite,
-            body: this.bodySize ? this.parseGenericBody() : undefined,
-            messages: this.composite ? this.getBodies().map(message => {
-                return {
-                    id: message.id,
-                    type: message.type,
-                    date: new Date,
-                    body: message.bodySize ? message.parseGenericBody() : undefined,
-                };
-            }) : [],
-        };
-    }
-
-    getBuffer(): Uint8Array {
-        if (!this.buffer) throw new RpcError('No buffer');
-        return this.buffer;
-    }
-
-    getPeerId(): string {
-        if (!this.buffer) throw new RpcError('No buffer');
-        if (this.routeType !== RpcMessageRouteType.peer) throw new RpcError(`Message is not routed via peer, but ${this.routeType}`);
-        if (this.peerId) return this.peerId;
-        this.peerId = '';
-        for (let offset = 10 + 16, c: number = this.buffer[offset]; c !== 0; offset++, c = this.buffer[offset]) {
-            this.peerId += String.fromCharCode(c);
-        }
-
-        return this.peerId;
-    }
-
-    getSource(): Uint8Array {
-        if (!this.buffer) throw new RpcError('No buffer');
-        if (this.routeType !== RpcMessageRouteType.sourceDest && this.routeType !== RpcMessageRouteType.peer) throw new RpcError(`Message is not routed via sourceDest, but ${this.routeType}`);
-        return this.buffer.subarray(4 + 1 + 4 + 1, 4 + 1 + 4 + 1 + 16);
-    }
-
-    getDestination(): Uint8Array {
-        if (!this.buffer) throw new RpcError('No buffer');
-        if (this.routeType !== RpcMessageRouteType.sourceDest) throw new RpcError(`Message is not routed via sourceDest, but ${this.routeType}`);
-        return this.buffer.subarray(4 + 1 + 4 + 1 + 16, 4 + 1 + 4 + 1 + 16 + 16);
-    }
-
-    getError(): Error {
-        if (!this.buffer) throw new RpcError('No buffer');
-        const error = getBSONDeserializer<rpcError>()(this.buffer, this.bodyOffset);
-        return rpcDecodeError(error);
-    }
-
-    isError(): boolean {
-        return this.type === RpcTypes.Error;
-    }
-
-    parseGenericBody(): object {
-        if (!this.bodySize) throw new RpcError('Message has no body');
-        if (!this.buffer) throw new RpcError('No buffer');
-        if (this.composite) throw new RpcError('Composite message can not be read directly');
-
-        return deserializeBSONWithoutOptimiser(this.buffer, this.bodyOffset);
-    }
-
-    parseBody<T>(type?: ReceiveType<T>): T {
-        if (!this.bodySize) throw new RpcError('Message has no body');
-        if (!this.buffer) throw new RpcError('No buffer');
-        if (this.composite) throw new RpcError('Composite message can not be read directly');
-        // console.log('parseBody raw', deserializeBSONWithoutOptimiser(this.buffer, this.bodyOffset));
-        return getBSONDeserializer<T>(undefined, type)(this.buffer, this.bodyOffset);
-    }
-
-    decodeBody<T>(decoder: BodyDecoder<T>): T {
-        if (!this.bodySize) throw new RpcError('Message has no body');
-        if (!this.buffer) throw new RpcError('No buffer');
-        if (this.composite) throw new RpcError('Composite message can not be read directly');
-        return decoder(this.buffer, this.bodyOffset);
-    }
-
-    getBodies(): RpcMessage[] {
-        if (!this.composite) throw new RpcError('Not a composite message');
-
-        const messages: RpcMessage[] = [];
-        const buffer = this.getBuffer();
-        const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-        const totalSize = view.getUint32(0, true);
-        let offset = this.bodyOffset;
-
-        while (offset < totalSize) {
-            const bodySize = view.getUint32(offset, true);
-            offset += 4;
-            const type = view.getUint8(offset++);
-
-            messages.push(new RpcMessage(this.id, false, type, this.routeType, offset, bodySize, buffer));
-            offset += bodySize;
-        }
-
-        return messages;
-    }
+    TypeAck = 0b000_0000,
+    TypeError = 0b001_0000,
+    TypeChunk = 0b010_0000,
+    TypeAction = 0b011_0000,
+    TypeSchema = 0b100_0000,
+    TypeResult = 0b101_0000,
+    TypeChannel = 0b110_0000,
+    TypeControl = 0b111_0000,
 }
 
-export class ErroredRpcMessage extends RpcMessage {
-    constructor(
-        public id: number,
-        public error: Error,
-    ) {
-        super(id, false, RpcTypes.Error, 0, 0, 0);
-    }
+export enum ChannelSubType {
+    None = 0,
+    Observable,
+    Subject,
+    BehaviorSubject,
+    ProgressTracker,
+    ReadableStream,
+    WritableStream,
+    TransformStream,
+    Signal,
 
-    getError(): Error {
-        return this.error;
-    }
-}
-
-export function readBinaryRpcMessage(buffer: Uint8Array): RpcMessage {
-    const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-    const size = view.getUint32(0, true);
-    if (size !== buffer.byteLength) {
-        let message = `Message buffer size wrong. Message size=${size}, buffer size=${buffer.byteLength}.`;
-        let hex = '';
-        for (let i = 0; i < buffer.byteLength; i++) {
-            hex += buffer[i].toString(16).padStart(2, '0');
-        }
-        message += ' Buffer hex: '
-            + hex.substr(0, 500) + (hex.length > 500 ? '...' : '');
-        throw new RpcError(message);
-    }
-
-    const id = view.getUint32(5, true);
-
-    let offset = 9;
-    const routeType = buffer[offset++];
-
-    if (routeType === RpcMessageRouteType.peer) {
-        offset += 16; //<source>
-        while (buffer[offset++] !== 0) ; //feed until \0 byte
-    } else if (routeType === RpcMessageRouteType.sourceDest) {
-        offset += 16 + 16; //uuid is each 16 bytes
-    }
-
-    const composite = buffer[offset++] === 1;
-    const type = buffer[offset++];
-
-    return new RpcMessage(id, composite, type, routeType, offset, size - offset, buffer);
-}
-
-export interface RpcCreateMessageDef<T> {
-    type: number;
-    schema?: Type;
-    body?: T;
-}
-
-export function createRpcCompositeMessage<T>(
-    id: number,
-    type: number,
-    messages: RpcCreateMessageDef<any>[],
-    routeType: RpcMessageRouteType.client | RpcMessageRouteType.server = RpcMessageRouteType.client,
-): RpcMessageDefinition {
-    return {
-        id,
-        type,
-        routeType,
-        composite: messages,
-    };
+    Reserved = 10,
 }
 
 /**
- * The one buffer every message is written to, so nothing has to compute its size first.
+ * What a TypeControl frame does. The body is positional values, or a varint for the ones with a subscription or token.
+ */
+export enum ControlOp {
+    // with a context of their own, answered with TypeAck, TypeResult or TypeError
+    Ping,
+    ClientId,
+    Authenticate, //[token]
+    PeerRegister, //[id]
+    PeerDeregister, //[id]
+
+    // caller -> callee, on the context of a stream
+    Subscribe, //varint subscription
+    Unsubscribe, //varint subscription
+    Disconnect,
+    SubjectUnsubscribe,
+    SubjectPause,
+    SubjectResume,
+    ContextEnd,
+    Detach, //varint token
+    Attach, //varint token
+    ProgressNext, //ProgressTrackerState[]
+    CollectionUnsubscribe,
+    CollectionModel, //the query model
+    Drop, //varint token, without context
+
+    // callee -> caller, on the context of a stream
+    Complete, //varint subscription
+    StreamError, //varint subscription, EncodedErrorTuple
+    Collection, //[model, state, items]
+    CollectionChange, //any number of <CollectionChangeKind:uint8><size:uint32le><value>
+
+    // without context, the entities of this connection changed
+    EntityPatch, //rpcEntityPatch
+    EntityRemove, //rpcEntityRemove
+}
+
+export enum CollectionChangeKind {
+    Model,
+    Add,
+    Remove,
+    Update,
+    Set,
+    State,
+    Sort,
+}
+
+export enum ChunkOp {
+    Data, //<seq:uint32le><total:uint32le><bytes>
+    Ack,
+    Abort,
+}
+
+const channelValueBase = ChannelSubType.Reserved + 1;
+const channelValueLong = 0xff;
+
+export type RouteFlag =
+    | MessageFlag.RouteClient
+    | MessageFlag.RouteServer
+    | MessageFlag.RouteSourceDest
+    | MessageFlag.RoutePeer;
+export type ContextFlag =
+    | MessageFlag.ContextNone
+    | MessageFlag.ContextNew
+    | MessageFlag.ContextExisting
+    | MessageFlag.ContextEnd;
+export type TypeFlag =
+    | MessageFlag.TypeAction
+    | MessageFlag.TypeAck
+    | MessageFlag.TypeChunk
+    | MessageFlag.TypeError
+    | MessageFlag.TypeSchema
+    | MessageFlag.TypeResult
+    | MessageFlag.TypeControl
+    | MessageFlag.TypeChannel;
+
+export const routeMask = 0b11;
+export const contextMask = 0b1100;
+export const typeMask = 0b111_0000;
+
+export const framePrefixSize = 5;
+export const contextIdSize = 2;
+export const actionIdSize = 2;
+const routeSourceDestSize = 16 + 16;
+
+export const rpcProtocolVersion = 2;
+
+/**
+ * Context ids from here on are calls to the connection itself (see ControlOp) and schema requests. They are a range of
+ * their own so that they don't disturb the implicit counting of TypeAction.
+ */
+export const connectionContextBase = 0xf000;
+
+export function isRouteFlag(flags: number, route: RouteFlag): boolean {
+    return (flags & routeMask) === route;
+}
+
+export function isContextFlag(flags: number, context: ContextFlag): boolean {
+    return (flags & contextMask) === context;
+}
+
+/** Whether the frame carries a context id: ContextExisting or ContextEnd. */
+export function hasContext(flags: number): boolean {
+    return (flags & 0b1000) !== 0;
+}
+
+export function isTypeFlag(flags: number, type: TypeFlag): boolean {
+    return (flags & typeMask) === type;
+}
+
+export function setRouteFlag(buffer: Uint8Array, route: RouteFlag, start: number = 0): void {
+    buffer[start + 4] = (buffer[start + 4] & ~routeMask) | route;
+}
+
+export function setContextFlag(buffer: Uint8Array, context: ContextFlag, start: number = 0): void {
+    buffer[start + 4] = (buffer[start + 4] & ~contextMask) | context;
+}
+
+export function setTypeFlag(buffer: Uint8Array, type: TypeFlag, start: number = 0): void {
+    buffer[start + 4] = (buffer[start + 4] & ~typeMask) | type;
+}
+
+export function writeUint16LE(buffer: Uint8Array, offset: number, value: number): void {
+    buffer[offset] = value & 0xff;
+    buffer[offset + 1] = (value >> 8) & 0xff;
+}
+
+export function readUint16LE(buffer: Uint8Array, offset: number): number {
+    return buffer[offset] + (buffer[offset + 1] << 8);
+}
+
+export function readUint32LE(buffer: Uint8Array, offset: number = 0): number {
+    return buffer[offset] + buffer[offset + 1] * 2 ** 8 + buffer[offset + 2] * 2 ** 16 + buffer[offset + 3] * 2 ** 24;
+}
+
+/** The bytes that route data takes at the start of the frame at start. */
+export function getRouteDataSize(buffer: Uint8Array, start: number = 0): number {
+    const route = buffer[start + 4] & routeMask;
+    if (route === MessageFlag.RouteSourceDest) return routeSourceDestSize;
+    if (route === MessageFlag.RoutePeer) {
+        let offset = start + framePrefixSize + 16;
+        while (buffer[offset++] !== 0);
+        return offset - start - framePrefixSize;
+    }
+    return 0;
+}
+
+export function getContextIdOffset(buffer: Uint8Array, start: number = 0): number {
+    return start + framePrefixSize + getRouteDataSize(buffer, start);
+}
+
+export function getContextId(buffer: Uint8Array, start: number = 0): number {
+    return readUint16LE(buffer, getContextIdOffset(buffer, start));
+}
+
+export function getActionOffset(buffer: Uint8Array, start: number = 0): number {
+    const offset = getContextIdOffset(buffer, start);
+    return hasContext(buffer[start + 4]) ? offset + contextIdSize : offset;
+}
+
+export function getAction(buffer: Uint8Array, start: number = 0): number {
+    return readUint16LE(buffer, getActionOffset(buffer, start));
+}
+
+/** Offset of the body of a frame. For TypeChannel and TypeControl that is the offset of their type header. */
+export function getBodyOffset(buffer: Uint8Array, start: number = 0): number {
+    const offset = getActionOffset(buffer, start);
+    return isTypeFlag(buffer[start + 4], MessageFlag.TypeAction) ? offset + actionIdSize : offset;
+}
+
+/** The peer a frame routed via peer goes to. */
+export function getPeerId(buffer: Uint8Array, start: number = 0): string {
+    let id = '';
+    for (let offset = start + framePrefixSize + 16, c = buffer[offset]; c !== 0; offset++, c = buffer[offset]) {
+        id += String.fromCharCode(c);
+    }
+    return id;
+}
+
+/** Copy of a frame that outlives the read buffer. A Buffer's own slice() would only be a view. */
+export function copyFrame(buffer: Uint8Array, start: number, end: number): Uint8Array {
+    const copy = createBuffer(end - start);
+    copy.set(buffer.subarray(start, end));
+    return copy;
+}
+
+export class RpcProtocolVersionError extends RpcError {}
+
+/** The context id of a frame that has one, without route data. */
+export function frameContextId(buffer: Uint8Array): number {
+    return readUint16LE(buffer, framePrefixSize);
+}
+
+/** The context id of a frame, 0 when it has none. */
+export function getFrameContext(buffer: Uint8Array, start: number = 0): number {
+    return hasContext(buffer[start + 4]) ? getContextId(buffer, start) : 0;
+}
+
+/**
+ * The one buffer every frame is written to, so nothing has to compute its size first.
  * Serialization is synchronous, so it can be shared by all connections.
  */
 let messageBuffer = new AutoBuffer(0, 64 * 1024);
 
-/** The largest buffer that is kept between messages. */
+/** The largest buffer that is kept between frames. */
 const maxRetainedMessageBuffer = 16 * 1024 * 1024;
 
-function writeInMessageBuffer(write: AutoBufferSerializer, data: any): Uint8Array {
+function writeFrameInMessageBuffer(write: AutoBufferSerializer, data: any): number {
     messageBuffer.apply(write, data);
-    return messageBuffer.buffer;
-}
-
-function copyOfMessageBuffer(write: AutoBufferSerializer, data: any): Uint8Array {
-    messageBuffer.apply(write, data);
-    const size = messageBuffer.size;
-    const source = messageBuffer._buffer;
-    const copy = createBuffer(size);
-    // creating the view for set() costs more than copying a small message
-    if (size < 128) {
-        for (let i = 0; i < size; i++) copy[i] = source[i];
-    } else {
-        copy.set(source.subarray(0, size));
-    }
-    releaseMessageBufferIfLarge();
-    return copy;
+    return messageBuffer.size;
 }
 
 /**
- * Has to be called when something still holds on to the buffer of a transient message.
+ * The memory the frames are written to: a frame is the range 0 to the size returned by the write function.
+ * Only valid until the next frame is written.
+ */
+export function frameMemory(): Uint8Array {
+    return messageBuffer._buffer;
+}
+
+/** A copy of the frame that was just written, which stays valid after the next one is written. */
+export function copyWrittenFrame(size: number): Uint8Array {
+    return copyFrame(frameMemory(), 0, size);
+}
+
+/**
+ * Has to be called when something still holds on to the memory of a frame.
  */
 export function releaseMessageBuffer(): void {
     messageBuffer.dispose();
@@ -301,217 +334,520 @@ export function releaseMessageBufferIfLarge(): void {
     if (messageBuffer._buffer.byteLength > maxRetainedMessageBuffer) messageBuffer.releaseLarge();
 }
 
-//<size> <version> <messageId> <routeType>
-function writeMessageStart(writer: Writer, id: number, routeType: RpcMessageRouteType): void {
-    writer.writeUint32(0); //set by writeMessageEnd, once the size is known
-    writer.writeByte(1); //version
-    writer.writeUint32(id);
-    writer.writeByte(routeType);
+type ValueSerializer = AutoBufferSerializer;
+
+// Writing is synchronous, so one reused description of the frame being written is enough.
+const frame = {
+    id: 0,
+    action: 0,
+    flag: 0,
+    op: 0,
+    serialize: undefined as ValueSerializer | undefined,
+    routeData: undefined as Uint8Array | undefined,
+    schema: undefined as Uint8Array | undefined,
+    version: 0,
+    hash: 0,
+    seq: 0,
+    total: 0,
+    bytes: undefined as Uint8Array | undefined,
+    start: 0,
+    end: 0,
+    pre: undefined as PreSerialized | undefined,
+    tuple: false,
+    subscription: 0,
+};
+
+function writeFrameStart(writer: Writer): void {
+    writer.writeUint32(0);
+    writer.writeByte(frame.flag);
+    if (frame.routeData !== undefined) writer.writeBuffer(frame.routeData);
+    if ((frame.flag & 0b1000) !== 0) {
+        writer.writeByte(frame.id & 0xff);
+        writer.writeByte((frame.id >>> 8) & 0xff);
+    }
 }
 
-function writeMessageEnd(writer: Writer): void {
+function writeFrameEnd(writer: Writer): void {
     writer.writeDelayedSize(writer.offset, 0);
 }
 
-function writeCompositeBodies(writer: Writer, composite: RpcCreateMessageDef<any>[]): void {
-    for (const sub of composite) {
-        const sizePosition = writer.offset;
-        writer.writeUint32(0);
-        writer.writeByte(sub.type); //type
+function writeVarint(writer: Writer, value: number): void {
+    while (value >= 0x80) {
+        writer.writeByte((value & 0x7f) | 0x80);
+        value = Math.floor(value / 128);
+    }
+    writer.writeByte(value);
+}
 
-        if (sub.schema && sub.body) {
-            const start = writer.offset;
-            //BSON object contain already their size at the beginning
-            getBSONSerializer(undefined, sub.schema)(sub.body, { writer });
-            writer.writeDelayedSize(writer.offset - start, sizePosition);
-        }
+/** The value of the varint at the offset. */
+export function readVarint(buffer: Uint8Array, offset: number): number {
+    let value = 0;
+    let multiplier = 1;
+    for (;;) {
+        const byte = buffer[offset++];
+        value += (byte & 0x7f) * multiplier;
+        if (byte < 0x80) return value;
+        multiplier *= 128;
     }
 }
 
-function writeSourceDest(writer: Writer, source: Uint8Array, destination: Uint8Array): void {
-    if (source.byteLength !== 16) throw new RpcError(`Source invalid byteLength of ${source.byteLength}`);
-    if (destination.byteLength !== 16) throw new RpcError(`Destination invalid byteLength of ${destination.byteLength}`);
-    writer.writeBuffer(source);
-    writer.writeBuffer(destination);
+/** The offset after the varint at the offset. */
+export function varintEnd(buffer: Uint8Array, offset: number): number {
+    while (buffer[offset++] >= 0x80);
+    return offset;
 }
 
-//<size> <version> <messageId> <routeType>[routeData] <isComposite> <type> <body...>
-const writeCompositeMessage: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
-    if (!message.composite) throw new RpcError('No messages set');
+const writeActionFrame: AutoBufferSerializer = (args: any, state: AutoBufferSerializerState) => {
     const writer = state.writer!;
-    writeMessageStart(writer, message.id, message.routeType);
-    writer.writeByte(1);
-    writer.writeByte(message.type);
-    writeCompositeBodies(writer, message.composite);
-    writeMessageEnd(writer);
+    writeFrameStart(writer);
+    writer.writeByte(frame.action & 0xff);
+    writer.writeByte((frame.action >>> 8) & 0xff);
+    frame.serialize!(args, state);
+    writeFrameEnd(writer);
 };
 
-export function serializeBinaryRpcCompositeMessage(message: RpcMessageDefinition): Uint8Array {
-    return copyOfMessageBuffer(writeCompositeMessage, message);
+const writeBodyFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    frame.serialize!(body, state);
+    writeFrameEnd(writer);
+};
+
+const writeEmptyFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writeFrameEnd(writer);
+};
+
+const writeChannelAnnounceFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writer.writeByte(frame.action);
+    writeFrameEnd(writer);
+};
+
+const writeChannelFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writeSubscription(writer, frame.action);
+    frame.serialize!(body, state);
+    writeFrameEnd(writer);
+};
+
+const writePushFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writer.writeByte(frame.action);
+    frame.serialize!(body, state);
+    writeFrameEnd(writer);
+};
+
+const writeControlFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writer.writeByte(frame.op);
+    if (frame.serialize !== undefined) frame.serialize(body, state);
+    writeFrameEnd(writer);
+};
+
+const writeControlIdFrame: AutoBufferSerializer = (value: number, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writer.writeByte(frame.op);
+    writeVarint(writer, value);
+    writeFrameEnd(writer);
+};
+
+const writeStreamErrorFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writer.writeByte(ControlOp.StreamError);
+    writeVarint(writer, frame.subscription);
+    frame.serialize!(body, state);
+    writeFrameEnd(writer);
+};
+
+const writeHelloFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writer.writeByte(frame.version);
+    writer.writeUint32(frame.hash);
+    if (frame.schema !== undefined) writer.writeBuffer(frame.schema);
+    writeFrameEnd(writer);
+};
+
+const writeChunkFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writer.writeByte(ChunkOp.Data);
+    writer.writeUint32(frame.seq);
+    writer.writeUint32(frame.total);
+    const bytes = frame.bytes!;
+    if (writer.offset + frame.end - frame.start <= writer.buffer.byteLength) {
+        writer.buffer.set(bytes.subarray(frame.start, frame.end), writer.offset);
+    }
+    writer.offset += frame.end - frame.start;
+    writeFrameEnd(writer);
+};
+
+const writeChunkControlFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    writer.writeByte(frame.op);
+    writeFrameEnd(writer);
+};
+
+/**
+ * The element of a PreSerialized value is <type byte><"v\0"><value>, without the name it is what a body contains.
+ * A tuple is positional in a body, so its array is taken apart into <type byte><value> of each member.
+ */
+const writePreSerializedFrame: AutoBufferSerializer = (body: any, state: AutoBufferSerializerState) => {
+    const writer = state.writer!;
+    writeFrameStart(writer);
+    if (frame.action >= 0) writeSubscription(writer, frame.action);
+    const element = frame.pre!.element;
+    if (frame.tuple) {
+        writeTupleMembers(writer, element);
+    } else {
+        writer.writeByte(element[0]);
+        writer.writeBuffer(element, 3);
+    }
+    writeFrameEnd(writer);
+};
+
+function writeTupleMembers(writer: Writer, element: Uint8Array): void {
+    if (element[0] !== BSONType.ARRAY)
+        throw new RpcError('A PreSerialized value for a tuple needs to be serialized as tuple');
+    const parser = new BaseParser(element, 7);
+    const end = element.byteLength - 1;
+    while (parser.offset < end) {
+        const type = parser.eatByte();
+        writer.writeByte(type);
+        while (element[parser.offset++] !== 0);
+        const start = parser.offset;
+        seekElementSize(type, parser);
+        for (let i = start; i < parser.offset; i++) writer.writeByte(element[i]);
+    }
 }
 
-export function createRpcCompositeMessageSourceDest(
+function writeSubscription(writer: Writer, subscription: number): void {
+    if (subscription < channelValueLong - channelValueBase) {
+        writer.writeByte(channelValueBase + subscription);
+    } else {
+        writer.writeByte(channelValueLong);
+        writer.writeUint32(subscription);
+    }
+}
+
+/** The offset of the value of a TypeChannel frame, given the offset of its sub byte. */
+export function channelBodyOffset(buffer: Uint8Array, offset: number): number {
+    return buffer[offset] !== channelValueLong ? offset + 1 : offset + 5;
+}
+
+/** The subscription of a TypeChannel frame that is a value. */
+export function readChannelSubscription(buffer: Uint8Array, offset: number): number {
+    const sub = buffer[offset];
+    return sub !== channelValueLong ? sub - channelValueBase : readUint32LE(buffer, offset + 1);
+}
+
+/**
+ * The frames are written into the shared buffer, see frameMemory. They return the size of the frame.
+ */
+export function writeActionFrameTransient(
     id: number,
-    source: Uint8Array,
-    destination: Uint8Array,
-    type: number,
-    messages: RpcCreateMessageDef<any>[],
-): RpcMessageDefinition {
-    return {
-        id,
-        type,
-        routeType: RpcMessageRouteType.sourceDest,
-        composite: messages,
-        source,
-        destination,
-    };
+    action: number,
+    serialize: ValueSerializer,
+    args: any[],
+    context: ContextFlag = MessageFlag.ContextNew,
+    route: RouteFlag = MessageFlag.RouteClient,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.action = action;
+    frame.flag = route | context | MessageFlag.TypeAction;
+    frame.serialize = serialize;
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeActionFrame, args);
 }
 
-const writeCompositeMessageSourceDest: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
-    if (!message.composite) throw new RpcError('No messages set');
-    if (!message.source) throw new RpcError('No source set');
-    if (!message.destination) throw new RpcError('No destination set');
-    const writer = state.writer!;
-    writeMessageStart(writer, message.id, RpcMessageRouteType.sourceDest);
-    writeSourceDest(writer, message.source, message.destination);
-    writer.writeByte(1); //composite=true
-    writer.writeByte(message.type);
-    writeCompositeBodies(writer, message.composite);
-    writeMessageEnd(writer);
-};
-
-export function serializeBinaryRpcCompositeMessageSourceDest(message: RpcMessageDefinition): Uint8Array {
-    return copyOfMessageBuffer(writeCompositeMessageSourceDest, message);
+export function writeResultFrameTransient(
+    id: number,
+    route: RouteFlag,
+    serialize: ValueSerializer,
+    value: any,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.flag = route | MessageFlag.ContextEnd | MessageFlag.TypeResult;
+    frame.serialize = serialize;
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeBodyFrame, value);
 }
 
-export interface RpcMessageDefinition {
-    id: number;
-    type: number;
-    routeType: RpcMessageRouteType;
-    composite?: RpcCreateMessageDef<any>[];
-    peerId?: string;
-    source?: Uint8Array;
-    destination?: Uint8Array;
-    body?: {
-        type: Type;
-        body: any;
-    };
+export function writeChannelFrameTransient(
+    id: number,
+    route: RouteFlag,
+    subscription: number,
+    serialize: ValueSerializer,
+    value: any,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.action = subscription;
+    frame.flag = route | MessageFlag.ContextExisting | MessageFlag.TypeChannel;
+    frame.serialize = serialize;
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeChannelFrame, value);
 }
 
-export function createRpcMessage<T>(
-    id: number, type: number,
-    body?: T,
-    routeType: RpcMessageRouteType.client | RpcMessageRouteType.server = RpcMessageRouteType.client,
-    schema?: ReceiveType<T>,
-): RpcMessageDefinition {
-    return {
-        id,
-        type,
-        routeType,
-        body: body && {
-            type: resolveReceiveType(schema),
-            body,
-        },
-    };
-
+export function writeChannelAnnounceFrameTransient(
+    id: number,
+    route: RouteFlag,
+    kind: ChannelSubType,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.action = kind;
+    frame.flag = route | MessageFlag.ContextExisting | MessageFlag.TypeChannel;
+    frame.serialize = undefined;
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeChannelAnnounceFrame, undefined);
 }
 
 /**
- * PreSerialized values are spliced in only by the single-body serializer. Any other
- * serializer would encode the PreSerialized object itself, sending wrong data.
+ * A value the server sends on the connection without the client having called anything for it, for protocols built on
+ * RPC that push many small values. There is no stream to set up and no context: <size> <flag> <channel:uint8> <values>.
+ * The frame is in the shared buffer, see frameMemory, so one write serves any number of connections with sendFrame.
  */
-function assertNoPreSerialized(message: RpcMessageDefinition): void {
-    const bodies = message.composite ? message.composite.map(v => v.body) : [message.body?.body];
-    for (const body of bodies) {
-        if (getPreSerialized(body)) {
-            throw new RpcError('PreSerialized values are only supported in single-body messages that are not routed via peer or source/destination');
-        }
-    }
+export function writePushFrameTransient(channel: number, serialize: ValueSerializer, values: any[]): number {
+    frame.id = 0;
+    frame.action = channel;
+    frame.flag = MessageFlag.RouteClient | MessageFlag.ContextNone | MessageFlag.TypeChannel;
+    frame.serialize = serialize;
+    frame.routeData = undefined;
+    return writeFrameInMessageBuffer(writePushFrame, values);
 }
 
-/** Pings and acks have a known size, nothing is gained by going through the shared buffer. */
-function serializeBinaryRpcMessageWithoutBody(message: RpcMessageDefinition): Uint8Array {
-    const writer = new Writer(createBuffer(12));
-    writeMessageStart(writer, message.id, message.routeType);
-    writer.writeByte(0); //composite=false
-    writer.writeByte(message.type);
-    writeMessageEnd(writer);
-    return writer.buffer;
+/** A control frame, with a body written by the given serializer, if any. */
+export function writeControlFrameTransient(
+    id: number,
+    route: RouteFlag,
+    op: ControlOp,
+    serialize?: ValueSerializer,
+    value?: any,
+    routeData?: Uint8Array,
+    context: ContextFlag = id === 0 ? MessageFlag.ContextNone : MessageFlag.ContextExisting,
+): number {
+    frame.id = id;
+    frame.op = op;
+    frame.flag = route | context | MessageFlag.TypeControl;
+    frame.serialize = serialize;
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeControlFrame, value);
 }
 
-function getMessageWriter(message: RpcMessageDefinition): AutoBufferSerializer {
-    if (message.composite || message.routeType !== RpcMessageRouteType.client) assertNoPreSerialized(message);
+/** A control frame whose body is a subscription or token. */
+export function writeControlIdFrameTransient(
+    id: number,
+    route: RouteFlag,
+    op: ControlOp,
+    value: number,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.op = op;
+    frame.flag = route | (id === 0 ? MessageFlag.ContextNone : MessageFlag.ContextExisting) | MessageFlag.TypeControl;
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeControlIdFrame, value);
+}
 
-    if (message.composite) {
-        return message.routeType === RpcMessageRouteType.sourceDest ? writeCompositeMessageSourceDest : writeCompositeMessage;
-    }
-    if (message.routeType === RpcMessageRouteType.peer) return writeMessagePeer;
-    if (message.routeType === RpcMessageRouteType.sourceDest) return writeMessageSourceDest;
-    return writeMessageSingleBody;
+export type EncodedErrorTuple = [
+    classType: string,
+    properties: { [name: string]: any },
+    stack: string,
+    message: string,
+];
+
+function toErrorTuple(error: EncodedError): EncodedErrorTuple {
+    return [error.classType, error.properties || {}, error.stack, error.message];
+}
+
+let errorTupleType: Type | undefined;
+let errorTupleSerializer: BodySerializer | undefined;
+let errorTupleDeserializer: ReturnType<typeof createReturnDeserializer> | undefined;
+
+function serializeErrorTuple(): BodySerializer {
+    return (errorTupleSerializer ||= createReturnSerializer((errorTupleType ||= typeOf<EncodedErrorTuple>())));
+}
+
+/** The error of a TypeError frame, at the offset of its body. */
+export function readErrorTuple(buffer: Uint8Array, offset: number, end: number): EncodedError {
+    errorTupleDeserializer ||= createReturnDeserializer((errorTupleType ||= typeOf<EncodedErrorTuple>()));
+    return errorFromTuple(errorTupleDeserializer(buffer, offset, end));
+}
+
+export function errorFromTuple(error: EncodedErrorTuple): EncodedError {
+    const properties = Object.keys(error[1]).length ? error[1] : undefined;
+    return { classType: error[0], properties, stack: error[2], message: error[3] };
+}
+
+export function writeErrorFrameTransient(
+    id: number,
+    route: RouteFlag,
+    error: EncodedError,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.flag = route | MessageFlag.ContextEnd | MessageFlag.TypeError;
+    frame.serialize = serializeErrorTuple();
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeBodyFrame, toErrorTuple(error));
+}
+
+/** The error of one subscription of a stream, or of the stream when it is a subject. */
+export function writeStreamErrorFrameTransient(
+    id: number,
+    route: RouteFlag,
+    subscription: number,
+    error: EncodedError,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.flag = route | MessageFlag.ContextExisting | MessageFlag.TypeControl;
+    frame.subscription = subscription;
+    frame.serialize = serializeErrorTuple();
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeStreamErrorFrame, toErrorTuple(error));
+}
+
+export function writeAckFrameTransient(id: number, route: RouteFlag, routeData?: Uint8Array): number {
+    frame.id = id;
+    frame.flag = route | MessageFlag.ContextEnd | MessageFlag.TypeAck;
+    frame.serialize = undefined;
+    frame.routeData = routeData;
+    return writeFrameInMessageBuffer(writeEmptyFrame, undefined);
+}
+
+/** A result that was serialized once with preSerialize(). */
+export function writePreSerializedResultFrameTransient(
+    id: number,
+    route: RouteFlag,
+    value: PreSerialized,
+    tuple: boolean = false,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.action = -1;
+    frame.flag = route | MessageFlag.ContextEnd | MessageFlag.TypeResult;
+    frame.pre = value;
+    frame.tuple = tuple;
+    frame.routeData = routeData;
+    const size = writeFrameInMessageBuffer(writePreSerializedFrame, undefined);
+    frame.pre = undefined;
+    return size;
+}
+
+/** One value of an observable that was serialized once with preSerialize(). */
+export function writePreSerializedChannelFrameTransient(
+    id: number,
+    route: RouteFlag,
+    subscription: number,
+    value: PreSerialized,
+    tuple: boolean = false,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.action = subscription;
+    frame.flag = route | MessageFlag.ContextExisting | MessageFlag.TypeChannel;
+    frame.pre = value;
+    frame.tuple = tuple;
+    frame.routeData = routeData;
+    const size = writeFrameInMessageBuffer(writePreSerializedFrame, undefined);
+    frame.pre = undefined;
+    return size;
 }
 
 /**
- * The returned buffer belongs to the caller. A transport that hands the bytes over right away
- * can use serializeBinaryRpcMessageTransient instead, which does not copy.
- */
-export function serializeBinaryRpcMessage(message: RpcMessageDefinition): Uint8Array {
-    if (!message.body && !message.composite && (message.routeType === RpcMessageRouteType.client || message.routeType === RpcMessageRouteType.server)) {
-        return serializeBinaryRpcMessageWithoutBody(message);
-    }
-
-    const preSerialized = message.body && !message.composite && message.routeType === RpcMessageRouteType.client ? getPreSerialized(message.body.body) : undefined;
-    if (preSerialized) return serializeBinaryRpcMessageSingleBodyPreSerialized(message as RpcMessageDefinition & { body: {} }, preSerialized);
-    return copyOfMessageBuffer(getMessageWriter(message), message);
-}
-
-/**
- * Writes the message into the shared buffer and returns a view on it, which is only valid until the next message
- * is serialized. Returns undefined for messages that need their own buffer. If something still holds
- * on to the view afterwards (e.g. a socket that could not write everything), call releaseMessageBuffer().
- */
-export function serializeBinaryRpcMessageTransient(message: RpcMessageDefinition): Uint8Array | undefined {
-    if (message.body && getPreSerialized(message.body.body)) return undefined;
-    return writeInMessageBuffer(getMessageWriter(message), message);
-}
-
-/**
- * A value serialized once, to be sent in many messages.
+ * The first frame of a connection: <size> <flag> [routeData] [context] <version> <schemaHash:uint32le>
  *
- * A message body whose `v` property is a PreSerialized value is written by splicing
- * the pre-encoded BSON element into the document instead of serializing the value
- * again. A producer that sends one value to many connections, e.g. the same
- * observable value to every subscriber, calls preSerialize() once and passes the
- * result where the value would go. The bytes are identical to serializing the value
- * in place, so clients need no change.
+ * Also how a controller of the other side or of a peer asks for its action schema, then with a route and a context.
  */
-export class PreSerialized {
-    constructor(
-        /** BSON element for key "v": type byte, key, value. No document size, no terminator. */
-        public readonly element: Uint8Array,
-        /** element followed by the document terminator: the bytes every such message ends with. */
-        public readonly tail: Uint8Array,
-    ) {
-    }
+export function writeHelloFrameTransient(
+    schemaHash: number,
+    route: RouteFlag = MessageFlag.RouteClient,
+    id: number = 0,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.flag = route | (id === 0 ? MessageFlag.ContextNone : MessageFlag.ContextExisting) | MessageFlag.TypeSchema;
+    frame.routeData = routeData;
+    frame.version = rpcProtocolVersion;
+    frame.hash = schemaHash;
+    frame.schema = undefined;
+    return writeFrameInMessageBuffer(writeHelloFrame, undefined);
 }
 
 /**
- * Where the shared tail starts in each message built from a PreSerialized value, so a
- * transport can send the per-connection prefix and the shared tail separately, e.g. to
- * copy or compress the tail once for every connection.
+ * <size> <flag> [routeData] [context] <version> <schemaHash:uint32le> [schema]
+ * The schema is omitted when the other side already knows it.
  */
-const preSerializedParts = new WeakMap<Uint8Array, { value: PreSerialized, offset: number }>();
+export function writeHelloReplyFrameTransient(
+    version: number,
+    schemaHash: number,
+    schema?: Uint8Array,
+    route: RouteFlag = MessageFlag.RouteClient,
+    id: number = 0,
+    routeData?: Uint8Array,
+): number {
+    frame.id = id;
+    frame.flag = route | (id === 0 ? MessageFlag.ContextNone : MessageFlag.ContextExisting) | MessageFlag.TypeSchema;
+    frame.routeData = routeData;
+    frame.version = version;
+    frame.hash = schemaHash;
+    frame.schema = schema;
+    const size = writeFrameInMessageBuffer(writeHelloFrame, undefined);
+    frame.schema = undefined;
+    return size;
+}
 
-/**
- * For a message built from a PreSerialized value: the value and the offset at which its
- * `tail` starts in the message.
- */
-export function getPreSerializedPart(message: Uint8Array): { value: PreSerialized, offset: number } | undefined {
-    return preSerializedParts.get(message);
+/** The offset of the version of a TypeSchema frame. */
+export function helloOffset(buffer: Uint8Array, start: number = 0): number {
+    return hasContext(buffer[start + 4]) ? start + framePrefixSize + contextIdSize : start + framePrefixSize;
+}
+
+export function writeChunkFrameTransient(
+    id: number,
+    route: RouteFlag,
+    seq: number,
+    total: number,
+    bytes: Uint8Array,
+    start: number,
+    end: number,
+): number {
+    frame.id = id;
+    frame.flag = route | (id === 0 ? MessageFlag.ContextNone : MessageFlag.ContextExisting) | MessageFlag.TypeChunk;
+    frame.routeData = undefined;
+    frame.seq = seq;
+    frame.total = total;
+    frame.bytes = bytes;
+    frame.start = start;
+    frame.end = end;
+    const size = writeFrameInMessageBuffer(writeChunkFrame, undefined);
+    frame.bytes = undefined;
+    return size;
+}
+
+export function writeChunkControlFrameTransient(id: number, route: RouteFlag, op: ChunkOp): number {
+    frame.id = id;
+    frame.flag = route | (id === 0 ? MessageFlag.ContextNone : MessageFlag.ContextExisting) | MessageFlag.TypeChunk;
+    frame.routeData = undefined;
+    frame.op = op;
+    return writeFrameInMessageBuffer(writeChunkControlFrame, undefined);
 }
 
 const preSerializeWrapperTypes = new WeakMap<Type, TypeObjectLiteral>();
 
-/** `{ v: type }`, so `v` is encoded exactly as it is inside a message body. */
+/** `{ v: type }`, so `v` is encoded exactly as it is inside a body. */
 function preSerializeWrapperType(type: Type): TypeObjectLiteral {
     let wrapper = preSerializeWrapperTypes.get(type);
     if (!wrapper) {
@@ -523,202 +859,53 @@ function preSerializeWrapperType(type: Type): TypeObjectLiteral {
 }
 
 /**
- * Serializes `value` once, to be sent through many messages whose body is
- * `{ ..., v: T }` without serializing it again: an action result, or an observable's
- * next value. Only single-body messages (not composite, not peer or source/dest
- * routed) support it.
+ * Serializes `value` once, to be sent as the result of an action or as a value of an observable
+ * without serializing it again, for example the same value to many connections.
  */
 export function preSerialize<T>(value: T, type?: ReceiveType<T>): PreSerialized {
     const wrapper = preSerializeWrapperType(resolveReceiveType(type));
-    const bytes = copyOfMessageBuffer(getBSONSerializer(undefined, wrapper), { v: value });
+    const size = writeFrameInMessageBuffer(getBSONSerializer(undefined, wrapper), { v: value });
     //document layout: <uint32 size> <element "v"> <0x00>
-    return new PreSerialized(bytes.subarray(4, bytes.length - 1), bytes.subarray(4));
+    const element = copyFrame(frameMemory(), 4, size - 1);
+    releaseMessageBufferIfLarge();
+    return new PreSerialized(element);
 }
 
-const preSerializedRestTypes = new WeakMap<Type, Type>();
+function noopFrame(): void {}
 
-/** The body type without its `v` property, so the other properties serialize as before. */
-function preSerializedRestType(type: Type): Type {
-    if (type.kind !== ReflectionKind.objectLiteral) return type;
-    let rest = preSerializedRestTypes.get(type);
-    if (!rest) {
-        const literal: TypeObjectLiteral = { kind: ReflectionKind.objectLiteral, types: [] };
-        for (const member of type.types) {
-            if ('name' in member && member.name === 'v') continue;
-            literal.types.push({ ...member, parent: literal } as any);
-        }
-        rest = literal;
-        preSerializedRestTypes.set(type, rest);
-    }
-    return rest;
+const chunkKeySpace = 2 ** 32;
+
+function chunkKey(id: number, route: number): number {
+    return route * chunkKeySpace + id;
 }
 
-function getPreSerialized(body: any): PreSerialized | undefined {
-    return body !== undefined && body !== null && body.v instanceof PreSerialized ? body.v : undefined;
-}
-
-function serializeBinaryRpcMessageSingleBodyPreSerialized(message: RpcMessageDefinition & { body: {} }, pre: PreSerialized): Uint8Array {
-    const rest = { ...message.body.body };
-    delete rest.v;
-    const restBytes = writeInMessageBuffer(getBSONSerializer(undefined, preSerializedRestType(message.body.type)), rest);
-    //the rest document without its terminator, then the shared tail
-    const bodySize = restBytes.length - 1 + pre.tail.length;
-    //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
-    const messageSize = 4 + 1 + 4 + 1 + 1 + 1 + bodySize;
-
-    const writer = new Writer(createBuffer(messageSize));
-    writer.writeUint32(messageSize);
-    writer.writeByte(1); //version
-    writer.writeUint32(message.id);
-
-    writer.writeByte(message.routeType);
-    writer.writeByte(0); //composite=false
-    writer.writeByte(message.type);
-
-    writer.writeUint32(bodySize);
-    writer.buffer.set(restBytes.subarray(4, restBytes.length - 1), writer.offset);
-    writer.offset += restBytes.length - 5;
-
-    const tailOffset = writer.offset;
-    writer.buffer.set(pre.tail, writer.offset);
-    writer.offset += pre.tail.length;
-
-    preSerializedParts.set(writer.buffer, { value: pre, offset: tailOffset });
-    return writer.buffer;
-}
-
-//<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
-const writeMessageSingleBody: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
-    const writer = state.writer!;
-    writeMessageStart(writer, message.id, message.routeType);
-    writer.writeByte(0); //composite=false
-    writer.writeByte(message.type);
-    if (message.body) getBSONSerializer(undefined, message.body.type)(message.body.body, state);
-    writeMessageEnd(writer);
-};
-
-export function serializeBinaryRpcMessageSingleBody(message: RpcMessageDefinition): Uint8Array {
-    const preSerialized = message.body ? getPreSerialized(message.body.body) : undefined;
-    if (preSerialized) return serializeBinaryRpcMessageSingleBodyPreSerialized(message as RpcMessageDefinition & { body: {} }, preSerialized);
-    return copyOfMessageBuffer(writeMessageSingleBody, message);
-}
-
-export function createRpcMessagePeer<T>(
-    id: number, type: number,
-    source: Uint8Array,
-    peerId: string,
-    body?: T,
-    schema?: ReceiveType<T>,
-): RpcMessageDefinition {
-    return {
-        id,
-        type,
-        routeType: RpcMessageRouteType.peer,
-        source,
-        peerId,
-        body: body && {
-            type: resolveReceiveType(schema),
-            body,
-        },
-    };
-}
-
-const writeMessagePeer: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
-    if (!message.peerId) throw new RpcError('No peerId set');
-    if (!message.source) throw new RpcError('No source set');
-    if (message.source.byteLength !== 16) throw new RpcError(`Source invalid byteLength of ${message.source.byteLength}`);
-    const writer = state.writer!;
-    writeMessageStart(writer, message.id, RpcMessageRouteType.peer);
-    writer.writeBuffer(message.source);
-    writer.writeAsciiString(message.peerId);
-    writer.writeNull();
-    writer.writeByte(0); //composite=false
-    writer.writeByte(message.type);
-    if (message.body) getBSONSerializer(undefined, message.body.type)(message.body.body, state);
-    writeMessageEnd(writer);
-};
-
-export function serializeBinaryRpcMessagePeer(message: RpcMessageDefinition): Uint8Array {
-    return copyOfMessageBuffer(writeMessagePeer, message);
-}
-
-export function createRpcMessageSourceDest<T>(
-    id: number,
-    type: number,
-    source: Uint8Array,
-    destination: Uint8Array,
-    body?: T,
-    schema?: ReceiveType<T>,
-): RpcMessageDefinition {
-    return {
-        id,
-        type,
-        routeType: RpcMessageRouteType.sourceDest,
-        source,
-        destination,
-        body: body && {
-            type: resolveReceiveType(schema),
-            body,
-        },
-    };
-}
-
-const writeMessageSourceDest: AutoBufferSerializer = (message: RpcMessageDefinition, state: AutoBufferSerializerState) => {
-    if (!message.source) throw new RpcError('No source set');
-    if (!message.destination) throw new RpcError('No destination set');
-    const writer = state.writer!;
-    writeMessageStart(writer, message.id, RpcMessageRouteType.sourceDest);
-    writeSourceDest(writer, message.source, message.destination);
-    writer.writeByte(0); //composite=false
-    writer.writeByte(message.type);
-    if (message.body) getBSONSerializer(undefined, message.body.type)(message.body.body, state);
-    writeMessageEnd(writer);
-};
-
-export function serializeBinaryRpcMessageSourceDest(message: RpcMessageDefinition): Uint8Array {
-    return copyOfMessageBuffer(writeMessageSourceDest, message);
-}
-
-export function createRpcMessageSourceDestForBody<T>(
-    id: number, type: number,
-    source: Uint8Array,
-    destination: Uint8Array,
-    body: Uint8Array,
-): Uint8Array {
-    //<size> <version> <messageId> <routeType>[routeData] <composite> <type> <body...>
-    const messageSize = 4 + 1 + 4 + 1 + (16 + 16) + 1 + 1 + body.byteLength;
-
-    const writer = new Writer(createBuffer(messageSize));
-    writer.writeUint32(messageSize);
-    writer.writeByte(1); //version
-    writer.writeUint32(id);
-
-    writer.writeByte(RpcMessageRouteType.sourceDest);
-    if (source.byteLength !== 16) throw new RpcError(`Source invalid byteLength of ${source.byteLength}`);
-    if (destination.byteLength !== 16) throw new RpcError(`Destination invalid byteLength of ${destination.byteLength}`);
-    writer.writeBuffer(source);
-    writer.writeBuffer(destination);
-
-    writer.writeByte(0); //composite=false
-    writer.writeByte(type);
-
-    writer.buffer.set(body, writer.offset);
-
-    return writer.buffer;
-}
-
-export class RpcBinaryMessageReader {
-    protected chunks = new Map<number, { loaded: number, buffers: Uint8Array[], last: number }>();
+/**
+ * Splits the byte stream into frames. Frames are passed on with no copy and nothing allocated: the owner sets
+ * onRawFrame and decodes what it needs inside the call. Chunked frames are put together here.
+ */
+export class RpcBinaryMessageReader extends FrameReader {
+    protected readonly headerSize = 4;
+    protected chunks = new Map<number, { loaded: number; buffers: Uint8Array[]; last: number }>();
     protected progress = new Map<number, SingleProgress>();
     protected chunkAcks = new Map<number, (active: boolean) => void>();
-    protected streamReader = new BsonStreamReader(this.gotMessage.bind(this));
     protected lastCleanUpTimeout?: ReturnType<typeof setTimeout>;
     protected chunkTimeout = 60_000; // 60 seconds
 
-    constructor(
-        protected readonly onMessage: (response: RpcMessage) => void,
-        protected readonly onChunk?: (id: number, abort: boolean) => void,
-    ) {
+    /**
+     * Receives every frame except chunks. Only valid during the call.
+     */
+    public onRawFrame?: (buffer: Uint8Array, start: number, end: number) => void;
+
+    /** A transfer of the context was aborted. */
+    public onAbort?: (id: number, error: Error) => void;
+
+    constructor(protected readonly onChunk?: (id: number, abort: boolean, route: RouteFlag) => void) {
+        super(noopFrame);
+        this.onFrame = this.gotFrame.bind(this);
+    }
+
+    protected frameSize(buffer: Uint8Array, offset: number): number {
+        return buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24);
     }
 
     cleanUp() {
@@ -727,96 +914,133 @@ export class RpcBinaryMessageReader {
             this.lastCleanUpTimeout = undefined;
 
             const now = Date.now();
-            for (const [id, chunks] of this.chunks.entries()) {
+            for (const [key, chunks] of this.chunks.entries()) {
                 if (now - chunks.last > this.chunkTimeout) {
-                    // remove chunk
-                    this.removeChunkAck(id, true);
+                    this.chunks.delete(key);
+                    this.removeChunkAck(key % chunkKeySpace, true, Math.floor(key / chunkKeySpace) as RouteFlag);
                 }
             }
         }, 5000);
     }
 
-    public onChunkAck(id: number, callback: (active: boolean) => void) {
-        this.chunkAcks.set(id, callback);
+    public onChunkAck(id: number, callback: (active: boolean) => void, route: RouteFlag = MessageFlag.RouteClient) {
+        this.chunkAcks.set(chunkKey(id, route), callback);
     }
 
-    removeChunkAck(id: number, aborted = false) {
-        this.chunkAcks.delete(id);
-        if (aborted) {
-            this.onMessage(new ErroredRpcMessage(id, new RpcError('Aborted')));
-        }
+    removeChunkAck(id: number, aborted = false, route: RouteFlag = MessageFlag.RouteClient) {
+        this.chunkAcks.delete(chunkKey(id, route));
+        if (aborted) this.onAbort?.(id, new RpcError('Aborted'));
     }
 
     public registerProgress(id: number, progress: SingleProgress) {
-        this.progress.set(id, progress);
+        const key = chunkKey(id, MessageFlag.RouteClient);
+        this.progress.set(key, progress);
 
         progress.abortController.signal.addEventListener('abort', () => {
-            this.onMessage(new ErroredRpcMessage(id, new RpcError('Aborted')));
-            this.chunks.delete(id);
+            this.onAbort?.(id, new RpcError('Aborted'));
+            this.chunks.delete(key);
         });
     }
 
-    public feed(buffer: Uint8Array, bytes?: number) {
-        this.streamReader.feed(buffer, bytes);
+    public feed(buffer: Uint8Array, length: number = buffer.byteLength) {
+        let offset = 0;
+        if (this.tailLength > 0) {
+            offset = this.fill(buffer, length);
+            if (this.tailLength > 0) return;
+        }
+
+        while (length - offset >= 4) {
+            const size =
+                buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24);
+            if (size < framePrefixSize) throw new RpcError(`Invalid message size ${size}`);
+            if (offset + size > length) break;
+            this.gotFrame(buffer, offset, offset + size);
+            offset += size;
+        }
+
+        if (offset < length) this.stash(buffer, offset, length);
     }
 
-    protected gotMessage(buffer: Uint8Array) {
-        const message = readBinaryRpcMessage(buffer);
+    protected gotFrame(buffer: Uint8Array, start: number, end: number): void {
+        if ((buffer[start + 4] & typeMask) === MessageFlag.TypeChunk) {
+            this.gotChunk(buffer, start, end);
+            return;
+        }
 
-        if (message.type === RpcTypes.ChunkAck) {
-            const ack = this.chunkAcks.get(message.id);
-            if (ack) ack(true);
-        } else if (message.type === RpcTypes.Chunk) {
-            const progress = this.progress.get(message.id);
-            if (progress?.aborted) {
-                this.progress.delete(message.id);
-                this.chunks.delete(message.id);
-                this.onChunk?.(message.id, false);
-                return;
-            }
+        if (this.progress.size > 0 || this.chunks.size > 0 || this.chunkAcks.size > 0) {
+            this.trackReply(getFrameContext(buffer, start), (buffer[start + 4] & routeMask) as RouteFlag, end - start);
+        }
 
-            const body = message.parseBody<rpcChunk>();
-            let chunks = this.chunks.get(message.id);
-            if (!chunks) {
-                if (body.seq > 0) return;
-                chunks = { buffers: [], loaded: 0, last: Date.now() };
-                this.chunks.set(message.id, chunks);
-            }
-            chunks.buffers.push(body.v);
-            chunks.last = Date.now();
-            chunks.loaded += body.v.byteLength;
+        this.onRawFrame?.(buffer, start, end);
+    }
 
-            this.onChunk?.(message.id, true);
-            progress?.set(body.total, chunks.loaded);
-            this.cleanUp();
+    protected trackReply(id: number, route: RouteFlag, size: number): void {
+        const key = chunkKey(id, route);
+        const progress = this.progress.get(key);
+        if (progress) {
+            progress.set(size, size);
+            this.progress.delete(key);
+            this.chunks.delete(key);
+            this.chunkAcks.delete(key);
+        }
+        this.chunkAcks.get(key)?.(false);
+    }
 
-            if (chunks.loaded === body.total) {
-                // We're done
-                this.progress.delete(message.id);
-                this.chunks.delete(message.id);
-                this.chunkAcks.delete(message.id);
-                const newBuffer = bufferConcat(chunks.buffers, body.total);
-                const packedMessage = readBinaryRpcMessage(newBuffer);
-                this.onMessage(packedMessage);
-            }
-        } else {
-            const progress = this.progress.get(message.id);
-            if (progress) {
-                progress.set(buffer.byteLength, buffer.byteLength);
-                this.progress.delete(message.id);
-                this.chunks.delete(message.id);
-                this.chunkAcks.delete(message.id);
-            }
-            const ack = this.chunkAcks.get(message.id);
-            ack?.(false);
+    protected gotChunk(buffer: Uint8Array, start: number, end: number): void {
+        const flag = buffer[start + 4];
+        const route = (flag & routeMask) as RouteFlag;
+        let offset = start + framePrefixSize;
+        let id = 0;
+        if (hasContext(flag)) {
+            id = readUint16LE(buffer, offset);
+            offset += contextIdSize;
+        }
+        const key = chunkKey(id, route);
+        const op = buffer[offset++];
 
-            this.onMessage(message);
+        if (op === ChunkOp.Ack) {
+            this.chunkAcks.get(key)?.(true);
+            return;
+        }
+        if (op === ChunkOp.Abort) {
+            this.chunkAcks.get(key)?.(false);
+            return;
+        }
+
+        const progress = this.progress.get(key);
+        if (progress?.aborted) {
+            this.progress.delete(key);
+            this.chunks.delete(key);
+            this.onChunk?.(id, false, route);
+            return;
+        }
+
+        const seq = readUint32LE(buffer, offset);
+        const total = readUint32LE(buffer, offset + 4);
+        offset += 8;
+
+        let chunks = this.chunks.get(key);
+        if (!chunks) {
+            if (seq > 0) return;
+            chunks = { buffers: [], loaded: 0, last: Date.now() };
+            this.chunks.set(key, chunks);
+        }
+        chunks.buffers.push(copyFrame(buffer, offset, end));
+        chunks.last = Date.now();
+        chunks.loaded += end - offset;
+
+        this.onChunk?.(id, true, route);
+        progress?.set(total, chunks.loaded);
+        this.cleanUp();
+
+        if (chunks.loaded === total) {
+            this.progress.delete(key);
+            this.chunks.delete(key);
+            this.chunkAcks.delete(key);
+            const whole = bufferConcat(chunks.buffers, total);
+            this.gotFrame(whole, 0, whole.byteLength);
         }
     }
-}
-
-export function readUint32LE(buffer: Uint8Array, offset: number = 0): number {
-    return buffer[offset] + (buffer[offset + 1] * 2 ** 8) + (buffer[offset + 2] * 2 ** 16) + (buffer[offset + 3] * 2 ** 24);
 }
 
 export interface EncodedError {
@@ -854,8 +1078,10 @@ export function rpcDecodeError(error: EncodedError): Error {
     if (error.classType) {
         const entity = typeSettings.registeredEntities[error.classType];
         if (!entity) {
-            throw new RpcError(`Could not find an entity named ${error.classType} for an error thrown. ` +
-                `Make sure the class is loaded and correctly defined using @entity.name(${JSON.stringify(error.classType)})`);
+            throw new RpcError(
+                `Could not find an entity named ${error.classType} for an error thrown. ` +
+                    `Make sure the class is loaded and correctly defined using @entity.name(${JSON.stringify(error.classType)})`,
+            );
         }
         const schema = ReflectionClass.from(entity);
         if (error.properties) {
@@ -871,15 +1097,9 @@ export function rpcDecodeError(error: EncodedError): Error {
     const e = new RpcError(error.message);
     e.stack = error.stack + '\nat ___SERVER___';
 
-    if(error.stack === "") {
-        e.stack = ""
+    if (error.stack === '') {
+        e.stack = '';
     }
 
     return e;
-}
-
-export function createErrorMessage(id: number, error: Error | string, routeType: RpcMessageRouteType.client | RpcMessageRouteType.server): RpcMessageDefinition {
-    const extracted = rpcEncodeError(error);
-
-    return createRpcMessage(id, RpcTypes.Error, extracted, routeType, typeOf<rpcError>());
 }

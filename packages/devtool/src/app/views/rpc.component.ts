@@ -20,7 +20,6 @@ import {
     TableColumnDirective,
     TableComponent,
 } from '@deepkit/desktop-ui';
-import { RpcTypes } from '@deepkit/rpc';
 import { CodeHighlightComponent, DeepkitBoxComponent } from '@deepkit/ui-library';
 
 import { Client, RpcAction, clearClient, clients } from '../collector';
@@ -205,15 +204,11 @@ import { Client, RpcAction, clearClient, clients } from '../collector';
                         @if (client.type === 'deepkit') {
                             <div class="block">
                                 <div>
-                                    Observables: {{ summary.total.observables }} ({{
-                                        summary.active.observables
-                                    }}
+                                    Observables: {{ summary.total.observables }} ({{ summary.active.observables }}
                                     active)
                                 </div>
                                 <div>
-                                    Subscriptions: {{ summary.total.subscriptions }} ({{
-                                        summary.active.subscriptions
-                                    }}
+                                    Subscriptions: {{ summary.total.subscriptions }} ({{ summary.active.subscriptions }}
                                     active)
                                 </div>
                                 <div>Subjects: {{ summary.total.subjects }} ({{ summary.active.subjects }} active)</div>
@@ -305,7 +300,7 @@ import { Client, RpcAction, clearClient, clients } from '../collector';
                             <dui-table-column name="direction"></dui-table-column>
                             <dui-table-column name="type" [width]="160">
                                 <ng-container *duiTableCell="let message">
-                                    {{ RpcTypes[message.deepkit?.debug.type] }}
+                                    {{ message.type }}
                                 </ng-container>
                             </dui-table-column>
                             <dui-table-column name="timestamp" [width]="120">
@@ -534,5 +529,4 @@ export class RpcViewComponent implements OnInit {
     ngOnInit() {}
 
     protected readonly humanBytes = humanBytes;
-    protected readonly RpcTypes = RpcTypes;
 }

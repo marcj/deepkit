@@ -7,21 +7,35 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { InjectorContext } from '@deepkit/injector';
-import { rpcActionType, RpcControllerAccess, RpcKernel, RpcKernelBaseConnection, RpcKernelConnection, RpcMessage, RpcMessageBuilder, RpcServerAction, TransportConnection } from '@deepkit/rpc';
-import { FrameCategory, Stopwatch } from '@deepkit/stopwatch';
-import { ClassType } from '@deepkit/core';
 import { AppModule } from '@deepkit/app';
+import { ClassType } from '@deepkit/core';
+import { InjectorContext } from '@deepkit/injector';
+import {
+    RpcCacheAction,
+    RpcControllerAccess,
+    RpcKernel,
+    RpcKernelBaseConnection,
+    RpcKernelConnection,
+    RpcServerAction,
+    TransportConnection,
+} from '@deepkit/rpc';
+import { FrameCategory, Stopwatch } from '@deepkit/stopwatch';
 
 export class RpcControllers {
-    public readonly controllers = new Map<string, { controller: ClassType, module: AppModule<any> }>();
+    public readonly controllers = new Map<string, { controller: ClassType; module: AppModule<any> }>();
 }
 
 export class RpcServerActionWithStopwatch extends RpcServerAction {
     stopwatch?: Stopwatch;
 
-    protected async hasControllerAccess(controllerAccess: RpcControllerAccess, connection: RpcKernelBaseConnection): Promise<boolean> {
+    protected canExecuteDirectly(): boolean {
+        return !this.stopwatch && super.canExecuteDirectly();
+    }
+
+    protected async hasControllerAccess(
+        controllerAccess: RpcControllerAccess,
+        connection: RpcKernelBaseConnection,
+    ): Promise<boolean> {
         const frame = this.stopwatch ? this.stopwatch.start('rpc.controllerAccess') : undefined;
 
         try {
@@ -31,21 +45,16 @@ export class RpcServerActionWithStopwatch extends RpcServerAction {
         }
     }
 
-    async handleAction(message: RpcMessage, response: RpcMessageBuilder): Promise<void> {
-        const body = message.parseBody<rpcActionType>();
-        const frame = this.stopwatch ? this.stopwatch.start(body.method + '() [' + body.controller + ']', FrameCategory.rpc, true) : undefined;
-        if (frame) {
-            try {
-                const types = await this.loadTypes(body.controller, body.method);
-                const value: { args: any[] } = message.parseBody(types.actionCallSchema);
-                frame.data({ method: body.method, controller: body.controller, arguments: value.args });
-            } catch {
-            }
-        }
+    async invoke(cache: RpcCacheAction, args: any[], decodeError?: any): Promise<any> {
+        const { controllerName, actionName } = cache.controller;
+        const frame = this.stopwatch
+            ? this.stopwatch.start(actionName + '() [' + controllerName + ']', FrameCategory.rpc, true)
+            : undefined;
+        if (frame) frame.data({ method: actionName, controller: controllerName, arguments: args });
 
         try {
-            if (frame) return await frame.run(() => super.handleAction(message, response));
-            return await super.handleAction(message, response);
+            if (frame) return await frame.run(() => super.invoke(cache, args, decodeError));
+            return await super.invoke(cache, args, decodeError);
         } finally {
             if (frame) frame.end();
         }
@@ -53,7 +62,18 @@ export class RpcServerActionWithStopwatch extends RpcServerAction {
 }
 
 export class RpcKernelConnectionWithStopwatch extends RpcKernelConnection {
-    protected actionHandler = new RpcServerActionWithStopwatch(this.stats, this.cache, this, this.controllers, this.injector, this.eventDispatcher, this.security, this.sessionState, this.logger);
+    protected actionHandler = new RpcServerActionWithStopwatch(
+        this.stats,
+        this.cache,
+        this,
+        this.controllers,
+        this.injector,
+        this.eventDispatcher,
+        this.security,
+        this.sessionState,
+        this.logger,
+        this.actionDispatcher,
+    );
     stopwatch?: Stopwatch;
 
     setStopwatch(stopwatch: Stopwatch) {
@@ -61,10 +81,12 @@ export class RpcKernelConnectionWithStopwatch extends RpcKernelConnection {
         this.actionHandler.stopwatch = stopwatch;
     }
 
-    protected async authenticate(message: RpcMessage, response: RpcMessageBuilder): Promise<void> {
-        const frame = this.stopwatch ? this.stopwatch.start('rpc.authenticate', FrameCategory.rpcAuthenticate, true) : undefined;
+    protected async authenticate(token: any): Promise<string> {
+        const frame = this.stopwatch
+            ? this.stopwatch.start('rpc.authenticate', FrameCategory.rpcAuthenticate, true)
+            : undefined;
         try {
-            return await super.authenticate(message, response);
+            return await super.authenticate(token);
         } finally {
             if (frame) frame.end();
         }

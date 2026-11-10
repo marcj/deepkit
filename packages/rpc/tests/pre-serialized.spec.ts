@@ -1,12 +1,13 @@
 import { describe, expect, test } from '@jest/globals';
 import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
 
-import { ReceiveType, typeOf } from '@deepkit/type';
+import { ReceiveType, resolveReceiveType, typeOf } from '@deepkit/type';
 
+import { getBodyCodec } from '../src/action.js';
 import { DirectClient } from '../src/client/client-direct.js';
 import { rpc } from '../src/decorators.js';
-import { RpcTypes } from '../src/model.js';
-import { createRpcMessage, getPreSerializedPart, preSerialize, readBinaryRpcMessage, RpcMessageRouteType, serializeBinaryRpcMessage } from '../src/protocol.js';
+import { ControlOp, MessageFlag, frameMemory, getActionOffset, preSerialize, writeControlFrameTransient } from '../src/protocol.js';
+import { copyWrittenFrame } from '../src/protocol.js';
 import { RpcKernel } from '../src/server/kernel.js';
 
 enum Visibility {
@@ -57,8 +58,13 @@ const items: Item[] = [
     { shortId: 'k1l2m3n4o5', users: 0, updated: 0, visibility: Visibility.public },
 ];
 
-function encode<T>(id: number, body: T, type?: ReceiveType<T>) {
-    return Buffer.from(serializeBinaryRpcMessage(createRpcMessage(id, RpcTypes.ResponseActionObservableNext, body, undefined, type)));
+function encode<T>(id: number, body: T, type?: ReceiveType<T>): Buffer {
+    const size = writeControlFrameTransient(id, MessageFlag.RouteClient, ControlOp.CollectionModel, getBodyCodec(resolveReceiveType(type)).serialize, body);
+    return Buffer.from(copyWrittenFrame(size));
+}
+
+function decode<T>(frame: Buffer, type?: ReceiveType<T>): T {
+    return getBodyCodec(resolveReceiveType(type)).deserialize(frame, getActionOffset(frame) + 1, frame.byteLength);
 }
 
 describe('PreSerialized rpc bodies', () => {
@@ -80,7 +86,7 @@ describe('PreSerialized rpc bodies', () => {
         for (const [messageId, subscriptionId] of [
             [1, 1],
             [300, 2],
-            [70000, 123456],
+            [60000, 123456],
         ]) {
             const plain = encode<ObservableNext>(messageId, { id: subscriptionId, v: items });
             const pre = encode<ObservableNext>(messageId, { id: subscriptionId, v: shared as any });
@@ -89,10 +95,8 @@ describe('PreSerialized rpc bodies', () => {
     });
 
     test('decodes back to the original value', () => {
-        const message = readBinaryRpcMessage(encode<ObservableNext>(42, { id: 7, v: preSerialize<Item[]>(items) as any }));
-        expect(message.id).toBe(42);
-        expect(message.type).toBe(RpcTypes.ResponseActionObservableNext);
-        expect(message.parseBody<ObservableNext>()).toEqual({ id: 7, v: items });
+        const frame = encode<ObservableNext>(42, { id: 7, v: preSerialize<Item[]>(items) as any });
+        expect(decode<ObservableNext>(frame)).toEqual({ id: 7, v: items });
     });
 
     test('supports bodies that only carry v (action results)', () => {
@@ -101,26 +105,9 @@ describe('PreSerialized rpc bodies', () => {
         expect(pre.equals(plain)).toBe(true);
     });
 
-    test('supports an untyped body', () => {
-        const plain = readBinaryRpcMessage(encode<any>(9, { id: 3, v: items })).parseBody<ObservableNext>();
-        const pre = readBinaryRpcMessage(encode<any>(9, { id: 3, v: preSerialize<Item[]>(items) })).parseBody<ObservableNext>();
-        expect(pre).toEqual(plain);
-    });
-
     test('leaves bodies without PreSerialized values untouched', () => {
-        const message = readBinaryRpcMessage(encode<ObservableNext>(1, { id: 2, v: [] }));
-        expect(message.parseBody<ObservableNext>()).toEqual({ id: 2, v: [] });
-    });
-
-    test('tells a transport where the shared tail starts', () => {
-        const shared = preSerialize<Item[]>(items);
-        const message = serializeBinaryRpcMessage(createRpcMessage<ObservableNext>(42, RpcTypes.ResponseActionObservableNext, { id: 7, v: shared as any }));
-        const part = getPreSerializedPart(message);
-        expect(part?.value).toBe(shared);
-        expect(Buffer.from(message.subarray(part!.offset)).equals(Buffer.from(shared.tail))).toBe(true);
-
-        const plain = serializeBinaryRpcMessage(createRpcMessage<ObservableNext>(42, RpcTypes.ResponseActionObservableNext, { id: 7, v: items }));
-        expect(getPreSerializedPart(plain)).toBeUndefined();
+        const frame = encode<ObservableNext>(1, { id: 2, v: [] });
+        expect(decode<ObservableNext>(frame)).toEqual({ id: 2, v: [] });
     });
 
     test('goes through a controller to the client', async () => {
@@ -147,20 +134,4 @@ describe('PreSerialized rpc bodies', () => {
         expect(await controller.result()).toEqual(items);
         await client.disconnect();
     });
-});
-
-test('rejects messages that cannot splice a PreSerialized value', () => {
-    const v = preSerialize<Item[]>([]);
-    const body = { type: typeOf<ObservableNext>(), body: { id: 1, v } };
-    const error = 'PreSerialized values are only supported in single-body messages';
-
-    expect(() => serializeBinaryRpcMessage({ id: 1, type: RpcTypes.ResponseActionSimple, routeType: RpcMessageRouteType.peer, peerId: 'peer', body })).toThrow(error);
-    expect(() => serializeBinaryRpcMessage({
-        id: 1, type: RpcTypes.ResponseActionSimple, routeType: RpcMessageRouteType.sourceDest,
-        source: new Uint8Array(16), destination: new Uint8Array(16), body,
-    })).toThrow(error);
-    expect(() => serializeBinaryRpcMessage({
-        id: 1, type: RpcTypes.ResponseActionSimple, routeType: RpcMessageRouteType.client,
-        composite: [{ type: RpcTypes.ResponseActionSimple, schema: typeOf<ObservableNext>(), body: { id: 1, v } }],
-    })).toThrow(error);
 });

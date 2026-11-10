@@ -7,15 +7,14 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { bufferConcat, ClassType, CustomError, isObject } from '@deepkit/core';
-import { tearDown } from '@deepkit/core-rxjs';
-import { arrayBufferTo, entity } from '@deepkit/type';
 import { BehaviorSubject, Observable, Subject, TeardownLogic } from 'rxjs';
 import { skip } from 'rxjs/operators';
 
-export class RpcError extends CustomError {
-}
+import { ClassType, CustomError, bufferConcat, isObject } from '@deepkit/core';
+import { tearDown } from '@deepkit/core-rxjs';
+import { arrayBufferTo, entity } from '@deepkit/type';
+
+export class RpcError extends CustomError {}
 
 export type IdType = string | number;
 
@@ -45,6 +44,17 @@ export class RpcTransportStats {
 
     public increase(name: NumericKeys<RpcTransportStats>, count: number) {
         (this as Writeable<this>)[name] += count;
+    }
+
+    /** One incoming message. The same as increase(), without looking up a property by name per message. */
+    public addIncoming(): void {
+        (this as Writeable<this>).incoming++;
+    }
+
+    /** One outgoing message of the given size. */
+    public addOutgoing(bytes: number): void {
+        (this as Writeable<this>).outgoing++;
+        (this as Writeable<this>).outgoingBytes += bytes;
     }
 }
 
@@ -80,11 +90,16 @@ export class RpcStats extends RpcTransportStats {
      */
     public readonly actions: number = 0;
 
-    public readonly active: ActionStats = new ActionStats;
-    public readonly total: ActionStats = new ActionStats;
+    public readonly active: ActionStats = new ActionStats();
+    public readonly total: ActionStats = new ActionStats();
 
     public increase(name: NumericKeys<RpcStats>, count: number) {
         (this as Writeable<this>)[name] += count;
+    }
+
+    /** One executed action. */
+    public addAction(): void {
+        (this as Writeable<this>).actions++;
     }
 }
 
@@ -100,6 +115,21 @@ export class ForwardedRpcStats extends RpcStats {
         this.forward.increase(name, count);
         super.increase(name, count);
     }
+
+    public addIncoming(): void {
+        this.forward.addIncoming();
+        super.addIncoming();
+    }
+
+    public addOutgoing(bytes: number): void {
+        this.forward.addOutgoing(bytes);
+        super.addOutgoing(bytes);
+    }
+
+    public addAction(): void {
+        this.forward.addAction();
+        super.addAction();
+    }
 }
 
 export class StreamBehaviorSubject<T> extends BehaviorSubject<T> {
@@ -111,10 +141,7 @@ export class StreamBehaviorSubject<T> extends BehaviorSubject<T> {
 
     protected teardowns: TeardownLogic[] = [];
 
-    constructor(
-        item: T,
-        teardown?: TeardownLogic,
-    ) {
+    constructor(item: T, teardown?: TeardownLogic) {
         super(item);
         if (teardown) {
             this.teardowns.push(teardown);
@@ -167,7 +194,9 @@ export class StreamBehaviorSubject<T> extends BehaviorSubject<T> {
     }
 
     toUTF8() {
-        const subject = new StreamBehaviorSubject(this.value instanceof Uint8Array ? arrayBufferTo(this.value, 'utf8') : '');
+        const subject = new StreamBehaviorSubject(
+            this.value instanceof Uint8Array ? arrayBufferTo(this.value, 'utf8') : '',
+        );
         const sub1 = this.pipe(skip(1)).subscribe(v => {
             subject.next(v instanceof Uint8Array ? arrayBufferTo(v, 'utf8') : '');
         });
@@ -204,7 +233,7 @@ export class StreamBehaviorSubject<T> extends BehaviorSubject<T> {
                     this.next(value as any);
                 }
             } else {
-                this.next((this.getValue() as any + value) as any as T);
+                this.next(((this.getValue() as any) + value) as any as T);
             }
         } else {
             if ('string' === typeof value) {
@@ -232,7 +261,6 @@ export function isEntitySubject(v: any): v is EntitySubject<any> {
     return !!v && isObject(v) && v.hasOwnProperty(IsEntitySubject);
 }
 
-
 export class EntitySubject<T extends IdInterface> extends StreamBehaviorSubject<T> {
     /**
      * Patches are in class format.
@@ -249,7 +277,7 @@ export class EntitySubject<T extends IdInterface> extends StreamBehaviorSubject<
     }
 
     get onDeletion(): Observable<void> {
-        return new Observable((observer) => {
+        return new Observable(observer => {
             if (this.deleted) {
                 observer.next();
                 return;
@@ -284,8 +312,7 @@ export class ControllerDefinition<T> {
     constructor(
         public path: string,
         public entities: ClassType[] = [],
-    ) {
-    }
+    ) {}
 }
 
 export function ControllerSymbol<T>(path: string, entities: ClassType[] = []): ControllerDefinition<T> {
@@ -294,172 +321,16 @@ export function ControllerSymbol<T>(path: string, entities: ClassType[] = []): C
 
 @entity.name('@error:json')
 export class JSONError {
-    constructor(public readonly json: any) {
-    }
-}
-
-export enum RpcTypes {
-    Ack,
-    Error,
-
-    //A batched chunk. Used when a single message exceeds a certain size. It's split up in multiple packages, allowing to track progress,
-    //cancel, and safe memory. Allows to send shorter messages between to not block the connection. Both ways.
-    Chunk,
-    ChunkAck,
-
-    Ping,
-    Pong,
-
-    //client -> server
-    Authenticate,
-    ActionType,
-    Action, //T is the parameter type [t.string, t.number, ...] (typed arrays not supported yet)
-
-    PeerRegister,
-    PeerDeregister,
-
-    //server -> client
-    ClientId,
-    ClientIdResponse,
-    AuthenticateResponse,
-    ResponseActionType,
-    ResponseActionReturnType,
-    ResponseActionSimple, //direct response that can be simple deserialized.
-
-    /**
-     * @deprecated types are no longer dynamically detected, but from the type system
-     */
-    ResponseActionResult, //composite message, first optional ResponseActionType, second ResponseAction*
-
-    ActionObservableSubscribe,
-    ActionObservableUnsubscribe,
-    ActionObservableDisconnect, //removed a stored Observable instance so it can not longer create new observers and unsubscribe all subscriptions
-    ActionObservableSubjectUnsubscribe,
-
-    ResponseActionObservable,
-    /**
-     * @deprecated not used anymore
-     */
-    ResponseActionBehaviorSubject,
-
-    ResponseActionObservableNext,
-    ResponseActionObservableComplete,
-    ResponseActionObservableError,
-
-    ActionCollectionUnsubscribe, //when client unsubscribed collection
-    ActionCollectionModel, //when client updated model
-    ResponseActionCollection,
-    ResponseActionCollectionModel,
-    ResponseActionCollectionSort,
-    ResponseActionCollectionState,
-
-    ResponseActionCollectionChange,
-    ResponseActionCollectionSet,
-    ResponseActionCollectionAdd,
-    ResponseActionCollectionRemove,
-    ResponseActionCollectionUpdate,
-
-    ResponseEntity, //single entity sent
-
-    Entity, //change feed as composite, containing all Entity*
-    EntityPatch,
-    EntityRemove,
-
-    //Handles changes in ProgressTracker from client side to server (e.g. stop signal)
-    //From server to client is handled normally via ObservableNext
-    ActionObservableProgressNext,
-
-    //The last client subscriber of a Subject left or a new one arrived: the server releases or attaches its observer
-    ActionObservableSubjectPause,
-    ActionObservableSubjectResume,
-}
-
-export interface rpcClientId {
-    id: Uint8Array;
-}
-
-export interface rpcChunk {
-    seq: number; //sequence number of this chunk
-    total: number; //size in bytes
-    v: Uint8Array;
-}
-
-export interface rpcActionObservableSubscribeId {
-    id: number;
-}
-
-export interface rpcActionObservableNext {
-    id: number;
-    v: any;
-}
-
-export interface rpcError {
-    classType: string;
-    message: string;
-    stack: string;
-    properties?: Record<string, any>;
-}
-
-export interface rpcResponseActionObservableSubscriptionError extends rpcError {
-    id: number;
-}
-
-export enum ActionObservableTypes {
-    observable,
-    subject,
-    behaviorSubject,
-    progressTracker,
-}
-
-export interface rpcSort {
-    field: string;
-    direction: 'asc' | 'desc';
-}
-
-export interface rpcResponseActionObservable {
-    type: ActionObservableTypes;
-}
-
-export interface rpcAuthenticate {
-    token: any;
-}
-
-export interface rpcResponseAuthenticate {
-    username: string;
-}
-
-export interface rpcAction {
-    controller: string;
-    method: string;
-}
-
-export interface rpcActionType {
-    controller: string;
-    method: string;
-    disableTypeReuse?: boolean;
+    constructor(public readonly json: any) {}
 }
 
 export type ActionMode = 'arbitrary' | 'collection' | 'entitySubject' | 'observable';
 
-export interface rpcResponseActionType {
-    mode: ActionMode;
-    type: any; //Type as SerializedTypes
-    parameters: any; //TypeTuple as SerializedTypes
-}
-
-export interface rpcPeerRegister {
-    id: string;
-}
-
-export interface rpcPeerDeregister {
-    id: string;
-}
-
-export interface rpcResponseActionCollectionRemove {
+export interface rpcCollectionRemove {
     ids: (string | number)[];
 }
 
-export interface rpcResponseActionCollectionSort {
+export interface rpcCollectionSort {
     ids: (string | number)[];
 }
 
@@ -469,9 +340,9 @@ export interface rpcEntityRemove {
 }
 
 export interface EntityPatch {
-    $set?: { [path: string]: any },
-    $unset?: { [path: string]: number }
-    $inc?: { [path: string]: number }
+    $set?: { [path: string]: any };
+    $unset?: { [path: string]: number };
+    $inc?: { [path: string]: number };
 }
 
 export interface rpcEntityPatch {
@@ -479,15 +350,10 @@ export interface rpcEntityPatch {
     id: string | number;
     version: number;
     patch: {
-        $set?: Record<string, any>,
-        $unset?: Record<string, number>,
-        $inc?: Record<string, number>,
+        $set?: Record<string, any>;
+        $unset?: Record<string, number>;
+        $inc?: Record<string, number>;
     };
 }
 
-export class AuthenticationError extends CustomError {
-}
-
-export interface WrappedV {
-    v: any;
-}
+export class AuthenticationError extends CustomError {}

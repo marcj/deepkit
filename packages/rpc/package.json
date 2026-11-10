@@ -28,6 +28,7 @@
     "@deepkit/event": "^1.1.0",
     "@deepkit/injector": "^1.1.0",
     "@deepkit/logger": "^1.1.0",
+    "@deepkit/net": "^1.1.0",
     "@deepkit/type": "^1.1.0",
     "rxjs": "*"
   },
@@ -38,6 +39,7 @@
     "@deepkit/event": "^1.1.0",
     "@deepkit/injector": "^1.1.0",
     "@deepkit/logger": "^1.1.0",
+    "@deepkit/net": "^1.1.0",
     "@deepkit/type": "^1.1.0",
     "@types/dot-prop": "^5.0.1",
     "@types/fs-extra": "^9.0.1",

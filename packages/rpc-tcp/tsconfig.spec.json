@@ -7,5 +7,6 @@
   ],
   "compilerOptions": {
     "rootDir": "."
-  }
+  },
+  "reflection": true
 }

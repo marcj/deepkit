@@ -6,6 +6,9 @@
   },
   "references": [
     {
+      "path": "../net/tsconfig.esm.json"
+    },
+    {
       "path": "../bson/tsconfig.esm.json"
     },
     {

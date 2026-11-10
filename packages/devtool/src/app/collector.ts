@@ -1,24 +1,48 @@
-import { signal, WritableSignal } from '@angular/core';
+import { WritableSignal, signal } from '@angular/core';
 import { Subject } from 'rxjs';
-import { ActionObservableTypes, readBinaryRpcMessage, RpcMessage, RpcTypes } from '@deepkit/rpc';
-import { deserializeType, stringifyType } from '@deepkit/type';
+
 import { bufferConcat } from '@deepkit/core';
+import {
+    ChannelSubType,
+    ChunkOp,
+    ControlOp,
+    EncodedError,
+    MessageFlag,
+    channelBodyOffset,
+    createParameterDeserializer,
+    createReturnDeserializer,
+    frameContextId,
+    getAction,
+    getBodyOffset,
+    parseSchemaMapping,
+    readChannelSubscription,
+    readErrorTuple,
+    readUint32LE,
+    schemaMapping,
+} from '@deepkit/rpc';
+import { deserializeType, stringifyType } from '@deepkit/type';
 
 declare const chrome: any;
 
 export interface WebSocketMessage {
     id?: number;
     idx: number;
-    type?: RpcTypes;
+    type?: string;
     direction: 'received' | 'sent';
     timestamp: number;
     size: number;
     data: string;
     binary: Uint8Array;
-    deepkit?: {
-        message: RpcMessage,
-        debug: ReturnType<RpcMessage['debug']>,
-    };
+    deepkit?: Frame;
+}
+
+export interface Frame {
+    id: number;
+    kind: string;
+    op?: ControlOp;
+    subType?: number;
+    size: number;
+    body?: any;
 }
 
 export interface ActionObservables {
@@ -84,12 +108,26 @@ export interface Client {
     messages: WritableSignal<WebSocketMessage[]>;
     summary: WritableSignal<Summary>;
     messages$: Subject<WebSocketMessage>;
-    actionLoadTypes: Record<number, { action: string }>;
     typesCache: Record<string, string>;
-    messageReader: (message: RpcMessage) => void;
+    /** The id of the next action call without an explicit one, see the protocol. */
+    nextContext: number;
+    messageReader: (frame: Frame) => void;
     timestamp: number;
     timestampMap: Record<number, number>;
-    chunks: Record<number, { loaded: number, buffers: Uint8Array[] }>;
+    chunks: Record<number, { loaded: number; buffers: Uint8Array[] }>;
+    /** The action behind each open context id. */
+    pendingActions: Record<number, Client['schemaActions'][number] | undefined>;
+    schemaActions: Record<
+        number,
+        {
+            controller: string;
+            method: string;
+            parameters: any;
+            type: any;
+            decode?: (buffer: Uint8Array, offset: number, end: number) => any[];
+            decodeResult?: (buffer: Uint8Array, offset: number, end: number) => any;
+        }
+    >;
 }
 
 export function clearClient(client: Client) {
@@ -97,8 +135,85 @@ export function clearClient(client: Client) {
     client.messages.update(() => []);
 }
 
+/** What one RPC frame means for the inspector. Undefined for what isn't shown. */
+function readFrame(client: Client, binary: Uint8Array, sent: boolean): Frame | undefined {
+    const flag = binary[4];
+    const size = binary.byteLength;
+
+    if ((flag & 0b0111_0000) === MessageFlag.TypeChunk) {
+        const hasContext = (flag & 0b1000) !== 0;
+        const offset = hasContext ? 7 : 5;
+        if (binary[offset] !== ChunkOp.Data) return undefined;
+        const id = hasContext ? frameContextId(binary) : 0;
+        const total = readUint32LE(binary, offset + 5);
+        const chunks = client.chunks;
+        const c = (chunks[id] ||= { loaded: 0, buffers: [] });
+        const data = binary.subarray(offset + 9);
+        c.buffers.push(data);
+        c.loaded += data.byteLength;
+        if (c.loaded !== total) return undefined;
+        delete chunks[id];
+        return readFrame(client, bufferConcat(c.buffers, total), sent);
+    }
+
+    const type = flag & 0b0111_0000;
+    const contextFlag = flag & 0b1100;
+    const hasContext = (flag & 0b1000) !== 0;
+    let id = hasContext ? frameContextId(binary) : 0;
+
+    if (type === MessageFlag.TypeAction) {
+        if (contextFlag === MessageFlag.ContextNew) {
+            id = client.nextContext++;
+        } else if (contextFlag === MessageFlag.ContextEnd) {
+            client.nextContext = id + 1;
+        }
+        const action = client.schemaActions[getAction(binary)];
+        client.pendingActions[id] = action;
+        const decode = (action.decode ??= createParameterDeserializer(deserializeType(action.parameters) as any));
+        const args = decode(binary, getBodyOffset(binary), size).slice();
+        return { id, kind: 'action', size, body: { controller: action.controller, method: action.method, args } };
+    }
+
+    const action = client.pendingActions[id];
+    const body = getBodyOffset(binary);
+
+    if (type === MessageFlag.TypeAck) return { id, kind: 'result', size };
+    if (type === MessageFlag.TypeError) return { id, kind: 'error', size, body: readErrorTuple(binary, body, size) };
+
+    if (type === MessageFlag.TypeResult) {
+        if (!action) return { id, kind: 'result', size };
+        const decode = (action.decodeResult ??= createReturnDeserializer(deserializeType(action.type) as any));
+        return { id, kind: 'result', size, body: decode(binary, body, size) };
+    }
+
+    if (type === MessageFlag.TypeChannel) {
+        if (!hasContext) return undefined;
+        const sub = binary[body];
+        if (sub <= ChannelSubType.Reserved) return { id, kind: 'announce', subType: sub, size };
+        if (!action) return { id, kind: 'next', size };
+        const decode = (action.decodeResult ??= createReturnDeserializer(deserializeType(action.type) as any));
+        const value = decode(binary, channelBodyOffset(binary, body), size);
+        return { id, kind: 'next', size, body: { id: readChannelSubscription(binary, body), v: value } };
+    }
+
+    if (type === MessageFlag.TypeControl) {
+        const op = binary[body] as ControlOp;
+        let error: EncodedError | undefined;
+        if (op === ControlOp.StreamError) {
+            let offset = body + 1;
+            while (binary[offset++] >= 0x80);
+            error = readErrorTuple(binary, offset, size);
+        }
+        return { id, kind: 'control', op, size, body: error };
+    }
+
+    return undefined;
+}
+
 function binaryToHex(binary: Uint8Array) {
-    return Array.from(binary).map((v) => v.toString(16).padStart(2, '0')).join('');
+    return Array.from(binary)
+        .map(v => v.toString(16).padStart(2, '0'))
+        .join('');
 }
 
 function decreaseObservableStats(mode: RpcAction['mode'], summary: ActionObservables) {
@@ -213,247 +328,193 @@ export function startCollecting(port: any) {
                 actions: signal([]),
                 actionMap: {},
                 typesCache: {},
-                actionLoadTypes: {},
+                nextContext: 1,
                 timestampMap: {},
                 actionIdx: 0,
                 chunks: {},
+                pendingActions: {},
+                schemaActions: {},
                 summary: summarySignal,
-                messageReader: (message) => {
+                messageReader: frame => {
                     const summary: Summary = summarySignal();
-                    const timestamp = client.timestampMap[message.id];
-                    // console.log('message', RpcTypes[message.type], message.id, message.type, message.debug());
+                    const timestamp = client.timestampMap[frame.id];
                     let actionChanged = false;
-                    switch (message.type) {
-                        case RpcTypes.Action: {
+                    const action = client.actionMap[frame.id];
+                    const received = () => {
+                        if (!action) return;
+                        action.size += frame.size;
+                        action.sizeReceived += frame.size;
+                    };
+                    const sent = () => {
+                        if (!action) return;
+                        action.size += frame.size;
+                        action.sizeSent += frame.size;
+                    };
+                    switch (frame.kind) {
+                        case 'action': {
                             actionChanged = true;
-                            let action = client.actionMap[message.id];
-                            if (action) {
-                                if (message.type) {
-                                    action.executed = new Date(timestamp);
-                                    action.status = 'executing';
-                                }
-                            } else {
-                                summary.actionsTotal += 1;
-                                const body = message.debug().body as {
-                                    controller: string, method: string, args: any[]
-                                };
-                                const actionName = `${body.controller}.${body.method}`;
-                                summary.actions[actionName] = (summary.actions[actionName] || 0) + 1;
-                                action = {
-                                    idx: ++client.actionIdx,
-                                    id: message.id,
-                                    controller: body.controller,
-                                    method: body.method,
-                                    loaded: new Date(timestamp),
-                                    status: 'pending',
-                                    action: actionName,
-                                    responses: 0,
-                                    size: message.bodySize,
-                                    sizeSent: message.bodySize,
-                                    sizeReceived: 0,
-                                    mode: 'static',
-                                    errors: 0,
-                                    returnType: client.typesCache[actionName] || '',
-                                    timestamp: timestamp,
-                                    completed: 0,
-                                    args: body.args,
-                                    emits: [],
-                                    active: {
-                                        observables: 0,
-                                        subjects: 0,
-                                        behaviorSubjects: 0,
-                                        progressTrackers: 0,
-                                        subscriptions: 0,
-                                    },
-                                };
-                                client.actions.update((v) => [...v, action]);
-                                client.actionMap[action.id] = action;
-                            }
-
-                            break;
-                        }
-                        case RpcTypes.ActionType: {
-                            const body = message.debug().body as {
-                                controller: string, method: string
-                            };
+                            summary.actionsTotal += 1;
+                            const body = frame.body as { controller: string; method: string; args: any[] };
                             const actionName = `${body.controller}.${body.method}`;
-                            client.actionLoadTypes[message.id] = { action: actionName };
-                            break;
-                        }
-                        case RpcTypes.ResponseActionType: {
-                            actionChanged = true;
-                            const action = client.actionLoadTypes[message.id];
-                            if (!action) break;
-                            const body = message.debug().body as {
-                                type: any;
-                                mode: string;
+                            summary.actions[actionName] = (summary.actions[actionName] || 0) + 1;
+                            const created: RpcAction = {
+                                idx: ++client.actionIdx,
+                                id: frame.id,
+                                controller: body.controller,
+                                method: body.method,
+                                loaded: new Date(timestamp),
+                                executed: new Date(timestamp),
+                                status: 'executing',
+                                action: actionName,
+                                responses: 0,
+                                size: frame.size,
+                                sizeSent: frame.size,
+                                sizeReceived: 0,
+                                mode: 'static',
+                                errors: 0,
+                                returnType: client.typesCache[actionName] || '',
+                                timestamp: timestamp,
+                                completed: 0,
+                                args: body.args,
+                                emits: [],
+                                active: {
+                                    observables: 0,
+                                    subjects: 0,
+                                    behaviorSubjects: 0,
+                                    progressTrackers: 0,
+                                    subscriptions: 0,
+                                },
                             };
-                            const returnType = stringifyType(deserializeType(body.type));
-                            client.typesCache[action.action] = returnType;
+                            client.actions.update(v => [...v, created]);
+                            client.actionMap[created.id] = created;
                             break;
                         }
-                        case RpcTypes.ActionObservableSubscribe: {
-                            // create new observable subscription
+                        case 'result': {
                             actionChanged = true;
-                            const action = client.actionMap[message.id];
-                            if (action) {
-                                action.size += message.bodySize;
-                                action.sizeSent += message.bodySize;
-                                // action.status = `subscription`;
-                                action.active.subscriptions += 1;
-                                summary.active.subscriptions += 1;
-                                summary.total.subscriptions += 1;
-                                action.status = `subscribed (${action.active.subscriptions}x)`;
-                            }
-                            break;
-                        }
-                        case RpcTypes.ActionObservableSubjectUnsubscribe: {
-                            // called for Subjects/BehaviorSubject/ProgressTracker
-                            actionChanged = true;
-                            const action = client.actionMap[message.id];
-                            if (action) {
-                                action.size += message.bodySize;
-                                action.sizeSent += message.bodySize;
-                                completeObservable('completed', action, summary.active);
-                            }
-                            break;
-                        }
-                        case RpcTypes.ActionObservableUnsubscribe: {
-                            // unsubscribe a observable subscription
-                            actionChanged = true;
-                            const action = client.actionMap[message.id];
-                            if (action) {
-                                action.size += message.bodySize;
-                                action.sizeSent += message.bodySize;
-                                action.active.subscriptions -= 1;
-                                summary.active.subscriptions -= 1;
-                                action.status = `subscribed (${action.active.subscriptions}x)`;
-                            }
-                            break;
-                        }
-                        case RpcTypes.ActionObservableDisconnect: {
-                            // client unsubscribes/disconnects an observable object
-                            actionChanged = true;
-                            const action = client.actionMap[message.id];
-                            if (action) {
-                                action.size += message.bodySize;
-                                action.sizeSent += message.bodySize;
-                                if (action.status !== 'completed') {
-                                    action.status = 'completed';
-                                    summary.active.observables -= 1;
-                                    action.active.observables -= 1;
-                                }
-                            }
-                            break;
-                        }
-                        case RpcTypes.ResponseActionObservableComplete: {
-                            //  called for Subjects/BehaviorSubject/ProgressTracker and created Observable subscriptions
-                            actionChanged = true;
-                            const action = client.actionMap[message.id];
-                            if (action) {
-                                action.size += message.bodySize;
-                                action.sizeReceived += message.bodySize;
-                                completeObservable('completed', action, summary.active);
-                            }
-                            break;
-                        }
-                        case RpcTypes.ResponseActionObservable: {
-                            actionChanged = true;
-                            const action = client.actionMap[message.id];
-                            if (action) {
-                                action.size += message.bodySize;
-                                action.sizeReceived += message.bodySize;
-                                action.status = 'observableReady';
-                                const body = message.debug().body as {
-                                    type: ActionObservableTypes;
-                                };
-                                switch (body.type) {
-                                    case ActionObservableTypes.observable: {
-                                        summary.active.observables += 1;
-                                        summary.total.observables += 1;
-                                        action.active.observables += 1;
-                                        action.mode = 'observable';
-                                        action.returnType = `Observable<${action.returnType}>`;
-                                        break;
-                                    }
-                                    case ActionObservableTypes.subject: {
-                                        summary.active.subjects += 1;
-                                        summary.total.subjects += 1;
-                                        action.active.subjects += 1;
-                                        action.mode = 'subject';
-                                        action.returnType = `Subject<${action.returnType}>`;
-                                        break;
-                                    }
-                                    case ActionObservableTypes.behaviorSubject: {
-                                        summary.active.behaviorSubjects += 1;
-                                        summary.total.behaviorSubjects += 1;
-                                        action.active.behaviorSubjects += 1;
-                                        action.mode = 'behaviorSubject';
-                                        action.returnType = `BehaviorSubject<${action.returnType}>`;
-                                        break;
-                                    }
-                                    case ActionObservableTypes.progressTracker: {
-                                        summary.active.progressTrackers += 1;
-                                        summary.total.progressTrackers += 1;
-                                        action.active.progressTrackers += 1;
-                                        action.mode = 'progressTracker';
-                                        action.returnType = `ProgressTracker<${action.returnType}>`;
-                                        break;
-                                    }
-                                }
-                            }
-                            break;
-                        }
-                        case RpcTypes.ResponseActionObservableNext: {
-                            actionChanged = true;
-                            const action = client.actionMap[message.id];
-                            if (action) {
-                                action.responses += 1;
-                                action.sizeReceived += message.bodySize;
-                                action.size += message.bodySize;
-                                action.response = (message.debug().body as any).v;
-                                action.emits.push({ timestamp, data: JSON.stringify(action.response, null, 4) });
-                            }
-                            break;
-                        }
-                        case RpcTypes.ResponseActionSimple: {
-                            actionChanged = true;
-                            const action = client.actionMap[message.id];
-                            if (action) {
+                            // a stream ends with the acknowledgement of its closed context, which is no result
+                            if (action && action.mode === 'static') {
                                 action.status = 'executed';
                                 action.responses += 1;
-                                action.size += message.bodySize;
-                                action.sizeReceived += message.bodySize;
-                                action.response = (message.debug().body as any).v;
+                                received();
+                                action.response = frame.body;
                                 action.took = timestamp - action.timestamp;
                             }
                             break;
                         }
-                        case RpcTypes.ResponseActionObservableError:
-                        case RpcTypes.Error: {
+                        case 'error': {
                             actionChanged = true;
-                            const action = client.actionMap[message.id];
                             if (action) {
-                                action.size += message.bodySize;
-                                action.sizeReceived += message.bodySize;
+                                received();
                                 action.errors += 1;
-                                action.emits.push({ timestamp, data: `Error ${JSON.stringify(message.debug().body, null, 4)}` });
+                                action.emits.push({
+                                    timestamp,
+                                    data: `Error ${JSON.stringify(frame.body, null, 4)}`,
+                                });
                                 completeObservable('errored', action, summary.active);
+                            }
+                            break;
+                        }
+                        case 'announce': {
+                            actionChanged = true;
+                            if (action) {
+                                received();
+                                action.status = 'observableReady';
+                                if (frame.subType === ChannelSubType.Observable) {
+                                    summary.active.observables += 1;
+                                    summary.total.observables += 1;
+                                    action.active.observables += 1;
+                                    action.mode = 'observable';
+                                    action.returnType = `Observable<${action.returnType}>`;
+                                } else if (frame.subType === ChannelSubType.Subject) {
+                                    summary.active.subjects += 1;
+                                    summary.total.subjects += 1;
+                                    action.active.subjects += 1;
+                                    action.mode = 'subject';
+                                    action.returnType = `Subject<${action.returnType}>`;
+                                } else if (frame.subType === ChannelSubType.BehaviorSubject) {
+                                    summary.active.behaviorSubjects += 1;
+                                    summary.total.behaviorSubjects += 1;
+                                    action.active.behaviorSubjects += 1;
+                                    action.mode = 'behaviorSubject';
+                                    action.returnType = `BehaviorSubject<${action.returnType}>`;
+                                } else if (frame.subType === ChannelSubType.ProgressTracker) {
+                                    summary.active.progressTrackers += 1;
+                                    summary.total.progressTrackers += 1;
+                                    action.active.progressTrackers += 1;
+                                    action.mode = 'progressTracker';
+                                    action.returnType = `ProgressTracker<${action.returnType}>`;
+                                }
+                            }
+                            break;
+                        }
+                        case 'next': {
+                            actionChanged = true;
+                            if (action) {
+                                action.responses += 1;
+                                received();
+                                action.response = frame.body;
+                                action.emits.push({ timestamp, data: JSON.stringify(action.response, null, 4) });
+                            }
+                            break;
+                        }
+                        case 'control': {
+                            actionChanged = true;
+                            if (!action) break;
+                            switch (frame.op) {
+                                case ControlOp.Subscribe:
+                                    sent();
+                                    action.active.subscriptions += 1;
+                                    summary.active.subscriptions += 1;
+                                    summary.total.subscriptions += 1;
+                                    action.status = `subscribed (${action.active.subscriptions}x)`;
+                                    break;
+                                case ControlOp.SubjectUnsubscribe:
+                                    sent();
+                                    completeObservable('completed', action, summary.active);
+                                    break;
+                                case ControlOp.Unsubscribe:
+                                    sent();
+                                    action.active.subscriptions -= 1;
+                                    summary.active.subscriptions -= 1;
+                                    if (action.status !== 'completed') {
+                                        action.status = `subscribed (${action.active.subscriptions}x)`;
+                                    }
+                                    break;
+                                case ControlOp.Disconnect:
+                                    sent();
+                                    if (action.status !== 'completed') {
+                                        action.status = 'completed';
+                                        summary.active.observables -= 1;
+                                        action.active.observables -= 1;
+                                    }
+                                    break;
+                                case ControlOp.Complete:
+                                    received();
+                                    completeObservable('completed', action, summary.active);
+                                    break;
+                                case ControlOp.StreamError:
+                                    received();
+                                    action.errors += 1;
+                                    action.emits.push({
+                                        timestamp,
+                                        data: `Error ${JSON.stringify(frame.body, null, 4)}`,
+                                    });
+                                    completeObservable('errored', action, summary.active);
+                                    break;
                             }
                             break;
                         }
                     }
 
                     if (actionChanged) {
-                        client.actions.update((v) => [...v]);
+                        client.actions.update(v => [...v]);
                     }
 
-                    client.summary.update((v) => ({ ...v }));
+                    client.summary.update(v => ({ ...v }));
                 },
             };
             clientMap[message.socket] = signal(client);
-            clients.update((v) => [...v, signal(client)]);
-
+            clients.update(v => [...v, signal(client)]);
         } else if (message.type === 'received' || message.type === 'sent') {
             const client = clientMap[message.socket];
             const binary = base64ToArrayBuffer(message.data);
@@ -466,7 +527,7 @@ export function startCollecting(port: any) {
                     binary,
                     data: '',
                 };
-                client().messages.update((v) => [...v, data]);
+                client().messages.update(v => [...v, data]);
                 client().messages$.next(data);
 
                 const summary = client().summary();
@@ -477,58 +538,57 @@ export function startCollecting(port: any) {
                     summary.received += 1;
                     summary.receivedBytes += binary.byteLength;
                 }
-                client().summary.update((v) => ({ ...v }));
+                client().summary.update(v => ({ ...v }));
 
                 if (client().type !== 'unsupported') {
                     // console.log('message', message.socket, message.type, message.timestamp, binary.byteLength);
                     try {
-                        let rpcMessage = readBinaryRpcMessage(binary);
-                        if (rpcMessage.type === RpcTypes.Chunk) {
-                            const body = rpcMessage.debug().body as {
-                                id: number;
-                                total: number;
-                                v: Uint8Array;
-                            };
-
-                            const chunks = client().chunks;
-                            const c = chunks[body.id] ||= { loaded: 0, buffers: [] };
-                            c.buffers.push(body.v);
-                            c.loaded += body.v.byteLength;
-                            if (c.loaded === body.total) {
-                                const newBuffer = bufferConcat(c.buffers, body.total);
-                                rpcMessage = readBinaryRpcMessage(newBuffer);
-                                delete chunks[body.id];
-                            } else {
-                                return;
+                        if ((binary[4] & 0b0111_0000) === MessageFlag.TypeSchema) {
+                            // the handshake of protocol version 2: the action ids have to be known to show calls by their name
+                            if (message.type !== 'sent' && binary.byteLength > 10) {
+                                const parsed = parseSchemaMapping(schemaMapping.decode(binary, 10));
+                                const actions: Client['schemaActions'] = {};
+                                for (const controller of Object.keys(parsed)) {
+                                    for (const method of Object.keys(parsed[controller])) {
+                                        const entry = parsed[controller][method];
+                                        actions[entry.action] = {
+                                            controller,
+                                            method,
+                                            parameters: entry.parameters,
+                                            type: entry.type,
+                                        };
+                                    }
+                                }
+                                client().schemaActions = actions;
                             }
+                            client().type = 'deepkit';
+                            return;
                         }
 
-                        data.deepkit = {
-                            message: rpcMessage,
-                            debug: rpcMessage.debug(),
-                        };
-
-                        data.data = JSON.stringify(data.deepkit.debug.body, null, 4);
-                        data.id = rpcMessage.id;
-                        data.type = rpcMessage.type;
-                        client().timestampMap[rpcMessage.id] = message.timestamp;
-
-                        client().messageReader(rpcMessage);
+                        const frame = readFrame(client(), binary, message.type === 'sent');
+                        if (frame) {
+                            data.deepkit = frame;
+                            data.data = JSON.stringify(frame.body, null, 4);
+                            data.id = frame.id;
+                            data.type = frame.kind;
+                            client().timestampMap[frame.id] = message.timestamp;
+                            client().messageReader(frame);
+                        }
                         client().type = 'deepkit';
                     } catch (error) {
                         client().type = 'unsupported';
-                        console.log('readBinaryRpcMessage error', error);
+                        console.log('reading RPC frame failed', error);
                     }
                 } else {
                     //binary to hex
                     data.data = binaryToHex(binary);
                 }
-                client.update((v) => ({ ...v }));
+                client.update(v => ({ ...v }));
             }
         } else if (message.type === 'close') {
             const client = clientMap[message.socket];
             if (client) {
-                client.update((v) => ({ ...v, closed: true, closedAt: new Date(message.timestamp) }));
+                client.update(v => ({ ...v, closed: true, closedAt: new Date(message.timestamp) }));
             }
         }
     });

@@ -7,27 +7,31 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
-
-import { RpcKernel, RpcKernelBaseConnection, RpcKernelConnection, SessionState, TransportConnection } from '@deepkit/rpc';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import http, { Server } from 'http';
 import https from 'https';
-import type { Server as WebSocketServer, ServerOptions as WebSocketServerOptions } from 'ws';
-import ws from 'ws';
-
-import { HttpConfig, HttpKernel, HttpRequest, HttpResponse } from '@deepkit/http';
-import { InjectorContext } from '@deepkit/injector';
-import { RpcControllers } from './rpc.js';
-import { SecureContextOptions, TlsOptions } from 'tls';
-
 // @ts-ignore
 import { join } from 'path';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { LoggerInterface } from '@deepkit/logger';
+import { SecureContextOptions, TlsOptions } from 'tls';
+import type { Server as WebSocketServer, ServerOptions as WebSocketServerOptions } from 'ws';
+import ws from 'ws';
+import { constants } from 'zlib';
+
 import { sleep } from '@deepkit/core';
-import { createSelfSignedCertificate } from './self-signed.js';
+import { HttpConfig, HttpKernel, HttpRequest, HttpResponse } from '@deepkit/http';
+import { InjectorContext } from '@deepkit/injector';
+import { LoggerInterface } from '@deepkit/logger';
+import {
+    RpcKernel,
+    RpcKernelBaseConnection,
+    RpcKernelConnection,
+    SessionState,
+    TransportConnection,
+} from '@deepkit/rpc';
 
 import { compressResponse } from './compression.js';
-import { constants } from 'zlib';
+import { RpcControllers } from './rpc.js';
+import { createSelfSignedCertificate } from './self-signed.js';
 
 export interface WebServerOptions {
     host: string;
@@ -88,7 +92,6 @@ export interface WebServerOptions {
     selfSigned?: boolean;
 }
 
-
 export interface RpcServerListener {
     close(): void | Promise<void>;
 }
@@ -107,31 +110,43 @@ export interface RpcServerInterface {
 
 export class RpcServer implements RpcServerInterface {
     start(options: RpcServerOptions, createRpcConnection: RpcServerCreateConnection): RpcServerListener {
-        const { Server }: { Server: { new(options: WebSocketServerOptions): WebSocketServer } } = ws;
+        const { Server }: { Server: { new (options: WebSocketServerOptions): WebSocketServer } } = ws;
 
         const server = new Server(options);
 
         server.on('connection', (ws, req: HttpRequest) => {
-            const connection = createRpcConnection({
-                writeBinary(message) {
-                    ws.send(message);
+            const connection = createRpcConnection(
+                {
+                    writeBinary(message) {
+                        ws.send(message);
+                    },
+                    // ws hands the bytes to the socket right away, what it keeps counts in bufferedAmount
+                    binarySocket: {
+                        write(message: Uint8Array) {
+                            ws.send(message);
+                        },
+                        get writableLength() {
+                            return ws.bufferedAmount;
+                        },
+                    },
+                    close() {
+                        ws.close();
+                    },
+                    bufferedAmount(): number {
+                        return ws.bufferedAmount;
+                    },
+                    clientAddress(): string {
+                        return req.getRemoteAddress();
+                    },
                 },
-                close() {
-                    ws.close();
-                },
-                bufferedAmount(): number {
-                    return ws.bufferedAmount;
-                },
-                clientAddress(): string {
-                    return req.getRemoteAddress();
-                }
-            }, req);
+                req,
+            );
 
             ws.on('message', (message: Uint8Array) => {
                 connection.feed(message);
             });
 
-            ws.on('error', (error) => {
+            ws.on('error', error => {
                 connection.close(error);
             });
 
@@ -143,7 +158,7 @@ export class RpcServer implements RpcServerInterface {
         return {
             close() {
                 server.close();
-            }
+            },
         };
     }
 }
@@ -156,21 +171,41 @@ export class WebWorkerFactory {
         protected injectorContext: InjectorContext,
         protected rpcServer: RpcServer,
         protected rpcKernel: RpcKernel,
-    ) {
-    }
+    ) {}
 
     create(id: number, options: WebServerOptions): WebWorker {
-        return new WebWorker(id, this.logger, this.httpKernel, this.rpcKernel, this.injectorContext, options, this.rpcServer);
+        return new WebWorker(
+            id,
+            this.logger,
+            this.httpKernel,
+            this.rpcKernel,
+            this.injectorContext,
+            options,
+            this.rpcServer,
+        );
     }
 }
 
 export class WebMemoryWorkerFactory extends WebWorkerFactory {
     create(id: number, options: WebServerOptions): WebMemoryWorker {
-        return new WebMemoryWorker(id, this.logger, this.httpKernel, this.rpcKernel, this.injectorContext, options, this.rpcServer);
+        return new WebMemoryWorker(
+            id,
+            this.logger,
+            this.httpKernel,
+            this.rpcKernel,
+            this.injectorContext,
+            options,
+            this.rpcServer,
+        );
     }
 }
 
-export function createRpcConnection(rootScopedContext: InjectorContext, rpcKernel: RpcKernel, transport: TransportConnection, request?: HttpRequest) {
+export function createRpcConnection(
+    rootScopedContext: InjectorContext,
+    rpcKernel: RpcKernel,
+    transport: TransportConnection,
+    request?: HttpRequest,
+) {
     const injector = rootScopedContext.createChildScope('rpc');
     injector.set(HttpRequest, request);
     injector.set(InjectorContext, injector);
@@ -242,7 +277,8 @@ export class WebWorker {
         if ('undefined' !== typeof config.headersTimeout) server.headersTimeout = config.headersTimeout;
         if ('undefined' !== typeof config.maxHeadersCount) server.maxHeadersCount = config.maxHeadersCount;
         if ('undefined' !== typeof config.keepAliveTimeout) server.keepAliveTimeout = config.keepAliveTimeout;
-        if ('undefined' !== typeof config.maxRequestsPerSocket) server.maxRequestsPerSocket = config.maxRequestsPerSocket;
+        if ('undefined' !== typeof config.maxRequestsPerSocket)
+            server.maxRequestsPerSocket = config.maxRequestsPerSocket;
     }
 
     start() {
@@ -265,21 +301,26 @@ export class WebWorker {
                         options.key = pems.private;
                         writeFileSync(keyPath, pems.private, 'utf8');
                         writeFileSync(certificatePath, pems.cert, 'utf8');
-                        this.logger.log(`Self signed certificate for ${this.options.host} created at ${certificatePath}`);
-                        this.logger.log(`Tip: If you want to open this server via chrome for localhost, use chrome://flags/#allow-insecure-localhost`);
+                        this.logger.log(
+                            `Self signed certificate for ${this.options.host} created at ${certificatePath}`,
+                        );
+                        this.logger.log(
+                            `Tip: If you want to open this server via chrome for localhost, use chrome://flags/#allow-insecure-localhost`,
+                        );
                     }
                 }
 
                 if (!options.key && this.options.sslKey) options.key = readFileSync(this.options.sslKey, 'utf8');
                 if (!options.ca && this.options.sslCa) options.ca = readFileSync(this.options.sslCa, 'utf8');
-                if (!options.cert && this.options.sslCertificate) options.cert = readFileSync(this.options.sslCertificate, 'utf8');
+                if (!options.cert && this.options.sslCertificate)
+                    options.cert = readFileSync(this.options.sslCertificate, 'utf8');
                 if (!options.crl && this.options.sslCrl) options.crl = readFileSync(this.options.sslCrl, 'utf8');
 
                 this.servers = new https.Server(
-                    Object.assign({ IncomingMessage: HttpRequest, ServerResponse: HttpResponse as any, }, options),
-                    this.handleRequest as any
+                    Object.assign({ IncomingMessage: HttpRequest, ServerResponse: HttpResponse as any }, options),
+                    this.handleRequest as any,
                 );
-                this.servers.requestTimeout
+                this.servers.requestTimeout;
                 this.servers.listen(this.options.httpsPort || this.options.port, this.options.host);
             }
 
@@ -287,7 +328,7 @@ export class WebWorker {
             if (startHttpServer) {
                 this.server = new http.Server(
                     { IncomingMessage: HttpRequest, ServerResponse: HttpResponse as any },
-                    this.handleRequest as any
+                    this.handleRequest as any,
                 );
                 this.server.listen(this.options.port, this.options.host);
             }
@@ -329,12 +370,19 @@ export class WebWorker {
             this.shuttingDown = true;
             //wait until all http requests are finished
             if (this.activeRequests) {
-                this.logger.log(`Waiting ${this.options.gracefulShutdownTimeout}s for all ${this.activeRequests} http requests to finish ...`);
+                this.logger.log(
+                    `Waiting ${this.options.gracefulShutdownTimeout}s for all ${this.activeRequests} http requests to finish ...`,
+                );
                 const started = Date.now();
                 while (this.activeRequests) {
                     //if timeout is exceeded
-                    if (this.options.gracefulShutdownTimeout && (Date.now() - started) / 1000 > this.options.gracefulShutdownTimeout) {
-                        this.logger.log(`Timeout of ${this.options.gracefulShutdownTimeout}s exceeded. Closing ${this.activeRequests} open http requests.`);
+                    if (
+                        this.options.gracefulShutdownTimeout &&
+                        (Date.now() - started) / 1000 > this.options.gracefulShutdownTimeout
+                    ) {
+                        this.logger.log(
+                            `Timeout of ${this.options.gracefulShutdownTimeout}s exceeded. Closing ${this.activeRequests} open http requests.`,
+                        );
                         break;
                     }
                     await sleep(0.1);
@@ -348,6 +396,5 @@ export class WebWorker {
 }
 
 export class WebMemoryWorker extends WebWorker {
-    start() {
-    }
+    start() {}
 }

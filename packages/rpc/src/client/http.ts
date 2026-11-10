@@ -1,11 +1,10 @@
-import { ClientTransportAdapter, RpcClient } from './client.js';
+import { RpcError } from '../model.js';
+import { rpcDecodeError } from '../protocol.js';
 import { TransportClientConnection } from '../transport.js';
-import { RpcMessageDefinition } from '../protocol.js';
-import { RpcError, RpcTypes } from '../model.js';
-import { HttpRpcMessage } from '../server/http.js';
-import { serialize } from '@deepkit/type';
+import { RpcHttpActionTypes, RpcHttpTransport } from './action.js';
+import { ClientTransportAdapter, RpcClient } from './client.js';
 
-declare const location: { protocol: string, host: string, origin: string };
+declare const location: { protocol: string; host: string; origin: string };
 
 export interface RpcHttpResponseInterface {
     status: number;
@@ -14,24 +13,27 @@ export interface RpcHttpResponseInterface {
 }
 
 export interface RpcHttpInterface {
-    fetch(url: string, options: {
-        headers: { [name: string]: string },
-        method: string,
-        body?: string
-    }): Promise<RpcHttpResponseInterface>;
+    fetch(
+        url: string,
+        options: {
+            headers: { [name: string]: string };
+            method: string;
+            body?: string;
+        },
+    ): Promise<RpcHttpResponseInterface>;
 }
 
 export class RpcHttpFetch implements RpcHttpInterface {
-    constructor(
-        private baseUrl: string | ((url: string) => string) = '',
-    ) {
-    }
+    constructor(private baseUrl: string | ((url: string) => string) = '') {}
 
-    async fetch(url: string, options: {
-        headers: { [name: string]: string },
-        method: string,
-        body: any
-    }): Promise<RpcHttpResponseInterface> {
+    async fetch(
+        url: string,
+        options: {
+            headers: { [name: string]: string };
+            method: string;
+            body: any;
+        },
+    ): Promise<RpcHttpResponseInterface> {
         if ('function' === typeof this.baseUrl) {
             url = this.baseUrl(url);
         } else if (this.baseUrl) {
@@ -64,7 +66,7 @@ export function createRpcHttpClientProvider(
     };
 }
 
-export class RpcHttpClientAdapter implements ClientTransportAdapter {
+export class RpcHttpClientAdapter implements ClientTransportAdapter, RpcHttpTransport {
     constructor(
         public url: string,
         public headers: { [name: string]: string } = {},
@@ -82,74 +84,61 @@ export class RpcHttpClientAdapter implements ClientTransportAdapter {
         return false;
     }
 
+    httpTransport(): RpcHttpTransport {
+        return this;
+    }
+
     async connect(connection: TransportClientConnection): Promise<void> {
-        // http transporter does not connect, it waits for the first message to connect
+        // http transporter does not connect, every call is a request of its own
         connection.onConnected({
-            write: async (message: RpcMessageDefinition, options) => {
-                const qs: string[] = [];
-                let path = '';
-                let method = 'GET';
-                let body: string | undefined = undefined;
-
-                if (message.type === RpcTypes.ActionType) {
-                    if (!message.body) throw new RpcError('No body given');
-                    const body = message.body.body as { controller: string, method: string, };
-                    path = body.controller + '/' + encodeURIComponent(body.method) + '.type';
-                    method = 'GET';
-                } else if (message.type === RpcTypes.Action) {
-                    if (!message.body) throw new RpcError('No body given');
-                    const messageBody = serialize(message.body.body, undefined, undefined, undefined, message.body.type) as {
-                        controller: string,
-                        method: string,
-                        args: any[]
-                    };
-                    path = messageBody.controller + '/' + encodeURIComponent(messageBody.method);
-                    const allPrimitive = messageBody.args.every(v => ['string', 'number', 'boolean', 'bigint'].includes(typeof v));
-                    if (allPrimitive) {
-                        for (const a of messageBody.args) {
-                            qs.push('arg=' + encodeURIComponent(String(a)));
-                        }
-                        method = 'GET';
-                    } else {
-                        body = JSON.stringify(messageBody.args);
-                        method = 'POST';
-                    }
-                } else {
-                    throw new RpcError('Unsupported message type ' + message.type + ' for Http adapter');
-                }
-
-                const res = await this.http.fetch(this.url + '/' + path + '?' + qs.join('&'), {
-                    headers: Object.assign({
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        ...(connection.token != undefined) ? {
-                            'Authorization': String(connection.token),
-                        } : {},
-                    }, this.headers),
-                    method,
-                    body,
-                });
-
-                const type = Number(res.headers['x-message-type']);
-                const composite = 'true' === res.headers['x-message-composite'];
-                const routeType = Number(res.headers['x-message-routetype']);
-                let json = res.body;
-                if (type === RpcTypes.ResponseActionSimple) {
-                    json = { v: json };
-                }
-                connection.read(new HttpRpcMessage(message.id, composite, type, routeType, {}, json));
-            },
             bufferedAmount(): number {
                 return 0;
             },
-            close(): void {
-            },
+            close(): void {},
             clientAddress(): string {
                 return '';
             },
         });
     }
+
+    protected async request(path: string, method: string, token: any, body?: string): Promise<any> {
+        const res = await this.http.fetch(this.url + '/' + path, {
+            headers: Object.assign(
+                {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    ...(token != undefined
+                        ? {
+                              Authorization: String(token),
+                          }
+                        : {}),
+                },
+                this.headers,
+            ),
+            method,
+            body,
+        });
+        if (res.headers['x-rpc-error'] || res.headers['X-Rpc-Error']) throw rpcDecodeError(res.body);
+        if (res.status >= 400) throw new RpcError(res.body?.error ?? `HTTP status ${res.status}`);
+        return res.body;
+    }
+
+    requestTypes(controller: string, method: string, token: any): Promise<RpcHttpActionTypes> {
+        return this.request(controller + '/' + encodeURIComponent(method) + '.type?', 'GET', token);
+    }
+
+    requestCall(controller: string, method: string, args: any[], token: any): Promise<any> {
+        const path = controller + '/' + encodeURIComponent(method);
+        const allPrimitive = args.every(v => ['string', 'number', 'boolean', 'bigint'].includes(typeof v));
+        if (allPrimitive) {
+            return this.request(
+                path + '?' + args.map(v => 'arg=' + encodeURIComponent(String(v))).join('&'),
+                'GET',
+                token,
+            );
+        }
+        return this.request(path + '?', 'POST', token, JSON.stringify(args));
+    }
 }
 
-
-export const RpcHttpHeaderNames = ['x-message-type', 'x-message-composite', 'x-message-routetype'];
+export const RpcHttpHeaderNames = ['x-rpc-error'];

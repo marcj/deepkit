@@ -7,29 +7,29 @@
  *
  * You should have received a copy of the MIT License along with this program.
  */
+import { ClassType, arrayRemoveItem, deletePathValue, getPathValue, setPathValue } from '@deepkit/core';
+import { ReflectionClass, TypeObjectLiteral, getPartialSerializeFunction, serializer } from '@deepkit/type';
 
-import { arrayRemoveItem, ClassType, deletePathValue, getPathValue, setPathValue } from '@deepkit/core';
 import {
     EntityPatch,
     EntitySubject,
     IdType,
     IdVersionInterface,
+    RpcError,
     rpcEntityPatch,
     rpcEntityRemove,
-    RpcError,
-    RpcTypes,
 } from '../model.js';
-import { RpcMessage } from '../protocol.js';
-import { getPartialSerializeFunction, ReflectionClass, serializer, TypeObjectLiteral } from '@deepkit/type';
 
 export class EntitySubjectStore<T extends IdVersionInterface> {
-    store = new Map<IdType, { item: T, forks: EntitySubject<T>[] }>();
+    store = new Map<IdType, { item: T; forks: EntitySubject<T>[] }>();
     onCreation = new Map<IdType, { calls: Function[] }>();
 
-    protected partialDeserializer = getPartialSerializeFunction(ReflectionClass.from(this.classType).type, serializer.deserializeRegistry);
+    protected partialDeserializer = getPartialSerializeFunction(
+        ReflectionClass.from(this.classType).type,
+        serializer.deserializeRegistry,
+    );
 
-    constructor(protected classType: ClassType) {
-    }
+    constructor(protected classType: ClassType) {}
 
     public isRegistered(id: IdType): boolean {
         return this.store.has(id);
@@ -107,14 +107,16 @@ export class EntitySubjectStore<T extends IdVersionInterface> {
             }
         }
 
-        if (patch.$inc) for (const i in patch.$inc) {
-            if (i === 'version') continue;
-            setPathValue(store.item, i, getPathValue(store.item, i) + patch.$inc[i]);
-        }
+        if (patch.$inc)
+            for (const i in patch.$inc) {
+                if (i === 'version') continue;
+                setPathValue(store.item, i, getPathValue(store.item, i) + patch.$inc[i]);
+            }
 
-        if (patch.$unset) for (const i in patch.$unset) {
-            deletePathValue(store.item, i);
-        }
+        if (patch.$unset)
+            for (const i in patch.$unset) {
+                deletePathValue(store.item, i);
+            }
 
         for (const fork of store.forks) {
             fork.patches.next(patch);
@@ -180,40 +182,14 @@ export class EntityState {
         return store;
     }
 
-    public createEntitySubject(classType: ClassType, bodySchema: TypeObjectLiteral, message: RpcMessage) {
-        if (message.type !== RpcTypes.ResponseEntity) throw new RpcError('Not a response entity message');
-        const item = message.parseBody<{ v: any }>(bodySchema).v;
-
-        const store = this.getStore(classType);
-        if (!store.isRegistered(item.id)) store.register(item);
-
-        return store.createFork(item.id);
+    public onEntityPatch(body: rpcEntityPatch): void {
+        //todo, use specialized ClassSchema, so we get correct instance types returned. We need however first deepkit/bson patch support
+        // at the moment this happens in onPatch using jsonSerializer
+        this.getStoreByName(body.entityName).onPatch(body.id, body.version, body.patch);
     }
 
-    /**
-     * Handles the RpcType.Entity, which is a composite per default.
-     */
-    public handle(entityMessage: RpcMessage) {
-        for (const message of entityMessage.getBodies()) {
-            switch (message.type) {
-                case RpcTypes.EntityPatch: {
-                    //todo, use specialized ClassSchema, so we get correct instance types returned. We need however first deepkit/bson patch support
-                    // at the moment this happens in onPatch using jsonSerializer
-                    const body = message.parseBody<rpcEntityPatch>();
-                    const store = this.getStoreByName(body.entityName);
-                    store.onPatch(body.id, body.version, body.patch);
-                    break;
-                }
-
-                case RpcTypes.EntityRemove: {
-                    const body = message.parseBody<rpcEntityRemove>();
-                    for (const id of body.ids) {
-                        const store = this.getStoreByName(body.entityName);
-                        store.onDelete(id);
-                    }
-                    break;
-                }
-            }
-        }
+    public onEntityRemove(body: rpcEntityRemove): void {
+        const store = this.getStoreByName(body.entityName);
+        for (const id of body.ids) store.onDelete(id);
     }
 }

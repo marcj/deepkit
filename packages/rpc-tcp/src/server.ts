@@ -1,11 +1,13 @@
-import { asyncOperation, ParsedHost, parseHost } from '@deepkit/core';
-import { RpcKernel, RpcMessageDefinition } from '@deepkit/rpc';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
-import { createServer, Server, Socket } from 'net';
+import { IncomingMessage } from 'http';
+import { Server, Socket, createServer } from 'net';
+import { dirname } from 'path';
 import type { ServerOptions as WebSocketServerOptions } from 'ws';
 import { WebSocketServer } from 'ws';
-import { IncomingMessage } from 'http';
-import { dirname } from 'path';
+
+import { ParsedHost, asyncOperation, parseHost } from '@deepkit/core';
+import { SocketWriter } from '@deepkit/net/node';
+import { RpcKernel } from '@deepkit/rpc';
 
 /**
  * Uses the node `net` module to create a server. Supports unix sockets.
@@ -27,7 +29,7 @@ export class RpcTcpServer {
 
     start() {
         return asyncOperation((resolve, reject) => {
-            this.server = createServer();
+            this.server = createServer({ noDelay: true });
 
             this.server.on('listening', () => {
                 resolve(true);
@@ -38,14 +40,18 @@ export class RpcTcpServer {
             });
 
             this.server.on('connection', (socket: Socket) => {
+                const writer = new SocketWriter(socket);
                 const connection = this.kernel?.createConnection({
-                    write(b: RpcMessageDefinition) {
-                        connection.sendToSocket(b, socket);
+                    writeBinary(message: Uint8Array) {
+                        writer.flush();
+                        socket.write(message);
                     },
+                    binarySocket: writer,
                     clientAddress(): string {
                         return socket.remoteAddress || '';
                     },
                     close() {
+                        writer.flush();
                         socket.destroy();
                     },
                     bufferedAmount(): number {
@@ -61,7 +67,7 @@ export class RpcTcpServer {
                     connection.close();
                 });
 
-                socket.on('error', (error) => {
+                socket.on('error', error => {
                     connection.close(error);
                 });
             });
@@ -113,9 +119,10 @@ export class RpcWebSocketServer {
                 },
             };
             const connection = this.kernel?.createConnection({
-                write(message: RpcMessageDefinition) {
-                    connection.sendToSocket(message, binarySocket);
+                writeBinary(message: Uint8Array) {
+                    ws.send(message);
                 },
+                binarySocket,
                 close() {
                     ws.close();
                 },
@@ -135,7 +142,7 @@ export class RpcWebSocketServer {
                 connection.close();
             });
 
-            ws.on('error', (error) => {
+            ws.on('error', error => {
                 connection.close(error);
             });
         });

@@ -1,14 +1,16 @@
-import { rpc } from '@deepkit/rpc';
 import { afterEach, describe, expect, it, jest, test } from '@jest/globals';
-import { InjectorContext } from '@deepkit/injector';
-import { createTestingApp } from '../src/testing.js';
-import { ApplicationServer } from '../src/application-server.js';
-import { ConsoleTransport, Logger, MemoryLoggerTransport } from '@deepkit/logger';
-import { FrameworkModule } from '../src/module.js';
-import { RpcServer, RpcServerInterface, WebWorker } from '../src/worker.js';
-import { http, HttpRequest } from '@deepkit/http';
+
 import { App } from '@deepkit/app';
 import { sleep } from '@deepkit/core';
+import { HttpRequest, http } from '@deepkit/http';
+import { InjectorContext } from '@deepkit/injector';
+import { ConsoleTransport, Logger, MemoryLoggerTransport } from '@deepkit/logger';
+import { rpc } from '@deepkit/rpc';
+
+import { ApplicationServer } from '../src/application-server.js';
+import { FrameworkModule } from '../src/module.js';
+import { createTestingApp } from '../src/testing.js';
+import { RpcServer, RpcServerInterface, WebWorker } from '../src/worker.js';
 
 jest.mock('ws', () => {
     const on = jest.fn();
@@ -24,7 +26,7 @@ jest.mock('ws', () => {
 Error.stackTraceLimit = 50;
 
 jest.mock('http', () => ({
-    ...jest.requireActual('http') as any,
+    ...(jest.requireActual('http') as any),
     Server: jest.fn(() => ({
         on: jest.fn(),
         listen: jest.fn(),
@@ -40,8 +42,7 @@ describe('application-server', () => {
     test('testing app api', async () => {
         @rpc.controller('test')
         class MyController {
-            constructor(protected logger: Logger) {
-            }
+            constructor(protected logger: Logger) {}
 
             @rpc.action()
             foo() {
@@ -80,9 +81,9 @@ describe('application-server', () => {
             controllers: [MyController],
             imports: [
                 new FrameworkModule({
-                    broker: { startOnBootstrap: false }
-                })
-            ]
+                    broker: { startOnBootstrap: false },
+                }),
+            ],
         }).app;
         const applicationServer = app.get(ApplicationServer);
         const injectorContext = app.get(InjectorContext);
@@ -122,7 +123,7 @@ describe('application-server', () => {
         test('needed for publicDir', async () => {
             const testing = createTestingApp({
                 controllers: [],
-                imports: [new FrameworkModule({ publicDir: 'public' })]
+                imports: [new FrameworkModule({ publicDir: 'public' })],
             });
 
             await testing.startServer();
@@ -142,7 +143,7 @@ describe('application-server', () => {
 
             const testing = createTestingApp({
                 controllers: [MyController],
-                imports: [new FrameworkModule({ publicDir: 'public', gracefulShutdownTimeout: 1 })]
+                imports: [new FrameworkModule({ publicDir: 'public', gracefulShutdownTimeout: 1 })],
             });
 
             await testing.startServer();
@@ -164,7 +165,7 @@ describe('application-server', () => {
 
             const testing = createTestingApp({
                 controllers: [MyController],
-                imports: [new FrameworkModule({ publicDir: 'public', gracefulShutdownTimeout: 1 })]
+                imports: [new FrameworkModule({ publicDir: 'public', gracefulShutdownTimeout: 1 })],
             });
 
             await testing.startServer();
@@ -194,22 +195,19 @@ describe('application-server', () => {
             };
 
             const rpcServerMock: RpcServerInterface = {
-                start: jest.fn((
-                    options: any,
-                    createRpcConnection: any
-                ) => wsServerMock.on('connection', (ws: any, req: HttpRequest) => {
-                    createRpcConnection({
-                        write: jest.fn(),
-                        close: jest.fn(),
-                        bufferedAmount: jest.fn(),
-                        clientAddress: jest.fn(),
-                    });
-                })),
+                start: jest.fn((options: any, createRpcConnection: any) =>
+                    wsServerMock.on('connection', (ws: any, req: HttpRequest) => {
+                        createRpcConnection({
+                            close: jest.fn(),
+                            bufferedAmount: jest.fn(),
+                            clientAddress: jest.fn(),
+                        });
+                    }),
+                ),
             };
 
             @rpc.controller('test')
-            class MyController {
-            }
+            class MyController {}
 
             const app = new App({
                 controllers: [MyController],
@@ -217,11 +215,13 @@ describe('application-server', () => {
                     {
                         provide: RpcServer,
                         useValue: rpcServerMock,
-                    }
+                    },
                 ],
-                imports: [new FrameworkModule({
-                    broker: { startOnBootstrap: false }
-                })]
+                imports: [
+                    new FrameworkModule({
+                        broker: { startOnBootstrap: false },
+                    }),
+                ],
             });
             const applicationServer = app.get(ApplicationServer);
             await applicationServer.start();
@@ -229,27 +229,28 @@ describe('application-server', () => {
             expect(rpcServerMock.start).toHaveBeenCalledTimes(1);
             expect(onMock).toHaveBeenCalledTimes(1);
             expect(require('ws').Server).not.toHaveBeenCalled();
-            expect((new (require('ws').Server)()).on).not.toHaveBeenCalled();
+            expect(new (require('ws').Server)().on).not.toHaveBeenCalled();
 
             await applicationServer.close();
         });
 
         test('should use default implementation via ws when not specified', async () => {
             @rpc.controller('test')
-            class MyController {
-            }
+            class MyController {}
 
             const app = new App({
                 controllers: [MyController],
-                imports: [new FrameworkModule({
-                    broker: { startOnBootstrap: false }
-                })]
+                imports: [
+                    new FrameworkModule({
+                        broker: { startOnBootstrap: false },
+                    }),
+                ],
             });
             const applicationServer = app.get(ApplicationServer);
             await applicationServer.start();
 
             expect(require('ws').Server).toHaveBeenCalledTimes(1);
-            expect((new (require('ws').Server)()).on).toHaveBeenCalledTimes(1);
+            expect(new (require('ws').Server)().on).toHaveBeenCalledTimes(1);
 
             await applicationServer.close();
         });

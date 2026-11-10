@@ -23,6 +23,7 @@
   },
   "peerDependencies": {
     "@deepkit/core": "^1.1.0",
+    "@deepkit/net": "^1.1.0",
     "@deepkit/rpc": "^1.1.0"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "ws": "^8.6.0"
   },
   "devDependencies": {
+    "@deepkit/net": "^1.1.0",
     "@deepkit/rpc": "^1.1.0"
   },
   "jest": {

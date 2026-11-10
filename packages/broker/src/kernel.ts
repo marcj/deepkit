@@ -9,44 +9,60 @@
  */
 
 /** @group Kernel */
+import cluster from 'cluster';
+import { closeSync, openSync, renameSync, writeSync } from 'fs';
 
-import { arrayRemoveItem, ProcessLock, ProcessLocker } from '@deepkit/core';
-import { createRpcMessage, RpcKernel, RpcKernelBaseConnection, RpcKernelConnections, RpcMessage, RpcMessageBuilder, RpcMessageRouteType, RpcStats, TransportConnection } from '@deepkit/rpc';
-import { Logger } from '@deepkit/logger';
+import { ProcessLock, ProcessLocker, arrayRemoveItem } from '@deepkit/core';
+import { InjectorContext } from '@deepkit/injector';
 import {
-    brokerBusPublish,
-    brokerBusResponseHandleMessage,
-    brokerBusSubscribe,
-    brokerDelete,
-    brokerEntityFields,
-    brokerGet,
-    brokerGetCache,
-    brokerIncrement,
-    brokerInvalidateCacheMessage,
-    brokerLock,
-    brokerLockId,
-    BrokerQueueMessageHandled,
+    RpcError,
+    RpcKernel,
+    RpcKernelConnection,
+    TransientBytes,
+    TransportConnection,
+    copyFrame,
+    createParameterSerializer,
+    frameMemory,
+    rpc,
+    writePushFrameTransient,
+} from '@deepkit/rpc';
+import { TypeTuple, typeOf } from '@deepkit/type';
+
+import {
+    BrokerBusEvent,
+    BrokerEntityFieldsEvent,
+    BrokerInvalidationEvent,
+    BrokerPush,
+    BrokerQueueEvent,
     BrokerQueuePublish,
-    BrokerQueueResponseHandleMessage,
-    BrokerQueueSubscribe,
-    brokerResponseGet,
-    brokerResponseGetCache,
-    brokerResponseGetCacheMeta,
-    brokerResponseIncrement,
-    brokerResponseIsLock,
-    brokerSet,
-    brokerSetCache,
-    BrokerType,
     QueueMessage,
     QueueMessageProcessing,
     QueueMessageState,
 } from './model.js';
-import cluster from 'cluster';
-import { closeSync, openSync, renameSync, writeSync } from 'fs';
 import { snapshotState } from './snapshot.js';
 import { handleMessageDeduplication } from './utils.js';
-import { InjectorContext } from '@deepkit/injector';
-import { EventDispatcher } from '@deepkit/event';
+
+/**
+ * The name the broker controller is registered with.
+ * @internal
+ */
+export const brokerControllerName = 'broker';
+
+const pushBus = createParameterSerializer(typeOf<BrokerBusEvent>() as TypeTuple);
+const pushQueue = createParameterSerializer(typeOf<BrokerQueueEvent>() as TypeTuple);
+const pushInvalidation = createParameterSerializer(typeOf<BrokerInvalidationEvent>() as TypeTuple);
+const pushEntityFields = createParameterSerializer(typeOf<BrokerEntityFieldsEvent>() as TypeTuple);
+
+/**
+ * Sends the frame in the shared buffer to all connections. A frame that is sent in chunks writes the chunks to the
+ * shared buffer as well, so the next connection needs a copy that stays.
+ */
+function pushToAll(connections: RpcKernelConnection[], size: number): void {
+    let memory = frameMemory();
+    if (connections.length > 1 && size >= connections[0].transportOptions.chunkSize)
+        memory = copyFrame(memory, 0, size);
+    for (const connection of connections) connection.sendFrame(memory, size);
+}
 
 /**
  * @internal
@@ -56,24 +72,16 @@ export interface Queue {
     name: string;
     deduplicateMessageHashes: Set<string | number>;
     messages: QueueMessage[];
-    consumers: { con: BrokerConnection, handling: Map<number, QueueMessage>, maxMessagesInParallel: number }[];
+    consumers: { con: BrokerConnection; handling: Map<number, QueueMessage>; maxMessagesInParallel: number }[];
 }
 
-export class BrokerConnection extends RpcKernelBaseConnection {
-    protected subscribedChannels: string[] = [];
-    protected locks = new Map<number, ProcessLock>();
+export class BrokerConnection extends RpcKernelConnection {
+    /** Set by BrokerKernel right after the connection is created. */
+    public state!: BrokerState;
 
-    constructor(
-        stats: RpcStats,
-        logger: Logger,
-        transportConnection: TransportConnection,
-        connections: RpcKernelConnections,
-        injector: InjectorContext,
-        eventDispatcher: EventDispatcher,
-        protected state: BrokerState,
-    ) {
-        super(stats, logger, transportConnection, connections, injector, eventDispatcher);
-    }
+    public subscribedChannels: string[] = [];
+    protected locks = new Map<number, ProcessLock>();
+    protected lastLock: number = 0;
 
     public close(): void {
         super.close();
@@ -82,222 +90,184 @@ export class BrokerConnection extends RpcKernelBaseConnection {
             this.state.unsubscribe(c, this);
         }
         arrayRemoveItem(this.state.invalidationCacheMessageConnections, this);
+        this.state.removeConsumer(this);
 
         for (const lock of this.locks.values()) {
             lock.unlock();
         }
+        this.locks.clear();
     }
 
-    protected async sendEntityFields(name: string) {
-        const fields = this.state.getEntityFields(name);
-        const promises: Promise<void>[] = [];
-
-        for (const connection of this.connections.connections) {
-            if ((connection as any) === this) continue;
-            promises.push(connection.sendMessage<brokerEntityFields>(BrokerType.EntityFields, {
-                name,
-                fields,
-            }).ackThenClose());
-        }
-
-        await Promise.all(promises);
+    /** Keeps the lock until the client unlocks it or disconnects. Returns the token the client unlocks it with. */
+    public holdLock(lock: ProcessLock): number {
+        const token = ++this.lastLock;
+        this.locks.set(token, lock);
+        return token;
     }
 
-    async onMessage(message: RpcMessage, response: RpcMessageBuilder): Promise<void> {
-        switch (message.type) {
-            case BrokerType.PublishEntityFields: {
-                const body = message.parseBody<brokerEntityFields>();
-                const changed = this.state.publishEntityFields(body.name, body.fields);
-                if (changed) {
-                    await this.sendEntityFields(body.name);
-                }
-                response.reply<brokerEntityFields>(
-                    BrokerType.EntityFields,
-                    { name: body.name, fields: this.state.getEntityFields(body.name) },
-                );
-                break;
-            }
-            case BrokerType.UnsubscribeEntityFields: {
-                const body = message.parseBody<brokerEntityFields>();
-                const changed = this.state.unsubscribeEntityFields(body.name, body.fields);
-                if (changed) {
-                    await this.sendEntityFields(body.name);
-                }
-                response.reply<brokerEntityFields>(
-                    BrokerType.EntityFields,
-                    { name: body.name, fields: this.state.getEntityFields(body.name) },
-                );
-                break;
-            }
-            case BrokerType.AllEntityFields: {
-                const composite = response.composite(BrokerType.AllEntityFields);
-                for (const name of this.state.entityFields.keys()) {
-                    composite.add<brokerEntityFields>(BrokerType.EntityFields, {
-                        name,
-                        fields: this.state.getEntityFields(name),
-                    });
-                }
-                composite.send();
-                break;
-            }
-            case BrokerType.Lock: {
-                const body = message.parseBody<brokerLock>();
-                this.state.lock(body.id, body.ttl, body.timeout).then(lock => {
-                    this.locks.set(message.id, lock);
-                    response.reply(BrokerType.ResponseLock);
-                }, (error) => {
-                    response.error(error);
-                });
-                break;
-            }
-            case BrokerType.Unlock: {
-                const lock = this.locks.get(message.id);
-                if (lock) {
-                    this.locks.delete(message.id);
-                    lock.unlock();
-                    response.ack();
-                } else {
-                    response.error(new Error('Unknown lock for message id ' + message.id));
-                }
-                break;
-            }
-            case BrokerType.IsLocked: {
-                const body = message.parseBody<brokerLockId>();
-                response.reply<brokerResponseIsLock>(BrokerType.ResponseIsLock, { v: this.state.isLocked(body.id) });
-                break;
-            }
-            case BrokerType.TryLock: {
-                const body = message.parseBody<brokerLock>();
-                this.state.tryLock(body.id, body.ttl).then(lock => {
-                    if (lock) {
-                        this.locks.set(message.id, lock);
-                        response.reply(BrokerType.ResponseLock);
-                    } else {
-                        response.reply(BrokerType.ResponseLockFailed);
-                    }
-                });
-                break;
-            }
-            case BrokerType.QueuePublish: {
-                const body = message.parseBody<BrokerQueuePublish>();
-                this.state.queuePublish(body);
-                response.ack();
-                break;
-            }
-            case BrokerType.QueueSubscribe: {
-                const body = message.parseBody<BrokerQueueSubscribe>();
-                this.state.queueSubscribe(body.c, this, body.maxParallel);
-                response.ack();
-                break;
-            }
-            case BrokerType.QueueUnsubscribe: {
-                const body = message.parseBody<BrokerQueueSubscribe>();
-                this.state.queueUnsubscribe(body.c, this);
-                response.ack();
-                break;
-            }
-            case BrokerType.QueueMessageHandled: {
-                const body = message.parseBody<BrokerQueueMessageHandled>();
-                this.state.queueMessageHandled(body.c, this, body.id, {
-                    error: body.error,
-                    success: body.success,
-                    delay: body.delay,
-                });
-                response.ack();
-                break;
-            }
-            case BrokerType.Subscribe: {
-                const body = message.parseBody<brokerBusSubscribe>();
-                this.state.subscribe(body.c, this);
-                this.subscribedChannels.push(body.c);
-                response.ack();
-                break;
-            }
-            case BrokerType.Unsubscribe: {
-                const body = message.parseBody<brokerBusSubscribe>();
-                this.state.unsubscribe(body.c, this);
-                arrayRemoveItem(this.subscribedChannels, body.c);
-                response.ack();
-                break;
-            }
-            case BrokerType.Publish: {
-                const body = message.parseBody<brokerBusPublish>();
-                this.state.publish(body.c, body.v);
-                response.ack();
-                break;
-            }
-            case BrokerType.SetCache: {
-                const body = message.parseBody<brokerSetCache>();
-                this.state.setCache(body.n, body.v, body.ttl);
-                response.ack();
-                break;
-            }
-            case BrokerType.Set: {
-                const body = message.parseBody<brokerSet>();
-                this.state.setKey(body.n, body.v, body.ttl);
-                response.ack();
-                break;
-            }
-            case BrokerType.Increment: {
-                const body = message.parseBody<brokerIncrement>();
-                const newValue = this.state.increment(body.n, body.v);
-                response.reply<brokerResponseIncrement>(BrokerType.ResponseIncrement, { v: newValue });
-                break;
-            }
-            case BrokerType.Delete: {
-                const body = message.parseBody<brokerDelete>();
-                this.state.deleteKey(body.n);
-                response.ack();
-                break;
-            }
-            case BrokerType.InvalidateCache: {
-                const body = message.parseBody<brokerDelete>();
-                const entry = this.state.getCache(body.n);
-                if (entry && this.state.invalidationCacheMessageConnections.length) {
-                    this.state.deleteCache(body.n);
-                    const message = createRpcMessage<brokerInvalidateCacheMessage>(
-                        0, BrokerType.ResponseInvalidationCache,
-                        { key: body.n, ttl: entry.ttl },
-                        RpcMessageRouteType.server,
-                    );
+    public releaseLock(token: number): void {
+        const lock = this.locks.get(token);
+        if (!lock) throw new RpcError(`Unknown lock ${token}`);
+        this.locks.delete(token);
+        lock.unlock();
+    }
 
-                    for (const connection of this.state.invalidationCacheMessageConnections) {
-                        connection.write(message);
-                    }
-                }
-                response.ack();
-                break;
-            }
-            case BrokerType.DeleteCache: {
-                const body = message.parseBody<brokerDelete>();
-                this.state.deleteCache(body.n);
-                response.ack();
-                break;
-            }
-            case BrokerType.GetCache: {
-                const body = message.parseBody<brokerGetCache>();
-                const v = this.state.getCache(body.n);
-                response.reply<brokerResponseGetCache>(BrokerType.ResponseGetCache, v || {});
-                break;
-            }
-            case BrokerType.GetCacheMeta: {
-                const body = message.parseBody<brokerGetCache>();
-                const v = this.state.getCache(body.n);
-                response.reply<brokerResponseGetCacheMeta>(BrokerType.ResponseGetCacheMeta, v ? { ttl: v.ttl } : { missing: true });
-                break;
-            }
-            case BrokerType.Get: {
-                const body = message.parseBody<brokerGet>();
-                const v = this.state.getKey(body.n);
-                response.reply<brokerResponseGet>(BrokerType.ResponseGet, { v });
-                break;
-            }
-            case BrokerType.EnableInvalidationCacheMessages: {
-                this.state.invalidationCacheMessageConnections.push(this);
-                response.ack();
-                break;
-            }
-        }
+    public broadcastEntityFields(name: string): void {
+        const size = writePushFrameTransient(BrokerPush.entityFields, pushEntityFields, [
+            name,
+            this.state.getEntityFields(name),
+        ]);
+        pushToAll(this.connections.connections.filter(connection => connection !== this) as BrokerConnection[], size);
+    }
+}
+
+/**
+ * The broker as seen by a client. One instance per connection.
+ * @internal
+ */
+export class BrokerController {
+    protected state: BrokerState;
+    protected broker: BrokerConnection;
+
+    constructor(connection: RpcKernelConnection) {
+        this.broker = connection as BrokerConnection;
+        this.state = this.broker.state;
+    }
+
+    @rpc.action()
+    publishEntityFields(name: string, fields: string[]): string[] {
+        if (this.state.publishEntityFields(name, fields)) this.broker.broadcastEntityFields(name);
+        return this.state.getEntityFields(name);
+    }
+
+    @rpc.action()
+    unsubscribeEntityFields(name: string, fields: string[]): string[] {
+        if (this.state.unsubscribeEntityFields(name, fields)) this.broker.broadcastEntityFields(name);
+        return this.state.getEntityFields(name);
+    }
+
+    @rpc.action()
+    allEntityFields(): BrokerEntityFieldsEvent[] {
+        return Array.from(this.state.entityFields.keys(), name => [name, this.state.getEntityFields(name)]);
+    }
+
+    @rpc.action()
+    async lock(id: string, ttl: number, timeout?: number): Promise<number> {
+        return this.broker.holdLock(await this.state.lock(id, ttl, timeout));
+    }
+
+    /** Resolves to undefined when the lock is taken. */
+    @rpc.action()
+    async tryLock(id: string, ttl: number): Promise<number | undefined> {
+        const lock = await this.state.tryLock(id, ttl);
+        return lock ? this.broker.holdLock(lock) : undefined;
+    }
+
+    @rpc.action()
+    unlock(token: number): void {
+        this.broker.releaseLock(token);
+    }
+
+    @rpc.action()
+    isLocked(id: string): boolean {
+        return this.state.isLocked(id);
+    }
+
+    @rpc.action()
+    queuePublish(
+        c: string,
+        v: Uint8Array,
+        process: QueueMessageProcessing,
+        deduplicationInterval?: number,
+        hash?: string | number,
+        delay?: number,
+        priority?: number,
+    ): void {
+        this.state.queuePublish({ c, v, process, deduplicationInterval, hash, delay, priority });
+    }
+
+    @rpc.action()
+    queueSubscribe(c: string, maxParallel: number): void {
+        this.state.queueSubscribe(c, this.broker, maxParallel);
+    }
+
+    @rpc.action()
+    queueUnsubscribe(c: string): void {
+        this.state.queueUnsubscribe(c, this.broker);
+    }
+
+    @rpc.action()
+    queueMessageHandled(c: string, id: number, success: boolean, error?: string, delay?: number): void {
+        this.state.queueMessageHandled(c, this.broker, id, { error, success, delay });
+    }
+
+    @rpc.action()
+    subscribe(c: string): void {
+        this.state.subscribe(c, this.broker);
+        this.broker.subscribedChannels.push(c);
+    }
+
+    @rpc.action()
+    unsubscribe(c: string): void {
+        this.state.unsubscribe(c, this.broker);
+        arrayRemoveItem(this.broker.subscribedChannels, c);
+    }
+
+    @rpc.action()
+    publish(c: string, v: TransientBytes): void {
+        this.state.publish(c, v);
+    }
+
+    @rpc.action()
+    setCache(n: string, v: Uint8Array, ttl: number): void {
+        this.state.setCache(n, v, ttl);
+    }
+
+    @rpc.action()
+    getCache(n: string): [v: Uint8Array, ttl: number] | undefined {
+        const entry = this.state.getCache(n);
+        return entry ? [entry.data, entry.ttl] : undefined;
+    }
+
+    /** The ttl of the entry, undefined if it doesn't exist. */
+    @rpc.action()
+    getCacheMeta(n: string): number | undefined {
+        return this.state.getCache(n)?.ttl;
+    }
+
+    @rpc.action()
+    deleteCache(n: string): void {
+        this.state.deleteCache(n);
+    }
+
+    @rpc.action()
+    invalidateCache(n: string): void {
+        this.state.invalidateCache(n);
+    }
+
+    @rpc.action()
+    enableInvalidations(): void {
+        this.state.invalidationCacheMessageConnections.push(this.broker);
+    }
+
+    @rpc.action()
+    set(n: string, v: Uint8Array, ttl: number): void {
+        this.state.setKey(n, v, ttl);
+    }
+
+    @rpc.action()
+    get(n: string): Uint8Array | undefined {
+        return this.state.getKey(n);
+    }
+
+    @rpc.action()
+    increment(n: string, v?: number): number {
+        return this.state.increment(n, v);
+    }
+
+    @rpc.action()
+    delete(n: string): void {
+        this.state.deleteKey(n);
     }
 }
 
@@ -310,7 +280,7 @@ export class BrokerState {
     /**
      * Cache store.
      */
-    public cacheStore = new Map<string, { data: Uint8Array, ttl: number }>();
+    public cacheStore = new Map<string, { data: Uint8Array; ttl: number }>();
 
     public subscriptions = new Map<string, BrokerConnection[]>();
     public entityFields = new Map<string, Map<string, number>>();
@@ -347,7 +317,7 @@ export class BrokerState {
         const snapshotTempPath = this.snapshotPath + '.tmp';
         //open file for writing, create if not exists, truncate if exists
         const file = openSync(snapshotTempPath, 'w+');
-        snapshotState(this, (v) => writeSync(file, v));
+        snapshotState(this, v => writeSync(file, v));
         closeSync(file);
 
         //rename temp file to final file
@@ -425,14 +395,8 @@ export class BrokerState {
     public publish(channel: string, v: Uint8Array) {
         const subscriptions = this.subscriptions.get(channel);
         if (!subscriptions) return;
-        const message = createRpcMessage<brokerBusResponseHandleMessage>(
-            0, BrokerType.ResponseSubscribeMessage,
-            { c: channel, v: v }, RpcMessageRouteType.server,
-        );
-
-        for (const connection of subscriptions) {
-            connection.write(message);
-        }
+        // written once, however many connections receive it
+        pushToAll(subscriptions, writePushFrameTransient(BrokerPush.bus, pushBus, [channel, v]));
     }
 
     protected getQueue(queueName: string) {
@@ -454,6 +418,14 @@ export class BrokerState {
         const index = queue.consumers.findIndex(v => v.con === connection);
         if (index === -1) return;
         queue.consumers.splice(index, 1);
+    }
+
+    /** A connection that is gone can't handle messages anymore. */
+    public removeConsumer(connection: BrokerConnection) {
+        for (const queue of this.queues.values()) {
+            const index = queue.consumers.findIndex(v => v.con === connection);
+            if (index !== -1) queue.consumers.splice(index, 1);
+        }
     }
 
     public queuePublish(body: BrokerQueuePublish) {
@@ -492,10 +464,8 @@ export class BrokerState {
             m.tries++;
             m.state = QueueMessageState.inFlight;
             m.lastError = undefined;
-            consumer.con.write(createRpcMessage<BrokerQueueResponseHandleMessage>(
-                0, BrokerType.QueueResponseHandleMessage,
-                { c: body.c, v: body.v, id: m.id }, RpcMessageRouteType.server,
-            ));
+            const frameSize = writePushFrameTransient(BrokerPush.queue, pushQueue, [body.c, m.id, body.v]);
+            consumer.con.sendFrame(frameMemory(), frameSize);
         }
 
         //todo: handle queues messages and sending when new consumer connects
@@ -504,11 +474,16 @@ export class BrokerState {
     /**
      * When a queue message has been sent to a consumer and the consumer answers.
      */
-    public queueMessageHandled(queueName: string, connection: BrokerConnection, id: number, answer: {
-        error?: string,
-        success: boolean,
-        delay?: number
-    }) {
+    public queueMessageHandled(
+        queueName: string,
+        connection: BrokerConnection,
+        id: number,
+        answer: {
+            error?: string;
+            success: boolean;
+            delay?: number;
+        },
+    ) {
         const queue = this.queues.get(queueName);
         if (!queue) return;
         const consumer = queue.consumers.find(v => v.con === connection);
@@ -532,12 +507,22 @@ export class BrokerState {
         this.cacheStore.set(id, { data, ttl });
     }
 
-    public getCache(id: string): { data: Uint8Array, ttl: number } | undefined {
+    public getCache(id: string): { data: Uint8Array; ttl: number } | undefined {
         return this.cacheStore.get(id);
     }
 
     public deleteCache(id: string) {
         this.cacheStore.delete(id);
+    }
+
+    /** Removes the entry and tells every connection that asked for it. */
+    public invalidateCache(id: string) {
+        if (!this.getCache(id) || !this.invalidationCacheMessageConnections.length) return;
+        this.deleteCache(id);
+        pushToAll(
+            this.invalidationCacheMessageConnections,
+            writePushFrameTransient(BrokerPush.invalidation, pushInvalidation, [id]),
+        );
     }
 
     public increment(id: string, v?: number): number {
@@ -567,9 +552,17 @@ export class BrokerState {
 }
 
 export class BrokerKernel extends RpcKernel {
-    protected state: BrokerState = new BrokerState;
+    protected state: BrokerState = new BrokerState();
+    protected RpcKernelConnection = BrokerConnection as any;
 
-    createConnection(transport: TransportConnection): BrokerConnection {
-        return new BrokerConnection(this.stats, this.logger, transport, this.connections, this.injector, this.getEventDispatcher(), this.state);
+    constructor(...args: ConstructorParameters<typeof RpcKernel>) {
+        super(...args);
+        this.registerController(BrokerController, brokerControllerName);
+    }
+
+    createConnection(transport: TransportConnection, injector?: InjectorContext): BrokerConnection {
+        const connection = super.createConnection(transport, injector) as BrokerConnection;
+        connection.state = this.state;
+        return connection;
     }
 }

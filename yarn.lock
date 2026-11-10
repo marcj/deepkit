@@ -3956,11 +3956,13 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@deepkit/rpc-tcp@workspace:packages/rpc-tcp"
   dependencies:
+    "@deepkit/net": "npm:^1.1.0"
     "@deepkit/rpc": "npm:^1.1.0"
     "@types/ws": "npm:^8.5.3"
     ws: "npm:^8.6.0"
   peerDependencies:
     "@deepkit/core": ^1.1.0
+    "@deepkit/net": ^1.1.0
     "@deepkit/rpc": ^1.1.0
   languageName: unknown
   linkType: soft
@@ -3975,6 +3977,7 @@ __metadata:
     "@deepkit/event": "npm:^1.1.0"
     "@deepkit/injector": "npm:^1.1.0"
     "@deepkit/logger": "npm:^1.1.0"
+    "@deepkit/net": "npm:^1.1.0"
     "@deepkit/type": "npm:^1.1.0"
     "@types/dot-prop": "npm:^5.0.1"
     "@types/fs-extra": "npm:^9.0.1"
@@ -3987,6 +3990,7 @@ __metadata:
     "@deepkit/event": ^1.1.0
     "@deepkit/injector": ^1.1.0
     "@deepkit/logger": ^1.1.0
+    "@deepkit/net": ^1.1.0
     "@deepkit/type": ^1.1.0
     rxjs: "*"
   languageName: unknown

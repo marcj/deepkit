@@ -21,6 +21,9 @@
     },
     {
       "path": "../core/tsconfig.json"
+    },
+    {
+      "path": "../net/tsconfig.json"
     }
   ]
 }

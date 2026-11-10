@@ -1,70 +1,74 @@
-import { BrokerAdapter, BrokerAdapterQueueProduceOptionsResolved, BrokerQueueMessage, BrokerTimeOptionsResolved, Release } from '../broker.js';
-import { Type } from '@deepkit/type';
-import {
-    brokerBusPublish,
-    brokerBusResponseHandleMessage,
-    brokerBusSubscribe,
-    brokerGet,
-    brokerGetCache,
-    brokerIncrement,
-    brokerInvalidateCache,
-    brokerInvalidateCacheMessage,
-    brokerLock,
-    brokerLockId,
-    BrokerQueueMessageHandled,
-    BrokerQueuePublish,
-    BrokerQueueResponseHandleMessage,
-    BrokerQueueSubscribe,
-    BrokerQueueUnsubscribe,
-    brokerResponseGet,
-    brokerResponseGetCache,
-    brokerResponseGetCacheMeta,
-    brokerResponseIncrement,
-    brokerResponseIsLock,
-    brokerSet,
-    brokerSetCache,
-    BrokerType,
-    QueueMessageProcessing,
-} from '../model.js';
-import { ClientTransportAdapter, createRpcMessage, RpcBaseClient, RpcMessage, RpcMessageRouteType, RpcWebSocketClientAdapter } from '@deepkit/rpc';
 import { deserializeBSON, getBsonEncoder, serializeBSON } from '@deepkit/bson';
 import { arrayRemoveItem, formatError } from '@deepkit/core';
+import {
+    ClientTransportAdapter,
+    RemoteController,
+    RpcClient,
+    RpcWebSocketClientAdapter,
+    createParameterDeserializer,
+} from '@deepkit/rpc';
+import { Type, TypeTuple, typeOf } from '@deepkit/type';
+
 import { BrokerCacheItemOptionsResolved } from '../broker-cache.js';
-import { fastHash } from '../utils.js';
 import { BrokerKeyValueOptionsResolved } from '../broker-key-value.js';
+import {
+    BrokerAdapter,
+    BrokerAdapterQueueProduceOptionsResolved,
+    BrokerQueueMessage,
+    BrokerTimeOptionsResolved,
+    Release,
+} from '../broker.js';
+import type { BrokerController } from '../kernel.js';
+import {
+    BrokerBusEvent,
+    BrokerInvalidationEvent,
+    BrokerPush,
+    BrokerQueueEvent,
+    QueueMessageProcessing,
+} from '../model.js';
+import { fastHash } from '../utils.js';
 
+const brokerControllerName = 'broker';
 
-export class BrokerDeepkitConnection extends RpcBaseClient {
-    activeChannels = new Map<string, { listeners: number, callbacks: ((v: Uint8Array) => void)[] }>();
-    consumers = new Map<string, { listeners: number, callbacks: ((id: number, v: Uint8Array) => Promise<void>)[] }>();
+const readBus = createParameterDeserializer(typeOf<BrokerBusEvent>() as TypeTuple);
+const readQueue = createParameterDeserializer(typeOf<BrokerQueueEvent>() as TypeTuple);
+const readInvalidation = createParameterDeserializer(typeOf<BrokerInvalidationEvent>() as TypeTuple);
+
+export class BrokerDeepkitConnection extends RpcClient {
+    activeChannels = new Map<string, { listeners: number; callbacks: ((v: Uint8Array) => void)[] }>();
+    consumers = new Map<string, { listeners: number; callbacks: ((id: number, v: Uint8Array) => Promise<void>)[] }>();
 
     subscribedToInvalidations?: ((key: string) => void)[];
 
-    protected onMessage(message: RpcMessage) {
-        if (message.routeType === RpcMessageRouteType.server) {
-            if (message.type === BrokerType.EntityFields) {
-                // const fields = message.parseBody<brokerEntityFields>();
-                // this.knownEntityFields.set(fields.name, fields.fields);
-                this.transporter.send(createRpcMessage(message.id, BrokerType.Ack, undefined, RpcMessageRouteType.server));
-            } else if (message.type === BrokerType.ResponseSubscribeMessage) {
-                const body = message.parseBody<brokerBusResponseHandleMessage>();
-                const channel = this.activeChannels.get(body.c);
-                if (!channel) return;
-                for (const callback of channel.callbacks) callback(body.v);
-            } else if (message.type === BrokerType.ResponseInvalidationCache) {
-                const key = message.parseBody<brokerInvalidateCacheMessage>().key;
-                if (this.subscribedToInvalidations) {
-                    for (const callback of this.subscribedToInvalidations) callback(key);
-                }
-            } else if (message.type === BrokerType.QueueResponseHandleMessage) {
-                const body = message.parseBody<BrokerQueueResponseHandleMessage>();
-                const consumer = this.consumers.get(body.c);
-                if (!consumer) return;
-                for (const callback of consumer.callbacks) callback(body.id, body.v).catch(() => undefined);
-            }
-        } else {
-            super.onMessage(message);
-        }
+    public readonly broker: RemoteController<BrokerController> =
+        this.controller<BrokerController>(brokerControllerName);
+
+    constructor(transport: ClientTransportAdapter) {
+        super(transport);
+        this.onPush(BrokerPush.bus, (buffer, offset, end) => {
+            const [channel, value] = readBus(buffer, offset, end);
+            const active = this.activeChannels.get(channel);
+            if (active) for (const callback of active.callbacks) callback(value);
+        });
+        this.onPush(BrokerPush.queue, (buffer, offset, end) => {
+            const [queue, id, value] = readQueue(buffer, offset, end);
+            const consumer = this.consumers.get(queue);
+            if (consumer) for (const callback of consumer.callbacks) callback(id, value).catch(() => undefined);
+        });
+        this.onPush(BrokerPush.invalidation, (buffer, offset, end) => {
+            const [key] = readInvalidation(buffer, offset, end);
+            if (this.subscribedToInvalidations) for (const callback of this.subscribedToInvalidations) callback(key);
+        });
+    }
+
+    onClose(error?: Error) {
+        this.subscribedToInvalidations = undefined;
+        super.onClose(error);
+    }
+
+    async listenInvalidations(callbacks: ((key: string) => void)[]): Promise<void> {
+        this.subscribedToInvalidations = callbacks;
+        await this.broker.enableInvalidations();
     }
 }
 
@@ -80,10 +84,9 @@ export class BrokerDeepkitAdapterOptions {
 }
 
 export class BrokerDeepkitPool {
-    connections: { connection: BrokerDeepkitConnection, server: Server }[] = [];
+    connections: { connection: BrokerDeepkitConnection; server: Server }[] = [];
 
-    constructor(public options: BrokerDeepkitAdapterOptions) {
-    }
+    constructor(public options: BrokerDeepkitAdapterOptions) {}
 
     getConnection(key: string): BrokerDeepkitConnection {
         if (!this.options.servers.length) throw new Error('No servers defined');
@@ -121,8 +124,7 @@ export class BrokerDeepkitAdapter implements BrokerAdapter {
     protected pool = new BrokerDeepkitPool(this.options);
     protected onInvalidateCacheCallbacks: ((key: string) => void)[] = [];
 
-    constructor(public options: BrokerDeepkitAdapterOptions) {
-    }
+    constructor(public options: BrokerDeepkitAdapterOptions) {}
 
     async disconnect(): Promise<void> {
         await this.pool.disconnect();
@@ -133,126 +135,80 @@ export class BrokerDeepkitAdapter implements BrokerAdapter {
     }
 
     async invalidateCache(key: string): Promise<void> {
-        await this.pool.getConnection('cache/' + key).sendMessage<brokerInvalidateCache>(BrokerType.InvalidateCache, { n: key }).ackThenClose();
+        await this.pool.getConnection('cache/' + key).broker.invalidateCache(key);
     }
 
     async setCache(key: string, value: any, options: BrokerCacheItemOptionsResolved, type: Type): Promise<void> {
-        const encoder = getBsonEncoder(type);
-        const v = encoder.encode(value);
-        await this.pool.getConnection('cache/' + key).sendMessage<brokerSetCache>(BrokerType.SetCache, {
-            n: key,
-            v,
-            ttl: options.ttl,
-        }).ackThenClose();
+        const v = getBsonEncoder(type).encode(value);
+        await this.pool.getConnection('cache/' + key).broker.setCache(key, v, options.ttl);
     }
 
     async getCacheMeta(key: string): Promise<{ ttl: number } | undefined> {
-        const first = await this.pool.getConnection('cache/' + key)
-            .sendMessage<brokerGetCache>(BrokerType.GetCacheMeta, { n: key })
-            .firstThenClose<brokerResponseGetCacheMeta>(BrokerType.ResponseGetCacheMeta);
-        if ('missing' in first) return undefined;
-        return first;
+        const ttl = await this.pool.getConnection('cache/' + key).broker.getCacheMeta(key);
+        return ttl === undefined ? undefined : { ttl };
     }
 
-    async getCache(key: string, type: Type): Promise<{ value: any, ttl: number } | undefined> {
+    async getCache(key: string, type: Type): Promise<{ value: any; ttl: number } | undefined> {
         const connection = this.pool.getConnection('cache/' + key);
+        if (!connection.subscribedToInvalidations)
+            await connection.listenInvalidations(this.onInvalidateCacheCallbacks);
 
-        if (!connection.subscribedToInvalidations) {
-            connection.subscribedToInvalidations = this.onInvalidateCacheCallbacks;
-            await connection
-                .sendMessage(BrokerType.EnableInvalidationCacheMessages)
-                .ackThenClose();
-        }
-
-        const first = await connection
-            .sendMessage<brokerGetCache>(BrokerType.GetCache, { n: key })
-            .firstThenClose<brokerResponseGetCache>(BrokerType.ResponseGetCache);
-
-        const encoder = getBsonEncoder(type);
-        return first.v && first.ttl !== undefined ? { value: encoder.decode(first.v, 0), ttl: first.ttl } : undefined;
+        const entry = await connection.broker.getCache(key);
+        return entry ? { value: getBsonEncoder(type).decode(entry[0], 0), ttl: entry[1] } : undefined;
     }
 
     async set(key: string, value: any, options: BrokerKeyValueOptionsResolved, type: Type): Promise<void> {
-        const serializer = getBsonEncoder(type);
-        const v = serializer.encode(value);
-        await this.pool.getConnection('key/' + key).sendMessage<brokerSet>(BrokerType.Set, { n: key, v, ttl: options.ttl }).ackThenClose();
+        await this.pool.getConnection('key/' + key).broker.set(key, getBsonEncoder(type).encode(value), options.ttl);
     }
 
     async get(key: string, type: Type): Promise<any> {
-        const first = await this.pool.getConnection('key/' + key)
-            .sendMessage<brokerGet>(BrokerType.Get, { n: key })
-            .firstThenClose<brokerResponseGet>(BrokerType.ResponseGet);
-        if (first.v) {
-            const serializer = getBsonEncoder(type);
-            return serializer.decode(first.v, 0);
-        }
+        const v = await this.pool.getConnection('key/' + key).broker.get(key);
+        if (v) return getBsonEncoder(type).decode(v, 0);
     }
 
     async remove(key: string): Promise<any> {
-        await this.pool.getConnection('key/' + key)
-            .sendMessage<brokerGet>(BrokerType.Delete, { n: key }).ackThenClose();
+        await this.pool.getConnection('key/' + key).broker.delete(key);
     }
 
     async increment(key: string, value: any): Promise<number> {
-        const response = await this.pool.getConnection('increment/' + key)
-            .sendMessage<brokerIncrement>(BrokerType.Increment, { n: key, v: value })
-            .firstThenClose<brokerResponseIncrement>(BrokerType.ResponseIncrement);
-        return response.v;
+        return await this.pool.getConnection('increment/' + key).broker.increment(key, value);
     }
 
     async isLocked(id: string): Promise<boolean> {
-        const response = await this.pool.getConnection('lock/' + id)
-            .sendMessage<brokerLockId>(BrokerType.IsLocked, { id })
-            .firstThenClose<brokerResponseIsLock>(BrokerType.ResponseIsLock);
-        return response.v;
+        return await this.pool.getConnection('lock/' + id).broker.isLocked(id);
     }
 
     async lock(id: string, options: BrokerTimeOptionsResolved): Promise<undefined | Release> {
-        const subject = this.pool.getConnection('lock/' + id)
-            .sendMessage<brokerLock>(BrokerType.Lock, { id, ttl: options.ttl, timeout: options.timeout });
-        await subject.waitNext(BrokerType.ResponseLock); //or throw error
-
+        const broker = this.pool.getConnection('lock/' + id).broker;
+        const token = await broker.lock(id, options.ttl, options.timeout);
         return async () => {
-            await subject.send(BrokerType.Unlock).ackThenClose();
-            subject.release();
+            await broker.unlock(token);
         };
     }
 
     async tryLock(id: string, options: BrokerTimeOptionsResolved): Promise<undefined | Release> {
-        const subject = this.pool.getConnection('lock/' + id)
-            .sendMessage<brokerLock>(BrokerType.TryLock, { id, ttl: options.ttl });
-        const message = await subject.waitNextMessage();
-        if (message.type === BrokerType.ResponseLockFailed) {
-            subject.release();
-            return;
-        }
-
-        if (message.type === BrokerType.ResponseLock) {
-            return async () => {
-                await subject.send(BrokerType.Unlock).ackThenClose();
-            };
-        }
-
-        throw new Error(`Invalid message returned. Expected Lock, but got ${message.type}`);
+        const broker = this.pool.getConnection('lock/' + id).broker;
+        const token = await broker.tryLock(id, options.ttl);
+        if (token === undefined) return;
+        return async () => {
+            await broker.unlock(token);
+        };
     }
 
     async publish(key: string, message: any, type: Type): Promise<void> {
-        const serializer = getBsonEncoder(type);
-        const v = serializer.encode(message);
-
-        await this.pool.getConnection('bus/' + key)
-            .sendMessage<brokerBusPublish>(BrokerType.Publish, { c: key, v: v })
-            .ackThenClose();
-
-        return undefined;
+        await this.pool.getConnection('bus/' + key).broker.publish(key, getBsonEncoder(type).encode(message));
     }
 
     async subscribe(key: string, callback: (message: any) => void, type: Type): Promise<Release> {
-        const connection = this.pool.getConnection('bus/' + key);
-        return await this._subscribe(connection, key, callback, type);
+        return await this._subscribe(this.pool.getConnection('bus/' + key), key, callback, type);
     }
 
-    protected async _subscribe(connection: BrokerDeepkitConnection, key: string, callback: (message: any) => void, type: Type): Promise<Release> {
+    protected async _subscribe(
+        connection: BrokerDeepkitConnection,
+        key: string,
+        callback: (message: any) => void,
+        type: Type,
+    ): Promise<Release> {
         const serializer = getBsonEncoder(type);
 
         const parsedCallback = (next: Uint8Array) => {
@@ -277,65 +233,79 @@ export class BrokerDeepkitAdapter implements BrokerAdapter {
         channel.callbacks.push(parsedCallback);
 
         if (channel.listeners === 1) {
-            await connection.sendMessage<brokerBusSubscribe>(BrokerType.Subscribe, { c: key })
-                .ackThenClose();
+            await connection.broker.subscribe(key);
         }
 
         return async () => {
             channel!.listeners--;
             arrayRemoveItem(channel!.callbacks, parsedCallback);
-            if (channel!.listeners === 0) {
-                await connection.sendMessage<brokerBusSubscribe>(BrokerType.Unsubscribe, { c: key })
-                    .ackThenClose();
-            }
+            if (channel!.listeners === 0) await connection.broker.unsubscribe(key);
         };
     }
 
-    async produce<T>(key: string, message: T, type: Type, options?: BrokerAdapterQueueProduceOptionsResolved): Promise<void> {
+    async produce<T>(
+        key: string,
+        message: T,
+        type: Type,
+        options?: BrokerAdapterQueueProduceOptionsResolved,
+    ): Promise<void> {
         const value = serializeBSON(message, undefined, type);
         if (options?.process === QueueMessageProcessing.exactlyOnce) {
             options.hash ??= fastHash(value);
         }
-        await this.pool.getConnection('queue/' + key)
-            .sendMessage<BrokerQueuePublish>(BrokerType.QueuePublish, {
-                c: key,
-                v: value,
-                ...options,
-            } as BrokerQueuePublish).ackThenClose();
+        await this.pool
+            .getConnection('queue/' + key)
+            .broker.queuePublish(
+                key,
+                value,
+                options?.process ?? QueueMessageProcessing.atLeastOnce,
+                options?.deduplicationInterval,
+                options?.hash,
+                options?.delay,
+                options?.priority,
+            );
     }
 
-    async consume(key: string, callback: (message: BrokerQueueMessage<any>) => Promise<void>, options: {
-        maxParallel: number
-    }, type: Type): Promise<Release> {
+    async consume(
+        key: string,
+        callback: (message: BrokerQueueMessage<any>) => Promise<void>,
+        options: {
+            maxParallel: number;
+        },
+        type: Type,
+    ): Promise<Release> {
         const connection = this.pool.getConnection('queue/' + key);
-        // when this is acked, we start receiving messages via BrokerQueueResponseHandleMessage
-        await connection.sendMessage<BrokerQueueSubscribe>(BrokerType.QueueSubscribe, { c: key, maxParallel: options.maxParallel })
-            .ackThenClose();
 
         connection.consumers.set(key, {
             listeners: 1,
-            callbacks: [async (id: number, next: Uint8Array) => {
-                const data = deserializeBSON(next, 0, undefined, type);
-                const message = new BrokerQueueMessage(key, data);
-                try {
-                    await callback(message);
-                } catch (error: any) {
-                    // todo: decide what to do in this case
-                    console.warn(`Error in broker queue message processing ${callback.name}: ${formatError(error, true)}`);
-                }
+            callbacks: [
+                async (id: number, next: Uint8Array) => {
+                    const data = deserializeBSON(next, 0, undefined, type);
+                    const message = new BrokerQueueMessage(key, data);
+                    try {
+                        await callback(message);
+                    } catch (error: any) {
+                        // todo: decide what to do in this case
+                        console.warn(
+                            `Error in broker queue message processing ${callback.name}: ${formatError(error, true)}`,
+                        );
+                    }
 
-                await connection.sendMessage<BrokerQueueMessageHandled>(BrokerType.QueueMessageHandled, {
-                    id, c: key,
-                    success: message.state === 'done',
-                    error: message.error ? String(message.error) : undefined,
-                    delay: message.delayed,
-                }).ackThenClose();
-            }],
+                    await connection.broker.queueMessageHandled(
+                        key,
+                        id,
+                        message.state === 'done',
+                        message.error ? String(message.error) : undefined,
+                        message.delayed,
+                    );
+                },
+            ],
         });
 
+        await connection.broker.queueSubscribe(key, options.maxParallel);
+
         return async () => {
-            await connection.sendMessage<BrokerQueueUnsubscribe>(BrokerType.QueueUnsubscribe, { c: key })
-                .ackThenClose();
+            await connection.broker.queueUnsubscribe(key);
         };
     }
 }

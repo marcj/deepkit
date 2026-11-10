@@ -1,11 +1,12 @@
 import { expect, test } from '@jest/globals';
 import { skip } from 'rxjs/operators';
-import { DirectClient } from '../src/client/client-direct.js';
-import { rpc } from '../src/decorators.js';
-import { RpcKernel } from '../src/server/kernel.js';
-import { ClientProgress } from '../src/progress.js';
+
 import { asyncOperation } from '@deepkit/core';
 
+import { DirectClient } from '../src/client/client-direct.js';
+import { rpc } from '../src/decorators.js';
+import { ClientProgress } from '../src/progress.js';
+import { RpcKernel } from '../src/server/kernel.js';
 
 test('chunks', async () => {
     @rpc.controller('test')
@@ -33,7 +34,7 @@ test('chunks', async () => {
         expect(progress.download.progress).toBe(0);
         const file = await controller.downloadBig(100);
         expect(progress.download.progress).toBe(1);
-        expect(progress.download.total).toBe(125);
+        expect(progress.download.total).toBe(113);
         expect(file.length).toBe(100);
     }
 
@@ -41,7 +42,7 @@ test('chunks', async () => {
         const progress = ClientProgress.track();
 
         const stats: number[] = [];
-        progress.download.pipe(skip(1)).subscribe((p) => {
+        progress.download.pipe(skip(1)).subscribe(p => {
             expect(progress.download.total).toBeGreaterThan(0);
             expect(progress.download.current).toBeLessThanOrEqual(progress.download.total);
             expect(progress.download.progress).toBeLessThanOrEqual(1);
@@ -50,16 +51,8 @@ test('chunks', async () => {
         const file = await controller.downloadBig(650_000);
         expect(file.length).toBe(650_000);
         expect(progress.download.done).toBe(true);
-        expect(progress.download.total).toBe(650025);
-        expect(stats).toEqual([
-            100_000,
-            200_000,
-            300_000,
-            400_000,
-            500_000,
-            600_000,
-            650_025,
-        ]);
+        expect(progress.download.total).toBe(650013);
+        expect(stats).toEqual([100_000, 200_000, 300_000, 400_000, 500_000, 600_000, 650_013]);
         expect(progress.download.progress).toBe(1);
     }
 
@@ -68,7 +61,7 @@ test('chunks', async () => {
         const uploadFile = Buffer.alloc(100);
         const progress = ClientProgress.track();
         const size = await controller.uploadBig(uploadFile);
-        expect(progress.upload.total).toBe(179);
+        expect(progress.upload.total).toBe(115);
         expect(progress.upload.progress).toBe(1);
     }
 
@@ -76,7 +69,7 @@ test('chunks', async () => {
         const uploadFile = Buffer.alloc(550_000);
         const progress = ClientProgress.track();
         const stats: number[] = [];
-        progress.upload.pipe(skip(1)).subscribe((p) => {
+        progress.upload.pipe(skip(1)).subscribe(p => {
             expect(progress.upload.total).toBeGreaterThan(0);
             expect(progress.upload.current).toBeLessThanOrEqual(progress.upload.total);
             expect(progress.upload.progress).toBeLessThanOrEqual(1);
@@ -84,14 +77,7 @@ test('chunks', async () => {
         });
         const size = await controller.uploadBig(uploadFile);
         expect(size).toBe(550_000);
-        expect(stats).toEqual([
-            100_000,
-            200_000,
-            300_000,
-            400_000,
-            500_000,
-            550_079,
-        ]);
+        expect(stats).toEqual([100_000, 200_000, 300_000, 400_000, 500_000, 550_015]);
         expect(progress.upload.done).toBe(true);
         expect(progress.upload.progress).toBe(1);
     }
@@ -119,10 +105,10 @@ test('abort', async () => {
     const controller = client.controller<TestController>('test');
 
     // Upload chunks:
-    // Client sends RpcTypes.Chunk
-    // Server sends RpcTypes.ChunkAck
-    // Server can send RpcTypes.Error to abort the upload
-    // Client can send RpcTypes.Error to abort the upload
+    // Client sends chunks
+    // Server sends a chunk ack
+    // Server can send a chunk abort to abort the upload
+    // Client can send a chunk abort to abort the upload
     {
         const uploadFile = Buffer.alloc(550_000);
         const progress = ClientProgress.track();
@@ -138,10 +124,10 @@ test('abort', async () => {
     }
 
     // Download chunks:
-    // Server sends RpcTypes.Chunk
-    // Client sends RpcTypes.ChunkAck
-    // Client can send RpcTypes.Error to abort the download
-    // Server can send RpcTypes.Error to abort the download
+    // Server sends chunks
+    // Client sends a chunk ack
+    // Client can send a chunk abort to abort the download
+    // Server can send a chunk abort to abort the download
     {
         const progress = ClientProgress.track();
         const promise = controller.downloadBig(550_000);
@@ -172,8 +158,8 @@ test('back controller', async () => {
 
     const kernel = new RpcKernel();
 
-    const res = await asyncOperation<Uint8Array>(async (resolve) => {
-        kernel.onConnection((connection) => {
+    const res = await asyncOperation<Uint8Array>(async resolve => {
+        kernel.onConnection(connection => {
             queueMicrotask(async () => {
                 const ctrl = connection.controller<TestController>('test');
                 const res = await ctrl.downloadBig(105_000);

@@ -1,19 +1,18 @@
-import { cast, entity, ReflectionClass } from '@deepkit/type';
 import { expect, test } from '@jest/globals';
-import { EntitySubject, rpcEntityPatch, RpcTypes } from '../src/model.js';
+
+import { ReflectionClass, cast, entity } from '@deepkit/type';
+
 import { DirectClient } from '../src/client/client-direct.js';
 import { EntitySubjectStore } from '../src/client/entity-state.js';
 import { rpc } from '../src/decorators.js';
+import { EntitySubject } from '../src/model.js';
 import { RpcKernel, RpcKernelConnection } from '../src/server/kernel.js';
 
 test('EntitySubjectStore multi', () => {
     class MyModel {
         version: number = 0;
 
-        constructor(
-            public id: number = 0
-        ) {
-        }
+        constructor(public id: number = 0) {}
     }
 
     const store = new EntitySubjectStore(MyModel);
@@ -58,18 +57,13 @@ test('controller', async () => {
     class MyModel {
         version: number = 0;
         title: string = 'foo';
-        config: Config = new Config;
+        config: Config = new Config();
 
-        constructor(
-            public id: number
-        ) {
-        }
+        constructor(public id: number) {}
     }
 
     class Controller {
-        constructor(protected connection: RpcKernelConnection) {
-
-        }
+        constructor(protected connection: RpcKernelConnection) {}
 
         @rpc.action()
         async getModel(id: number): Promise<EntitySubject<MyModel>> {
@@ -85,14 +79,12 @@ test('controller', async () => {
             const subject = new EntitySubject(model);
 
             setTimeout(() => {
-                this.connection.createMessageBuilder()
-                    .composite(RpcTypes.Entity)
-                    .add<rpcEntityPatch>(RpcTypes.EntityPatch, {
-                        entityName: ReflectionClass.from(MyModel).getName(),
-                        id: model.id,
-                        version: model.version + 1,
-                        patch: { $set: { title: 'bar', config: cast<Config>({ timeout: 44, logs: false }) } }
-                    }).send();
+                this.connection.sendEntityPatch({
+                    entityName: ReflectionClass.from(MyModel).getName(),
+                    id: model.id,
+                    version: model.version + 1,
+                    patch: { $set: { title: 'bar', config: cast<Config>({ timeout: 44, logs: false }) } },
+                });
             }, 10);
 
             return subject;

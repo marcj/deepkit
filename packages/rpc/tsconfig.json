@@ -18,6 +18,9 @@
   ],
   "references": [
     {
+      "path": "../net/tsconfig.json"
+    },
+    {
       "path": "../bson/tsconfig.json"
     },
     {

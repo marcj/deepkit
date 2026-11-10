@@ -1,10 +1,12 @@
 import { expect, test } from '@jest/globals';
-import { RpcKernel } from '../src/server/kernel.js';
-import { rpc } from '../src/decorators.js';
-import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { IncomingMessage, ServerResponse, createServer } from 'http';
+
 import { asyncOperation } from '@deepkit/core';
+
 import { RpcClient } from '../src/client/client.js';
 import { RpcHttpClientAdapter } from '../src/client/http.js';
+import { rpc } from '../src/decorators.js';
+import { RpcKernel } from '../src/server/kernel.js';
 
 test('http', async () => {
     @rpc.controller('test')
@@ -20,15 +22,10 @@ test('http', async () => {
 
     function handler(request: IncomingMessage & { body?: Uint8Array }, response: ServerResponse) {
         const connection = kernel.createConnection({
-            write: (data) => {
-
-            },
             bufferedAmount() {
                 return 0;
             },
-            close() {
-
-            },
+            close() {},
             clientAddress() {
                 return request.socket.remoteAddress || '';
             },
@@ -49,7 +46,7 @@ test('http', async () => {
         connection.onRequest('/rpc', request, response);
     }
 
-    await asyncOperation<void>((resolve) => {
+    await asyncOperation<void>(resolve => {
         const server = createServer(handler).listen(0, async () => {
             const port = (server.address() as any).port;
             const client = new RpcClient(new RpcHttpClientAdapter('http://localhost:' + port + '/rpc'));
