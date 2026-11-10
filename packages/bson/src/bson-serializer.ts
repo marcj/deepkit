@@ -1697,7 +1697,10 @@ export class BSONBinarySerializer extends Serializer {
             sizerPropertyNameAware(type, state, `${state.accessor} === undefined || ${state.accessor} === null`, ``),
         );
         this.sizerRegistry.registerBinary(sizerBinary);
-        this.sizerRegistry.register(ReflectionKind.union, handleUnion);
+        this.sizerRegistry.register(ReflectionKind.union, (type, state) => {
+            state.throwOnUnionMismatch = true;
+            handleUnion(type, state);
+        });
         this.sizerRegistry.register(ReflectionKind.promise, (type, state) => executeTemplates(state, type.type));
         this.sizerRegistry.register(ReflectionKind.enum, (type, state) => executeTemplates(state, type.indexType));
     }
@@ -1770,7 +1773,10 @@ export class BSONBinarySerializer extends Serializer {
             ),
         );
         this.bsonSerializeRegistry.registerBinary(serializeBinary);
-        this.bsonSerializeRegistry.register(ReflectionKind.union, handleUnion);
+        this.bsonSerializeRegistry.register(ReflectionKind.union, (type, state) => {
+            state.throwOnUnionMismatch = true;
+            handleUnion(type, state);
+        });
     }
 
     protected registerBsonTypeGuards() {

@@ -1315,7 +1315,7 @@ export function bsonTypeGuardObjectLiteral(type: TypeClass | TypeObjectLiteral, 
             state.parser.offset = start;
 
             if (${valid}) {
-                ${state.setter} = matching || 1;
+                ${state.setter} = matching || 0.5;
             } else {
                 ${state.setter} = 0;
             }

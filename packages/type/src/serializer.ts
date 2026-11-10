@@ -429,6 +429,12 @@ export class TemplateState {
     public scoreObject?: boolean;
 
     /**
+     * A value that matches no member of a union is an error instead of being left out.
+     * For serializers that write the value right away, where nothing else would report it.
+     */
+    public throwOnUnionMismatch?: boolean;
+
+    /**
      * Tuple type guards accept arrays with more or fewer elements than the tuple, e.g. [1, 2] for [number].
      * Set for the fallback pass of union deserialization, when no member matched exactly. Inherited by forks.
      */
@@ -1620,7 +1626,7 @@ export function typeGuardObjectLiteral(type: TypeObjectLiteral | TypeClass, stat
             if (${state.isValidation()}) ${state.assignValidationError('type', 'Not an object')}
             ${state.setter} = false;
         }
-        ${state.scoreObject ? `if (${state.setter}) ${state.setter} = matching || 1;` : ''}
+        ${state.scoreObject ? `if (${state.setter}) ${state.setter} = matching || 0.5;` : ''}
     }
     `);
 }
@@ -2380,6 +2386,7 @@ export function handleUnion(type: TypeUnion, state: TemplateState, typeGuards?: 
                                     ${linesPrimitivesAlternatives.join(' ')}
                                     else {
                                         ${handleErrors}
+                                        ${state.throwOnUnionMismatch ? state.throwCode(type) : ''}
                                         if (state.errors) ${reportMemberErrors}(${state.originalAccessor}, state, ${collapsePath(state.path)});
                                     }
                                 }
