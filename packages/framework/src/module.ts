@@ -34,6 +34,7 @@ import {
     RpcKernelSecurity,
     SessionState,
     rpcClass,
+    rpcErrorSettings,
 } from '@deepkit/rpc';
 import {
     MigrationCreateController,
@@ -181,6 +182,7 @@ export class FrameworkModule extends createModuleClass({
     }
 
     process() {
+        rpcErrorSettings.exposeStack = this.config.debug;
         this.addImport();
         this.addProvider({ provide: RpcControllers, useValue: this.rpcControllers });
 

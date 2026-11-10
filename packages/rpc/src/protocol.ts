@@ -1050,6 +1050,14 @@ export interface EncodedError {
     properties?: { [name: string]: any };
 }
 
+export const rpcErrorSettings = {
+    /**
+     * Whether the stack trace of an error is sent to the client. It shows internal file paths and code locations, so
+     * it is off by default. The framework enables it when its `debug` option is set.
+     */
+    exposeStack: false,
+};
+
 export function rpcEncodeError(error: Error | string): EncodedError {
     let classType = '';
     let stack = '';
@@ -1057,7 +1065,7 @@ export function rpcEncodeError(error: Error | string): EncodedError {
 
     if ('string' !== typeof error) {
         const schema = ReflectionClass.from(error['constructor'] as ClassType<typeof error>);
-        stack = error.stack || '';
+        if (rpcErrorSettings.exposeStack) stack = error.stack || '';
         if (schema.name) {
             classType = schema.name;
             if (schema.getProperties().length) {
@@ -1086,7 +1094,7 @@ export function rpcDecodeError(error: EncodedError): Error {
         const schema = ReflectionClass.from(entity);
         if (error.properties) {
             const e = deserialize(error.properties, undefined, undefined, undefined, schema.type) as Error;
-            e.stack = error.stack + '\nat ___SERVER___';
+            e.stack = error.stack === '' ? '' : error.stack + '\nat ___SERVER___';
             return e;
         }
 

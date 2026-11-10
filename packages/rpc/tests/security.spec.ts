@@ -1,9 +1,11 @@
-import { expect, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
+import { Observable, lastValueFrom } from 'rxjs';
 import { AsyncDirectClient, DirectClient } from '../src/client/client-direct.js';
 import { rpc } from '../src/decorators.js';
 import { RpcKernel, RpcKernelBaseConnection, RpcKernelConnection } from '../src/server/kernel.js';
 import { RpcControllerAccess, RpcKernelSecurity, Session } from '../src/server/security.js';
 import { AuthenticationError } from '../src/model.js';
+import { rpcEncodeError, rpcErrorSettings } from '../src/protocol.js';
 import { Logger, MemoryLoggerTransport } from '@deepkit/logger';
 import { Inject } from '@deepkit/core';
 
@@ -298,4 +300,47 @@ test('connection is available in controller access information', async () => {
 
     expect(_controllerAccess?.controllerClassType).toBe(Controller);
     expect(_connection).toBeInstanceOf(RpcKernelBaseConnection);
+});
+
+describe('stack traces of errors', () => {
+    class Controller {
+        @rpc.action()
+        fail(): void {
+            throw new Error('boom');
+        }
+
+        @rpc.action()
+        stream(): Observable<number> {
+            return new Observable(observer => observer.error(new Error('stream boom')));
+        }
+    }
+
+    function client() {
+        const kernel = new RpcKernel();
+        kernel.registerController(Controller, 'controller');
+        return new DirectClient(kernel).controller<Controller>('controller');
+    }
+
+    function expectNoServerStack(error: Error, message: string) {
+        expect(error.message).toBe(message);
+        expect(error.stack).not.toContain('security.spec');
+    }
+
+    test('are not sent by default', async () => {
+        expect(rpcEncodeError(new Error('boom')).stack).toBe('');
+        const controller = client();
+        expectNoServerStack(await controller.fail().catch(error => error), 'boom');
+        expectNoServerStack(await lastValueFrom(await controller.stream()).catch(error => error), 'stream boom');
+    });
+
+    test('are sent when enabled', async () => {
+        rpcErrorSettings.exposeStack = true;
+        try {
+            expect(rpcEncodeError(new Error('boom')).stack).toContain('security.spec');
+            const error = await client().fail().catch(error => error);
+            expect(error.stack).toContain('security.spec');
+        } finally {
+            rpcErrorSettings.exposeStack = false;
+        }
+    });
 });
