@@ -2,7 +2,7 @@
 import { App } from '@deepkit/app';
 import { FrameworkModule } from '@deepkit/framework';
 
-const app = new App({ imports: [new FrameworkModule({ debug: true, varPath: process.argv[3] })] });
+const app = new App({ imports: [new FrameworkModule({ debug: true, varPath: process.env.DK_DEBUG_VAR_PATH! })] });
 app.command('fail', () => {
     throw new Error('visible error from the command');
 });

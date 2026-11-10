@@ -177,7 +177,11 @@ export function parseCliArgs(args: string[], aliases: { [name: string]: string }
                 append(current, true);
             }
             current = arg.substr(2);
-            if (current.includes(' ')) {
+            const equals = current.indexOf('=');
+            if (equals > 0) {
+                append(current.slice(0, equals), current.slice(equals + 1));
+                current = undefined;
+            } else if (current.includes(' ')) {
                 const [name, value] = current.split(' ');
                 append(name, value);
                 current = undefined;
@@ -694,6 +698,17 @@ async function runCommand(
             handleConvertError(logger, parameter, raw, error);
             return 1;
         }
+    }
+
+    const known = new Set(commandParameters.filter(v => v.kind !== 'service' && v.kind !== 'argument').map(getActualCliParameterName));
+    const unknown = Object.keys(parsedArgs).filter(name => name !== '@' && !known.has(name));
+    if (unknown.length) {
+        logger.log(`<red>Unknown option ${unknown.map(v => '--' + v).join(', ')}</red>`);
+        return 1;
+    }
+    if (positionalIndex < positionalArguments.length) {
+        logger.log(`<red>Unexpected argument ${positionalArguments.slice(positionalIndex).join(' ')}</red>`);
+        return 1;
     }
 
     const label = config.controller ? getClassName(config.controller) : config.callback ? config.callback.name : '';

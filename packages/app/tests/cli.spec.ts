@@ -1,4 +1,4 @@
-import { expect, test } from '@jest/globals';
+import { describe, expect, test } from '@jest/globals';
 import { executeCommand, Flag, parseCliArgs, ParsedCliControllerConfig } from '../src/command.js';
 import { EventDispatcher } from '@deepkit/event';
 import { InjectorContext, InjectorModule } from '@deepkit/injector';
@@ -349,4 +349,37 @@ test('a negative number reaches the command', async () => {
     await exec(['repeat', '5', '--times', '-1']);
     await exec(['repeat', '-5', '--times', '-2.5']);
     expect(values).toEqual([[5, -1], [-5, -2.5]]);
+});
+
+describe('unconsumed input', () => {
+    type Label = string & Flag;
+
+    function run() {
+        return simpleApp([
+            function run(target: string, label: Label = 'none', logger: Logger) {
+                logger.log(`ran ${target} ${label}`);
+            },
+        ]);
+    }
+
+    test('--flag=value', async () => {
+        expect(parseCliArgs(['--label=foo', '--a=b=c'])).toEqual({ label: 'foo', a: 'b=c' });
+        const result = await run()(['run', 'a', '--label=foo']);
+        expect(result.code).toBe(0);
+        expect(result.output).toContain('ran a foo');
+    });
+
+    test('an unknown flag does not run the command', async () => {
+        const result = await run()(['run', 'a', '--unknown', 'x']);
+        expect(result.code).toBe(1);
+        expect(result.output).toContain('--unknown');
+        expect(result.output).not.toContain('ran a');
+    });
+
+    test('extra arguments do not run the command', async () => {
+        const result = await run()(['run', 'a', 'b', 'c']);
+        expect(result.code).toBe(1);
+        expect(result.output).toContain('b c');
+        expect(result.output).not.toContain('ran a');
+    });
 });

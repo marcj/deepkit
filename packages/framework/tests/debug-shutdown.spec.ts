@@ -74,7 +74,8 @@ test('debug mode shows live frames without a broker server (single process)', as
 test('failing CLI command shows its error with debug enabled (#687)', () => {
     // the debug store is closed on app shutdown, that used to swallow the error output of commands
     const varPath = mkdtempSync(join(tmpdir(), 'dk-debug-'));
-    const res = spawnSync(process.execPath, ['--import', '@deepkit/run', join(__dirname, 'fixtures/cli-debug-error.ts'), 'fail', varPath], {
+    const res = spawnSync(process.execPath, ['--import', '@deepkit/run', join(__dirname, 'fixtures/cli-debug-error.ts'), 'fail'], {
+        env: { ...process.env, DK_DEBUG_VAR_PATH: varPath },
         cwd: __dirname,
         encoding: 'utf8',
         timeout: 60_000,
