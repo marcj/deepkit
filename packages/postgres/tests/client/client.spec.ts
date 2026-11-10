@@ -445,9 +445,11 @@ describe('lost connections', () => {
         const conn = await pool.acquire();
         const [{ pid }] = await conn.queryRows('SELECT pg_backend_pid() AS pid');
         const running = [conn.queryRows('SELECT pg_sleep(30), 1 AS a'), conn.queryRows('SELECT 2 AS b'), conn.queryRows('SELECT 3 AS c', [1] as any)];
+        // handled before the kill: the closed connection can reject them before the killer's reply arrives
+        const settled = Promise.allSettled(running);
         await new Promise(resolve => setTimeout(resolve, 50));
         await killer.query('SELECT pg_terminate_backend($1)', [pid]);
-        const results = await Promise.allSettled(running);
+        const results = await settled;
         expect(results.map(v => v.status)).toEqual(['rejected', 'rejected', 'rejected']);
         expect((results[0] as any).reason.code).toBe('57P01');
         expect(conn.isConnected()).toBe(false);
