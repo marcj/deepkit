@@ -57,9 +57,10 @@ function hasAssignedValue(item: any, property: ReflectionProperty): boolean {
 
 export class Formatter {
     //it's important to have for each formatter own proxyClasses since we attached to Proxy's prototype the database session
-    protected referenceClasses: Map<ReflectionClass<any>, ClassType> = new Map();
+    // created when needed, most queries have no references
+    protected referenceClasses?: Map<ReflectionClass<any>, ClassType>;
 
-    protected instancePools: Map<ClassType, Map<PKHash, any>> = new Map();
+    protected instancePools?: Map<ClassType, Map<PKHash, any>>;
 
     public withIdentityMap: boolean = true;
     protected rootPkHashFn?: (value: any) => string;
@@ -87,11 +88,10 @@ export class Formatter {
     }
 
     protected getInstancePoolForClass(classType: ClassType): Map<PKHash, any> {
-        if (!this.instancePools.has(classType)) {
-            this.instancePools.set(classType, new Map());
-        }
-
-        return this.instancePools.get(classType)!;
+        const pools = (this.instancePools ??= new Map());
+        let pool = pools.get(classType);
+        if (!pool) pools.set(classType, (pool = new Map()));
+        return pool;
     }
 
     public hydrate<T extends OrmEntity>(model: DatabaseQueryModel<T, any, any>, dbRecord: DBRecord): any {
@@ -137,7 +137,7 @@ export class Formatter {
     }
 
     protected getReferenceClass<T>(classSchema: ReflectionClass<T>): ClassType<T> {
-        let Reference = this.referenceClasses.get(classSchema);
+        let Reference = (this.referenceClasses ??= new Map()).get(classSchema);
         if (Reference) return Reference;
 
         Reference = createReferenceClass(classSchema);
@@ -146,7 +146,7 @@ export class Formatter {
             setHydratedDatabaseSession(Reference.prototype, this.hydrator);
         }
 
-        this.referenceClasses.set(classSchema, Reference);
+        this.referenceClasses!.set(classSchema, Reference);
         return Reference;
     }
 

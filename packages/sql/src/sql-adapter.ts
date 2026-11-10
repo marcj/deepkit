@@ -371,6 +371,11 @@ export class SQLQueryResolver<T extends OrmEntity> extends GenericQueryResolver<
         if (model.hasJoins()) {
             const converted = sqlBuilder.convertRows(this.classSchema, model, rows);
             for (const row of converted) results.push(formatter.hydrate(model, row));
+        } else if (Array.isArray(rows) && rows.constructor === Array) {
+            // the array of the driver belongs to this query, each row is replaced by its entity instead of growing a new array
+            for (let i = 0; i < rows.length; i++) rows[i] = formatter.hydrate(model, rows[i]);
+            if (formatterFrame) formatterFrame.end();
+            return rows;
         } else {
             for (const row of rows) results.push(formatter.hydrate(model, row));
         }
