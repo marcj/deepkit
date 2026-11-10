@@ -32,7 +32,7 @@ export interface RpcOperations {
 }
 
 /** Checks the results first, so a broken setup fails instead of measuring nothing. */
-export async function rpcSuite(library: string, operations: RpcOperations): Promise<BenchSuite> {
+export async function rpcSuite(library: string, operations: RpcOperations, suiteName: string = 'comparison/rpc'): Promise<BenchSuite> {
     const user = createUser(1);
     if ((await operations.add(2, 3)) !== 5) throw new Error(`${library}: add returned a wrong result`);
     const saved = await operations.saveUser(user);
@@ -40,7 +40,7 @@ export async function rpcSuite(library: string, operations: RpcOperations): Prom
     const list = await operations.listUsers(listCount);
     if (list.length !== listCount || list[99].id !== 100) throw new Error(`${library}: listUsers returned ${list.length} items`);
 
-    const suite = new BenchSuite('comparison/rpc');
+    const suite = new BenchSuite(suiteName);
     suite.add(`${library}: add two numbers`, async () => {
         await operations.add(2, 3);
     });
