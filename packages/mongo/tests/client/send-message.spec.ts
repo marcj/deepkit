@@ -108,15 +108,12 @@ test('a message is passed to the socket writer as a range, without a view', asyn
     expect(write).not.toHaveBeenCalled();
 });
 
-test('no size pass and no copy of the message', async () => {
+test('no copy of the message', async () => {
     await setup();
     const copy = jest.spyOn(Writer.prototype, 'writeBuffer');
-    const type = typeOf<Message & { unique: 'sizer' }>();
-    getTypeJitContainer(type)[bsonBinarySerializer.sizerId] = () => {
-        throw new TypeError('sizer must not be called');
-    };
+    const type = typeOf<Message>();
 
-    connection.sendMessage(type, { seq: 1, payload: 'a', unique: 'sizer' });
+    connection.sendMessage(type, { seq: 1, payload: 'a' });
     expect(copy).toHaveBeenCalledTimes(0);
 });
 

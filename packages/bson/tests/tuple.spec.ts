@@ -1,7 +1,7 @@
 import { expect, test } from '@jest/globals';
 
 import { deserializeBSON } from '../src/bson-deserializer.js';
-import { getBSONSizer, serializeBSON } from '../src/bson-serializer.js';
+import { serializeBSON } from '../src/bson-serializer.js';
 
 //#718: see packages/type/tests/tuple.spec.ts, the same rules apply to BSON deserialization.
 
@@ -109,11 +109,6 @@ test('undefined optional element keeps the position of the following elements (#
     //a missing optional element at the end stays missing
     expect(roundTrip([1])).toStrictEqual([1]);
     expect(roundTrip([1, 'Peter'])).toStrictEqual([1, 'Peter']);
-
-    //the sizer matches the written size
-    for (const args of [[1, undefined, 'e'], [1, undefined], [1], [1, 'n', 'e']] as A['args'][]) {
-        expect(getBSONSizer<A>()({ args })).toBe(serializeBSON<A>({ args }).byteLength);
-    }
 
     //in unions the tuple with the undefined optional element is still picked
     type U = { args: [id: number, name?: string, email?: string] | string };

@@ -3,7 +3,6 @@ import {
     deserializeBSONWithoutOptimiser,
     getBSONDeserializer,
     getBSONSerializer,
-    getBSONSizer,
     stringByteLength,
     Writer,
 } from '@deepkit/bson';
@@ -49,24 +48,26 @@ export function encodeFrames(frames: (FrameStart | FrameEnd)[]): Uint8Array {
 }
 
 export function encodeFrameData(dataItems: FrameData[]): Uint8Array {
-    //<cid uint32><bson document>
+    //<cid uint32><category uint8><bson document>, without a type an empty document of 4 bytes
+    const documents: (Uint8Array | undefined)[] = [];
     let size = 0;
     for (const data of dataItems) {
-        let dataSize = 4; //always has uint32
         const type = getTypeOfCategory(data.category);
-        if (type) dataSize = getBSONSizer(undefined, type)(data.data);
-        size += ((32 + 8) / 8) + dataSize;
+        const document = type ? getBSONSerializer(undefined, type)(data.data) : undefined;
+        documents.push(document);
+        size += (32 + 8) / 8 + (document ? document.byteLength : 4);
     }
 
     const buffer = createBuffer(size);
     const writer = new Writer(buffer);
 
-    for (const data of dataItems) {
-        writer.writeUint32(data.cid);
-        writer.writeByte(data.category);
-        const type = getTypeOfCategory(data.category);
-        if (type) {
-            getBSONSerializer(undefined, type)(data.data, { writer });
+    for (let i = 0; i < dataItems.length; i++) {
+        writer.writeUint32(dataItems[i].cid);
+        writer.writeByte(dataItems[i].category);
+        const document = documents[i];
+        if (document) {
+            buffer.set(document, writer.offset);
+            writer.offset += document.byteLength;
         } else {
             writer.writeUint32(0);
         }

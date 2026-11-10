@@ -2,7 +2,7 @@ import { expect, test } from '@jest/globals';
 
 import { BinaryBigInt, MongoId, Type, typeOf, UUID } from '@deepkit/type';
 
-import { bsonBinarySerializer, getBSONSerializer, getBSONSizer, Writer } from '../src/bson-serializer.js';
+import { bsonBinarySerializer, getBSONSerializer, Writer } from '../src/bson-serializer.js';
 
 enum Color {
     red,
@@ -77,18 +77,17 @@ function outcome(run: () => unknown): string {
     }
 }
 
-test('the serializer rejects exactly what the sizer rejects, with the same error', () => {
+test('the serializer rejects the same without a writer as with one, with the same error', () => {
     const differences: string[] = [];
 
     for (const [typeName, type] of types) {
-        const size = getBSONSizer(bsonBinarySerializer, type);
         const serialize = getBSONSerializer(bsonBinarySerializer, type);
 
         for (const [valueName, value] of values) {
             for (const data of [{ v: value }, { v: value, other: 1 }, {}]) {
-                const sized = outcome(() => size(data));
+                const standalone = outcome(() => serialize(data));
                 const written = outcome(() => serialize(data, { writer: new Writer(new Uint8Array(4096)) }));
-                if (sized !== written) differences.push(`${typeName} with ${valueName}: sizer "${sized}", serializer "${written}"`);
+                if (standalone !== written) differences.push(`${typeName} with ${valueName}: without writer "${standalone}", with writer "${written}"`);
             }
         }
     }
