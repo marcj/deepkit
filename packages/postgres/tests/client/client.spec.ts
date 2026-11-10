@@ -1094,3 +1094,75 @@ test('messages are passed to the socket writer as a range, without a view', asyn
         }
     });
 });
+
+describe('binary array parameters', () => {
+    const cases: [string, any[], any[] | undefined][] = [
+        ['int4[]', [1, -2, null, 2147483647], undefined],
+        ['int2[]', [1, -2, null], undefined],
+        ['int8[]', [1, -2, null], ['1', '-2', null]],
+        ['float8[]', [1.5, -2, null, 0.1], undefined],
+        ['float4[]', [1.5, -2, null], undefined],
+        ['bool[]', [true, false, null], undefined],
+        ['text[]', ['a', 'ü"\\,{}', 'NULL', '', null, '🎉'], undefined],
+        ['varchar[]', ['a', null, 'ü'], undefined],
+        ['bytea[]', [Buffer.from([0, 1, 255]), null], undefined],
+        ['timestamptz[]', [new Date(1700000000000), null], undefined],
+        [
+            'uuid[]',
+            ['251d1c655b174f9288cb2b4f82f42e4d', '251d1c65-5b17-4f92-88cb-2b4f82f42e4d', null],
+            ['251d1c65-5b17-4f92-88cb-2b4f82f42e4d', '251d1c65-5b17-4f92-88cb-2b4f82f42e4d', null],
+        ],
+    ];
+
+    async function roundtrip(conn: PostgresClientConnection, type: string, value: any[]) {
+        const sql = `SELECT $1::${type} AS v`;
+        // the first run doesn't know the types yet
+        await conn.queryRow(sql, [value], RowMode.object, true);
+        return (await conn.queryRow(sql, [value], RowMode.object, true)).v;
+    }
+
+    test.each(cases)('%s is sent in binary and comes back the same', async (type, value, expected) => {
+        await withConnection(async conn => {
+            await conn.queryRow(`SELECT $1::${type} AS v`, [value], RowMode.object, true);
+            const fallback = jest.spyOn(PostgresEncoder.prototype, 'writeFallbackParameter');
+            try {
+                const result = (await conn.queryRow(`SELECT $1::${type} AS v`, [value], RowMode.object, true)).v;
+                expect(fallback).not.toHaveBeenCalled();
+                expect(result).toEqual(expected ?? value);
+            } finally {
+                fallback.mockRestore();
+            }
+        });
+    });
+
+    test('an empty array', async () => {
+        await withConnection(async conn => {
+            expect(await roundtrip(conn, 'int4[]', [])).toEqual([]);
+        });
+    });
+
+    test('a value that does not fit the element type falls back to text', async () => {
+        await withConnection(async conn => {
+            expect(await roundtrip(conn, 'int4[]', ['1', 2])).toEqual([1, 2]);
+            expect(await roundtrip(conn, 'text[]', ['a', 2])).toEqual(['a', '2']);
+        });
+    });
+
+    test('a large array grows the buffer', async () => {
+        await withConnection(async conn => {
+            const value = Array.from({ length: 50_000 }, (_, i) => 'value ' + i);
+            expect(await roundtrip(conn, 'text[]', value)).toEqual(value);
+        });
+    });
+
+    test('unnest inserts with binary arrays', async () => {
+        await withConnection(async conn => {
+            await schema(conn, 'binary_arrays', 'CREATE TABLE binary_arrays.t (id SERIAL PRIMARY KEY, name TEXT, ready BOOL, n INT)');
+            const sql = 'INSERT INTO binary_arrays.t (name, ready, n) SELECT * FROM unnest($1::text[], $2::bool[], $3::int[]) RETURNING id';
+            const rows = [['a', 'b'], [true, false], [1, 2]];
+            await conn.query(sql, rows, RowMode.object, true);
+            const result = await conn.query(sql, rows, RowMode.object, true);
+            expect(result.rows.map(v => v.id)).toEqual([3, 4]);
+        });
+    });
+});

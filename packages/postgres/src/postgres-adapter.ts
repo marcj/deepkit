@@ -180,11 +180,11 @@ export class PostgresConnection extends SQLConnection {
         return this.connection.queryRows(sql, params, RowMode.object, !!params && params.length > 0);
     }
 
-    async run(sql: string, params: any[] = []) {
+    async run(sql: string, params: any[] = [], reusable: boolean = false) {
         const frame = this.stopwatch ? this.stopwatch.start('Query', FrameCategory.databaseQuery) : undefined;
         try {
             if (frame) frame.data({ sql, sqlParams: params });
-            const res = await this.connection.query(sql, params);
+            const res = await this.connection.query(sql, params, RowMode.object, reusable);
             this.logger.scoped(scope).debug(sql, params);
             this.lastReturningRows = res.rows;
             this.changes = res.rowCount as number;
@@ -463,6 +463,42 @@ export class PostgresPersistence extends SQLPersistence {
         for (let i = 0; i < items.length; i++) {
             items[i][name] = insertedRows[i][name];
         }
+    }
+
+    /**
+     * Sends one array per column to unnest() instead of VALUES with a parameter per value. The server handles three
+     * arrays faster than thousands of parameters, and the statement is the same for every number of rows.
+     * JSON columns stay with VALUES, the elements of a text array are not their JSON.
+     */
+    protected override async batchInsert<T>(classSchema: ReflectionClass<T>, items: T[]) {
+        const fields = getPreparedEntity(this.session.adapter, classSchema).fields.filter(v => !v.autoIncrement);
+        if (!fields.length || fields.some(v => v.json || v.sqlTypeCast('') === '')) {
+            return await super.batchInsert(classSchema, items);
+        }
+
+        const serialize = getSerializeFunction(classSchema.type, this.platform.serializer.serializeRegistry);
+        // serialized as 16 bytes, which a text array only accepts as hex without the \\x of bytea
+        const uuid = fields.map(v => v.sqlTypeCast('') === '::uuid');
+        const columns: any[][] = fields.map(() => new Array(items.length));
+        for (let i = 0; i < items.length; i++) {
+            const converted = serialize(items[i]);
+            for (let c = 0; c < fields.length; c++) {
+                let value = converted[fields[c].name];
+                if (uuid[c] && ArrayBuffer.isView(value)) {
+                    value = Buffer.from(value.buffer, value.byteOffset, value.byteLength).toString('hex');
+                }
+                columns[c][i] = value === undefined ? null : value;
+            }
+        }
+
+        const placeholder = new this.platform.placeholderStrategy();
+        const arrays = fields.map(v => v.sqlTypeCast(placeholder.getPlaceholder()) + '[]').join(', ');
+        const autoIncrement = classSchema.getAutoIncrement();
+        const returning = autoIncrement ? ` RETURNING ${this.platform.quoteIdentifier(autoIncrement.name)}` : '';
+        const names = fields.map(v => v.columnNameEscaped).join(', ');
+        const table = this.platform.getTableIdentifier(classSchema);
+        const sql = `INSERT INTO ${table} (${names}) SELECT * FROM unnest(${arrays})${returning}`;
+        await this.runInsert(classSchema, items, sql, columns, true);
     }
 
     protected getInsertSQL(classSchema: ReflectionClass<any>, fields: string[], values: string[]): string {

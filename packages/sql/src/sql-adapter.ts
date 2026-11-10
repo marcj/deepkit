@@ -132,7 +132,10 @@ export abstract class SQLConnection {
     /**
      * Runs a single SQL query.
      */
-    abstract run(sql: string, params?: any[]): Promise<any>;
+    /**
+     * @param reusable The statement is the same for many runs, a driver can prepare it once.
+     */
+    abstract run(sql: string, params?: any[], reusable?: boolean): Promise<any>;
 
     abstract getChanges(): Promise<number>;
 
@@ -1002,9 +1005,12 @@ export class SQLPersistence extends DatabasePersistence {
             insert.push(row.join(', '));
         }
 
-        const sql = this.getInsertSQL(classSchema, names, insert);
+        await this.runInsert(classSchema, items, this.getInsertSQL(classSchema, names, insert), params);
+    }
+
+    protected async runInsert<T>(classSchema: ReflectionClass<T>, items: T[], sql: string, params: any[], reusable: boolean = false): Promise<void> {
         try {
-            await (await this.getConnection()).run(sql, params);
+            await (await this.getConnection()).run(sql, params, reusable);
         } catch (error: any) {
             error = new DatabaseInsertError(
                 classSchema,

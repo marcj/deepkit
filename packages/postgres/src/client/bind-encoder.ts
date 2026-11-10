@@ -83,7 +83,30 @@ function dateDays(date: Date, local: boolean): number {
     return time === time ? Math.floor((time - postgresEpoch) / 86400000) : NaN;
 }
 
+function hexDigit(code: number): number {
+    if (code >= 48 && code <= 57) return code - 48;
+    if (code >= 97 && code <= 102) return code - 87;
+    if (code >= 65 && code <= 70) return code - 55;
+    return -1;
+}
+
+/** Writes the 16 bytes of a uuid with or without dashes, false when it is something else. */
+function writeUuid(b: Uint8Array, o: number, value: string): boolean {
+    if (value.length !== 32 && value.length !== 36) return false;
+    let at = 0;
+    for (let i = 0; i < 16; i++) {
+        if (value.charCodeAt(at) === 45) at++;
+        const high = hexDigit(value.charCodeAt(at));
+        const low = hexDigit(value.charCodeAt(at + 1));
+        if (high < 0 || low < 0) return false;
+        b[o + i] = (high << 4) | low;
+        at += 2;
+    }
+    return at === value.length;
+}
+
 const helpers = {
+    writeUuid,
     writeFloat8,
     writeFloat4,
     fitsFloat4,
@@ -182,6 +205,94 @@ function fixedParameter(type: number, local: boolean): FixedParameter | undefine
     return undefined;
 }
 
+/** The element type of the array types that are sent in binary format. */
+function arrayElement(type: number): number | undefined {
+    switch (type) {
+        case 1000:
+            return bool;
+        case 1001:
+            return bytea;
+        case 1005:
+            return int2;
+        case 1007:
+            return int4;
+        case 1009:
+            return text;
+        case 1014:
+            return bpchar;
+        case 1015:
+            return varchar;
+        case 1016:
+            return int8;
+        case 1021:
+            return float4;
+        case 1022:
+            return float8;
+        case 1028:
+            return oid;
+        case 1115:
+            return timestamp;
+        case 1182:
+            return date;
+        case 1185:
+            return timestamptz;
+        case 2951:
+            return uuid;
+    }
+    return undefined;
+}
+
+/**
+ * An array in binary format, written directly into the buffer. An element that doesn't fit the type
+ * rewinds and sends the whole array as text, like a parameter of a wrong type.
+ */
+function arrayParameterCode(element: number, local: boolean, fallback: string, refresh: string): string {
+    const setNull = 'h = 1;';
+    const mismatch = 'ok = false; break;';
+    let elementCode: string;
+    let reserve = 'e.ensure(24);';
+    const fixedElement =
+        element === uuid
+            ? fixed(16, [[`typeof v === 'string' && writeUuid(b, o + 4, v)`, '']])
+            : fixedParameter(element, local);
+    if (fixedElement) {
+        reserve = `e.ensure(24 + n * ${fixedElement.size});`;
+        elementCode = fixedElement.code(`if (v === null || v === undefined) { ${nullValue} ${setNull} } else { ${mismatch} }`);
+    } else {
+        const write = element === bytea ? 'e.writeBinaryParameter(v);' : 'e.writeStringParameter(v);';
+        const check = element === bytea ? 'ArrayBuffer.isView(v)' : `typeof v === 'string'`;
+        elementCode = `
+        if (${check}) { e.position = o; ${write} b = e.buffer; o = e.position; }
+        else if (v === null || v === undefined) { e.position = o; e.ensure(4); b = e.buffer; o = e.position; ${nullValue} ${setNull} }
+        else { ${mismatch} }`;
+    }
+    return `
+    if (Array.isArray(v) && v.length) {
+        a = v; n = a.length; h = 0; ok = true;
+        e.position = o; ${reserve} b = e.buffer; o = e.position; s = o;
+        o += 4;
+        b[o] = 0; b[o + 1] = 0; b[o + 2] = 0; b[o + 3] = 1;
+        f = o + 4;
+        ${int32Bytes(String(element), 'o + 8')}
+        ${int32Bytes('n', 'o + 12')}
+        b[o + 16] = 0; b[o + 17] = 0; b[o + 18] = 0; b[o + 19] = 1;
+        o += 20;
+        for (j = 0; j < n; j++) {
+            v = a[j];
+            ${elementCode}
+        }
+        if (ok) {
+            ${int32Bytes('o - s - 4', 's')}
+            b[f] = 0; b[f + 1] = 0; b[f + 2] = 0; b[f + 3] = h;
+            e.position = o; ${refresh}
+        } else {
+            o = s; v = a;
+            ${fallback}
+        }
+    } else ${fallback}
+    `;
+}
+
 function isVariableString(type: number): boolean {
     switch (type) {
         case text:
@@ -208,13 +319,13 @@ interface CompiledParameters {
 function compileParameters(types: number[], local: boolean): CompiledParameters {
     const fixedParameters = types.map(type => fixedParameter(type, local));
     const sizes = fixedParameters.map(v => (v ? v.size : 4));
-    const binary = types.map((type, i) => !!fixedParameters[i] || type === bytea);
+    const binary = types.map((type, i) => !!fixedParameters[i] || type === bytea || arrayElement(type) !== undefined);
 
     // the bytes still needed by the parameters after a position, in case one before them grew the buffer
     const remaining = new Array(types.length + 1).fill(0);
     for (let i = types.length - 1; i >= 0; i--) remaining[i] = remaining[i + 1] + sizes[i];
 
-    let code = 'var b = e.buffer, o = e.position, v, m;\n';
+    let code = 'var b = e.buffer, o = e.position, v, m, a, n, h, s, f, j, ok;\n';
     const context = new CompilerContext();
     context.set(helpers);
     for (let i = 0; i < types.length; i++) {
@@ -224,6 +335,8 @@ function compileParameters(types: number[], local: boolean): CompiledParameters 
         code += `v = p[${i}];\n`;
         if (parameter) {
             code += parameter.code(fallback) + '\n';
+        } else if (arrayElement(types[i]) !== undefined) {
+            code += arrayParameterCode(arrayElement(types[i])!, local, fallback, refresh) + '\n';
         } else if (isVariableString(types[i])) {
             code += `if (typeof v === 'string') { e.position = o; e.writeStringParameter(v); ${refresh} } else ${fallback}\n`;
         } else if (types[i] === bytea) {

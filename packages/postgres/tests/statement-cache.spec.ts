@@ -39,7 +39,7 @@ async function setup(maxPreparedStatements?: number) {
     };
     const statements = async () => {
         const rows = await execute('SELECT statement FROM pg_prepared_statements');
-        return rows.map(v => v.statement as string).filter(v => v.includes('statementItem'));
+        return rows.map(v => v.statement as string).filter(v => v.includes('statementItem') && !v.startsWith('INSERT'));
     };
     return { adapter, database, firstId, execute, statements };
 }
