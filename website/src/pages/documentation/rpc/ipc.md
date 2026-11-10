@@ -1,6 +1,6 @@
 # IPC
 
-Deepkit RPC also connects parts of one application that run in parallel on the same machine: worker threads, Web Workers in the browser, and child processes. The controllers are the same as over [TCP](./tcp.md) or [WebSocket](./websocket.md), with streaming, progress and back controllers. Only the channel between the two sides is different, and there is no network stack in between.
+Deepkit RPC also connects parts of one application that run in parallel on the same machine: worker threads, Web Workers in the browser, and child processes. The controllers are the same as over [TCP](./tcp.md), [WebSocket](./websocket.md) or [HTTP](./http.md), and like over TCP and WebSocket, streaming, progress and back controllers work. Only the channel between the two sides is different, and there is no network stack in between.
 
 One side serves an `RpcKernel` with `serveRpcChannel()`, the other connects a `RpcClient` with `RpcChannelClientAdapter`. Both are in `@deepkit/rpc` and work in node as well as in the browser. The channel is one of:
 
@@ -82,7 +82,7 @@ serveRpcChannel(kernel, createSharedMemoryChannel(workerData.memory, 'server'));
 
 Messages larger than the ring buffer are sent in parts. The memory can't tell when the other thread ended, so call `close()` of the channel then, like on the `exit` event above.
 
-After a message, the receiving side polls for the next one for 100 µs before it goes to sleep, in each turn of the event loop, so the thread stays free meanwhile. An answer that arrives in that time is read right away, instead of after a wake-up of the thread, which takes 20 to 30 µs (see [Performance](#performance)). The cost is a busy core while waiting. The option `spin` sets the time in microseconds, `0` disables polling: `createSharedMemoryChannel(memory, 'client', { spin: 0 })`. Polling is only available in node.
+After a message, the receiving side polls for the next one for 100 µs before it goes to sleep, in each turn of the event loop, so the thread stays free meanwhile. An answer that arrives in that time is read right away, instead of after a wake-up of the thread, which takes 20 to 30 µs (see [Performance](#performance)). The cost is a busy core while waiting. The option `spin` sets the time in microseconds, `0` disables polling: `createSharedMemoryChannel(memory, 'client', { spin: 0 })`.
 
 ## Web Workers
 
@@ -105,6 +105,14 @@ const search = client.controller<SearchController>('search');
 ```
 
 This moves expensive work off the main thread, with the same typed calls as to the server. Shared memory works in the browser as well, when the page is cross-origin isolated (the headers `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`) and the browser has `Atomics.waitAsync`; pass the memory to the worker with `postMessage()`.
+
+Chromium, Firefox and WebKit (Safari) all support it, measured with Playwright. A small call from the page to a Web Worker, on a MacBook (M-series):
+
+| Browser       | MessagePort | Shared memory |
+| ------------- | ----------: | ------------: |
+| Chromium 158  |       23 µs |        8.8 µs |
+| Firefox 159   |       46 µs |         28 µs |
+| WebKit 27     |       48 µs |         28 µs |
 
 ## Child processes
 
@@ -149,6 +157,29 @@ serveRpcChannel(kernel, createProcessChannel(process));
 
 node serializes every message of this channel and wraps it in JSON, which makes it the slowest of the channels.
 
+## Worker pools
+
+One worker uses one core. To spread the work over several, start several workers and put their clients into a `RpcClientPool`. Its controllers look like the ones of a single client, each call goes to the client with the fewest calls in flight:
+
+```typescript
+import { Worker } from 'node:worker_threads';
+import { availableParallelism } from 'node:os';
+import { RpcChannelClientAdapter, RpcClient, RpcClientPool, createMessagePortChannel } from '@deepkit/rpc';
+
+const pool = new RpcClientPool(
+    Array.from({ length: availableParallelism() - 1 }, () => {
+        const worker = new Worker('./server.js');
+        return new RpcClient(new RpcChannelClientAdapter(createMessagePortChannel(worker)));
+    }),
+);
+const image = pool.controller<ImageController>('image');
+
+const thumbnails = await Promise.all(files.map(file => image.resize(file, 200)));
+await pool.disconnect();
+```
+
+A call that returns an Observable or Collection stays with the client that started it. Calls are not ordered among each other, since they may run on different workers. The pool works with any clients, also over shared memory or to child processes.
+
 ## Performance
 
 Time per call from the main thread to a server in a worker thread or child process, on a Linux machine (Intel i9, node 26). The client waits for each answer before it makes the next call, except in the last column, where 64 calls are in flight at once:
@@ -169,7 +200,7 @@ So: between threads, use shared memory. To a child process, use a pipe or a Unix
 
 ## Connections
 
-A channel carries one connection at a time. A client that disconnected connects again over the same message port, process channel or shared memory on its next call, and the server starts a new connection for it, with a new `rpc` scope. To connect several clients to one worker, give each its own `MessageChannel` or shared memory.
+A channel carries one connection at a time. A client that disconnected connects again over the same message port, process channel or shared memory on its next call, and the server starts a new connection for it, with a new `rpc` scope. To connect several clients to one worker, give each its own `MessageChannel` or shared memory. For several workers, see [Worker pools](#worker-pools).
 
 `serveRpcChannel()` returns the server of the channel. `close()` stops it and closes the current connection:
 

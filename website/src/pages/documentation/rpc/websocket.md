@@ -2,6 +2,8 @@
 
 WebSocket is the default transport of Deepkit RPC. It works in browsers and in Node, keeps one connection open for all calls, and supports everything: streaming with RxJS Observables, Subjects and Collections, progress of uploads and downloads, back controllers (the server calling the client) and peer-to-peer messages.
 
+Between servers, [TCP](./tcp.md) is faster. To worker threads, Web Workers and child processes, use [IPC](./ipc.md). Where no connection can stay open, [HTTP](./http.md) sends every call as a request of its own.
+
 ## Deepkit app
 
 A Deepkit app serves its RPC controllers over WebSocket on the port of its HTTP server, there is nothing to configure:

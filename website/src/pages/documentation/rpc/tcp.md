@@ -1,6 +1,6 @@
 # TCP
 
-TCP is the fastest transport of Deepkit RPC, for communication between servers: microservices, workers, or a Node process that talks to another one. It supports everything WebSocket does (streaming, progress, back controllers, peer-to-peer), without the framing of the WebSocket protocol. Browsers can't open TCP connections, use [WebSocket](./websocket.md) or [HTTP](./http.md) there.
+TCP is the fastest network transport of Deepkit RPC, for communication between servers: microservices, or Node processes that talk to each other. It supports everything WebSocket does (streaming, progress, back controllers, peer-to-peer), without the framing of the WebSocket protocol. Browsers can't open TCP connections, use [WebSocket](./websocket.md) or [HTTP](./http.md) there. To worker threads, Web Workers and child processes of your own application, [IPC](./ipc.md) is faster.
 
 The server and the client are in `@deepkit/rpc-tcp`:
 

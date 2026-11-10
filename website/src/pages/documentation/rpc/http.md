@@ -1,6 +1,6 @@
 # HTTP
 
-Deepkit RPC can run over plain HTTP, besides [WebSocket](./websocket.md) and [TCP](./tcp.md): every action call is one HTTP request with a JSON response. The controllers stay the same, only the transport of the client changes.
+Deepkit RPC can run over plain HTTP, besides [WebSocket](./websocket.md), [TCP](./tcp.md) and [IPC](./ipc.md): every action call is one HTTP request with a JSON response. The controllers stay the same, only the transport of the client changes.
 
 This is useful when a persistent connection is not wanted or not possible:
 
