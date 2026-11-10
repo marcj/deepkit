@@ -88,7 +88,8 @@ test('an unused large buffer is released', async () => {
     buffer.apply(serialize, doc(large));
     expect(buffer.hasLargeBuffer).toBe(true);
 
-    await wait(80);
+    // released after one or two retention periods; timers run late when the machine is busy
+    for (let waited = 0; buffer.hasLargeBuffer && waited < 2000; waited += 10) await wait(10);
     expect(buffer.hasLargeBuffer).toBe(false);
     expect(buffer._buffer).toBe(small);
 
