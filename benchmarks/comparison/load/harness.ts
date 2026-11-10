@@ -10,8 +10,11 @@ import { join } from 'path';
 
 import { BenchSuite, formatHz } from '@deepkit/bench';
 
-export const warmupSeconds = Number(process.env.LOAD_WARMUP ?? 0.5);
-export const measureSeconds = Number(process.env.LOAD_SECONDS ?? 1);
+// A short window measured the start: pools still opening, code not optimized yet, a freshly reset collection.
+// MongoDB inserts varied 60-90% within one second and once dropped to 10 ops/s; with 2s warmup and 3s they
+// are within 5-10% and match a 20s run.
+export const warmupSeconds = Number(process.env.LOAD_WARMUP ?? 2);
+export const measureSeconds = Number(process.env.LOAD_SECONDS ?? 3);
 /** Throughput is sampled this often during the measurement, for the deviation between the samples */
 const sliceMs = 250;
 
