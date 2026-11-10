@@ -137,6 +137,6 @@ const user = await controller.getUser(2);
 ## 次のステップ
 
 - [はじめに](./rpc/getting-started.md)：インストールと完全な例
-- [トランスポート](./rpc/transport.md)：WebSocket、TCP、および独自のトランスポート
+- [トランスポート](./rpc/websocket.md)：WebSocket、TCP、および独自のトランスポート
 - [エラー](./rpc/errors.md) と [セキュリティ](./rpc/security.md)
 - [ベンチマーク](/benchmarks)：Deepkit の各パッケージのパフォーマンス

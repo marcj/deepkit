@@ -58,7 +58,6 @@
   "rpc/dependency-injection.md": "c8e5218600779f3c3c4fcdccbe7ab8add343f8a8c7f2847dc3b80da96d1604e9",
   "rpc/security.md": "790bb3ff8ef236250d29d16b55e8b685be273f52accb3a368be71eed4a8e639d",
   "rpc/errors.md": "7785519ce38ddd349353e71bcc62bb5ba74582f52c17378508f4c6e9051609a9",
-  "rpc/transport.md": "9561d6ccbfeaf511b6a914fd3d7e6f4b84411f70938ad639665f113e469e1991",
   "orm.md": "e922d5a0e28aa3753e5332418f2802f1ae62596d17ae96f46d3deca59c4e7c0b",
   "orm/getting-started.md": "56e4f565f748aaf043ce8710fc5a58402fb5889366d1478a267e26628ff4e0f6",
   "orm/entity.md": "5fccac031df6723dc0e6bdc9ef7ecd4268631b3b14854661d8ce6dc918f9959c",

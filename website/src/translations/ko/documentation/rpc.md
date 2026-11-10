@@ -137,6 +137,6 @@ const user = await controller.getUser(2);
 ## 다음 단계
 
 - [시작하기](./rpc/getting-started.md): 설치 및 전체 예제
-- [Transport](./rpc/transport.md): WebSocket, TCP 및 사용자 정의 transport
+- [Transport](./rpc/websocket.md): WebSocket, TCP 및 사용자 정의 transport
 - [오류](./rpc/errors.md) 및 [보안](./rpc/security.md)
 - [벤치마크](/benchmarks): Deepkit 패키지의 성능

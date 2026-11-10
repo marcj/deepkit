@@ -210,8 +210,9 @@ export const docs = [
             { path: 'rpc/dependency-injection', title: 'Dependency Injection' },
             { path: 'rpc/security', title: 'Security' },
             { path: 'rpc/errors', title: 'Errors' },
-            { path: 'rpc/transport', title: 'Transport' },
-            { path: 'rpc/http', title: 'RPC over HTTP' },
+            { path: 'rpc/tcp', title: 'TCP' },
+            { path: 'rpc/websocket', title: 'WebSocket' },
+            { path: 'rpc/http', title: 'HTTP' },
         ],
     },
     {

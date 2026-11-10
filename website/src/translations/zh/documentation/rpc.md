@@ -137,6 +137,6 @@ const user = await controller.getUser(2);
 ## 后续步骤
 
 - [入门指南](./rpc/getting-started.md):安装和完整示例
-- [传输](./rpc/transport.md):WebSocket、TCP 以及自定义传输
+- [传输](./rpc/websocket.md):WebSocket、TCP 以及自定义传输
 - [错误](./rpc/errors.md)和[安全](./rpc/security.md)
 - [性能基准](/benchmarks):Deepkit 各个包的性能

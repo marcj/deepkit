@@ -137,6 +137,6 @@ Abwärtskompatibilität lässt sich auf die gleiche Weise umsetzen wie bei einer
 ## Nächste Schritte
 
 - [Erste Schritte](./rpc/getting-started.md): Installation und ein vollständiges Beispiel
-- [Transport](./rpc/transport.md): WebSocket, TCP und Ihr eigener Transport
+- [Transport](./rpc/websocket.md): WebSocket, TCP und Ihr eigener Transport
 - [Fehler](./rpc/errors.md) und [Sicherheit](./rpc/security.md)
 - [Benchmarks](/benchmarks): Performance der Deepkit-Packages

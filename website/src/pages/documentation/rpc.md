@@ -137,6 +137,6 @@ Backward compatibility can be implemented in the same way as with a normal local
 ## Next steps
 
 - [Getting Started](./rpc/getting-started.md): installation and a complete example
-- [Transport](./rpc/transport.md): WebSocket, TCP and your own transport
+- [WebSocket](./rpc/websocket.md), [TCP](./rpc/tcp.md) and [HTTP](./rpc/http.md): the transports
 - [Errors](./rpc/errors.md) and [Security](./rpc/security.md)
 - [Benchmarks](/benchmarks): performance of Deepkit's packages
