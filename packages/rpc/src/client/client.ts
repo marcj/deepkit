@@ -328,9 +328,16 @@ export class RpcClientTransporter {
     public async disconnect() {
         // we have to wait for ongoing connection attempts
         while (this.connectionPromise) {
+            // an attempt whose socket is open waits on the handshake as long as the
+            // server stays silent; closing the socket fails it instead of hanging
+            const connectionPromise = this.connectionPromise;
+            if (this.transportConnection) {
+                this.transportConnection.close();
+                this.onDisconnect();
+            }
             // a failed attempt leaves nothing to disconnect; rethrowing its error
             // made disconnect() reject because some other connect() failed
-            await this.connectionPromise.catch(() => undefined);
+            await connectionPromise.catch(() => undefined);
         }
 
         if (this.transportConnection) {
