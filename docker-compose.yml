@@ -13,7 +13,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_HOST_AUTH_METHOD: trust
-    ports: ['5432:5432']
+    ports: ['127.0.0.1:5432:5432']
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres']
       interval: 2s
@@ -25,7 +25,7 @@ services:
     environment:
       MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
       MYSQL_DATABASE: default
-    ports: ['3306:3306']
+    ports: ['127.0.0.1:3306:3306']
     healthcheck:
       test: ['CMD', 'mysqladmin', 'ping', '--silent']
       interval: 2s
@@ -35,7 +35,7 @@ services:
   mongo:
     image: mongo:5
     command: ['--replSet', 'rs0', '--bind_ip_all']
-    ports: ['27017:27017']
+    ports: ['127.0.0.1:27017:27017']
     healthcheck:
       test: mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}).ok }"
       interval: 3s
@@ -49,14 +49,14 @@ services:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: root
       MONGO_INITDB_DATABASE: root-db
-    ports: ['27018:27017']
+    ports: ['127.0.0.1:27018:27017']
     volumes:
       - ./packages/mongo/tests/docker/simple-auth/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
 
   # packages/broker-redis
   redis:
     image: redis:7.0.11
-    ports: ['6379:6379']
+    ports: ['127.0.0.1:6379:6379']
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 2s
