@@ -103,6 +103,9 @@ export class HttpConflictError extends createHttpError(409, 'Conflict') {
 export class HttpGoneError extends createHttpError(410, 'Gone') {
 }
 
+export class HttpPayloadTooLargeError extends createHttpError(413, 'Payload too large') {
+}
+
 export class HttpTooManyRequestsError extends createHttpError(429, 'Too many requests') {
 }
 

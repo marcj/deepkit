@@ -18,7 +18,7 @@ import {
     ValidationError,
 } from '@deepkit/type';
 import { BodyValidationError, createRequestWithCachedBody, FetchHttpRequest, getRegExp, HttpRequest, readBody, ValidatedBody } from './model.js';
-import { HttpBadRequestError } from './http.js';
+import { HttpBadRequestError, HttpError, HttpPayloadTooLargeError } from './http.js';
 import { getRouteActionLabel, RouteConfig, UploadedFile, UploadedFileSymbol } from './router.js';
 import { parseQueryString } from './query-string.js';
 import formidable, { Fields, Files, Options } from 'formidable';
@@ -140,28 +140,42 @@ function parseBody(
         }
 
         if (req.body) {
-            const [fields, files] = await form.parse(createRequestWithCachedBody(req, req.body));
+            const [fields, files] = await form.parse(createRequestWithCachedBody(req, req.body)).catch(toHttpError);
             parseData(fields, files);
             // the body was already read, the request stream has nothing left to parse
             return;
         }
 
+        // The body is cached in req.body, so another parser of the same request (e.g. HttpRequestParser in a listener)
+        // can parse it again. The chunks are taken from formidable's write() and not from an own 'data' listener: form.parse()
+        // attaches its listener only after an await, an earlier listener would put the stream into flowing mode and the
+        // chunks emitted until then would never reach formidable.
         const chunks: Buffer[] = [];
+        // write() is not part of formidable's types
+        const formWithWrite = form as IncomingForm & { write(buffer: Buffer): number };
+        const write = formWithWrite.write;
+        formWithWrite.write = function (this: IncomingForm, buffer: Buffer) {
+            chunks.push(buffer);
+            return write.call(this, buffer);
+        };
 
-        function read(chunk: Buffer) {
-            chunks.push(chunk);
-        }
-
-        req.on('data', read);
-        req.once('end', () => {
-            req.body = Buffer.concat(chunks);
-            req.off('data', read);
-        });
-        req.once('error', () => req.off('data', read));
-
-        const [fields, files] = await form.parse(req);
+        const [fields, files] = await form.parse(req).catch(toHttpError);
+        req.body = Buffer.concat(chunks);
         parseData(fields, files);
     });
+}
+
+/**
+ * Formidable errors carry the HTTP status they stand for, e.g. 413 for an exceeded maxFileSize.
+ */
+function toHttpError(error: any): never {
+    const httpCode = error && error.httpCode;
+    if ('number' === typeof httpCode && httpCode >= 400 && httpCode < 500) {
+        if (httpCode === 413) throw new HttpPayloadTooLargeError(error.message);
+        if (httpCode === 400) throw new HttpBadRequestError(error.message);
+        throw new HttpError(error.message, httpCode);
+    }
+    throw error;
 }
 
 export class ParameterForRequestParser {
