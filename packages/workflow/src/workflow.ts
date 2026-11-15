@@ -313,6 +313,18 @@ export class Workflow<T extends WorkflowPlaces> {
     ) {
     }
 
+    protected getApplier(): (scopedContext: InjectorContext, state: WorkflowState<T>, nextState: string, event: WorkflowEvent, stopwatch: Stopwatch) => Promise<void> | void {
+        // cached on the dispatcher, rebuilt when its listeners changed
+        let cache = (this.eventDispatcher as any)[this.definition.symbol] as { version: number, fn: any } | undefined;
+        if (!cache || cache.version !== this.eventDispatcher.version) {
+            cache = (this.eventDispatcher as any)[this.definition.symbol] = {
+                version: this.eventDispatcher.version,
+                fn: this.definition.buildApplier(this.eventDispatcher),
+            };
+        }
+        return cache!.fn;
+    }
+
     can(nextState: keyof T & string): boolean {
         return this.definition.getTransitionsFrom(this.state.get()).includes(nextState);
     }
@@ -324,13 +336,10 @@ export class Workflow<T extends WorkflowPlaces> {
         nextState: K,
         event?: ExtractClassType<T[K]>,
     ): Promise<void> {
-        let fn = (this.eventDispatcher as any)[this.definition.symbol];
-        if (!fn) {
-            fn = (this.eventDispatcher as any)[this.definition.symbol] = this.definition.buildApplier(this.eventDispatcher);
-        }
+        const fn = this.getApplier();
 
         try {
-            return fn(this.injector, this.state, nextState, event || new WorkflowEvent() as ExtractClassType<T[K]>, this.stopwatch) || resolvedPromise;
+            return fn(this.injector, this.state, nextState as string, event || new WorkflowEvent() as ExtractClassType<T[K]>, this.stopwatch) || resolvedPromise;
         } catch (error) {
             return Promise.reject(error);
         }
@@ -341,11 +350,8 @@ export class Workflow<T extends WorkflowPlaces> {
      * and throws synchronously. Saves the promise and microtask for hot paths like HTTP requests.
      */
     applyMaybeSync<K extends keyof T>(nextState: K, event?: ExtractClassType<T[K]>): Promise<void> | void {
-        let fn = (this.eventDispatcher as any)[this.definition.symbol];
-        if (!fn) {
-            fn = (this.eventDispatcher as any)[this.definition.symbol] = this.definition.buildApplier(this.eventDispatcher);
-        }
-        return fn(this.injector, this.state, nextState, event || new WorkflowEvent() as ExtractClassType<T[K]>, this.stopwatch);
+        const fn = this.getApplier();
+        return fn(this.injector, this.state, nextState as string, event || new WorkflowEvent() as ExtractClassType<T[K]>, this.stopwatch);
     }
 
     isDone(): boolean {

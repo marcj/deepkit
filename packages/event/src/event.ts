@@ -279,6 +279,12 @@ export class EventDispatcher {
 
     protected symbol = Symbol('eventDispatcher');
 
+    /**
+     * Increases whenever listeners are added or removed, so caches built from the listeners (e.g. workflow appliers)
+     * know when to rebuild.
+     */
+    public version: number = 0;
+
     constructor(
         public injector: InjectorContext = InjectorContext.forProviders([]),
     ) {
@@ -359,6 +365,7 @@ export class EventDispatcher {
     }
 
     protected scheduleDispatcherRebuild(eventToken: EventToken<any>) {
+        this.version++;
         const context = this.getContext(eventToken);
         context.built = false;
         context.dispatcher = (event: BaseEvent, injector?: InjectorContext) => {
