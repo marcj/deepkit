@@ -151,3 +151,67 @@ test('workflow events apply injector', async () => {
 
     expect(context.get(MyService).data).toBe('changedData');
 });
+
+test('sync listeners run without a promise, async listeners continue the remaining listeners and states', async () => {
+    const dispatcher = new EventDispatcher(InjectorContext.forProviders([]));
+    const calls: string[] = [];
+    dispatcher.listen(workflow1.onDoIt, () => {
+        calls.push('doIt sync 1');
+    }, 1);
+    dispatcher.listen(workflow1.onDoIt, async (event) => {
+        await new Promise(resolve => setTimeout(resolve, 1));
+        calls.push('doIt async 2');
+        event.next('success');
+    }, 2);
+    dispatcher.listen(workflow1.onDoIt, () => {
+        calls.push('doIt sync 3');
+    }, 3);
+    dispatcher.listen(workflow1.onSuccess, (event) => {
+        calls.push('success');
+        event.next('end', new EndEvent());
+    });
+    dispatcher.listen(workflow1.onEnd, () => {
+        calls.push('end');
+    });
+
+    const w = workflow1.create('start', dispatcher, new Stopwatch());
+    const result = w.applyMaybeSync('doIt');
+    expect(result).toBeInstanceOf(Promise);
+    expect(calls).toEqual(['doIt sync 1']);
+    await result;
+    expect(calls).toEqual(['doIt sync 1', 'doIt async 2', 'doIt sync 3', 'success', 'end']);
+    expect(w.state.get()).toBe('end');
+
+    const syncDispatcher = new EventDispatcher(InjectorContext.forProviders([]));
+    syncDispatcher.listen(workflow1.onDoIt, (event) => event.next('failed'));
+    const w2 = workflow1.create('start', syncDispatcher, new Stopwatch());
+    expect(w2.applyMaybeSync('doIt')).toBe(undefined);
+    expect(w2.state.get()).toBe('failed');
+
+    // apply() keeps returning a promise, also for errors of synchronous listeners
+    const throwing = new EventDispatcher(InjectorContext.forProviders([]));
+    throwing.listen(workflow1.onDoIt, () => {
+        throw new Error('listener failed');
+    });
+    const w3 = workflow1.create('start', throwing, new Stopwatch());
+    const applied = w3.apply('doIt');
+    expect(applied).toBeInstanceOf(Promise);
+    await expect(applied).rejects.toThrow('listener failed');
+});
+
+test('stopImmediatePropagation skips the remaining listeners after an async listener', async () => {
+    const dispatcher = new EventDispatcher(InjectorContext.forProviders([]));
+    const calls: string[] = [];
+    dispatcher.listen(workflow1.onDoIt, async (event) => {
+        await Promise.resolve();
+        calls.push('first');
+        event.stopImmediatePropagation();
+    }, 1);
+    dispatcher.listen(workflow1.onDoIt, () => {
+        calls.push('second');
+    }, 2);
+    const w = workflow1.create('start', dispatcher, new Stopwatch());
+    await w.apply('doIt');
+    expect(calls).toEqual(['first']);
+    expect(w.state.get()).toBe('doIt');
+});

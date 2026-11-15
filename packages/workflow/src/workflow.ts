@@ -106,13 +106,20 @@ export class WorkflowDefinition<T extends WorkflowPlaces> {
         return this.next[state]! || [];
     }
 
-    public buildApplier(eventDispatcher: EventDispatcher) {
+    /**
+     * Builds the function that applies a state (and all states scheduled via event.next()).
+     *
+     * It runs synchronously and returns undefined as long as all listeners are synchronous. Only when a listener
+     * returns a promise (or a stopwatch records), it continues in an async function and returns its promise. Most
+     * HTTP requests have only synchronous listeners, so they save the async function and its microtask ticks.
+     */
+    public buildApplier(eventDispatcher: EventDispatcher): (scopedContext: InjectorContext, state: WorkflowState<T>, nextState: string, event: WorkflowEvent, stopwatch: Stopwatch) => Promise<void> | void {
         const compiler = new CompilerContext();
         compiler.context.set('WorkflowError', WorkflowError);
         compiler.context.set('WorkflowEvent', WorkflowEvent);
         compiler.context.set('getClassName', getClassName);
 
-        const lines: string[] = [];
+        const places: { place: string, stateString: string, check: string, listeners: { prelude: string, call: string, label: string }[] }[] = [];
 
         for (const [place, eventType] of Object.entries(this.places)) {
             const stateString = JSON.stringify(place);
@@ -120,6 +127,11 @@ export class WorkflowDefinition<T extends WorkflowPlaces> {
             const allowedFrom = this.transitions.filter(v => v.to === place);
             const allowedFromCondition = allowedFrom.map(v => `currentState === ${JSON.stringify(v.from)}`).join(' || ');
             const checkFrom = `if (!(${allowedFromCondition})) throw new WorkflowError(\`Can not apply state change from \${currentState}->\${nextState}. There's no transition between them or it was blocked.\`);`;
+            const check = `
+                ${allowedFrom.length ? checkFrom : ''}
+                if (!(event instanceof ${eventTypeVar})) {
+                    throw new Error(\`State ${place} got the wrong event. Expected ${getClassName(eventType)}, got \${getClassName(event)}\`);
+                }`;
 
             const eventToken = this.tokens[place]!;
             const listeners = eventDispatcher.getListeners(eventToken);
@@ -129,17 +141,13 @@ export class WorkflowDefinition<T extends WorkflowPlaces> {
                 return 0;
             });
 
-            const listenerCode: string[] = [];
+            const placeListeners: { prelude: string, call: string, label: string }[] = [];
             for (const listener of listeners) {
                 if (isEventListenerContainerEntryCallback(listener)) {
                     const injector = listener.module ? eventDispatcher.injector.getInjector(listener.module) : eventDispatcher.injector.getRootInjector();
                     const fn = injectedFunction(listener.fn, injector, 1);
                     const fnVar = compiler.reserveVariable('fn', fn);
-                    listenerCode.push(`
-                        if (!event.immediatePropagationStopped) {
-                            await ${fnVar}(scopedContext.scope, event);
-                        }
-                    `);
+                    placeListeners.push({ prelude: '', call: `${fnVar}(scopedContext.scope, event)`, label: 'callback' });
                 } else if (isEventListenerContainerEntryService(listener)) {
                     const injector = listener.module ? eventDispatcher.injector.getInjector(listener.module) : eventDispatcher.injector.getRootInjector();
                     const classTypeVar = compiler.reserveVariable('classType', listener.classType);
@@ -155,57 +163,107 @@ export class WorkflowDefinition<T extends WorkflowPlaces> {
                         }, injector, 2, method.type, 1);
                         call = `${compiler.reserveVariable('fn', fn)}(scopedContext.scope, event, ${resolvedVar})`;
                     }
-
-                    listenerCode.push(`
-                        //${getClassName(listener.classType)}.${listener.methodName}
-                        if (!event.immediatePropagationStopped) {
-                            if (!${resolvedVar}) ${resolvedVar} = scopedContext.get(${classTypeVar}${moduleVar});
-                            await ${call};
-                        }
-                    `);
-                }
-            }
-
-            const stopWatchId = this.name + '.' + place;
-
-            lines.push(`
-            case ${stateString}: {
-                ${allowedFrom.length ? checkFrom : ''}
-                if (!(event instanceof ${eventTypeVar})) {
-                    throw new Error(\`State ${place} got the wrong event. Expected ${getClassName(eventType)}, got \${getClassName(event)}\`);
-                }
-                const frame = stopwatch.start(${JSON.stringify(stopWatchId)}, ${FrameCategory.workflow});
-
-                try {
-                    await frame.run(async () => {
-                    
-                    ${listenerCode.join('\n')}
-                    
+                    placeListeners.push({
+                        prelude: `if (!${resolvedVar}) ${resolvedVar} = scopedContext.get(${classTypeVar}${moduleVar});`,
+                        call,
+                        label: `${getClassName(listener.classType)}.${listener.methodName}`,
                     });
-                    state.set(${stateString});
-                } finally {
-                    frame.end();
                 }
-                break;
             }
-        `);
+            places.push({ place, stateString, check, listeners: placeListeners });
         }
 
-        return compiler.buildAsync(`
-            while (true) {
-                const currentState = state.get();
-                switch (nextState) {
-                    ${lines.join('\n')}
-                }
+        const awaitListener = (l: { prelude: string, call: string, label: string }) => `
+            //${l.label}
+            if (!event.immediatePropagationStopped) {
+                ${l.prelude}
+                const result = ${l.call};
+                if (result && typeof result.then === 'function') await result;
+            }`;
 
+        const continueWithNext = `
                 if (event.nextState) {
                     nextState = event.nextState;
                     event = event.nextStateEvent || new WorkflowEvent();
                     continue;
                 }
-                return;
+                return;`;
+
+        // async variant: used when a stopwatch records, so frames wrap each state
+        const asyncCases: string[] = [];
+        for (const p of places) {
+            const stopWatchId = this.name + '.' + p.place;
+            asyncCases.push(`
+            case ${p.stateString}: {
+                ${p.check}
+                const frame = stopwatch.start(${JSON.stringify(stopWatchId)}, ${FrameCategory.workflow});
+                try {
+                    await frame.run(async () => {
+                        ${p.listeners.map(awaitListener).join('\n')}
+                    });
+                    state.set(${p.stateString});
+                } finally {
+                    frame.end();
+                }
+                break;
+            }`);
+        }
+        const asyncApplier = compiler.buildAsync(`
+            while (true) {
+                const currentState = state.get();
+                switch (nextState) {
+                    ${asyncCases.join('\n')}
+                }
+                ${continueWithNext}
             }
         `, 'scopedContext', 'state', 'nextState', 'event', 'stopwatch');
+        compiler.context.set('asyncApplier', asyncApplier);
+
+        // sync variant: runs listeners directly; once a listener returns a promise, the rest of the state
+        // continues in an async tail function, which then hands over to self() for the following states.
+        const tails: string[] = [];
+        const syncCases: string[] = [];
+        for (const [pi, p] of places.entries()) {
+            const code: string[] = [];
+            for (const [li, l] of p.listeners.entries()) {
+                const tailName = `tail_${pi}_${li + 1}`;
+                tails.push(`
+                async function ${tailName}(scopedContext, state, event, stopwatch) {
+                    ${p.listeners.slice(li + 1).map(awaitListener).join('\n')}
+                    state.set(${p.stateString});
+                    if (event.nextState) return self(scopedContext, state, event.nextState, event.nextStateEvent || new WorkflowEvent(), stopwatch);
+                }`);
+                code.push(`
+                //${l.label}
+                if (!event.immediatePropagationStopped) {
+                    ${l.prelude}
+                    const result = ${l.call};
+                    if (result && typeof result.then === 'function') return result.then(() => ${tailName}(scopedContext, state, event, stopwatch));
+                }`);
+            }
+            syncCases.push(`
+            case ${p.stateString}: {
+                ${p.check}
+                ${code.join('\n')}
+                state.set(${p.stateString});
+                break;
+            }`);
+        }
+
+        return compiler.raw(`
+            ${tails.join('\n')}
+            function self(scopedContext, state, nextState, event, stopwatch) {
+                if (stopwatch && stopwatch.active) return asyncApplier(scopedContext, state, nextState, event, stopwatch);
+                while (true) {
+                    const currentState = state.get();
+                    switch (nextState) {
+                        ${syncCases.join('\n')}
+                    }
+                    ${continueWithNext}
+                }
+            }
+            return self;
+        `) as any;
     }
 }
 
@@ -238,6 +296,8 @@ export class WorkflowStateSubject<T extends WorkflowPlaces> implements WorkflowS
     }
 }
 
+const resolvedPromise: Promise<void> = Promise.resolve();
+
 export class WorkflowError extends CustomError {
 }
 
@@ -269,6 +329,22 @@ export class Workflow<T extends WorkflowPlaces> {
             fn = (this.eventDispatcher as any)[this.definition.symbol] = this.definition.buildApplier(this.eventDispatcher);
         }
 
+        try {
+            return fn(this.injector, this.state, nextState, event || new WorkflowEvent() as ExtractClassType<T[K]>, this.stopwatch) || resolvedPromise;
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    }
+
+    /**
+     * Like apply(), but returns undefined instead of a promise when all listeners ran synchronously,
+     * and throws synchronously. Saves the promise and microtask for hot paths like HTTP requests.
+     */
+    applyMaybeSync<K extends keyof T>(nextState: K, event?: ExtractClassType<T[K]>): Promise<void> | void {
+        let fn = (this.eventDispatcher as any)[this.definition.symbol];
+        if (!fn) {
+            fn = (this.eventDispatcher as any)[this.definition.symbol] = this.definition.buildApplier(this.eventDispatcher);
+        }
         return fn(this.injector, this.state, nextState, event || new WorkflowEvent() as ExtractClassType<T[K]>, this.stopwatch);
     }
 
