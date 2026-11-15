@@ -173,7 +173,62 @@ See [Server & Runtimes](./runtimes.md) for all ways to run the HTTP kernel.
 
 ## HTTP Client
 
-todo: fetch API, validation, und cast.
+Deepkit HTTP does not need a special client. Any HTTP client works, for example the `fetch` API that is available in browsers, Node.js, Bun, and Deno.
+
+A JSON response contains only JSON types, so a `Date` arrives as a string and nothing guarantees the shape of the data. If you share the types between server and client, `@deepkit/type` converts and validates the response with the same type the server uses.
+
+```typescript
+import { cast } from '@deepkit/type';
+
+interface User {
+    id: number;
+    username: string;
+    created: Date;
+}
+
+const response = await fetch('http://localhost:8080/user/1');
+if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+
+// converts "created" from an ISO string to a Date and validates the result.
+// Throws a ValidationError if the data does not match User.
+const user = cast<User>(await response.json());
+```
+
+Depending on what you need, there are a few functions:
+
+| Function               | Description                                                                                                  |
+|------------------------|--------------------------------------------------------------------------------------------------------------|
+| `cast<T>(data)`        | Converts the data (e.g. ISO string to `Date`, `'2'` to `2`) and validates it. Throws `ValidationError` if invalid. |
+| `deserialize<T>(data)` | Converts the data without validating it. Use it only for trusted sources.                                    |
+| `is<T>(data)`          | Type guard. Returns `true` if the data already matches the type, without converting it.                      |
+| `assert<T>(data)`      | Like `is`, but throws a `ValidationError` instead of returning `false`.                                      |
+| `validate<T>(data)`    | Returns an array of `ValidationErrorItem`, empty if the data is valid.                                       |
+
+The same types can be used to check a request body before it is sent, for example to show errors in a form early. The server validates the body anyway (see [Input & Output](./input-output.md)).
+
+```typescript
+import { MinLength, validate } from '@deepkit/type';
+
+interface CreateUser {
+    username: string & MinLength<3>;
+}
+
+const body: CreateUser = { username: 'Pe' };
+const errors = validate<CreateUser>(body);
+if (errors.length) {
+    // [{ path: 'username', code: 'minLength', message: 'Min length is 3', ... }]
+} else {
+    await fetch('http://localhost:8080/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+}
+```
+
+If the server rejects a request because of invalid input, it responds with status 400 and a JSON body `{ message: string, errors: { path, code, message }[] }`.
+
+See [Serialization](../runtime-types/serialization.md) and [Validation](../runtime-types/validation.md) for all details.
 
 ## Route Names
 
