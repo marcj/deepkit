@@ -17,7 +17,8 @@ import {
     typeToObject,
     ValidationError,
 } from '@deepkit/type';
-import { BodyValidationError, createRequestWithCachedBody, getRegExp, HttpRequest, ValidatedBody } from './model.js';
+import { BodyValidationError, createRequestWithCachedBody, getRegExp, HttpRequest, readBody, ValidatedBody } from './model.js';
+import { HttpBadRequestError } from './http.js';
 import { getRouteActionLabel, RouteConfig, UploadedFile, UploadedFileSymbol } from './router.js';
 import { parseQueryString } from './query-string.js';
 import formidable, { Fields, Files, Options } from 'formidable';
@@ -71,9 +72,26 @@ function trackTemporaryFiles(form: IncomingForm, request: HttpRequest) {
     });
 }
 
+// same content types formidable's json plugin accepts, e.g. application/json and application/vnd.api+json
+const jsonContentType = /json/i;
+
+async function parseJsonBody(req: HttpRequest): Promise<unknown> {
+    const body = req.body || await readBody(req);
+    if (body.length === 0) return {};
+    try {
+        return JSON.parse(body.toString('utf8'));
+    } catch (error) {
+        throw new HttpBadRequestError('Invalid JSON body');
+    }
+}
+
 function parseBody(
     options: HttpParserOptions,
-    req: HttpRequest, foundFiles: { [name: string]: UploadedFile }) {
+    req: HttpRequest, foundFiles: { [name: string]: UploadedFile }): Promise<any> {
+    // JSON is parsed directly, formidable's stream based parsing costs more than the actual JSON.parse
+    const contentType = req.headers['content-type'];
+    if (contentType && jsonContentType.test(contentType)) return parseJsonBody(req);
+
     const { multipartJsonKey, ...formidableOptions } = options;
     const form = formidable(Object.assign({
         allowEmptyFiles: true,
