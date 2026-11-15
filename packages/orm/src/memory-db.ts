@@ -10,10 +10,24 @@
 
 import { DatabaseSession, DatabaseTransaction } from './database-session.js';
 import { DatabaseQueryModel, GenericQueryResolver, Query } from './query.js';
-import { Changes, getSerializeFunction, ReceiveType, ReflectionClass, resolvePath, serialize, Serializer } from '@deepkit/type';
-import { AbstractClassType, deletePathValue, getPathValue, setPathValue } from '@deepkit/core';
+import {
+    Changes,
+    ContainerAccessor,
+    executeTemplates,
+    getSerializeFunction,
+    isReferenceType,
+    ReceiveType,
+    ReflectionClass,
+    ReflectionKind,
+    resolvePath,
+    serialize,
+    Serializer,
+    TemplateState,
+    Type,
+} from '@deepkit/type';
+import { AbstractClassType, deletePathValue, getPathValue, isObject, setPathValue } from '@deepkit/core';
 import { DatabaseAdapter, DatabaseAdapterQueryFactory, DatabaseEntityRegistry, DatabasePersistence, DatabasePersistenceChangeSet, MigrateOptions } from './database-adapter.js';
-import { DeleteResult, OrmEntity, PatchResult } from './type.js';
+import { DatabaseError, DeleteResult, OrmEntity, PatchResult } from './type.js';
 import { findQueryList } from './utils.js';
 import { convertQueryFilter } from './query-filter.js';
 import { Formatter } from './formatter.js';
@@ -22,6 +36,36 @@ type SimpleStore<T> = { items: Map<any, T>, autoIncrement: number };
 
 class MemorySerializer extends Serializer {
     name = 'memory';
+
+    constructor() {
+        super();
+        this.registerReferences();
+    }
+
+    /**
+     * Stores references as their foreign key (like real database adapters do),
+     * not as a full copy of the referenced object. The base serializer only reduces
+     * unhydrated references to their primary key and copies all other objects, so a
+     * persisted `author: Author & Reference` would end up as a nested object in the store,
+     * which the Formatter then can not read as a foreign key.
+     */
+    protected registerReferences() {
+        const handler = (type: Type, state: TemplateState) => {
+            if (!isReferenceType(type)) return;
+            if (type.kind !== ReflectionKind.class && type.kind !== ReflectionKind.objectLiteral) return;
+            const reflection = ReflectionClass.from(type);
+            state.setContext({ isObject });
+            state.template = `
+                if (isObject(${state.accessor})) {
+                    ${executeTemplates(state.fork(state.setter, new ContainerAccessor(state.accessor, JSON.stringify(reflection.getPrimary().getName()))), reflection.getPrimary().getType())}
+                } else {
+                    ${state.setter} = ${state.accessor};
+                }
+            `;
+        };
+        this.serializeRegistry.append(ReflectionKind.class, handler);
+        this.serializeRegistry.append(ReflectionKind.objectLiteral, handler);
+    }
 }
 
 const memorySerializer = new MemorySerializer();
@@ -62,12 +106,6 @@ function sortDesc(a: any, b: any) {
     return 0;
 }
 
-function sort(items: any[], field: string, sortFn: typeof sortAsc | typeof sortAsc): void {
-    items.sort((a, b) => {
-        return sortFn(a[field], b[field]);
-    });
-}
-
 export class MemoryQuery<T extends OrmEntity> extends Query<T> {
     protected isMemory = true;
 
@@ -76,10 +114,15 @@ export class MemoryQuery<T extends OrmEntity> extends Query<T> {
     }
 }
 
-const find = <T extends OrmEntity>(adapter: MemoryDatabaseAdapter, classSchema: ReflectionClass<any>, model: DatabaseQueryModel<T>): T[] => {
-    const rawItems = [...adapter.getStore(classSchema).items.values()];
-    const serializer = getSerializeFunction(classSchema.type, memorySerializer.deserializeRegistry);
-    const items = rawItems.map(v => serializer(v));
+/**
+ * Returns the stored (serialized) records matching the query model.
+ *
+ * Filters are matched against the stored records, since convertQueryFilter below serializes
+ * filter values with the memorySerializer as well (e.g. a reference becomes its foreign key).
+ * The records are what the Formatter expects to hydrate; use `deserializeItems` when instances are needed.
+ */
+const find = <T extends OrmEntity>(adapter: MemoryDatabaseAdapter, classSchema: ReflectionClass<any>, model: DatabaseQueryModel<T>): any[] => {
+    const records = [...adapter.getStore(classSchema).items.values()];
 
     if (model.filter) {
         model.filter = convertQueryFilter(classSchema, model.filter, (convertClassType: ReflectionClass<any>, path: string, value: any) => {
@@ -88,23 +131,28 @@ const find = <T extends OrmEntity>(adapter: MemoryDatabaseAdapter, classSchema: 
         }, {}, {
             $parameter: (name, value) => {
                 if (undefined === model.parameters[value]) {
-                    throw new Error(`Parameter ${value} not defined in ${classSchema.getClassName()} query.`);
+                    throw new DatabaseError(`Parameter ${value} not defined in ${classSchema.getClassName()} query.`);
                 }
                 return model.parameters[value];
             }
         });
     }
 
-    let filtered = model.filter ? findQueryList<T>(items, model.filter) : items;
+    let filtered = model.filter ? findQueryList<any>(records, model.filter) : records;
 
     if (model.hasJoins()) {
         console.log('MemoryDatabaseAdapter does not support joins. Please use another lightweight adapter like SQLite.');
     }
 
     if (model.sort) {
+        //sort by the deserialized values, so e.g. bigint (stored as string) sorts numerically
+        const deserializer = getSerializeFunction(classSchema.type, memorySerializer.deserializeRegistry);
+        const pairs = filtered.map(record => ({ record, item: deserializer(record) }));
         for (const [name, direction] of Object.entries(model.sort)) {
-            sort(filtered, name, direction === 'asc' ? sortAsc : sortDesc);
+            const sortFn = direction === 'asc' ? sortAsc : sortDesc;
+            pairs.sort((a, b) => sortFn(a.item[name], b.item[name]));
         }
+        filtered = pairs.map(v => v.record);
     }
 
     if (model.skip && model.limit) {
@@ -115,6 +163,11 @@ const find = <T extends OrmEntity>(adapter: MemoryDatabaseAdapter, classSchema: 
         filtered = filtered.slice(model.skip);
     }
     return filtered;
+};
+
+const deserializeItems = <T>(classSchema: ReflectionClass<any>, records: any[]): T[] => {
+    const deserializer = getSerializeFunction(classSchema.type, memorySerializer.deserializeRegistry);
+    return records.map(v => deserializer(v));
 };
 
 const remove = <T>(adapter: MemoryDatabaseAdapter, classSchema: ReflectionClass<T>, toDelete: T[]) => {
@@ -158,7 +211,7 @@ export class MemoryQueryFactory extends DatabaseAdapterQueryFactory {
 
             async delete(model: DatabaseQueryModel<T>, deleteResult: DeleteResult<T>): Promise<void> {
                 self.scopedLogger.debug('delete', model.filter);
-                const items = find(adapter, schema, model);
+                const items = deserializeItems<T>(schema, find(adapter, schema, model));
                 if (deleteResult.shouldLoadPrimaryKeys) {
                     for (const item of items) deleteResult.addPrimaryKey(item);
                 }
@@ -167,16 +220,16 @@ export class MemoryQueryFactory extends DatabaseAdapterQueryFactory {
             }
 
             async find(model: DatabaseQueryModel<T>): Promise<T[]> {
-                const items = find(adapter, schema, model);
+                const records = find(adapter, schema, model);
                 self.scopedLogger.debug('find', model.filter);
                 const formatter = this.createFormatter(model.withIdentityMap);
-                return items.map(v => formatter.hydrate(model, v));
+                return records.map(v => formatter.hydrate(model, v));
             }
 
             async findOneOrUndefined(model: DatabaseQueryModel<T>): Promise<T | undefined> {
-                const items = find(adapter, schema, model);
+                const records = find(adapter, schema, model);
 
-                if (items[0]) return this.createFormatter(model.withIdentityMap).hydrate(model, items[0]);
+                if (records[0]) return this.createFormatter(model.withIdentityMap).hydrate(model, records[0]);
                 return undefined;
             }
 
@@ -186,7 +239,7 @@ export class MemoryQueryFactory extends DatabaseAdapterQueryFactory {
             }
 
             async patch(model: DatabaseQueryModel<T>, changes: Changes<T>, patchResult: PatchResult<T>): Promise<void> {
-                const items = find(adapter, schema, model);
+                const items = deserializeItems<T>(schema, find(adapter, schema, model));
                 const store = adapter.getStore(schema);
                 const primaryKey = schema.getPrimary().name as keyof T;
                 const serializer = getSerializeFunction(schema.type, memorySerializer.serializeRegistry);
