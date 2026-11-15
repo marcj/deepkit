@@ -44,7 +44,6 @@ test('http parse config', async () => {
     request.body('field1=foo&field2=42');
     //note: JSON fields are not handled by formidable.maxFields
     const response = await httpKernel.request(request);
-    expect(response.text).toBe('Internal error');
-
-    expect(test.getLogMessages().some(v => v.message.includes('options.maxFields (1) exceeded'))).toBe(true);
+    expect(response.statusCode).toBe(413);
+    expect(response.json).toEqual({ message: 'options.maxFields (1) exceeded' });
 });
