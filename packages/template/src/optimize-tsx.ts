@@ -31,7 +31,7 @@ import type {
     UnaryExpression
 } from 'estree';
 import { inDebugMode } from '@deepkit/core';
-import { escape, escapeHtml } from './utils.js';
+import { escape, escapeAttribute, escapeHtml } from './utils.js';
 import { voidElements } from './template.js';
 
 export function transform(code: string, filename: string) {
@@ -148,7 +148,7 @@ function optimizeAttributes(jsxRuntime: string, node: ObjectExpression): any {
             expressions.push(toSafeString(jsxRuntime, toEscapeAttributeCall(jsxRuntime, value)));
         } else {
             if (value.type === 'Literal') {
-                expressions.push(createEscapedLiteral(value.value));
+                expressions.push(createEscapedLiteral(escapeAttribute(value.value)));
             } else {
                 expressions.push(value);
             }

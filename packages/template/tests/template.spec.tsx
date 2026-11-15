@@ -4,6 +4,7 @@ import { html, render } from '../src/template.js';
 import { Injector } from '@deepkit/injector';
 import { simple1, simple2, simple3, simple4, simpleHtmlInjected, simpleHtmlInjectedValid } from './simple.js';
 import { convertJsxCodeToCreateElement, optimizeJSX } from '../src/optimize-tsx.js';
+import { escape, escapeAttribute, escapeHtml, safe } from '../src/utils.js';
 
 Error.stackTraceLimit = 200;
 
@@ -39,7 +40,7 @@ test('template html escape', async () => {
 
     expect(await render(Injector.from([]), <div>{html(myVar)}</div>)).toBe('<div><strong>MyHTML</strong></div>');
 
-    expect(await render(Injector.from([]), <div id={myVar}></div>)).toBe('<div id="<strong>MyHTML</strong>"></div>');
+    expect(await render(Injector.from([]), <div id={myVar}></div>)).toBe('<div id="&lt;strong&gt;MyHTML&lt;/strong&gt;"></div>');
 });
 
 function normalize(string: string): string {
@@ -297,11 +298,111 @@ test('attribute is still sanitized in compiled templates', async () => {
         return <div id={content}></div>;
     }
 
-    expect(await simpleRender(test1())).toBe('<div id="<span id=\"3\">unsafe</span>"></div>');
+    const expected = '<div id="&lt;span id=&quot;3&quot;&gt;unsafe&lt;/span&gt;"></div>';
+    expect(await simpleRender(test1())).toBe(expected);
     const o = optimiseFn(test1);
-    // console.log(o.toString());
-    // console.log(o());
-    expect(await simpleRender(o())).toBe('<div id="<span id=\"3\">unsafe</span>"></div>');
+    expect(await simpleRender(o())).toBe(expected);
+});
+
+test('attribute quotes cannot break out (XSS)', async () => {
+    function test1(title: string) {
+        return <a title={title}>x</a>;
+    }
+
+    const payload = 'x" onmouseover="alert(1)';
+    const expected = '<a title="x&quot; onmouseover=&quot;alert(1)">x</a>';
+    expect(await simpleRender(test1(payload))).toBe(expected);
+    expect(await simpleRender(optimiseFn(test1)(payload))).toBe(expected);
+
+    const single = `x' onmouseover='alert(1)`;
+    const expectedSingle = '<a title="x&#39; onmouseover=&#39;alert(1)">x</a>';
+    expect(await simpleRender(test1(single))).toBe(expectedSingle);
+    expect(await simpleRender(optimiseFn(test1)(single))).toBe(expectedSingle);
+
+    expect(await render(Injector.from([]), { render: 'a', attributes: { title: payload }, children: 'x' } as any)).toBe(expected);
+});
+
+test('attribute escapes ampersand and angle brackets', async () => {
+    function test1(href: string) {
+        return <a href={href}>x</a>;
+    }
+
+    const expected = '<a href="/?a=1&amp;b=&lt;2&gt;">x</a>';
+    expect(await simpleRender(test1('/?a=1&b=<2>'))).toBe(expected);
+    expect(await simpleRender(optimiseFn(test1)('/?a=1&b=<2>'))).toBe(expected);
+});
+
+test('static attribute literals are escaped', async () => {
+    function test1() {
+        return <a title='say "hi" & bye'>x</a>;
+    }
+
+    const expected = '<a title="say &quot;hi&quot; &amp; bye">x</a>';
+    expect(await simpleRender(test1())).toBe(expected);
+    expect(await simpleRender(optimiseFn(test1)())).toBe(expected);
+});
+
+test('text escapes ampersand', async () => {
+    function test1(val: string) {
+        return <div>{val}</div>;
+    }
+
+    const expected = '<div>Tom &amp; Jerry &lt;3 &amp;amp; "quoted" \'single\'</div>';
+    const input = `Tom & Jerry <3 &amp; "quoted" 'single'`;
+    expect(await simpleRender(test1(input))).toBe(expected);
+    expect(await simpleRender(optimiseFn(test1)(input))).toBe(expected);
+
+    function test2() {
+        return <div>{'a & b'}</div>;
+    }
+
+    expect(await simpleRender(test2())).toBe('<div>a &amp; b</div>');
+    expect(await simpleRender(optimiseFn(test2)())).toBe('<div>a &amp; b</div>');
+});
+
+test('safe and html values bypass escaping', async () => {
+    function test1(val: string) {
+        return <div title={html(val)}>{html(val)}</div>;
+    }
+
+    const raw = '<b class="x">&amp;</b>';
+    const expected = '<div title="<b class="x">&amp;</b>"><b class="x">&amp;</b></div>';
+    expect(await simpleRender(test1(raw))).toBe(expected);
+    expect(await simpleRender(optimiseFn(test1)(raw))).toBe(expected);
+
+    function test2(val: string) {
+        return <div>{safe(val)}</div>;
+    }
+
+    expect(await simpleRender(test2(raw))).toBe('<div><b class="x">&amp;</b></div>');
+    expect(await simpleRender(optimiseFn(test2)(raw))).toBe('<div><b class="x">&amp;</b></div>');
+
+    function test3() {
+        return <div>{html('')}</div>;
+    }
+
+    expect(await simpleRender(test3())).toBe('<div></div>');
+});
+
+test('numbers are rendered in text and attributes', async () => {
+    function test1(n: number) {
+        return <div data-n={n} tabIndex={3}>{n}</div>;
+    }
+
+    const expected = '<div data-n="42" tabIndex="3">42</div>';
+    expect(await simpleRender(test1(42))).toBe(expected);
+    expect(await simpleRender(optimiseFn(test1)(42))).toBe(expected);
+});
+
+test('escape utilities', () => {
+    const plain = 'nothing to escape here';
+    expect(escapeHtml(plain)).toBe(plain);
+    expect(escapeAttribute(plain)).toBe(plain);
+    expect(escapeHtml('&<>"\'')).toBe('&amp;&lt;&gt;"\'');
+    expect(escapeAttribute('&<>"\'')).toBe('&amp;&lt;&gt;&quot;&#39;');
+    expect(escapeHtml(5)).toBe('5');
+    expect(escapeAttribute(5)).toBe('5');
+    expect(escape('<a title="x">').htmlString).toBe('&lt;a title=&quot;x&quot;&gt;');
 });
 
 test('literals are escaped', async () => {

@@ -97,8 +97,8 @@ async function renderChildren(injector: Injector, contents: ElementStructChildre
             } else if (isElementStruct(item)) {
                 children += await render(injector, item, stopwatch);
             } else {
-                if ((item as any).htmlString) {
-                    children += (item as any).htmlString;
+                if (isHtmlString(item)) {
+                    children += item.htmlString;
                 } else {
                     children += autoEscape ? escapeHtml(item as string) : item as string;
                 }
