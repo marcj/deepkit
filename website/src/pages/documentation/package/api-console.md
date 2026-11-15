@@ -1,7 +1,7 @@
 # Deepkit API Console
 
 ```bash
-npms install @deepkit/api-console-module
+npm install @deepkit/api-console-module
 ```
 
 Auto documentation of HTTP and RPC API showing all routes, actions, parameters, return types, status codes, in TypeScript type syntax.
