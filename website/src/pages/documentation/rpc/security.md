@@ -1,25 +1,25 @@
 # Security
 
-By default, all RPC functions can be called from any client, and the peer-to-peer communication feature is enabled. To precisely control which client is allowed to do what, you can override the `RpcKernelSecurity` class.
+By default, all RPC functions can be called from any client, and the peer-to-peer communication feature is disabled. To precisely control which client is allowed to do what, you can override the `RpcKernelSecurity` class.
 
 ```typescript
-import { RpcKernelSecurity, Session, RpcControllerAccess } from '@deepkit/type';
+import { RpcKernelBaseConnection, RpcKernelSecurity, Session, RpcControllerAccess } from '@deepkit/rpc';
 
-//contains default implementations
+//contains the default implementations
 class MyKernelSecurity extends RpcKernelSecurity {
-    async hasControllerAccess(session: Session, controllerAccess: RpcControllerAccess): Promise<boolean> {
+    async hasControllerAccess(session: Session, controllerAccess: RpcControllerAccess, connection: RpcKernelBaseConnection): Promise<boolean> {
         return true;
     }
 
     async isAllowedToRegisterAsPeer(session: Session, peerId: string): Promise<boolean> {
-        return true;
+        return false;
     }
 
     async isAllowedToSendToPeer(session: Session, peerId: string): Promise<boolean> {
-        return true;
+        return false;
     }
 
-    async authenticate(token: any): Promise<Session> {
+    async authenticate(token: any, connection: RpcKernelBaseConnection): Promise<Session> {
         throw new Error('Authentication not implemented');
     }
 
@@ -29,25 +29,27 @@ class MyKernelSecurity extends RpcKernelSecurity {
 }
 ```
 
+The `connection` parameter is optional, an override can leave it out if it doesn't need the connection.
+
 To use this, pass the provider to the `RpcKernel`:
 
 ```typescript
-const kernel = new RpcKernel([{provide: RpcKernelSecurity, useClass: MyKernelSecurity, scope: 'rpc'}]);
+const kernel = new RpcKernel([{ provide: RpcKernelSecurity, useClass: MyKernelSecurity, scope: 'rpc' }]);
 ```
 
 Or, in the case of a Deepkit app, override the `RpcKernelSecurity` class with a provider in the app:
 
 ```typescript
-import { App } from '@deepkit/type';
+import { App } from '@deepkit/app';
 import { RpcKernelSecurity } from '@deepkit/rpc';
 import { FrameworkModule } from '@deepkit/framework';
 
 new App({
     controllers: [MyRpcController],
     providers: [
-        {provide: RpcKernelSecurity, useClass: MyRpcKernelSecurity, scope: 'rpc'}
+        { provide: RpcKernelSecurity, useClass: MyKernelSecurity, scope: 'rpc' },
     ],
-    imports: [new FrameworkModule]
+    imports: [new FrameworkModule],
 }).run();
 ```
 
@@ -57,9 +59,8 @@ By default, the `Session` object is an anonymous session, meaning the client has
 
 Once the client sets a token, the authentication is executed when the first RPC function is called or when `client.connect()` is manually invoked.
 
-
 ```typescript
-const client = new RpcWebSocketClient('localhost:8081');
+const client = new RpcWebSocketClient('ws://127.0.0.1:8081');
 client.token.set('123456789');
 
 const controller = client.controller<Controller>('/main');
@@ -68,14 +69,14 @@ const controller = client.controller<Controller>('/main');
 In this case, `RpcKernelSecurity.authenticate` receives the token `123456789` and can return a different session accordingly. The returned session is then passed to all other methods like `hasControllerAccess`.
 
 ```typescript
-import { Session, RpcKernelSecurity } from '@deepkit/rpc';
+import { AuthenticationError, RpcControllerAccess, RpcKernelSecurity, Session } from '@deepkit/rpc';
 
 class UserSession extends Session {
 }
 
 class MyKernelSecurity extends RpcKernelSecurity {
     async hasControllerAccess(session: Session, controllerAccess: RpcControllerAccess): Promise<boolean> {
-        if (controllerAccess.controllerClassType instanceof MySecureController) {
+        if (controllerAccess.controllerClassType === MySecureController) {
             //MySecureController requires UserSession
             return session instanceof UserSession;
         }
@@ -87,10 +88,12 @@ class MyKernelSecurity extends RpcKernelSecurity {
             //username can be an ID or a username
             return new UserSession('username', token);
         }
-        throw new Error('Authentication failed');
+        throw new AuthenticationError('Invalid token');
     }
 }
 ```
+
+If `authenticate` throws an `AuthenticationError`, the client receives an error with its message. Any other error is logged on the server, and the client only receives `Authentication failed`.
 
 ## Controller Access
 
@@ -111,6 +114,15 @@ interface RpcControllerAccess {
 Groups and additional data can be changed via the decorator `@rpc.action()`:
 
 ```typescript
+import { rpc, RpcControllerAccess, RpcKernelSecurity, Session } from '@deepkit/rpc';
+
+class UserSession extends Session {
+    constructor(username: string, token: any, public role: string) {
+        super(username, token);
+    }
+}
+
+@rpc.controller('/main')
 class Controller {
     @rpc.action().group('secret').data('role', 'admin')
     saveUser(user: User): void {
@@ -120,11 +132,7 @@ class Controller {
 class MyKernelSecurity extends RpcKernelSecurity {
     async hasControllerAccess(session: Session, controllerAccess: RpcControllerAccess): Promise<boolean> {
         if (controllerAccess.actionGroups.includes('secret')) {
-            if (session instanceof UserSession) {
-                //todo: check
-                return session.username === 'admin';
-            }
-            return false;
+            return session instanceof UserSession && session.role === controllerAccess.actionData.role;
         }
         return true;
     }
