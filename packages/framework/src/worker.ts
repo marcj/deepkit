@@ -287,7 +287,7 @@ export class WebWorker {
             this.activeRequests--;
         });
 
-        return this.httpKernel.handleRequest(request, response);
+        return this.httpKernel.handleRequestMaybeSync(request, response);
     }
 
     applyServerSettings(server: Server) {

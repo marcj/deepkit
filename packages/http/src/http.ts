@@ -16,7 +16,7 @@ import { Injector, InjectorContext, Setter } from '@deepkit/injector';
 import { LoggerInterface } from '@deepkit/logger';
 import { HttpRouter, ResolvedController, RouteConfig, RouteParameterResolverForInjector } from './router.js';
 import type { HttpMiddlewareFn } from './middleware.js';
-import { createWorkflow, WorkflowEvent } from '@deepkit/workflow';
+import { createWorkflow, Workflow, WorkflowEvent } from '@deepkit/workflow';
 import type { ElementStruct, render } from '@deepkit/template';
 import { FrameCategory, Stopwatch, StopwatchFrameInterface } from '@deepkit/stopwatch';
 import { getSerializeFunction, hasTypeInformation, ReflectionKind, resolveReceiveType, SerializationError, serialize, serializer, Type, typeSettings, UnpopulatedCheck, ValidationError } from '@deepkit/type';
@@ -409,6 +409,17 @@ export interface HttpResultFormatterContext {
     route?: RouteConfig;
 }
 
+/**
+ * Primitives, plain objects and arrays, which are serialized as JSON (no special response type).
+ */
+function isPlainResult(value: any): boolean {
+    if (typeof value !== 'object') return typeof value !== 'function' && value !== undefined;
+    if (value === null) return false;
+    if (isArray(value)) return true;
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+}
+
 export class HttpResultFormatter {
     protected jsonContentType: string = 'application/json; charset=utf-8';
     protected htmlContentType: string = 'text/html; charset=utf-8';
@@ -493,7 +504,10 @@ export class HttpResultFormatter {
     }
 
     handle(result: SupportedHttpResult, context: HttpResultFormatterContext): void {
-        if (result === null || result === undefined) {
+        // plain objects, arrays of plain values and primitives are the common case and skip the instanceof checks
+        if (isPlainResult(result) && !(isArray(result) && result.length > 0 && isClassInstance(result[0]))) {
+            this.handleUnknown(result, context);
+        } else if (result === null || result === undefined) {
             this.handleUndefined(result, context);
         } else if (result instanceof Error) {
             this.handleError(result, context);
@@ -896,6 +910,16 @@ export class HttpListener {
         if (event.response.headersSent) return;
         if (event.result === undefined || event.result === null) return;
 
+        if (isPlainResult(event.result)) {
+            // the common case, a plain object/array/primitive: skip the instanceof checks below
+            if (event.route.returnType && event.route.returnType.kind !== ReflectionKind.any) {
+                const serializerToUse = event.route.serializer ? event.route.serializer : serializer;
+                const serialize = getSerializeFunction(event.route.returnType, serializerToUse.serializeRegistry);
+                event.result = serialize(event.result, event.route.serializationOptions);
+                return;
+            }
+        }
+
         if (event.result instanceof HtmlResponse || event.result instanceof Response || event.result instanceof ServerResponse || event.result instanceof Redirect || event.result instanceof stream.Readable) {
             // don't do anything
         } else if (event.result instanceof JSONResponse) {
@@ -926,4 +950,120 @@ export class HttpListener {
 
         this.resultFormatter.handle(event.result, event);
     }
+
+    /**
+     * Runs the default route, auth, parameter, controller and response steps directly, without workflow states and
+     * their events. The kernel uses this only when no other listeners are registered for the states up to the
+     * controller. Everything that is not the plain success path (not found, middlewares, failing parameters or
+     * controllers, response listeners) is handed over to the workflow at the state it was reached, so all listeners
+     * see the same events as before.
+     *
+     * Returns false when the request has to go through the workflow from the beginning (nothing was done yet).
+     */
+    handleDirect(context: HttpDirectContext): false | void | Promise<void> {
+        const request = context.request;
+        let resolved: ResolvedController | undefined;
+        try {
+            resolved = this.router.resolveRequest(request);
+        } catch {
+            // the workflow's onRoute reports routing errors
+            return false;
+        }
+        if (!resolved || resolved.middlewares) return false;
+
+        request.uploadedFiles = resolved.uploadedFiles;
+        const route = resolved.routeConfig;
+        this.setRouteConfig(route, context.injectorContext.scope);
+
+        let parameters: HttpRequestPositionedParameters | Promise<HttpRequestPositionedParameters>;
+        try {
+            parameters = resolved.parameters(context.injectorContext);
+        } catch (error: any) {
+            return this.directParametersFailed(context, route, error);
+        }
+        if (parameters instanceof Promise) {
+            return parameters.then(
+                v => this.directController(context, route, v),
+                error => this.directParametersFailed(context, route, error),
+            );
+        }
+        return this.directController(context, route, parameters);
+    }
+
+    protected directParametersFailed(context: HttpDirectContext, route: RouteConfig, error: any): void | Promise<void> {
+        return context.workflow('resolveParameters').applyMaybeSync('parametersFailed',
+            new HttpControllerErrorEvent(context.injectorContext, context.request, context.response, route, error));
+    }
+
+    protected directController(context: HttpDirectContext, route: RouteConfig, parameters?: HttpRequestPositionedParameters): void | Promise<void> {
+        const action = route.action;
+        const args = parameters ? parameters.arguments : [];
+        const start = Date.now();
+        let result: any;
+        try {
+            if (action.type === 'controller') {
+                const controllerInstance = context.injectorContext.get(action.controller, action.module);
+                result = controllerInstance[action.methodName].apply(controllerInstance, args);
+            } else {
+                result = action.fn(...args);
+            }
+        } catch (error: any) {
+            return this.directControllerFailed(context, route, error, start);
+        }
+        if ((result && typeof result.then === 'function') || isElementStruct(result) || result instanceof stream.Readable) {
+            return this.directControllerAsync(context, route, result, start);
+        }
+        return this.directResponse(context, route, result, start);
+    }
+
+    protected async directControllerAsync(context: HttpDirectContext, route: RouteConfig, result: any, start: number): Promise<void> {
+        try {
+            result = await result;
+            if (isElementStruct(result)) {
+                const html = await (await getTemplateRender())(context.injectorContext.getRootInjector(), result, this.stopwatch ? this.stopwatch : undefined);
+                result = new HtmlResponse(html, 200).header('Content-Type', 'text/html; charset=utf-8');
+            }
+            if (result instanceof stream.Readable) {
+                const stream = result as stream.Readable;
+                await new Promise((resolve, reject) => {
+                    stream.once('readable', resolve);
+                    stream.once('error', reject);
+                });
+            }
+        } catch (error: any) {
+            return this.directControllerFailed(context, route, error, start);
+        }
+        return this.directResponse(context, route, result, start);
+    }
+
+    protected directControllerFailed(context: HttpDirectContext, route: RouteConfig, error: any, start: number): void | Promise<void> {
+        const workflow = context.workflow('controller');
+        if (error instanceof HttpAccessDeniedError) {
+            return workflow.applyMaybeSync('accessDenied', new HttpAccessDeniedEvent(context.injectorContext, context.request, context.response, route, error));
+        }
+        const errorEvent = new HttpControllerErrorEvent(context.injectorContext, context.request, context.response, route, error);
+        errorEvent.controllerActionTime = Date.now() - start;
+        return workflow.applyMaybeSync('controllerError', errorEvent);
+    }
+
+    protected directResponse(context: HttpDirectContext, route: RouteConfig, result: any, start: number): void | Promise<void> {
+        const event = new HttpResponseEvent(context.injectorContext, context.request, context.response, result, route);
+        event.controllerActionTime = Date.now() - start;
+        if (!context.defaultResponseListenersOnly) return context.workflow('controller').applyMaybeSync('response', event);
+        this.onResultSerialization(event);
+        this.onResponse(event);
+    }
+}
+
+/**
+ * What HttpListener.handleDirect needs from the kernel for one request.
+ */
+export interface HttpDirectContext {
+    injectorContext: InjectorContext;
+    request: HttpRequest;
+    response: HttpResponse;
+    /** Whether the response state has only the default listeners, so it doesn't need the workflow. */
+    defaultResponseListenersOnly: boolean;
+    /** Creates the workflow in the given state, to continue with the next state. */
+    workflow(state: keyof typeof httpWorkflow.places & string): Workflow<typeof httpWorkflow.places>;
 }

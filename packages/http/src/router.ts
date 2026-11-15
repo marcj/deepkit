@@ -711,7 +711,6 @@ export class HttpRouter {
             let _match;
             const _method = request.method || 'GET';
             const _url = request.url || '/';
-            const _headers = request.headers || {};
             const _qPosition = _url.indexOf('?');
             let uploadedFiles = {};
             const _path = _qPosition === -1 ? _url : _url.substr(0, _qPosition);

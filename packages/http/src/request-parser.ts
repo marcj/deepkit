@@ -141,6 +141,8 @@ function parseBody(
         if (req.body) {
             const [fields, files] = await form.parse(createRequestWithCachedBody(req, req.body));
             parseData(fields, files);
+            // the body was already read, the request stream has nothing left to parse
+            return;
         }
 
         const chunks: Buffer[] = [];
@@ -506,7 +508,10 @@ export function getRequestParserCodeForParameters(
     let parametersLoader = '() => {}';
 
     if (setParameters.length) {
+        // headers are only read when a parameter needs them (some request objects create them lazily)
+        const headersCode = setParameters.some(v => v.includes('_headers')) ? 'const _headers = request.headers || {};' : '';
         parametersLoader = `${requiresAsyncParameters ? 'async' : ''} function parse(_injector){
+                ${headersCode}
                 const validationErrors = [];
                 const bodyErrors = [];
                 const parameters = {};
