@@ -2949,7 +2949,8 @@ export class Serializer {
 
         this.typeGuards.getRegistry(1).registerClass(Set, forwardSetToArray);
         this.typeGuards.getRegistry(1).registerClass(Map, forwardMapToArray);
-        this.typeGuards.getRegistry(1).registerClass(Date, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not a Date', `${state.accessor} instanceof Date`));
+        // an Invalid Date (e.g. from deserializing 'nope') is not a valid Date, the NaN self-comparison is the cheapest check
+        this.typeGuards.getRegistry(1).registerClass(Date, (type, state) => state.addSetterAndReportErrorIfInvalid('type', 'Not a Date', `${state.accessor} instanceof Date && ${state.accessor}.getTime() === ${state.accessor}.getTime()`));
         this.typeGuards.getRegistry(0.5).registerClass(Date, (type, state) => {
             state.addSetter(`'string' === typeof ${state.accessor} && new Date(${state.accessor}).toString() !== 'Invalid Date'`);
         });

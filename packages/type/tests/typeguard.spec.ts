@@ -530,3 +530,11 @@ test('unknown and symbol (#721)', () => {
     expect(is<symbol | string>('a')).toBe(true);
     expect(is<symbol | string>(1)).toBe(false);
 });
+
+test('invalid Date is not a Date', () => {
+    expect(is<Date>(new Date())).toBe(true);
+    expect(is<Date>(new Date('nope'))).toBe(false);
+    expect(is<{ d: Date }>({ d: new Date(NaN) })).toBe(false);
+    expect(() => cast<{ d: Date }>({ d: 'nope' })).toThrow('Not a Date');
+    expect(cast<{ d: Date }>({ d: '2026-01-01T00:00:00.000Z' }).d.toJSON()).toBe('2026-01-01T00:00:00.000Z');
+});
