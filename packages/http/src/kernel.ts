@@ -105,12 +105,19 @@ export class HttpKernel {
 
         req.throwErrorOnNotFound = options.throwOnNotFound || false;
 
-        const frame = this.stopwatch.start(req.method + ' ' + req.getUrl(), FrameCategory.http, true);
+        // label and data are only computed when the stopwatch records something
+        const frame = this.stopwatch.active ? this.stopwatch.start(req.method + ' ' + req.getUrl(), FrameCategory.http, true) : undefined;
         const workflow = httpWorkflow.create('start', this.eventDispatcher, this.stopwatch, httpInjectorContext);
 
         try {
-            frame.data({ url: req.getUrl(), method: req.getMethod(), clientIp: req.getRemoteAddress() });
-            await frame.run(() => workflow.apply('request', new HttpRequestEvent(httpInjectorContext, req, res)));
+            if (frame) {
+                frame.data({ url: req.getUrl(), method: req.getMethod(), clientIp: req.getRemoteAddress() });
+                await frame.run(() => workflow.apply('request', new HttpRequestEvent(httpInjectorContext, req, res)));
+            } else {
+                // synchronous listeners (the usual case) need no promise and microtask tick
+                const result = workflow.applyMaybeSync('request', new HttpRequestEvent(httpInjectorContext, req, res));
+                if (result) await result;
+            }
         } catch (error: any) {
             if (!res.headersSent) {
                 const resultFormatter = httpInjectorContext.get(HttpResultFormatter);
@@ -141,8 +148,10 @@ export class HttpKernel {
                 });
             }
 
-            frame.data({ responseStatus: res.statusCode });
-            frame.end();
+            if (frame) {
+                frame.data({ responseStatus: res.statusCode });
+                frame.end();
+            }
         }
     }
 }

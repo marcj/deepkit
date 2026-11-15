@@ -14,10 +14,11 @@ import { BaseEvent, eventDispatcher } from '@deepkit/event';
 import { HttpRequest, HttpRequestPositionedParameters, HttpResponse } from './model.js';
 import { Injector, InjectorContext, Setter } from '@deepkit/injector';
 import { LoggerInterface } from '@deepkit/logger';
-import { HttpRouter, RouteConfig, RouteParameterResolverForInjector } from './router.js';
+import { HttpRouter, ResolvedController, RouteConfig, RouteParameterResolverForInjector } from './router.js';
+import type { HttpMiddlewareFn } from './middleware.js';
 import { createWorkflow, WorkflowEvent } from '@deepkit/workflow';
 import type { ElementStruct, render } from '@deepkit/template';
-import { FrameCategory, Stopwatch } from '@deepkit/stopwatch';
+import { FrameCategory, Stopwatch, StopwatchFrameInterface } from '@deepkit/stopwatch';
 import { getSerializeFunction, hasTypeInformation, ReflectionKind, resolveReceiveType, SerializationError, serialize, serializer, Type, typeSettings, UnpopulatedCheck, ValidationError } from '@deepkit/type';
 import stream from 'stream';
 
@@ -167,9 +168,9 @@ export const HttpRouteNotFoundEvent = HttpWorkflowEvent;
 
 export class HttpWorkflowEventWithRoute extends HttpWorkflowEvent {
     constructor(
-        public injectorContext: InjectorContext,
-        public request: HttpRequest,
-        public response: HttpResponse,
+        injectorContext: InjectorContext,
+        request: HttpRequest,
+        response: HttpResponse,
         public route: RouteConfig,
     ) {
         super(injectorContext, request, response);
@@ -186,9 +187,9 @@ export class HttpWorkflowEventWithRoute extends HttpWorkflowEvent {
 
 export class HttpRouteEvent extends HttpWorkflowEvent {
     constructor(
-        public injectorContext: InjectorContext,
-        public request: HttpRequest,
-        public response: HttpResponse,
+        injectorContext: InjectorContext,
+        request: HttpRequest,
+        response: HttpResponse,
         public parameterResolver?: RouteParameterResolverForInjector,
         public route?: RouteConfig,
     ) {
@@ -217,10 +218,10 @@ export class HttpRouteEvent extends HttpWorkflowEvent {
 
 export class HttpAuthEvent extends HttpWorkflowEventWithRoute {
     constructor(
-        public injectorContext: InjectorContext,
-        public request: HttpRequest,
-        public response: HttpResponse,
-        public route: RouteConfig,
+        injectorContext: InjectorContext,
+        request: HttpRequest,
+        response: HttpResponse,
+        route: RouteConfig,
         public parameterResolver: RouteParameterResolverForInjector,
     ) {
         super(injectorContext, request, response, route);
@@ -233,9 +234,9 @@ export class HttpAuthEvent extends HttpWorkflowEventWithRoute {
 
 export class HttpAccessDeniedEvent extends HttpWorkflowEvent {
     constructor(
-        public injectorContext: InjectorContext,
-        public request: HttpRequest,
-        public response: HttpResponse,
+        injectorContext: InjectorContext,
+        request: HttpRequest,
+        response: HttpResponse,
         public route: RouteConfig,
         public error?: Error,
     ) {
@@ -247,11 +248,11 @@ export class HttpResolveParametersEvent extends HttpWorkflowEventWithRoute {
     public parameters: HttpRequestPositionedParameters = { arguments: [], parameters: {} };
 
     constructor(
-        public injectorContext: InjectorContext,
-        public request: HttpRequest,
-        public response: HttpResponse,
+        injectorContext: InjectorContext,
+        request: HttpRequest,
+        response: HttpResponse,
         public parameterResolver: RouteParameterResolverForInjector,
-        public route: RouteConfig,
+        route: RouteConfig,
     ) {
         super(injectorContext, request, response, route);
     }
@@ -263,11 +264,11 @@ export class HttpResolveParametersEvent extends HttpWorkflowEventWithRoute {
 
 export class HttpControllerEvent extends HttpWorkflowEventWithRoute {
     constructor(
-        public injectorContext: InjectorContext,
-        public request: HttpRequest,
-        public response: HttpResponse,
+        injectorContext: InjectorContext,
+        request: HttpRequest,
+        response: HttpResponse,
         public parameters: HttpRequestPositionedParameters = { arguments: [], parameters: {} },
-        public route: RouteConfig,
+        route: RouteConfig,
     ) {
         super(injectorContext, request, response, route);
     }
@@ -297,10 +298,10 @@ export class HttpControllerErrorEvent extends HttpWorkflowEventWithRoute {
     public controllerActionTime: number = 0;
 
     constructor(
-        public injectorContext: InjectorContext,
-        public request: HttpRequest,
-        public response: HttpResponse,
-        public route: RouteConfig,
+        injectorContext: InjectorContext,
+        request: HttpRequest,
+        response: HttpResponse,
+        route: RouteConfig,
         public error: Error,
     ) {
         super(injectorContext, request, response, route);
@@ -558,108 +559,127 @@ export class HttpListener {
         event.next('route', new HttpRouteEvent(event.injectorContext, event.request, event.response,));
     }
 
+    // Synchronous unless middlewares run: an async listener costs a promise and a microtask per request.
     @eventDispatcher.listen(httpWorkflow.onRoute, 100)
-    async onRoute(event: typeof httpWorkflow.onRoute.event) {
+    onRoute(event: typeof httpWorkflow.onRoute.event): void | Promise<void> {
         if (event.sent) return;
         if (event.hasNext()) return;
-        const logger = this.logger;
-        let inMiddleware = false;
 
         try {
             const resolved = this.router.resolveRequest(event.request);
+            if (!resolved) return;
+            event.request.uploadedFiles = resolved.uploadedFiles;
 
-            if (resolved) {
-                event.request.uploadedFiles = resolved.uploadedFiles;
+            //todo: embed that into the generated router code.
+            if (resolved.middlewares) {
+                const middlewares = resolved.middlewares(event.injectorContext);
+                if (middlewares.length) return this.runMiddlewares(event, resolved, middlewares);
+            }
+            this.routeResolved(event, resolved);
+        } catch (error) {
+            this.routeError(event, error, false);
+        }
+    }
 
-                //todo: embed that into the generated router code.
-                if (resolved.middlewares) {
-                    const middlewares = resolved.middlewares(event.injectorContext);
-                    if (middlewares.length) {
-                        inMiddleware = true;
-                        await asyncOperation(async (resolve, reject) => {
-                            let lastTimer: any = undefined;
+    protected async runMiddlewares(
+        event: typeof httpWorkflow.onRoute.event,
+        resolved: ResolvedController,
+        middlewares: { fn: HttpMiddlewareFn, timeout?: number }[],
+    ): Promise<void> {
+        const logger = this.logger;
+        try {
+            await asyncOperation(async (resolve, reject) => {
+                let lastTimer: any = undefined;
 
-                            function finish() {
-                                clearTimeout(lastTimer);
-                                resolve(undefined);
-                                //middleware finished the request. We end the workflow transition
+                function finish() {
+                    clearTimeout(lastTimer);
+                    resolve(undefined);
+                    //middleware finished the request. We end the workflow transition
+                }
+
+                event.response.once('finish', finish);
+                let i = -1;
+                let timedOut = false;
+
+                async function next() {
+                    i++;
+
+                    if (i >= middlewares.length) {
+                        event.response.off('finish', finish);
+                        resolve(undefined);
+                        return;
+                    }
+
+                    const timeout = middlewares[i].timeout;
+                    if (timeout !== undefined && timeout > 0) {
+                        lastTimer = setTimeout(() => {
+                            //a middleware that neither calls next() nor ends the response in time fails the request
+                            timedOut = true;
+                            logger.warn(`Middleware timed out. Increase the timeout or fix the middleware. (${middlewares[i].fn})`);
+                            event.response.off('finish', finish);
+                            reject(new HttpGatewayTimeoutError('Middleware timed out'));
+                        }, timeout);
+                    }
+
+                    try {
+                        await middlewares[i].fn(event.request, event.response, (error?: any) => {
+                            if (lastTimer) clearTimeout(lastTimer);
+                            if (timedOut) return;
+                            if (error) {
+                                event.response.off('finish', finish);
+                                reject(error);
+                            } else {
+                                next();
                             }
-
-                            event.response.once('finish', finish);
-                            let i = -1;
-                            let timedOut = false;
-
-                            async function next() {
-                                i++;
-
-                                if (i >= middlewares.length) {
-                                    event.response.off('finish', finish);
-                                    resolve(undefined);
-                                    return;
-                                }
-
-                                const timeout = middlewares[i].timeout;
-                                if (timeout !== undefined && timeout > 0) {
-                                    lastTimer = setTimeout(() => {
-                                        //a middleware that neither calls next() nor ends the response in time fails the request
-                                        timedOut = true;
-                                        logger.warn(`Middleware timed out. Increase the timeout or fix the middleware. (${middlewares[i].fn})`);
-                                        event.response.off('finish', finish);
-                                        reject(new HttpGatewayTimeoutError('Middleware timed out'));
-                                    }, timeout);
-                                }
-
-                                try {
-                                    await middlewares[i].fn(event.request, event.response, (error?: any) => {
-                                        if (lastTimer) clearTimeout(lastTimer);
-                                        if (timedOut) return;
-                                        if (error) {
-                                            event.response.off('finish', finish);
-                                            reject(error);
-                                        } else {
-                                            next();
-                                        }
-                                    });
-                                } catch (error) {
-                                    event.response.off('finish', finish);
-                                    reject(error);
-                                }
-                            }
-
-                            await next();
                         });
-                        inMiddleware = false;
+                    } catch (error) {
+                        event.response.off('finish', finish);
+                        reject(error);
                     }
                 }
 
-                if (event.sent) {
-                    //a middleware ended the request, so we skip the controller but still trigger onResponse (e.g. for logging)
-                    event.next('response', new HttpResponseEvent(event.injectorContext, event.request, event.response, undefined, resolved.routeConfig));
-                    return;
-                }
-
-                this.setRouteConfig(resolved.routeConfig, event.injectorContext.scope);
-                event.routeFound(resolved.routeConfig, resolved.parameters);
-            }
+                await next();
+            });
         } catch (error) {
-            if (error instanceof HttpError) {
-                if (event.request.throwErrorOnNotFound && error.httpCode === 404) {
-                    throw error;
-                }
-                event.send(new JSONResponse({
-                    message: error.message
-                }, error.httpCode).disableAutoSerializing());
-                return;
-            }
-            if (inMiddleware) {
-                //like a failing controller, an error of a middleware is a server error (#439)
-                this.logger.error('Middleware error', error);
-                event.send(new HtmlResponse('Internal error', 500));
-                return;
-            }
-            this.logger.error('Could not resolve request', error);
-            event.notFound();
+            this.routeError(event, error, true);
+            return;
         }
+        try {
+            this.routeResolved(event, resolved);
+        } catch (error) {
+            this.routeError(event, error, false);
+        }
+    }
+
+    protected routeResolved(event: typeof httpWorkflow.onRoute.event, resolved: ResolvedController): void {
+        if (event.sent) {
+            //a middleware ended the request, so we skip the controller but still trigger onResponse (e.g. for logging)
+            event.next('response', new HttpResponseEvent(event.injectorContext, event.request, event.response, undefined, resolved.routeConfig));
+            return;
+        }
+
+        this.setRouteConfig(resolved.routeConfig, event.injectorContext.scope);
+        event.routeFound(resolved.routeConfig, resolved.parameters);
+    }
+
+    protected routeError(event: typeof httpWorkflow.onRoute.event, error: unknown, inMiddleware: boolean): void {
+        if (error instanceof HttpError) {
+            if (event.request.throwErrorOnNotFound && error.httpCode === 404) {
+                throw error;
+            }
+            event.send(new JSONResponse({
+                message: error.message
+            }, error.httpCode).disableAutoSerializing());
+            return;
+        }
+        if (inMiddleware) {
+            //like a failing controller, an error of a middleware is a server error (#439)
+            this.logger.error('Middleware error', error);
+            event.send(new HtmlResponse('Internal error', 500));
+            return;
+        }
+        this.logger.error('Could not resolve request', error);
+        event.notFound();
     }
 
     @eventDispatcher.listen(httpWorkflow.onRoute, 1000)
@@ -693,16 +713,31 @@ export class HttpListener {
     }
 
     @eventDispatcher.listen(httpWorkflow.onResolveParameters, 100)
-    async onResolveParameters(event: typeof httpWorkflow.onResolveParameters.event) {
+    onResolveParameters(event: typeof httpWorkflow.onResolveParameters.event): void | Promise<void> {
         if (event.response.finished) return;
         if (event.hasNext()) return;
 
+        let parameters: HttpRequestPositionedParameters | Promise<HttpRequestPositionedParameters>;
         try {
-            event.parameters = await event.parameterResolver(event.injectorContext);
-            event.next('controller', new HttpControllerEvent(event.injectorContext, event.request, event.response, event.parameters, event.route));
+            parameters = event.parameterResolver(event.injectorContext);
         } catch (error: any) {
-            event.next('parametersFailed', new HttpControllerErrorEvent(event.injectorContext, event.request, event.response, event.route, error));
+            this.parametersFailed(event, error);
+            return;
         }
+        // the resolver is only async when it has to read the body or call parameter resolvers
+        if (parameters instanceof Promise) {
+            return parameters.then(v => this.parametersResolved(event, v), error => this.parametersFailed(event, error));
+        }
+        this.parametersResolved(event, parameters);
+    }
+
+    protected parametersResolved(event: typeof httpWorkflow.onResolveParameters.event, parameters: HttpRequestPositionedParameters): void {
+        event.parameters = parameters;
+        event.next('controller', new HttpControllerEvent(event.injectorContext, event.request, event.response, event.parameters, event.route));
+    }
+
+    protected parametersFailed(event: typeof httpWorkflow.onResolveParameters.event, error: any): void {
+        event.next('parametersFailed', new HttpControllerErrorEvent(event.injectorContext, event.request, event.response, event.route, error));
     }
 
     @eventDispatcher.listen(httpWorkflow.onAccessDenied, 100)
@@ -714,27 +749,52 @@ export class HttpListener {
     }
 
     @eventDispatcher.listen(httpWorkflow.onController, 100)
-    async onController(event: typeof httpWorkflow.onController.event) {
+    onController(event: typeof httpWorkflow.onController.event): void | Promise<void> {
         if (event.sent) return;
         if (event.hasNext()) return;
 
-
         const start = Date.now();
-        const stopWatchLabel = event.route.action.type === 'controller'
+        // the label is only built when the stopwatch records something
+        const frame = this.stopwatch.active ? this.stopwatch.start(event.route.action.type === 'controller'
             ? getClassName(event.route.action.controller) + '.' + event.route.action.methodName
-            : event.route.action.fn.name;
+            : event.route.action.fn.name, FrameCategory.httpController) : undefined;
 
-        const frame = this.stopwatch.start(stopWatchLabel, FrameCategory.httpController);
+        let result: any;
         try {
-            let result: any;
             if (event.route.action.type === 'controller') {
                 const controllerInstance = event.injectorContext.get(event.route.action.controller, event.route.action.module);
                 const method = controllerInstance[event.route.action.methodName];
-                result = await method.apply(controllerInstance, event.parameters.arguments);
+                result = method.apply(controllerInstance, event.parameters.arguments);
             } else {
-                result = await event.route.action.fn(...event.parameters.arguments);
+                result = event.route.action.fn(...event.parameters.arguments);
             }
+        } catch (error: any) {
+            frame?.end();
+            this.controllerFailed(event, error, start);
+            return;
+        }
 
+        // synchronous actions are handled without a promise and microtask per request
+        if ((result && typeof result.then === 'function') || isElementStruct(result) || result instanceof stream.Readable) {
+            return this.onControllerAsync(event, result, start, frame);
+        }
+        try {
+            this.controllerDone(event, result, start);
+        } catch (error: any) {
+            this.controllerFailed(event, error, start);
+        } finally {
+            frame?.end();
+        }
+    }
+
+    protected async onControllerAsync(
+        event: typeof httpWorkflow.onController.event,
+        result: any,
+        start: number,
+        frame?: StopwatchFrameInterface<FrameCategory.httpController>,
+    ): Promise<void> {
+        try {
+            result = await result;
             if (isElementStruct(result)) {
                 const html = await (await getTemplateRender())(event.injectorContext.getRootInjector(), result, this.stopwatch ? this.stopwatch : undefined);
                 result = new HtmlResponse(html, 200).header('Content-Type', 'text/html; charset=utf-8');
@@ -746,19 +806,27 @@ export class HttpListener {
                     stream.once('error', reject);
                 });
             }
-            const responseEvent = new HttpResponseEvent(event.injectorContext, event.request, event.response, result, event.route);
-            responseEvent.controllerActionTime = Date.now() - start;
-            event.next('response', responseEvent);
+            this.controllerDone(event, result, start);
         } catch (error: any) {
-            if (error instanceof HttpAccessDeniedError) {
-                event.next('accessDenied', new HttpAccessDeniedEvent(event.injectorContext, event.request, event.response, event.route, error));
-            } else {
-                const errorEvent = new HttpControllerErrorEvent(event.injectorContext, event.request, event.response, event.route, error);
-                errorEvent.controllerActionTime = Date.now() - start;
-                event.next('controllerError', errorEvent);
-            }
+            this.controllerFailed(event, error, start);
         } finally {
-            frame.end();
+            frame?.end();
+        }
+    }
+
+    protected controllerDone(event: typeof httpWorkflow.onController.event, result: any, start: number): void {
+        const responseEvent = new HttpResponseEvent(event.injectorContext, event.request, event.response, result, event.route);
+        responseEvent.controllerActionTime = Date.now() - start;
+        event.next('response', responseEvent);
+    }
+
+    protected controllerFailed(event: typeof httpWorkflow.onController.event, error: any, start: number): void {
+        if (error instanceof HttpAccessDeniedError) {
+            event.next('accessDenied', new HttpAccessDeniedEvent(event.injectorContext, event.request, event.response, event.route, error));
+        } else {
+            const errorEvent = new HttpControllerErrorEvent(event.injectorContext, event.request, event.response, event.route, error);
+            errorEvent.controllerActionTime = Date.now() - start;
+            event.next('controllerError', errorEvent);
         }
     }
 
@@ -823,7 +891,7 @@ export class HttpListener {
      * This happens before the result is sent.
      */
     @eventDispatcher.listen(httpWorkflow.onResponse, -100)
-    async onResultSerialization(event: typeof httpWorkflow.onResponse.event) {
+    onResultSerialization(event: typeof httpWorkflow.onResponse.event): void {
         if (!event.route) return;
         if (event.response.headersSent) return;
         if (event.result === undefined || event.result === null) return;
@@ -853,7 +921,7 @@ export class HttpListener {
     }
 
     @eventDispatcher.listen(httpWorkflow.onResponse, 100)
-    async onResponse(event: typeof httpWorkflow.onResponse.event) {
+    onResponse(event: typeof httpWorkflow.onResponse.event): void {
         if (event.response.headersSent) return;
 
         this.resultFormatter.handle(event.result, event);
