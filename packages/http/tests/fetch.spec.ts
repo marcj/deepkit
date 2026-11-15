@@ -35,6 +35,12 @@ class Controller {
         return { length: body.length, remote: request.getRemoteAddress(), host: request.headers.host };
     }
 
+    @http.POST('/echo')
+    async echo(request: HttpRequest) {
+        const body = await request.readBody();
+        return { text: body.toString('utf8'), length: request.headers['content-length'] };
+    }
+
     @http.GET('/stream')
     stream() {
         return Readable.from(['a', 'b', 'c']);
@@ -116,6 +122,12 @@ test('fetch request stream, remote address and lazy headers', async () => {
     const kernel = createKernel();
     const response = await kernel.fetch(new Request('http://localhost/raw', { headers: { host: 'example.com' } }), { remoteAddress: '10.0.0.1' });
     expect(await response.json()).toEqual({ length: 0, remote: '10.0.0.1', host: 'example.com' });
+});
+
+test('fetch JSON body is read as text, readBody still returns the bytes', async () => {
+    const kernel = createKernel();
+    const response = await kernel.fetch(new Request('http://localhost/echo', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"ü":1}' }));
+    expect(await response.json()).toEqual({ text: '{"ü":1}', length: '8' });
 });
 
 test('fetch special responses', async () => {

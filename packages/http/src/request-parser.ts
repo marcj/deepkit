@@ -17,7 +17,7 @@ import {
     typeToObject,
     ValidationError,
 } from '@deepkit/type';
-import { BodyValidationError, createRequestWithCachedBody, getRegExp, HttpRequest, readBody, ValidatedBody } from './model.js';
+import { BodyValidationError, createRequestWithCachedBody, FetchHttpRequest, getRegExp, HttpRequest, readBody, ValidatedBody } from './model.js';
 import { HttpBadRequestError } from './http.js';
 import { getRouteActionLabel, RouteConfig, UploadedFile, UploadedFileSymbol } from './router.js';
 import { parseQueryString } from './query-string.js';
@@ -76,10 +76,11 @@ function trackTemporaryFiles(form: IncomingForm, request: HttpRequest) {
 const jsonContentType = /json/i;
 
 async function parseJsonBody(req: HttpRequest): Promise<unknown> {
-    const body = req.body || await readBody(req);
-    if (body.length === 0) return {};
+    // the fetch handler reads JSON bodies as text
+    const text = (req as FetchHttpRequest).bodyText ?? (req.body || await readBody(req)).toString('utf8');
+    if (text.length === 0) return {};
     try {
-        return JSON.parse(body.toString('utf8'));
+        return JSON.parse(text);
     } catch (error) {
         throw new HttpBadRequestError('Invalid JSON body');
     }

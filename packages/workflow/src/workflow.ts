@@ -313,6 +313,14 @@ export class Workflow<T extends WorkflowPlaces> {
     ) {
     }
 
+    /**
+     * Compiles the applier upfront (it's otherwise built on the first apply()), e.g. for runtimes that only
+     * allow code generation at startup like Cloudflare Workers.
+     */
+    prepare(): void {
+        this.getApplier();
+    }
+
     protected getApplier(): (scopedContext: InjectorContext, state: WorkflowState<T>, nextState: string, event: WorkflowEvent, stopwatch: Stopwatch) => Promise<void> | void {
         // cached on the dispatcher, rebuilt when its listeners changed
         let cache = (this.eventDispatcher as any)[this.definition.symbol] as { version: number, fn: any } | undefined;

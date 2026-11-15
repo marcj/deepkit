@@ -7,7 +7,7 @@ import { HttpDirectContext, HttpError, HttpListener, HttpRequestEvent, HttpResul
 import { Workflow } from '@deepkit/workflow';
 import { FrameCategory, Stopwatch, StopwatchFrameInterface } from '@deepkit/stopwatch';
 import { unlink } from 'fs';
-import { ValidationError } from '@deepkit/type';
+import { getSerializeFunction, ReflectionKind, serializer, ValidationError } from '@deepkit/type';
 import { isArray } from '@deepkit/core';
 import { IncomingMessage, ServerResponse } from 'http';
 
@@ -45,6 +45,9 @@ class HttpDirectRequest implements HttpDirectContext {
         return this.kernel.createWorkflow(state, this.injectorContext);
     }
 }
+
+// same content types the body parser treats as JSON
+const jsonContentType = /json/i;
 
 function responseEnded(method: string, res: FetchHttpResponse): Promise<Response> {
     return new Promise<Response>((resolve, reject) => {
@@ -177,13 +180,17 @@ export class HttpKernel {
         const method = request.method;
         if (method !== 'GET' && method !== 'HEAD' && request.body) {
             // Bun only adds the content-type of e.g. a FormData body when the headers are read before the body
-            request.headers;
+            const contentType = request.headers.get('content-type');
+            // JSON is read as text, the body parser then needs no Buffer and decoding step
+            if (contentType && jsonContentType.test(contentType)) {
+                return request.text().then(body => this.fetchWithBody(request, method, body, options));
+            }
             return request.arrayBuffer().then(body => this.fetchWithBody(request, method, Buffer.from(body), options));
         }
         return this.fetchWithBody(request, method, undefined, options);
     }
 
-    protected fetchWithBody(request: Request, method: string, body: Buffer | undefined, options?: HttpKernelHandleOptions & { remoteAddress?: string }): Response | Promise<Response> {
+    protected fetchWithBody(request: Request, method: string, body: Buffer | string | undefined, options?: HttpKernelHandleOptions & { remoteAddress?: string }): Response | Promise<Response> {
         const url = request.url;
         // path and query of an absolute URL, e.g. http://host:8080/path?query
         const schemeEnd = url.indexOf('://');
@@ -198,6 +205,29 @@ export class HttpKernel {
         // e.g. a stream that is still being piped into the response
         if (!res.writableEnded) return responseEnded(method, res);
         return toResponse(method, res);
+    }
+
+    /**
+     * Compiles everything requests need upfront: router with parameter parsers and validators, response
+     * serializers, and the workflow. Otherwise this happens on the first request of each route.
+     *
+     * Required on runtimes that allow code generation only at startup (Cloudflare Workers): call it at
+     * module level, not in the fetch handler. Elsewhere it removes the latency of first requests.
+     */
+    warmUp(): void {
+        // building the router compiles all routes, including their parameter parsers and validators
+        this.router.resolve('GET', '/');
+        for (const route of this.router.getRoutes()) {
+            const serializerToUse = route.serializer || serializer;
+            if (route.returnType && route.returnType.kind !== ReflectionKind.any) {
+                getSerializeFunction(route.returnType, serializerToUse.serializeRegistry);
+            }
+            for (const response of route.responses) {
+                if (response.type) getSerializeFunction(response.type, serializerToUse.serializeRegistry);
+            }
+        }
+        this.createWorkflow('start', this.injectorContext).prepare();
+        this.getDirect();
     }
 
     public async request(requestBuilder: RequestBuilder, options: HttpKernelHandleOptions = {}): Promise<MemoryHttpResponse> {

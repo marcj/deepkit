@@ -642,13 +642,20 @@ export class FetchHttpRequest extends HttpRequest {
     /** The web standard request, its headers are converted to node's plain object on first access of `headers`. */
     public fetchRequest?: { headers: Headers };
 
-    static create(method: string, url: string, fetchRequest: { headers: Headers } | undefined, body: Buffer | undefined, remoteAddress: string = ''): FetchHttpRequest {
+    /** The body as text (JSON bodies are read as text, which is cheaper), `body` is created from it when used. */
+    public bodyText?: string;
+
+    static create(method: string, url: string, fetchRequest: { headers: Headers } | undefined, body: Buffer | string | undefined, remoteAddress: string = ''): FetchHttpRequest {
         const request = Object.create(FetchHttpRequest.prototype) as FetchHttpRequest;
         request.method = method;
         request.url = url;
         request.fetchRequest = fetchRequest;
-        request.body = body;
-        (request as any).socket = remoteAddress ? { ...noSocket, remoteAddress } : noSocket;
+        if ('string' === typeof body) {
+            request.bodyText = body;
+        } else if (body) {
+            request.body = body;
+        }
+        if (remoteAddress) (request as any).fetchSocket = { ...noSocket, remoteAddress };
         request.store = {};
         request.uploadedFiles = {};
         request.throwErrorOnNotFound = false;
@@ -664,6 +671,19 @@ export class FetchHttpRequest extends HttpRequest {
     }
 }
 
+// socket/connection are getter-only in some runtimes (Cloudflare Workers), so they are own accessors here
+for (const name of ['socket', 'connection']) {
+    Object.defineProperty(FetchHttpRequest.prototype, name, {
+        configurable: true,
+        get(this: any) {
+            return this.fetchSocket || noSocket;
+        },
+        set(this: any, value: any) {
+            this.fetchSocket = value;
+        },
+    });
+}
+
 // constant per request, so they live on the prototype instead of being set on every request object
 Object.assign(FetchHttpRequest.prototype, {
     httpVersion: '1.1', httpVersionMajor: 1, httpVersionMinor: 1, complete: true, aborted: false, upgrade: false,
@@ -672,6 +692,10 @@ for (const name of ['rawHeaders', 'rawTrailers'] as const) {
     lazyProperty(FetchHttpRequest.prototype, name, () => () => []);
 }
 lazyProperty(FetchHttpRequest.prototype, 'trailers', () => () => ({}));
+
+lazyProperty(FetchHttpRequest.prototype, 'body', () => function (this: FetchHttpRequest) {
+    return this.bodyText !== undefined ? Buffer.from(this.bodyText, 'utf8') : undefined;
+});
 
 // most routes never read the headers, so they are converted only when used
 lazyProperty(FetchHttpRequest.prototype, 'headers', () => function (this: FetchHttpRequest) {
@@ -689,8 +713,12 @@ lazyProperty(FetchHttpRequest.prototype, 'headers', () => function (this: FetchH
         }
     }
     // a Request with e.g. a FormData body has no content-length, but body parsers (formidable) need it
-    if (this.body && headers['content-length'] === undefined && headers['transfer-encoding'] === undefined) {
-        headers['content-length'] = String(this.body.length);
+    if (headers['content-length'] === undefined && headers['transfer-encoding'] === undefined) {
+        if (this.bodyText !== undefined) {
+            headers['content-length'] = String(Buffer.byteLength(this.bodyText));
+        } else if (this.body) {
+            headers['content-length'] = String(this.body.length);
+        }
     }
     return headers;
 });
