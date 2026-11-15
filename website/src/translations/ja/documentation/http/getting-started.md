@@ -1,15 +1,15 @@
 # はじめに
 
-Deepkit HTTP は Runtime Types に基づいているため、事前に Runtime Types が正しくインストールされている必要があります。詳細は [Runtime Type のインストール](../runtime-types/getting-started.md) を参照してください。
+Deepkit HTTP は Runtime Types をベースにしているため、Runtime Types があらかじめ正しくインストールされている必要があります。[Runtime Types のインストール](../runtime-types/getting-started.md)を参照してください。
 
-これが完了していれば、`@deepkit/app` をインストールするか、すでにこのライブラリを内部で使用している Deepkit フレームワークを利用できます。
+これが正常に完了したら、`@deepkit/app` をインストールするか、内部ですでにこのライブラリを使用している Deepkit フレームワークをインストールできます。
 
 ```sh
 npm install @deepkit/http
 ```
 
-controller API 用の `@deepkit/http` は TypeScript のアノテーションに基づいているため、controller API を使用する場合は `experimentalDecorators` を有効にする必要があります。
-Class を使用しない場合は、この機能を有効にする必要はありません。
+コントローラー API 用の `@deepkit/http` は TypeScript のアノテーションに基づいているため、コントローラー API を使用する場合は `experimentalDecorators` でこの機能を有効にする必要があることに注意してください。
+クラスを使用しない場合は、この機能を有効にする必要はありません。
 
 _ファイル: tsconfig.json_
 
@@ -25,11 +25,11 @@ _ファイル: tsconfig.json_
 }
 ```
 
-ライブラリをインストールすると、その API を直接使用できます。
+ライブラリがインストールされると、その API を直接使用できます。
 
 ## 関数型 API
 
-関数型 API は Function ベースで、アプリの DI コンテナから取得できるルーター・レジストリ経由で登録できます。
+関数型 API は関数をベースにしており、アプリの DI コンテナから取得できるルーターレジストリを介して登録できます。
 
 ```typescript
 import { App } from '@deepkit/app';
@@ -49,7 +49,7 @@ router.get('/', () => {
 app.run();
 ```
 
-Module を使用する場合、関数型ルートは Module から動的に提供することもできます。
+モジュールを使用する場合、関数型のルートはモジュールによって動的に提供することもできます。
 
 ```typescript
 import { App, createModuleClass } from '@deepkit/app';
@@ -71,11 +71,11 @@ const app = new App({
 });
 ```
 
-App Module の詳細は、[Framework モジュール](../app/modules) を参照してください。
+App Modules の詳細については、[Framework Modules](../app/modules) を参照してください。
 
-## コントローラ API
+## コントローラー API
 
-Controller API は Class ベースで、App-API の `controllers` オプションで登録できます。
+コントローラー API はクラスをベースにしており、App-API の `controllers` オプションで登録できます。
 
 ```typescript
 import { App } from '@deepkit/app';
@@ -95,7 +95,7 @@ new App({
 }).run();
 ```
 
-Module を使用する場合、Controller も Module から提供できます。
+モジュールを使用する場合、コントローラーはモジュールによって提供することもできます。
 
 ```typescript
 import { App, createModuleClass } from '@deepkit/app';
@@ -120,7 +120,7 @@ const app = new App({
 });
 ```
 
-設定オプションに応じてなど、Controller を動的に提供するには、`process` フックを使用できます。
+コントローラーを動的に提供するには（例えば設定オプションに応じて）、`process` フックを使用できます。
 
 ```typescript
 class MyModuleConfiguration {
@@ -144,15 +144,15 @@ class MyModule extends createModuleClass({
 }
 ```
 
-App Module の詳細は、[Framework モジュール](../app/modules) を参照してください。
+App Modules の詳細については、[Framework Modules](../app/modules) を参照してください。
 
 ## HTTP サーバー
 
-Deepkit Framework を使用する場合、HTTP サーバーはすでに内蔵されています。Deepkit フレームワークを使用せず、HTTP ライブラリを独自の HTTP サーバーと併用することもできます。
+Deepkit Framework を使用する場合、HTTP サーバーはすでに組み込まれています。ただし、HTTP ライブラリは Deepkit フレームワークを使用せずに独自の HTTP サーバーで使用することもでき、Express 内、`Bun.serve`、`Deno.serve`、Cloudflare Workers、AWS Lambda でも使用できます。
 
 ```typescript
-import { Server } from 'http';
-import { HttpRequest, HttpResponse } from '@deepkit/http';
+import { createServer } from 'http';
+import { HttpKernel, HttpRequest, HttpResponse } from '@deepkit/http';
 
 const app = new App({
     controllers: [MyPage],
@@ -161,26 +161,81 @@ const app = new App({
 
 const httpKernel = app.get(HttpKernel);
 
-new Server(
-    { IncomingMessage: HttpRequest, ServerResponse: HttpResponse, },
-    ((req, res) => {
-        httpKernel.handleRequest(req as HttpRequest, res as HttpResponse);
-    })
+createServer(
+    { IncomingMessage: HttpRequest, ServerResponse: HttpResponse as any },
+    (req, res) => httpKernel.handleRequestMaybeSync(req, res),
 ).listen(8080, () => {
     console.log('listen at 8080');
 });
 ```
 
+HTTP カーネルを実行するすべての方法については、[サーバーとランタイム](./runtimes.md)を参照してください。
+
 ## HTTP クライアント
 
-TODO: fetch API、バリデーション、und キャスト。
+Deepkit HTTP は特別なクライアントを必要としません。任意の HTTP クライアントが動作します。例えば、ブラウザ、Node.js、Bun、Deno で利用可能な `fetch` API などです。
+
+JSON レスポンスには JSON 型のみが含まれるため、`Date` は文字列として届き、データの形状は何も保証されません。サーバーとクライアントの間で型を共有する場合、`@deepkit/type` はサーバーが使用するのと同じ型でレスポンスを変換し、バリデーションします。
+
+```typescript
+import { cast } from '@deepkit/type';
+
+interface User {
+    id: number;
+    username: string;
+    created: Date;
+}
+
+const response = await fetch('http://localhost:8080/user/1');
+if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
+
+// "created" を ISO 文字列から Date に変換し、結果をバリデーションします。
+// データが User と一致しない場合は ValidationError をスローします。
+const user = cast<User>(await response.json());
+```
+
+必要に応じて、いくつかの関数があります。
+
+| Function               | 説明                                                                                                  |
+|------------------------|--------------------------------------------------------------------------------------------------------------|
+| `cast<T>(data)`        | データを変換し（例: ISO 文字列を `Date` に、`'2'` を `2` に）、バリデーションします。無効な場合は `ValidationError` をスローします。 |
+| `deserialize<T>(data)` | バリデーションせずにデータを変換します。信頼できるソースに対してのみ使用してください。                                    |
+| `is<T>(data)`          | 型ガード。データを変換せずに、データがすでに型と一致する場合は `true` を返します。                      |
+| `assert<T>(data)`      | `is` と同様ですが、`false` を返す代わりに `ValidationError` をスローします。                                      |
+| `validate<T>(data)`    | `ValidationErrorItem` の配列を返します。データが有効な場合は空です。                                       |
+
+同じ型を使用して、リクエストボディを送信前にチェックすることもできます。例えば、フォームのエラーを早期に表示する場合などです。いずれにせよ、サーバーはボディをバリデーションします（[入力と出力](./input-output.md)を参照）。
+
+```typescript
+import { MinLength, validate } from '@deepkit/type';
+
+interface CreateUser {
+    username: string & MinLength<3>;
+}
+
+const body: CreateUser = { username: 'Pe' };
+const errors = validate<CreateUser>(body);
+if (errors.length) {
+    // [{ path: 'username', code: 'minLength', message: 'Min length is 3', ... }]
+} else {
+    await fetch('http://localhost:8080/user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+}
+```
+
+無効な入力のためにサーバーがリクエストを拒否した場合、ステータス 400 と JSON ボディ `{ message: string, errors: { path, code, message }[] }` で応答します。
+
+詳細については、[シリアライゼーション](../runtime-types/serialization.md)と[バリデーション](../runtime-types/validation.md)を参照してください。
 
 ## ルート名
 
-ルートには転送時に参照できる一意の名前を付けられます。API によって、名前の定義方法は異なります。
+ルートには、転送時に参照できる一意の名前を付けることができます。API によって、名前の定義方法が異なります。
 
 ```typescript
-// 関数型 API
+//関数型 API
 router.get({
     path: '/user/:id',
     name: 'userDetail'
@@ -188,7 +243,7 @@ router.get({
     return {userId: id};
 });
 
-// コントローラ API
+//コントローラー API
 class UserController {
     @http.GET('/user/:id').name('userDetail')
     userDetail(id: number) {
@@ -197,7 +252,7 @@ class UserController {
 }
 ```
 
-名前付きのすべてのルートから、`Router.resolveUrl()` で URL を取得できます。
+名前を持つすべてのルートについて、`Router.resolveUrl()` で URL を取得できます。
 
 ```typescript
 import { HttpRouter } from '@deepkit/http';

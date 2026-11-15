@@ -1,12 +1,12 @@
 # Deepkit API Console
 
 ```bash
-npms install @deepkit/api-console-module
+npm install @deepkit/api-console-module
 ```
 
-HTTP 및 RPC API의 모든 routes, actions, parameters, return types, status codes를 TypeScript type syntax로 보여주는 자동 문서화.
+모든 라우트, 액션, 파라미터, 반환 타입, 상태 코드를 TypeScript 타입 문법으로 보여주는 HTTP 및 RPC API 자동 문서화 도구입니다.
 
-이는 [Framework Debugger](../framework.md)의 일부이지만 독립적으로도 사용할 수 있습니다.
+[Framework Debugger](../framework.md)의 일부이지만 단독으로도 사용할 수 있습니다.
 
 ```typescript
 import { ApiConsoleModule } from '@deepkit/api-console-module';
@@ -27,7 +27,7 @@ new App({
 })
 ```
 
-기본적으로 `new ApiConsoleModule`은 모든 HTTP 및 RPC routes를 보여줍니다. 또한 `ApiConsoleModule` Class의 Method들을 사용하여 어떤 routes를 표시할지 지정할 수도 있습니다.
+기본적으로 `new ApiConsoleModule`은 모든 HTTP 및 RPC 라우트를 표시합니다. `ApiConsoleModule` 클래스의 메서드를 사용하여 표시할 라우트를 지정할 수도 있습니다.
 
 <app-images>
 <app-image src="/assets/screenshots/api-console-http-get.png"></app-image>

@@ -1,29 +1,29 @@
-# Typannotationen
+# Type Annotations
 
-Typannotationen sind normale TypeScript-Types, die Metainformationen enthalten, die zur Laufzeit ausgelesen werden können und das Verhalten verschiedener Functions zur Laufzeit ändern. Deepkit stellt bereits einige Typannotationen bereit, die viele Anwendungsfälle abdecken. Zum Beispiel kann eine Klassen-Property als Primary Key, Reference oder Index markiert werden. Die Datenbankbibliothek kann diese Informationen zur Laufzeit nutzen, um ohne vorherige Code-Generierung die richtigen SQL-Abfragen zu erstellen.
+Type Annotations sind normale TypeScript-Typen, die Meta-Informationen enthalten, die zur Laufzeit ausgelesen werden können und das Verhalten verschiedener Funktionen verändern. Deepkit stellt bereits einige Type Annotations bereit, die viele Anwendungsfälle abdecken. Beispielsweise kann eine Class-Property als Primary Key, Referenz oder Index markiert werden. Die Datenbank-Library kann diese Informationen zur Laufzeit nutzen, um ohne vorherige Codegenerierung die korrekten SQL-Abfragen zu erstellen.
 
-Validator-Constraints wie `MaxLength`, `Maximum` oder `Positive` können ebenfalls zu jedem Type hinzugefügt werden. Es ist außerdem möglich, dem Serializer mitzuteilen, wie ein bestimmter Wert serialisiert oder deserialisiert werden soll. Darüber hinaus ist es möglich, vollständig eigene Typannotationen zu erstellen und diese zur Laufzeit auszulesen, um das Type-System zur Laufzeit sehr individuell zu nutzen.
+Validator-Constraints wie `MaxLength`, `Maximum` oder `Positive` können ebenfalls zu jedem Type hinzugefügt werden. Es ist außerdem möglich, dem Serializer mitzuteilen, wie ein bestimmter Wert serialisiert oder deserialisiert werden soll. Darüber hinaus ist es möglich, vollständig eigene Type Annotations zu erstellen und diese zur Laufzeit auszulesen, um das Typsystem zur Laufzeit auf sehr individuelle Weise zu nutzen.
 
-Deepkit bringt einen ganzen Satz an Typannotationen mit, die alle direkt aus `@deepkit/type` genutzt werden können. Sie sind so konzipiert, dass sie nicht aus mehreren Libraries stammen, um Code nicht direkt an eine bestimmte Library wie Deepkit RPC oder Deepkit Database zu binden. Dadurch lassen sich Types leichter wiederverwenden, sogar im Frontend, auch wenn zum Beispiel Datenbank-Typannotationen verwendet werden.
+Deepkit bringt eine ganze Reihe von Type Annotations mit, die alle direkt aus `@deepkit/type` verwendet werden können. Sie sind bewusst so gestaltet, dass sie nicht aus mehreren Libraries stammen, um Code nicht direkt an eine bestimmte Library wie Deepkit RPC oder Deepkit Database zu binden. Dies ermöglicht eine einfachere Wiederverwendung von Types, sogar im Frontend, obwohl beispielsweise Datenbank-Type-Annotations verwendet werden.
 
-Im Folgenden befindet sich eine Liste vorhandener Typannotationen. Der Validator und Serializer von `@deepkit/type` und `@deepkit/bson` sowie die Deepkit Database von `@deepkit/orm` nutzen diese Informationen jeweils unterschiedlich. Siehe die entsprechenden Kapitel, um mehr darüber zu erfahren.
+Im Folgenden findet sich eine Liste der vorhandenen Type Annotations. Der Validator und Serializer von `@deepkit/type` und `@deepkit/bson` sowie Deepkit Database von `@deepkit/orm` nutzen diese Informationen auf unterschiedliche Weise. Siehe die entsprechenden Kapitel, um mehr darüber zu erfahren.
 
 ## Integer/Float
 
 Integer und Floats sind als Basis als `number` definiert und haben mehrere Untervarianten:
 
-| Typ     | Beschreibung                                                                                                                                                                                                           |
-|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| integer | Ein Integer beliebiger Größe.                                                                                                                                                                                          |
-| int8    | Ein Integer zwischen -128 und 127.                                                                                                                                                                                     |
-| uint8   | Ein Integer zwischen 0 und 255.                                                                                                                                                                                        |
-| int16   | Ein Integer zwischen -32768 und 32767.                                                                                                                                                                                 |
-| uint16  | Ein Integer zwischen 0 und 65535.                                                                                                                                                                                      |
-| int32   | Ein Integer zwischen -2147483648 und 2147483647.                                                                                                                                                                       |
-| uint32  | Ein Integer zwischen 0 und 4294967295.                                                                                                                                                                                 |
-| float   | Entspricht number, kann im Datenbankkontext jedoch eine andere Bedeutung haben.                                                                                                                                        |
-| float32 | Ein Float zwischen -3.40282347e+38 und 3.40282347e+38. Beachte, dass JavaScript den Bereich aufgrund von Präzisionsproblemen nicht korrekt prüfen kann; die Information kann jedoch für die Datenbank oder binäre Serializer nützlich sein. |
-| float64 | Entspricht number, kann im Datenbankkontext jedoch eine andere Bedeutung haben.                                                                                                                                        |
+| Type    | Beschreibung                                                                                                                                                                                                          |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| integer | Ein Integer beliebiger Größe.                                                                                                                                                                                         |
+| int8    | Ein Integer zwischen -128 und 127.                                                                                                                                                                                    |
+| uint8   | Ein Integer zwischen 0 und 255.                                                                                                                                                                                       |
+| int16   | Ein Integer zwischen -32768 und 32767.                                                                                                                                                                                |
+| uint16  | Ein Integer zwischen 0 und 65535.                                                                                                                                                                                     |
+| int32   | Ein Integer zwischen -2147483648 und 2147483647.                                                                                                                                                                      |
+| uint32  | Ein Integer zwischen 0 und 4294967295.                                                                                                                                                                                |
+| float   | Wie number, kann aber im Datenbankkontext eine andere Bedeutung haben.                                                                                                                                                |
+| float32 | Ein Float zwischen -3.40282347e+38 und 3.40282347e+38. Beachte, dass JavaScript den Bereich aufgrund von Präzisionsproblemen nicht korrekt prüfen kann, die Information aber für die Datenbank oder binäre Serializer nützlich sein kann. |
+| float64 | Wie number, kann aber im Datenbankkontext eine andere Bedeutung haben.                                                                                                                                                |
 
 ```typescript
 import { integer } from '@deepkit/type';
@@ -33,8 +33,8 @@ interface User {
 }
 ```
 
-Hier ist die `id` des Users zur Laufzeit eine number, wird aber in Validierung und Serialisierung als Integer interpretiert.
-Das bedeutet, dass beispielsweise in der Validierung keine Floats erlaubt sind und der Serializer Floats automatisch in Integer umwandelt.
+Hier ist die `id` des Users zur Laufzeit eine Zahl, wird aber bei der Validierung und Serialisierung als Integer interpretiert.
+Das bedeutet, dass hier beispielsweise bei der Validierung keine Floats verwendet werden dürfen und der Serializer Floats automatisch in Integer umwandelt.
 
 ```typescript
 import { is, integer } from '@deepkit/type';
@@ -63,7 +63,7 @@ is<float64>(12.5); //true
 
 ## UUID
 
-UUID v4 wird in der Datenbank üblicherweise als Binary und in JSON als string gespeichert.
+UUID v4 wird in der Datenbank üblicherweise als Binary und in JSON als String gespeichert.
 
 ```typescript
 import { is, UUID } from '@deepkit/type';
@@ -74,7 +74,7 @@ is<UUID>('asd'); //false
 
 ## MongoID
 
-Markiert dieses Feld als ObjectId für MongoDB. Wird als string aufgelöst. Wird in MongoDB als Binary gespeichert.
+Markiert dieses Feld als ObjectId für MongoDB. Wird als String aufgelöst. Wird in MongoDB als Binary gespeichert.
 
 ```typescript
 import { MongoId, serialize, is } from '@deepkit/type';
@@ -90,9 +90,9 @@ class User {
 
 ## Bigint
 
-Standardmäßig serialisiert der normale bigint Type als number in JSON (und als long in BSON). Dies hat jedoch Einschränkungen hinsichtlich dessen, was gespeichert werden kann, da bigint in JavaScript eine unbegrenzte potenzielle Größe hat, während numbers in JavaScript und long in BSON begrenzt sind. Um diese Einschränkung zu umgehen, stehen die Types `BinaryBigInt` und `SignedBinaryBigInt` zur Verfügung.
+Standardmäßig wird der normale bigint-Type in JSON als number (und in BSON als long) serialisiert. Dies hat jedoch Einschränkungen hinsichtlich dessen, was gespeichert werden kann, da bigint in JavaScript eine potenziell unbegrenzte Größe hat, während numbers in JavaScript und long in BSON begrenzt sind. Um diese Einschränkung zu umgehen, stehen die Types `BinaryBigInt` und `SignedBinaryBigInt` zur Verfügung.
 
-`BinaryBigInt` ist dasselbe wie bigint, serialisiert in Datenbanken jedoch als unsigniertes Binary mit unbegrenzter Größe (anstatt 8 Bytes in den meisten Datenbanken) und in JSON als string. Negative Werte werden in positive umgewandelt (`abs(x)`).
+`BinaryBigInt` ist dasselbe wie bigint, wird jedoch in Datenbanken als vorzeichenloses Binary mit unbegrenzter Größe (statt 8 Bytes in den meisten Datenbanken) und in JSON als String serialisiert. Negative Werte werden in positive umgewandelt (`abs(x)`).
 
 ```typescript
 import { BinaryBigInt } from '@deepkit/type';
@@ -109,9 +109,9 @@ serialize<BinaryBigInt>(24); //'24'
 serialize<BinaryBigInt>(-24); //'0'
 ```
 
-Deepkit ORM speichert BinaryBigInt als Binärfeld.
+Deepkit ORM speichert BinaryBigInt als Binary-Feld.
 
-`SignedBinaryBigInt` ist dasselbe wie `BinaryBigInt`, kann jedoch auch negative Werte speichern. Deepkit ORM speichert `SignedBinaryBigInt` als Binary. Das Binary hat ein zusätzliches führendes Vorzeichen-Byte und wird als uint dargestellt: 255 für negativ, 0 für null oder 1 für positiv.
+`SignedBinaryBigInt` ist dasselbe wie `BinaryBigInt`, kann aber auch negative Werte speichern. Deepkit ORM speichert `SignedBinaryBigInt` als Binary. Das Binary hat ein zusätzliches führendes Vorzeichen-Byte und wird als uint dargestellt: 255 für negativ, 0 für null oder 1 für positiv.
 
 ```typescript
 import { SignedBinaryBigInt } from '@deepkit/type';
@@ -123,7 +123,7 @@ interface User {
 
 ## MapName
 
-Um den Namen einer Property in der Serialisierung zu ändern.
+Um den Namen einer Property bei der Serialisierung zu ändern.
 
 ```typescript
 import { serialize, deserialize, MapName } from '@deepkit/type';
@@ -138,7 +138,7 @@ deserialize<User>({ first_name: 'Peter' }) // {firstName: 'Peter'}
 
 ## Group
 
-Properties können gruppiert werden. Bei der Serialisierung kann man zum Beispiel eine Group von der Serialisierung ausschließen. Siehe das Kapitel Serialisierung für weitere Informationen.
+Properties können gruppiert werden. Bei der Serialisierung kann man beispielsweise eine Gruppe von der Serialisierung ausschließen. Siehe das Kapitel Serialisierung für weitere Informationen.
 
 ```typescript
 import { serialize } from '@deepkit/type';
@@ -156,7 +156,7 @@ serialize<Model>(
 
 ## Data
 
-Jede Property kann zusätzliche Metadaten hinzufügen, die über die Reflection API ausgelesen werden können. Siehe [Laufzeit-Typen-Reflexion](reflection.md) für weitere Informationen.
+Jede Property kann zusätzliche Meta-Daten hinzufügen, die über die Reflection-API ausgelesen werden können. Siehe [Runtime Types Reflection](reflection.md) für weitere Informationen.
 
 ```typescript
 import { ReflectionClass } from '@deepkit/type';
@@ -194,7 +194,7 @@ json.password; //wieder undefined, da der Serializer von serialize `json` heißt
 
 ## Embedded
 
-Markiert das Feld als Embedded Type.
+Markiert das Feld als eingebetteten Type.
 
 ```typescript
 import { PrimaryKey, Embedded, serialize, deserialize } from '@deepkit/type';
@@ -245,7 +245,7 @@ serialize<User>(user);
     'Germany'
 }
 
-//für deserialize muss die eingebettete Struktur bereitgestellt werden
+//für deserialize muss die eingebettete Struktur angegeben werden
 deserialize<User>({
     id: 12,
     address_street: 'abc',
@@ -253,7 +253,7 @@ deserialize<User>({
 });
 ```
 
-Es ist möglich, das Präfix zu ändern (standardmäßig ist es der Property-Name).
+Es ist möglich, das Präfix zu ändern (welches standardmäßig der Property-Name ist).
 
 ```typescript
 interface User {
@@ -272,7 +272,7 @@ serialize<User>(user);
     '1234',
 }
 
-//oder vollständig entfernen
+//oder es vollständig entfernen
 interface User {
     id: number & PrimaryKey;
     address: Embedded<Address, { prefix: '' }>;
@@ -317,7 +317,7 @@ interface User {
 
 ## AutoIncrement
 
-Markiert das Feld als Auto-Increment. Wird nur im Datenbankkontext verwendet.
+Markiert das Feld als Auto Increment. Wird nur im Datenbankkontext verwendet.
 Üblicherweise zusammen mit `PrimaryKey`.
 
 ```typescript
@@ -330,7 +330,7 @@ interface User {
 
 ## Reference
 
-Markiert das Feld als Reference (Foreign Key). Wird nur im Datenbankkontext verwendet.
+Markiert das Feld als Referenz (Foreign Key). Wird nur im Datenbankkontext verwendet.
 
 ```typescript
 import { Reference } from '@deepkit/type';
@@ -345,11 +345,11 @@ interface Group {
 }
 ```
 
-In diesem Beispiel ist `User.group` eine besitzende Reference, auch bekannt als Foreign Key in SQL. Das bedeutet, dass die `User`-Tabelle eine Spalte `group` hat, die auf die `Group`-Tabelle verweist. Die `Group`-Tabelle ist die Ziel-Tabelle der Reference.
+In diesem Beispiel ist `User.group` eine besitzende Referenz, in SQL auch als Foreign Key bekannt. Das bedeutet, dass die Tabelle `User` eine Spalte `group` hat, die auf die Tabelle `Group` verweist. Die Tabelle `Group` ist die Zieltabelle der Referenz.
 
 ## BackReference
 
-Markiert das Feld als Back Reference. Wird nur im Datenbankkontext verwendet.
+Markiert das Feld als Rückreferenz. Wird nur im Datenbankkontext verwendet.
 
 ```typescript
 
@@ -364,8 +364,8 @@ interface Group {
 }
 ```
 
-In diesem Beispiel ist `Group.users` eine Back Reference. Das bedeutet, dass die `User`-Tabelle eine Spalte `group` hat, die auf die `Group`-Tabelle verweist.
-Die `Group` hat eine virtuelle Property `users`, die automatisch mit allen Benutzern befüllt wird, die dieselbe `group`-ID wie die `Group`-ID haben, sobald eine Datenbankabfrage
+In diesem Beispiel ist `Group.users` eine Rückreferenz. Das bedeutet, dass die Tabelle `User` eine Spalte `group` hat, die auf die Tabelle `Group` verweist.
+`Group` hat eine virtuelle Property `users`, die automatisch mit allen Usern befüllt wird, die dieselbe `group`-ID wie die `Group`-ID haben, sobald eine Datenbankabfrage
 mit Joins ausgeführt wird. Die Property `users` wird nicht in der Datenbank gespeichert.
 
 ## Index
@@ -383,7 +383,7 @@ interface User {
 
 ## Unique
 
-Markiert das Feld als Unique. Wird nur im Datenbankkontext verwendet.
+Markiert das Feld als eindeutig. Wird nur im Datenbankkontext verwendet.
 
 ```typescript
 import { Unique } from '@deepkit/type';
@@ -396,7 +396,7 @@ interface User {
 
 ## DatabaseField
 
-Mit `DatabaseField` können datenbankspezifische Optionen wie der konkrete Datenbank-Spaltentyp und der Default-Wert usw. definiert werden.
+Mit `DatabaseField` können datenbankspezifische Optionen wie der tatsächliche Spaltentyp in der Datenbank, der Standardwert usw. definiert werden.
 
 ```typescript
 import { DatabaseField } from '@deepkit/type';
@@ -409,13 +409,38 @@ interface User {
 
 ## Validation
 
-TODO
+Validierungs-Constraints sind ebenfalls Type Annotations. Sie werden einem Type über eine Intersection hinzugefügt und von `validate`, `is` und `assert` geprüft sowie automatisch von `validatedDeserialize`, dem HTTP-Router, RPC und CLI-Argumenten.
 
-Siehe [Validierungs-Constraint-Typen](validation.md#validation-constraint-types).
+```typescript
+import { assert, Email, integer, is, MaxLength, MinLength, Positive, validate } from '@deepkit/type';
+
+interface User {
+    username: string & MinLength<3> & MaxLength<20>;
+    email: string & Email;
+    age: integer & Positive;
+}
+
+validate<User>({ username: 'Peter', email: 'peter@example.com', age: 32 }); //[]
+
+validate<User>({ username: 'Pe', email: 'invalid', age: -1 });
+//[
+//  {path: 'username', code: 'minLength', message: 'Min length is 3'},
+//  {path: 'email', code: 'pattern', message: 'Pattern ^\S+@\S+$ does not match'},
+//  {path: 'age', code: 'positive', message: 'Number needs to be positive'},
+//]
+
+is<User>({ username: 'Pe', email: 'peter@example.com', age: 32 }); //false
+
+assert<User>(data); //wirft bei ungültigen Daten einen ValidationError
+```
+
+Alle verfügbaren Constraint-Types (`Pattern`, `Alpha`, `Minimum`, `Maximum`, `MultipleOf`, `BeforeNow`, eigene `Validate`-Functions, ...) werden im Kapitel zur Validierung beschrieben.
+
+Siehe [Validierungs-Constraint-Types](validation.md#validation-constraint-types).
 
 ## InlineRuntimeType
 
-Um einen Runtime Type inline einzubetten. Wird nur in fortgeschrittenen Fällen verwendet.
+Um einen Runtime-Type inline einzubetten. Wird nur in fortgeschrittenen Fällen verwendet.
 
 ```typescript
 import { InlineRuntimeType, ReflectionKind, Type } from '@deepkit/type';
@@ -429,9 +454,9 @@ type Query = {
 const resolved = typeOf<Query>(); // { field: string }
 ```
 
-In TypeScript ist der Type `Query` `{ field: any }`, zur Laufzeit jedoch `{ field: string }`.
+In TypeScript ist der Type `Query` gleich `{ field: any }`, zur Laufzeit jedoch `{ field: string }`.
 
-Dies ist nützlich, wenn du ein hochgradig anpassbares System baust, in dem du Runtime Types akzeptierst und sie in verschiedenen anderen Fällen wiederverwendest.
+Dies ist nützlich, wenn man ein hochgradig anpassbares System baut, in dem Runtime-Types entgegengenommen und in verschiedenen anderen Fällen wiederverwendet werden.
 
 ## ResetAnnotation
 
@@ -449,28 +474,28 @@ interface UserCreationPayload {
 }
 ```
 
-### Custom Type Annotations
+### Eigene Type Annotations
 
-Du kannst eigene Typannotationen definieren.
+Man kann eigene Type Annotations definieren.
 
 ```typescript
 type MyAnnotation = { __meta?: ['myAnnotation'] };
 ```
 
-Konventionsgemäß wird eine Typannotation als Objektliteral mit einer einzelnen optionalen Property `__meta` definiert, die ein Tupel als Type hat. Der erste Eintrag in diesem Tupel ist sein eindeutiger Name und alle nachfolgenden Tupel-Einträge sind beliebige Optionen. Dadurch kann eine Typannotation mit zusätzlichen Optionen ausgestattet werden.
+Per Konvention wird eine Type Annotation als Objektliteral mit einer einzigen optionalen Property `__meta` definiert, deren Type ein Tupel ist. Der erste Eintrag in diesem Tupel ist ihr eindeutiger Name, und alle weiteren Tupel-Einträge sind beliebige Optionen. Dadurch kann eine Type Annotation mit zusätzlichen Optionen ausgestattet werden.
 
 ```typescript
 type AnnotationOption<T extends { title: string }> = { __meta?: ['myAnnotation', T] };
 ```
 
-Die Typannotation wird mit dem Schnittmengen-Operator `&` verwendet. Es können beliebig viele Typannotationen auf einem Type genutzt werden.
+Die Type Annotation wird mit dem Intersection-Operator `&` verwendet. Auf einem Type können beliebig viele Type Annotations verwendet werden.
 
 ```typescript
 type Username = string & MyAnnotation;
 type Title = string & MyAnnotation & AnnotationOption<{ title: 'Hello' }>;
 ```
 
-Die Typannotationen können über die Type-Objekte von `typeOf<T>()` und `typeAnnotation` ausgelesen werden:
+Die Type Annotations können über die Type-Objekte von `typeOf<T>()` und `typeAnnotation` ausgelesen werden:
 
 ```typescript
 import { typeOf, typeAnnotation } from '@deepkit/type';
@@ -479,8 +504,8 @@ const type = typeOf<Username>();
 const annotation = typeAnnotation.getForName(type, 'myAnnotation'); //[]
 ```
 
-Das Ergebnis in `annotation` ist entweder ein Array mit Optionen, falls die Typannotation `myAnnotation` verwendet wurde, oder `undefined`, falls nicht. Wenn die Typannotation zusätzliche Optionen hat, wie in `AnnotationOption` zu sehen, finden sich die übergebenen Werte im Array.
-Bereits mitgelieferte Typannotationen wie `MapName`, `Group`, `Data` usw. haben ihr eigenes Annotation-Objekt:
+Das Ergebnis in `annotation` ist entweder ein Array mit Optionen, falls die Type Annotation `myAnnotation` verwendet wurde, oder `undefined`, falls nicht. Hat die Type Annotation zusätzliche Optionen, wie in `AnnotationOption` zu sehen, finden sich die übergebenen Werte im Array.
+Bereits mitgelieferte Type Annotations wie `MapName`, `Group`, `Data` usw. haben ihr eigenes Annotation-Objekt:
 
 ```typescript
 import { typeOf, Group, groupAnnotation } from '@deepkit/type';
@@ -491,4 +516,4 @@ const type = typeOf<Username>();
 groupAnnotation.getAnnotations(type); //['a', 'b']
 ```
 
-Siehe [Laufzeit-Typen-Reflexion](./reflection.md), um mehr zu erfahren.
+Siehe [Runtime Types Reflection](./reflection.md), um mehr zu erfahren.

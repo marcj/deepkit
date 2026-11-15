@@ -1,29 +1,29 @@
 # 型アノテーション
 
-型アノテーションは、実行時に読み取られ、さまざまな関数の挙動を変更できるメタ情報を含む通常の TypeScript の Type です。Deepkit には、すでに多くのユースケースをカバーする型アノテーションが用意されています。例えば、Class の Property を主キー、参照、インデックスとしてマークできます。データベースライブラリは、事前のコード生成なしに、この情報を実行時に使用して正しい SQL クエリを作成できます。
+型アノテーションは、メタ情報を含む通常の TypeScript の型であり、実行時に読み取って様々な関数の動作を変更できます。Deepkit は、多くのユースケースをカバーする型アノテーションをすでにいくつか提供しています。たとえば、クラスのプロパティを主キー、参照、またはインデックスとしてマークできます。データベースライブラリは実行時にこの情報を利用して、事前のコード生成なしに正しい SQL クエリを作成できます。
 
-`MaxLength`、`Maximum`、`Positive` といったバリデータ制約も任意の型に追加可能です。特定の値をどのようにシリアライズ/デシリアライズするかをシリアライザに指定することもできます。さらに、完全にカスタムな型アノテーションを作成し、それらを実行時に読み取ることで、型システムを非常に個別的な方法で実行時に利用することも可能です。
+`MaxLength`、`Maximum`、`Positive` などのバリデータ制約も、任意の型に追加できます。また、特定の値をどのようにシリアライズまたはデシリアライズするかをシリアライザに指示することも可能です。さらに、完全に独自の型アノテーションを作成して実行時に読み取ることもでき、実行時に型システムを非常に個別的な方法で利用できます。
 
-Deepkit には一連の型アノテーションが付属しており、すべて `@deepkit/type` から直接使用できます。これらは複数のライブラリからではなく、Deepkit RPC や Deepkit Database といった特定のライブラリにコードを直接結び付けないように設計されています。これにより、たとえデータベース型アノテーションを使用していても、フロントエンドでの型の再利用が容易になります。
+Deepkit には一連の型アノテーションが付属しており、すべて `@deepkit/type` から直接使用できます。これらは複数のライブラリから提供されないように設計されており、コードが Deepkit RPC や Deepkit Database のような特定のライブラリに直接結び付かないようになっています。これにより、たとえばデータベース用の型アノテーションが使われていても、フロントエンドを含めて型を容易に再利用できます。
 
-以下は既存の型アノテーションの一覧です。`@deepkit/type` と `@deepkit/bson` のバリデータとシリアライザ、そして `@deepkit/orm` の Deepkit Database は、この情報をそれぞれ異なる方法で使用します。詳細は対応する章を参照してください。
+以下は既存の型アノテーションの一覧です。`@deepkit/type` と `@deepkit/bson` のバリデータとシリアライザ、および `@deepkit/orm` の Deepkit Database は、この情報をそれぞれ異なる方法で使用します。詳しくは対応する章を参照してください。
 
 ## Integer/Float
 
-整数と浮動小数点は、基底として `number` で定義され、いくつかのサブバリアントがあります:
+整数と浮動小数点数は基本的に `number` として定義され、いくつかのサブバリアントがあります:
 
-| 型      | 説明                                                                                                                                                                                                                    |
-|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| integer | 任意サイズの整数。                                                                                                                                                                                                      |
-| int8    | -128 から 127 までの整数。                                                                                                                                                                                              |
-| uint8   | 0 から 255 までの整数。                                                                                                                                                                                                 |
-| int16   | -32768 から 32767 までの整数。                                                                                                                                                                                          |
-| uint16  | 0 から 65535 までの整数。                                                                                                                                                                                               |
-| int32   | -2147483648 から 2147483647 までの整数。                                                                                                                                                                                |
-| uint32  | 0 から 4294967295 までの整数。                                                                                                                                                                                          |
-| float   | number と同じですが、データベースの文脈では異なる意味を持つ場合があります。                                                                                                                                             |
-| float32 | -3.40282347e+38 から 3.40282347e+38 の間の float。JavaScript は精度の問題により範囲を正しく検証できないことに注意してください。ただし、この情報はデータベースやバイナリシリアライザには有用です。                              |
-| float64 | number と同じですが、データベースの文脈では異なる意味を持つ場合があります。                                                                                                                                             |
+| 型      | 説明                                                                                                                                                                                                                  |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| integer | 任意サイズの整数。                                                                                                                                                                                                    |
+| int8    | -128 から 127 までの整数。                                                                                                                                                                                            |
+| uint8   | 0 から 255 までの整数。                                                                                                                                                                                               |
+| int16   | -32768 から 32767 までの整数。                                                                                                                                                                                        |
+| uint16  | 0 から 65535 までの整数。                                                                                                                                                                                             |
+| int32   | -2147483648 から 2147483647 までの整数。                                                                                                                                                                              |
+| uint32  | 0 から 4294967295 までの整数。                                                                                                                                                                                        |
+| float   | number と同じですが、データベースのコンテキストでは異なる意味を持つ場合があります。                                                                                                                                  |
+| float32 | -3.40282347e+38 から 3.40282347e+38 までの浮動小数点数。精度の問題により JavaScript では範囲を正しくチェックできませんが、この情報はデータベースやバイナリシリアライザにとって役立つ場合があります。                  |
+| float64 | number と同じですが、データベースのコンテキストでは異なる意味を持つ場合があります。                                                                                                                                  |
 
 ```typescript
 import { integer } from '@deepkit/type';
@@ -33,8 +33,8 @@ interface User {
 }
 ```
 
-ここで、ユーザーの `id` は実行時には number ですが、バリデーションやシリアライゼーションでは整数として解釈されます。
-つまり、例えばバリデーションでは float は使用できず、シリアライザは自動的に float を整数に変換します。
+ここでユーザーの `id` は実行時には number ですが、バリデーションとシリアライズでは整数として解釈されます。
+つまりこの場合、たとえばバリデーションでは浮動小数点数を使用できず、シリアライザは浮動小数点数を自動的に整数に変換します。
 
 ```typescript
 import { is, integer } from '@deepkit/type';
@@ -43,7 +43,7 @@ is<integer>(12); //true
 is<integer>(12.5); //false
 ```
 
-サブタイプも同様に使用でき、許可する数値範囲を特定したい場合に有用です。
+サブタイプも同じ方法で使用でき、特定の範囲の数値を許可したい場合に便利です。
 
 ```typescript
 import { is, int8 } from '@deepkit/type';
@@ -74,7 +74,7 @@ is<UUID>('asd'); //false
 
 ## MongoID
 
-このフィールドを MongoDB の ObjectId としてマークします。解決結果は文字列です。MongoDB ではバイナリとして保存されます。
+このフィールドを MongoDB の ObjectId としてマークします。文字列として解決されます。MongoDB ではバイナリとして保存されます。
 
 ```typescript
 import { MongoId, serialize, is } from '@deepkit/type';
@@ -84,15 +84,15 @@ is<MongoId>('507f1f77bcf86cd799439011'); //true
 is<MongoId>('507f1f77bcf86cd799439011'); //false
 
 class User {
-    id: MongoId = ''; //ユーザーが挿入されると Deepkit ORM によって自動的に設定されます
+    id: MongoId = ''; //ユーザーが挿入されると Deepkit ORM で自動的に設定されます
 }
 ```
 
 ## Bigint
 
-デフォルトでは通常の bigint 型は JSON では number（BSON では long）としてシリアライズされます。しかし、JavaScript の bigint は潜在的に無制限のサイズを持つのに対し、JavaScript の number や BSON の long は制限があるため、保存できる内容には制約があります。この制限を回避するために `BinaryBigInt` と `SignedBinaryBigInt` が利用可能です。
+デフォルトでは、通常の bigint 型は JSON では number として(BSON では long として)シリアライズされます。しかし、JavaScript の bigint は潜在的に無制限のサイズを持つのに対し、JavaScript の number や BSON の long には制限があるため、保存できる値には制約があります。この制約を回避するために、`BinaryBigInt` 型と `SignedBinaryBigInt` 型が用意されています。
 
-`BinaryBigInt` は bigint と同じですが、データベースでは無制限サイズの符号なしバイナリ（多くのデータベースの 8 バイトではなく）として、JSON では文字列としてシリアライズされます。負の値は正の値に変換されます（`abs(x)`）。
+`BinaryBigInt` は bigint と同じですが、データベースでは無制限サイズの符号なしバイナリ(ほとんどのデータベースにおける 8 バイトではなく)に、JSON では文字列にシリアライズされます。負の値は正の値に変換されます(`abs(x)`)。
 
 ```typescript
 import { BinaryBigInt } from '@deepkit/type';
@@ -111,7 +111,7 @@ serialize<BinaryBigInt>(-24); //'0'
 
 Deepkit ORM は BinaryBigInt をバイナリフィールドとして保存します。
 
-`SignedBinaryBigInt` は `BinaryBigInt` と同様ですが、負の値も保存できます。Deepkit ORM は `SignedBinaryBigInt` をバイナリとして保存します。このバイナリには先頭に符号バイトが追加され、符号なし整数（uint）として表現されます: 負は 255、ゼロは 0、正は 1。
+`SignedBinaryBigInt` は `BinaryBigInt` と同じですが、負の値も保存できます。Deepkit ORM は `SignedBinaryBigInt` をバイナリとして保存します。このバイナリには先頭に符号バイトが追加され、uint として表現されます: 負の場合は 255、ゼロの場合は 0、正の場合は 1 です。
 
 ```typescript
 import { SignedBinaryBigInt } from '@deepkit/type';
@@ -123,7 +123,7 @@ interface User {
 
 ## MapName
 
-シリアライズ時に Property 名を変更します。
+シリアライズ時にプロパティの名前を変更します。
 
 ```typescript
 import { serialize, deserialize, MapName } from '@deepkit/type';
@@ -138,7 +138,7 @@ deserialize<User>({ first_name: 'Peter' }) // {firstName: 'Peter'}
 
 ## Group
 
-Property をグループ化できます。シリアライズでは、例えば特定のグループを除外できます。詳細はシリアライゼーションの章を参照してください。
+プロパティをグループ化できます。シリアライズでは、たとえば特定のグループをシリアライズから除外できます。詳しくはシリアライズの章を参照してください。
 
 ```typescript
 import { serialize } from '@deepkit/type';
@@ -156,7 +156,7 @@ serialize<Model>(
 
 ## Data
 
-各 Property は、リフレクション API 経由で読み取れる追加のメタデータを追加できます。詳細は[ランタイム型のリフレクション](reflection.md)を参照してください。
+各プロパティには、Reflection API を介して読み取れる追加のメタデータを付与できます。詳しくは [ランタイム型リフレクション](reflection.md) を参照してください。
 
 ```typescript
 import { ReflectionClass } from '@deepkit/type';
@@ -172,7 +172,7 @@ reflection.getProperty('title').getData()['key']; //value;
 
 ## Excluded
 
-各 Property は、特定のターゲットに対するシリアライズ処理から除外できます。
+各プロパティは、特定のターゲットに対するシリアライズ処理から除外できます。
 
 ```typescript
 import { serialize, deserialize, Excluded } from '@deepkit/type';
@@ -184,12 +184,12 @@ interface Auth {
 
 const item = deserialize<Auth>({ title: 'Peter', password: 'secret' });
 
-item.password; //undefined。deserialize のデフォルトのシリアライザは `json` であるため
+item.password; //undefined。deserialize のデフォルトのシリアライザは `json` という名前のため
 
 item.password = 'secret';
 
 const json = serialize<Auth>(item);
-json.password; //再び undefined。serialize のシリアライザは `json` のため
+json.password; //再び undefined。serialize のシリアライザは `json` という名前のため
 ```
 
 ## Embedded
@@ -245,7 +245,7 @@ serialize<User>(user);
     'Germany'
 }
 
-//deserialize では埋め込み構造を提供する必要があります
+//deserialize では埋め込み構造を指定する必要があります
 deserialize<User>({
     id: 12,
     address_street: 'abc',
@@ -253,7 +253,7 @@ deserialize<User>({
 });
 ```
 
-プレフィックス（デフォルトでは Property 名）を変更することも可能です。
+プレフィックス(デフォルトではプロパティ名)を変更できます。
 
 ```typescript
 interface User {
@@ -292,7 +292,7 @@ serialize<User>(user);
 
 ## Entity
 
-Interface にエンティティ情報を注釈します。データベースの文脈でのみ使用されます。
+interface にエンティティ情報をアノテートします。データベースのコンテキストでのみ使用されます。
 
 ```typescript
 import { Entity, PrimaryKey } from '@deepkit/type';
@@ -305,7 +305,7 @@ interface User extends Entity<{ name: 'user', collection: 'users'> {
 
 ## PrimaryKey
 
-フィールドを主キーとしてマークします。データベースの文脈でのみ使用されます。
+フィールドを主キーとしてマークします。データベースのコンテキストでのみ使用されます。
 
 ```typescript
 import { PrimaryKey } from '@deepkit/type';
@@ -317,8 +317,8 @@ interface User {
 
 ## AutoIncrement
 
-フィールドをオートインクリメントとしてマークします。データベースの文脈でのみ使用されます。
-通常は `PrimaryKey` と併用します。
+フィールドを自動インクリメントとしてマークします。データベースのコンテキストでのみ使用されます。
+通常は `PrimaryKey` と一緒に使用します。
 
 ```typescript
 import { AutoIncrement } from '@deepkit/type';
@@ -330,7 +330,7 @@ interface User {
 
 ## Reference
 
-フィールドを参照（外部キー）としてマークします。データベースの文脈でのみ使用されます。
+フィールドを参照(外部キー)としてマークします。データベースのコンテキストでのみ使用されます。
 
 ```typescript
 import { Reference } from '@deepkit/type';
@@ -345,11 +345,11 @@ interface Group {
 }
 ```
 
-この例では `User.group` は所有側の参照で、SQL における外部キーとしても知られています。つまり、`User` テーブルには `group` カラムがあり、`Group` テーブルを参照しています。`Group` テーブルはこの参照のターゲットテーブルです。
+この例では、`User.group` は所有側の参照であり、SQL では外部キーとしても知られています。つまり、`User` テーブルには `Group` テーブルを参照する `group` カラムがあります。`Group` テーブルは参照のターゲットテーブルです。
 
 ## BackReference
 
-フィールドを逆参照としてマークします。データベースの文脈でのみ使用されます。
+フィールドを逆参照としてマークします。データベースのコンテキストでのみ使用されます。
 
 ```typescript
 
@@ -364,12 +364,13 @@ interface Group {
 }
 ```
 
-この例では `Group.users` は逆参照です。これは、`User` テーブルに `group` カラムがあり、それが `Group` テーブルを参照していることを意味します。
-`Group` は仮想の Property `users` を持ち、結合を伴うデータベースクエリが実行されると、`Group` の id と同じ `group` id を持つすべてのユーザーで自動的に埋められます。Property `users` はデータベースには保存されません。
+この例では、`Group.users` は逆参照です。つまり、`User` テーブルには `Group` テーブルを参照する `group` カラムがあります。
+`Group` には仮想プロパティ `users` があり、join を伴うデータベースクエリが実行されると、`Group` の id と同じ `group` id を持つすべてのユーザーが自動的に設定されます。
+プロパティ `users` はデータベースには保存されません。
 
 ## Index
 
-フィールドをインデックスとしてマークします。データベースの文脈でのみ使用されます。
+フィールドをインデックスとしてマークします。データベースのコンテキストでのみ使用されます。
 
 ```typescript
 import { Index } from '@deepkit/type';
@@ -382,7 +383,7 @@ interface User {
 
 ## Unique
 
-フィールドをユニークとしてマークします。データベースの文脈でのみ使用されます。
+フィールドをユニークとしてマークします。データベースのコンテキストでのみ使用されます。
 
 ```typescript
 import { Unique } from '@deepkit/type';
@@ -395,7 +396,7 @@ interface User {
 
 ## DatabaseField
 
-`DatabaseField` を使うと、実際のデータベースのカラム型やデフォルト値など、データベース固有のオプションを定義できます。
+`DatabaseField` を使用すると、実際のデータベースのカラム型やデフォルト値など、データベース固有のオプションを定義できます。
 
 ```typescript
 import { DatabaseField } from '@deepkit/type';
@@ -408,9 +409,34 @@ interface User {
 
 ## Validation
 
-TODO
+バリデーション制約も型アノテーションです。これらは intersection を介して型に追加され、`validate`、`is`、`assert` によってチェックされるほか、`validatedDeserialize`、HTTP ルーター、RPC、CLI 引数によって自動的にチェックされます。
 
-[バリデーション制約の型](validation.md#validation-constraint-types)を参照してください。
+```typescript
+import { assert, Email, integer, is, MaxLength, MinLength, Positive, validate } from '@deepkit/type';
+
+interface User {
+    username: string & MinLength<3> & MaxLength<20>;
+    email: string & Email;
+    age: integer & Positive;
+}
+
+validate<User>({ username: 'Peter', email: 'peter@example.com', age: 32 }); //[]
+
+validate<User>({ username: 'Pe', email: 'invalid', age: -1 });
+//[
+//  {path: 'username', code: 'minLength', message: 'Min length is 3'},
+//  {path: 'email', code: 'pattern', message: 'Pattern ^\S+@\S+$ does not match'},
+//  {path: 'age', code: 'positive', message: 'Number needs to be positive'},
+//]
+
+is<User>({ username: 'Pe', email: 'peter@example.com', age: 32 }); //false
+
+assert<User>(data); //無効なデータの場合は ValidationError をスローします
+```
+
+利用可能なすべての制約型(`Pattern`、`Alpha`、`Minimum`、`Maximum`、`MultipleOf`、`BeforeNow`、カスタムの `Validate` 関数など)は、バリデーションの章で説明されています。
+
+[バリデーション制約型](validation.md#validation-constraint-types) を参照してください。
 
 ## InlineRuntimeType
 
@@ -428,13 +454,13 @@ type Query = {
 const resolved = typeOf<Query>(); // { field: string }
 ```
 
-TypeScript では型 `Query` は `{ field: any }` ですが、実行時には `{ field: string }` です。
+TypeScript では型 `Query` は `{ field: any }` ですが、実行時には `{ field: string }` になります。
 
-これは、ランタイム型を受け取り、さまざまな場面で再利用するような高いカスタマイズ性を持つシステムを構築する場合に有用です。
+これは、ランタイム型を受け取り、それをさまざまな他のケースで再利用するような、高度にカスタマイズ可能なシステムを構築する場合に便利です。
 
 ## ResetAnnotation
 
-Property のすべてのアノテーションをリセットします。高度なケースでのみ使用されます。
+プロパティのすべてのアノテーションをリセットします。高度なケースでのみ使用されます。
 
 ```typescript
 import { ResetAnnotation } from '@deepkit/type';
@@ -456,20 +482,20 @@ interface UserCreationPayload {
 type MyAnnotation = { __meta?: ['myAnnotation'] };
 ```
 
-慣例として、型アノテーションは単一の省略可能な Property `__meta` を持つオブジェクトリテラルとして定義され、その型はタプルです。このタプルの最初の要素が一意の名前で、以降の要素は任意のオプションです。これにより、型アノテーションに追加のオプションを装備できます。
+慣例により、型アノテーションは、タプルを型として持つ単一のオプショナルなプロパティ `__meta` を持つオブジェクトリテラルとして定義されます。このタプルの最初の要素は一意の名前で、それ以降のタプル要素はすべて任意のオプションです。これにより、型アノテーションに追加のオプションを持たせることができます。
 
 ```typescript
 type AnnotationOption<T extends { title: string }> = { __meta?: ['myAnnotation', T] };
 ```
 
-型アノテーションは交差型演算子 `&` と共に使用します。1 つの型に任意の数の型アノテーションを使用できます。
+型アノテーションは intersection 演算子 `&` とともに使用します。1 つの型に任意の数の型アノテーションを使用できます。
 
 ```typescript
 type Username = string & MyAnnotation;
 type Title = string & MyAnnotation & AnnotationOption<{ title: 'Hello' }>;
 ```
 
-型アノテーションは、`typeOf<T>()` と `typeAnnotation` の型オブジェクトを介して読み取れます:
+型アノテーションは、`typeOf<T>()` の型オブジェクトと `typeAnnotation` を介して読み取ることができます:
 
 ```typescript
 import { typeOf, typeAnnotation } from '@deepkit/type';
@@ -478,8 +504,8 @@ const type = typeOf<Username>();
 const annotation = typeAnnotation.getForName(type, 'myAnnotation'); //[]
 ```
 
-`annotation` の結果は、型アノテーション `myAnnotation` が使用されていればオプションを持つ配列、使用されていなければ `undefined` です。`AnnotationOption` に見られるように、型アノテーションに追加オプションがある場合、渡された値はその配列の中に見つかります。
-すでに提供されている `MapName`、`Group`、`Data` などの型アノテーションには、それぞれ専用のアノテーションオブジェクトがあります:
+`annotation` の結果は、型アノテーション `myAnnotation` が使用された場合はオプションを含む配列、使用されていない場合は `undefined` になります。`AnnotationOption` に見られるように型アノテーションに追加のオプションがある場合、渡された値はその配列内にあります。
+`MapName`、`Group`、`Data` などの既に提供されている型アノテーションには、それぞれ独自のアノテーションオブジェクトがあります:
 
 ```typescript
 import { typeOf, Group, groupAnnotation } from '@deepkit/type';
@@ -490,4 +516,4 @@ const type = typeOf<Username>();
 groupAnnotation.getAnnotations(type); //['a', 'b']
 ```
 
-詳しくは[ランタイム型のリフレクション](./reflection.md)を参照してください。
+詳しくは [ランタイム型リフレクション](./reflection.md) を参照してください。

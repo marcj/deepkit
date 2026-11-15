@@ -1,25 +1,25 @@
 # Sicherheit
 
-Standardmäßig können alle RPC-Funktionen von jedem Client aufgerufen werden, und die Peer-to-Peer-Kommunikation ist aktiviert. Um präzise zu steuern, welcher Client was darf, können Sie die Klasse `RpcKernelSecurity` überschreiben.
+Standardmäßig können alle RPC-Funktionen von jedem Client aufgerufen werden, und die Peer-to-Peer-Kommunikation ist deaktiviert. Um genau zu steuern, welcher Client was tun darf, können Sie die Class `RpcKernelSecurity` überschreiben.
 
 ```typescript
-import { RpcKernelSecurity, Session, RpcControllerAccess } from '@deepkit/type';
+import { RpcKernelBaseConnection, RpcKernelSecurity, Session, RpcControllerAccess } from '@deepkit/rpc';
 
-//enthält Standardimplementierungen
+//enthält die Standardimplementierungen
 class MyKernelSecurity extends RpcKernelSecurity {
-    async hasControllerAccess(session: Session, controllerAccess: RpcControllerAccess): Promise<boolean> {
+    async hasControllerAccess(session: Session, controllerAccess: RpcControllerAccess, connection: RpcKernelBaseConnection): Promise<boolean> {
         return true;
     }
 
     async isAllowedToRegisterAsPeer(session: Session, peerId: string): Promise<boolean> {
-        return true;
+        return false;
     }
 
     async isAllowedToSendToPeer(session: Session, peerId: string): Promise<boolean> {
-        return true;
+        return false;
     }
 
-    async authenticate(token: any): Promise<Session> {
+    async authenticate(token: any, connection: RpcKernelBaseConnection): Promise<Session> {
         throw new Error('Authentication not implemented');
     }
 
@@ -29,54 +29,55 @@ class MyKernelSecurity extends RpcKernelSecurity {
 }
 ```
 
+Der Parameter `connection` ist optional. Eine Überschreibung kann ihn weglassen, wenn sie die Connection nicht benötigt.
+
 Um dies zu verwenden, übergeben Sie den Provider an den `RpcKernel`:
 
 ```typescript
-const kernel = new RpcKernel([{provide: RpcKernelSecurity, useClass: MyKernelSecurity, scope: 'rpc'}]);
+const kernel = new RpcKernel([{ provide: RpcKernelSecurity, useClass: MyKernelSecurity, scope: 'rpc' }]);
 ```
 
-Oder überschreiben Sie im Fall einer Deepkit-App die Klasse `RpcKernelSecurity` mit einem Provider in der App:
+Oder, im Fall einer Deepkit-App, überschreiben Sie die Class `RpcKernelSecurity` mit einem Provider in der App:
 
 ```typescript
-import { App } from '@deepkit/type';
+import { App } from '@deepkit/app';
 import { RpcKernelSecurity } from '@deepkit/rpc';
 import { FrameworkModule } from '@deepkit/framework';
 
 new App({
     controllers: [MyRpcController],
     providers: [
-        {provide: RpcKernelSecurity, useClass: MyRpcKernelSecurity, scope: 'rpc'}
+        { provide: RpcKernelSecurity, useClass: MyKernelSecurity, scope: 'rpc' },
     ],
-    imports: [new FrameworkModule]
+    imports: [new FrameworkModule],
 }).run();
 ```
 
 ## Authentifizierung / Session
 
-Standardmäßig ist das `Session`-Objekt eine anonyme Session, d. h. der Client hat sich nicht authentifiziert. Wenn der Client sich authentifizieren möchte, wird die Methode `authenticate` aufgerufen. Das von der Methode `authenticate` empfangene Token kommt vom Client und kann jeden beliebigen Wert haben.
+Standardmäßig ist das `Session`-Objekt eine anonyme Session, was bedeutet, dass sich der Client nicht authentifiziert hat. Wenn sich der Client authentifizieren möchte, wird die Method `authenticate` aufgerufen. Das Token, das die Method `authenticate` erhält, stammt vom Client und kann einen beliebigen Wert haben.
 
 Sobald der Client ein Token setzt, wird die Authentifizierung ausgeführt, wenn die erste RPC-Funktion aufgerufen wird oder wenn `client.connect()` manuell aufgerufen wird.
 
-
 ```typescript
-const client = new RpcWebSocketClient('localhost:8081');
+const client = new RpcWebSocketClient('ws://127.0.0.1:8081');
 client.token.set('123456789');
 
 const controller = client.controller<Controller>('/main');
 ```
 
-In diesem Fall erhält `RpcKernelSecurity.authenticate` das Token `123456789` und kann entsprechend eine andere Session zurückgeben. Die zurückgegebene Session wird dann an alle anderen Methoden wie `hasControllerAccess` weitergegeben.
+In diesem Fall erhält `RpcKernelSecurity.authenticate` das Token `123456789` und kann entsprechend eine andere Session zurückgeben. Die zurückgegebene Session wird dann an alle anderen Methods wie `hasControllerAccess` übergeben.
 
 ```typescript
-import { Session, RpcKernelSecurity } from '@deepkit/rpc';
+import { AuthenticationError, RpcControllerAccess, RpcKernelSecurity, Session } from '@deepkit/rpc';
 
 class UserSession extends Session {
 }
 
 class MyKernelSecurity extends RpcKernelSecurity {
     async hasControllerAccess(session: Session, controllerAccess: RpcControllerAccess): Promise<boolean> {
-        if (controllerAccess.controllerClassType instanceof MySecureController) {
-            //MySecureController erfordert UserSession
+        if (controllerAccess.controllerClassType === MySecureController) {
+            //MySecureController benötigt UserSession
             return session instanceof UserSession;
         }
         return true;
@@ -84,19 +85,21 @@ class MyKernelSecurity extends RpcKernelSecurity {
 
     async authenticate(token: any): Promise<Session> {
         if (token === '123456789') {
-            //Benutzername kann eine ID oder ein Benutzername sein
+            //username kann eine ID oder ein Benutzername sein
             return new UserSession('username', token);
         }
-        throw new Error('Authentication failed');
+        throw new AuthenticationError('Invalid token');
     }
 }
 ```
 
+Wenn `authenticate` einen `AuthenticationError` wirft, erhält der Client einen Error mit dessen Nachricht. Jeder andere Error wird auf dem Server geloggt, und der Client erhält nur `Authentication failed`.
+
 ## Controller-Zugriff
 
-Die Methode `hasControllerAccess` bestimmt, ob ein Client eine bestimmte RPC-Funktion ausführen darf. Diese Methode wird bei jedem Aufruf einer RPC-Funktion ausgeführt. Gibt sie `false` zurück, wird der Zugriff verweigert und beim Client ein Fehler ausgelöst.
+Die Method `hasControllerAccess` bestimmt, ob ein Client eine bestimmte RPC-Funktion ausführen darf. Diese Method wird bei jedem Aufruf einer RPC-Funktion aufgerufen. Gibt sie `false` zurück, wird der Zugriff verweigert und auf dem Client ein Error geworfen.
 
-Das `RpcControllerAccess` enthält wertvolle Informationen über die RPC-Funktion:
+`RpcControllerAccess` enthält wertvolle Informationen über die RPC-Funktion:
 
 ```typescript
 interface RpcControllerAccess {
@@ -111,6 +114,15 @@ interface RpcControllerAccess {
 Gruppen und zusätzliche Daten können über den Decorator `@rpc.action()` geändert werden:
 
 ```typescript
+import { rpc, RpcControllerAccess, RpcKernelSecurity, Session } from '@deepkit/rpc';
+
+class UserSession extends Session {
+    constructor(username: string, token: any, public role: string) {
+        super(username, token);
+    }
+}
+
+@rpc.controller('/main')
 class Controller {
     @rpc.action().group('secret').data('role', 'admin')
     saveUser(user: User): void {
@@ -120,11 +132,7 @@ class Controller {
 class MyKernelSecurity extends RpcKernelSecurity {
     async hasControllerAccess(session: Session, controllerAccess: RpcControllerAccess): Promise<boolean> {
         if (controllerAccess.actionGroups.includes('secret')) {
-            if (session instanceof UserSession) {
-                //todo: prüfen
-                return session.username === 'admin';
-            }
-            return false;
+            return session instanceof UserSession && session.role === controllerAccess.actionData.role;
         }
         return true;
     }

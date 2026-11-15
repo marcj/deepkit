@@ -1,12 +1,12 @@
-# Deepkit API 控制台
+# Deepkit API Console
 
 ```bash
-npms install @deepkit/api-console-module
+npm install @deepkit/api-console-module
 ```
 
-HTTP 和 RPC API 的自动文档，以 TypeScript 类型语法展示所有路由、操作、参数、返回类型、状态码。
+自动生成 HTTP 和 RPC API 文档，以 TypeScript 类型语法展示所有路由、actions、参数、返回类型和状态码。
 
-它是 [框架调试器](../framework.md) 的一部分，但也可以单独使用。
+它是 [Framework Debugger](../framework.md) 的一部分，但也可以单独使用。
 
 ```typescript
 import { ApiConsoleModule } from '@deepkit/api-console-module';
@@ -27,7 +27,7 @@ new App({
 })
 ```
 
-默认情况下，`new ApiConsoleModule` 会显示所有 HTTP 和 RPC 路由。你也可以通过 `ApiConsoleModule` 类上的方法指定要显示的路由。
+默认情况下，`new ApiConsoleModule` 会显示所有 HTTP 和 RPC 路由。你也可以使用 `ApiConsoleModule` 类上的方法来指定应显示哪些路由。
 
 <app-images>
 <app-image src="/assets/screenshots/api-console-http-get.png"></app-image>
