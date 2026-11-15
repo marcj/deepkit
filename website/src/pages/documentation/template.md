@@ -93,7 +93,7 @@ class Database {
     users: any[] = [{ username: 'Peter' }];
 }
 
-function UserList(props: {}, database: Database) {
+function UserList(props: {}, children: any, database: Database) {
     return <div>{database.users.length}</div>;
 }
 
