@@ -11,7 +11,7 @@
 import { IncomingMessage, OutgoingHttpHeader, OutgoingHttpHeaders, ServerResponse } from 'http';
 import { UploadedFile } from './router.js';
 import * as querystring from 'querystring';
-import { Writable } from 'stream';
+import { Readable, Writable } from 'stream';
 import { ReflectionKind, Type, typeAnnotation, ValidationErrorItem } from '@deepkit/type';
 import { asyncOperation, isArray, TypeAnnotation } from '@deepkit/core';
 
@@ -21,7 +21,8 @@ const httpResponseBrand = Symbol('HttpResponse');
 
 export class HttpResponse extends ServerResponse {
     static [Symbol.hasInstance](value: unknown): boolean {
-        if (this === HttpResponse && value != null && (value as any)[httpResponseBrand] === true) return true;
+        // instances and plain node objects converted by serverResponseToHttpResponse carry the brand
+        if (this === HttpResponse) return value != null && (value as any)[httpResponseBrand] === true;
         return Function.prototype[Symbol.hasInstance].call(this, value);
     }
 
@@ -56,35 +57,19 @@ export function readBody(request: IncomingMessage): Promise<Buffer> {
 }
 
 export function createRequestWithCachedBody(request: Partial<IncomingMessage>, body: Buffer): HttpRequest {
-    const headers = request.headers;
-    const method = request.method;
-    const url = request.url;
-
-    const writable = new Writable({
+    // a request object without node's stream/socket construction, the body is pushed when read
+    const cached = FetchHttpRequest.create(request.method || 'GET', request.url || '/', undefined, body);
+    cached.headers = request.headers as any || {};
+    // MemoryHttpResponse (kernel.request) writes to the request's socket
+    (cached as any).socket = new Writable({
         write(chunk, encoding, callback) {
             callback();
         },
         writev(chunks, callback) {
             callback();
-        }
+        },
     });
-    return new (class extends HttpRequest {
-        url = url;
-        method = method;
-        position = 0;
-
-        headers = headers as any;
-
-        _read(size: number) {
-            if (this.complete) {
-                this.push(null);
-            } else {
-                //in Node 18 this seems to be necessary to not trigger the abort event
-                this.complete = true;
-                this.push(body);
-            }
-        }
-    })(writable as any);
+    return cached;
 }
 
 export type HttpRequestQuery = { [name: string]: string };
@@ -403,7 +388,8 @@ Content-Disposition: form-data; name="${item.name}"\r
 
 export class HttpRequest extends IncomingMessage {
     static [Symbol.hasInstance](value: unknown): boolean {
-        if (this === HttpRequest && value != null && (value as any)[httpRequestBrand] === true) return true;
+        // instances and plain node objects converted by incomingMessageToHttpRequest carry the brand
+        if (this === HttpRequest) return value != null && (value as any)[httpRequestBrand] === true;
         return Function.prototype[Symbol.hasInstance].call(this, value);
     }
 
@@ -496,7 +482,7 @@ let httpResponseMethods: [string, Function][] | undefined;
  * which cost ~2µs per request. `instanceof HttpRequest` stays true via the brand.
  */
 export function incomingMessageToHttpRequest(request: IncomingMessage): HttpRequest {
-    if (request instanceof HttpRequest) return request;
+    if ((request as any)[httpRequestBrand] === true) return request as HttpRequest;
     const httpRequest = request as any;
     for (const [name, fn] of httpRequestMethods ||= ownMethods(HttpRequest.prototype)) httpRequest[name] = fn;
     httpRequest.store = {};
@@ -507,7 +493,7 @@ export function incomingMessageToHttpRequest(request: IncomingMessage): HttpRequ
 }
 
 export function serverResponseToHttpResponse(response: ServerResponse): HttpResponse {
-    if (response instanceof HttpResponse) return response;
+    if ((response as any)[httpResponseBrand] === true) return response as HttpResponse;
     const httpResponse = response as any;
     for (const [name, fn] of httpResponseMethods ||= ownMethods(HttpResponse.prototype)) httpResponse[name] = fn;
     httpResponse[httpResponseBrand] = true;
@@ -516,7 +502,13 @@ export function serverResponseToHttpResponse(response: ServerResponse): HttpResp
 
 export class MemoryHttpResponse extends HttpResponse {
     public body: Buffer = Buffer.alloc(0);
-    public headers: { [name: string]: number | string | string[] | undefined } = Object.create(null);
+    declare public headers: { [name: string]: number | string | string[] | undefined };
+
+    constructor(req: IncomingMessage) {
+        super(req);
+        // an own data property: Bun's ServerResponse has a `headers` accessor that calls getHeaders(), which returns this.headers
+        Object.defineProperty(this, 'headers', { value: Object.create(null), writable: true, enumerable: true, configurable: true });
+    }
 
     setHeader(name: string, value: number | string | ReadonlyArray<string>): this {
         this.headers[name] = value as any;
@@ -605,3 +597,246 @@ export class MemoryHttpResponse extends HttpResponse {
         return this;
     }
 }
+
+// stand-in socket for requests that don't come from a node server (fetch handler)
+const noSocket = { remoteAddress: '', readable: false, writable: false, destroyed: false, on() { return this; }, once() { return this; }, removeListener() { return this; }, off() { return this; }, destroy() { return this; } };
+
+/**
+ * Creates a property (e.g. the stream state) of a request/response object lazily on first access: the fetch handler
+ * creates these objects without running node's constructors (which cost more than the whole routing).
+ */
+function lazyProperty(prototype: object, property: string, create: () => any) {
+    Object.defineProperty(prototype, property, {
+        configurable: true,
+        get(this: any) {
+            const state = create().call(this);
+            Object.defineProperty(this, property, { value: state, writable: true, configurable: true, enumerable: false });
+            return state;
+        },
+        set(this: any, value: any) {
+            Object.defineProperty(this, property, { value, writable: true, configurable: true, enumerable: false });
+        },
+    });
+}
+
+// header names are a small set, caching their lowercase form saves a string allocation per call
+const lowerHeaderNames = new Map<string, string>();
+
+function lowerHeaderName(name: string): string {
+    let lower = lowerHeaderNames.get(name);
+    if (lower === undefined) {
+        lower = name.toLowerCase();
+        if (lowerHeaderNames.size < 1000) lowerHeaderNames.set(name, lower);
+    }
+    return lower;
+}
+
+/**
+ * A request built from a web standard Request (see HttpKernel.fetch). The body is read upfront.
+ *
+ * Created without IncomingMessage's constructor, the stream state is created on first use.
+ */
+export class FetchHttpRequest extends HttpRequest {
+    protected bodyPushed?: boolean;
+
+    /** The web standard request, its headers are converted to node's plain object on first access of `headers`. */
+    public fetchRequest?: { headers: Headers };
+
+    static create(method: string, url: string, fetchRequest: { headers: Headers } | undefined, body: Buffer | undefined, remoteAddress: string = ''): FetchHttpRequest {
+        const request = Object.create(FetchHttpRequest.prototype) as FetchHttpRequest;
+        request.method = method;
+        request.url = url;
+        request.fetchRequest = fetchRequest;
+        request.body = body;
+        (request as any).socket = remoteAddress ? { ...noSocket, remoteAddress } : noSocket;
+        request.store = {};
+        request.uploadedFiles = {};
+        request.throwErrorOnNotFound = false;
+        return request;
+    }
+
+    _read() {
+        if (!this.bodyPushed) {
+            this.bodyPushed = true;
+            if (this.body && this.body.length) this.push(this.body);
+        }
+        this.push(null);
+    }
+}
+
+// constant per request, so they live on the prototype instead of being set on every request object
+Object.assign(FetchHttpRequest.prototype, {
+    httpVersion: '1.1', httpVersionMajor: 1, httpVersionMinor: 1, complete: true, aborted: false, upgrade: false,
+});
+for (const name of ['rawHeaders', 'rawTrailers'] as const) {
+    lazyProperty(FetchHttpRequest.prototype, name, () => () => []);
+}
+lazyProperty(FetchHttpRequest.prototype, 'trailers', () => () => ({}));
+
+// most routes never read the headers, so they are converted only when used
+lazyProperty(FetchHttpRequest.prototype, 'headers', () => function (this: FetchHttpRequest) {
+    // even reading Request.headers creates the Headers object in some runtimes
+    const fetchHeaders = this.fetchRequest?.headers as Headers & { toJSON?: () => { [name: string]: string } } | undefined;
+    let headers: { [name: string]: string } = {};
+    if (fetchHeaders) {
+        // Bun and Deno have a fast toJSON() (set-cookie as array is irrelevant for requests)
+        if (typeof fetchHeaders.toJSON === 'function') {
+            headers = fetchHeaders.toJSON();
+        } else {
+            fetchHeaders.forEach((value, name) => {
+                headers[name] = value;
+            });
+        }
+    }
+    // a Request with e.g. a FormData body has no content-length, but body parsers (formidable) need it
+    if (this.body && headers['content-length'] === undefined && headers['transfer-encoding'] === undefined) {
+        headers['content-length'] = String(this.body.length);
+    }
+    return headers;
+});
+
+lazyProperty(FetchHttpRequest.prototype, '_readableState', () => function (this: any) {
+    return (new Readable({ read() {} }) as any)._readableState;
+});
+
+/**
+ * Collects status, headers and body in memory instead of writing to a socket (see HttpKernel.fetch).
+ *
+ * Created without ServerResponse's constructor: it implements the header and write API itself,
+ * so none of node's socket handling and header validation runs.
+ */
+export class FetchHttpResponse extends HttpResponse {
+    public chunks: (string | Buffer)[] = [];
+    protected ended = false;
+    /** lowercase name -> value */
+    public outgoingHeaders: Map<string, number | string | string[]> = new Map();
+
+    static create(request: HttpRequest): FetchHttpResponse {
+        const response = Object.create(FetchHttpResponse.prototype) as FetchHttpResponse;
+        response.chunks = [];
+        response.ended = false;
+        response.outgoingHeaders = new Map();
+        response.statusCode = 200;
+        response.statusMessage = '';
+        (response as any).req = request;
+        (response as any).finished = false;
+        (response as any).sendDate = false;
+        return response;
+    }
+
+    setHeader(name: string, value: number | string | ReadonlyArray<string>): this {
+        this.outgoingHeaders.set(lowerHeaderName(name), value as any);
+        return this;
+    }
+
+    getHeader(name: string): number | string | string[] | undefined {
+        return this.outgoingHeaders.get(lowerHeaderName(name));
+    }
+
+    hasHeader(name: string): boolean {
+        return this.outgoingHeaders.has(lowerHeaderName(name));
+    }
+
+    removeHeader(name: string): void {
+        this.outgoingHeaders.delete(lowerHeaderName(name));
+    }
+
+    getHeaderNames(): string[] {
+        return [...this.outgoingHeaders.keys()];
+    }
+
+    getHeaders(): OutgoingHttpHeaders {
+        const headers: OutgoingHttpHeaders = Object.create(null);
+        for (const [name, value] of this.outgoingHeaders) headers[name] = value;
+        return headers;
+    }
+
+    flushHeaders(): void {
+    }
+
+    writeHead(statusCode: number, reasonOrHeaders?: string | OutgoingHttpHeaders | OutgoingHttpHeader[], headers?: OutgoingHttpHeaders | OutgoingHttpHeader[]): this {
+        this.statusCode = statusCode;
+        if (typeof reasonOrHeaders === 'string') {
+            this.statusMessage = reasonOrHeaders;
+        } else if (reasonOrHeaders) {
+            headers = reasonOrHeaders;
+        }
+        if (headers) {
+            if (isArray(headers)) {
+                for (let i = 0; i + 1 < headers.length; i += 2) this.setHeader(String(headers[i]), headers[i + 1] as any);
+            } else {
+                for (const name in headers) {
+                    const value = headers[name];
+                    if (value !== undefined) this.setHeader(name, value);
+                }
+            }
+        }
+        return this;
+    }
+
+    write(chunk: any, encoding?: any, callback?: any): boolean {
+        if (typeof encoding === 'function') {
+            callback = encoding;
+            encoding = undefined;
+        }
+        if (chunk !== undefined && chunk !== null) this.chunks.push('string' === typeof chunk && (!encoding || encoding === 'utf8' || encoding === 'utf-8') ? chunk : Buffer.from(chunk, encoding));
+        if (callback) callback();
+        return true;
+    }
+
+    end(chunk?: any, encoding?: any, callback?: any): this {
+        if (this.ended) return this;
+        if (typeof chunk === 'function') {
+            callback = chunk;
+            chunk = undefined;
+        } else if (typeof encoding === 'function') {
+            callback = encoding;
+            encoding = undefined;
+        }
+        if (chunk !== undefined && chunk !== null) this.write(chunk, encoding);
+        this.ended = true;
+        (this as any).finished = true;
+        // listeners are rare (e.g. stream piping), the events object only exists once one was added
+        if ((this as any)._events) {
+            this.emit('prefinish');
+            this.emit('finish');
+            this.emit('close');
+        }
+        if (callback) callback();
+        return this;
+    }
+
+    /**
+     * The body as written: a single string stays a string (cheaper for Response), otherwise a Buffer.
+     */
+    getBody(): string | Buffer | null {
+        if (this.chunks.length === 0) return null;
+        if (this.chunks.length === 1) return this.chunks[0];
+        return Buffer.concat(this.chunks.map(v => 'string' === typeof v ? Buffer.from(v) : v));
+    }
+}
+
+lazyProperty(FetchHttpResponse.prototype, '_writableState', () => function (this: any) {
+    return (new Writable({ write(chunk, encoding, callback) { callback(); } }) as any)._writableState;
+});
+
+// node declares these as properties in its types, but they are accessors computed from internals that aren't set here
+Object.defineProperty(FetchHttpResponse.prototype, 'writableEnded', {
+    get(this: any) {
+        return this.ended;
+    },
+});
+Object.defineProperty(FetchHttpResponse.prototype, 'writableFinished', {
+    get(this: any) {
+        return this.ended;
+    },
+});
+Object.defineProperty(FetchHttpResponse.prototype, 'headersSent', {
+    get(this: any) {
+        return this.ended;
+    },
+});
+
+// the brand makes instanceof and the conversion checks a single property lookup (custom hasInstance is slow in JSC)
+(HttpRequest.prototype as any)[httpRequestBrand] = true;
+(HttpResponse.prototype as any)[httpResponseBrand] = true;
