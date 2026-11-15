@@ -15,7 +15,16 @@ import { Writable } from 'stream';
 import { ReflectionKind, Type, typeAnnotation, ValidationErrorItem } from '@deepkit/type';
 import { asyncOperation, isArray, TypeAnnotation } from '@deepkit/core';
 
+// Marks plain node request/response objects that got the HttpRequest/HttpResponse API assigned, see incomingMessageToHttpRequest.
+const httpRequestBrand = Symbol('HttpRequest');
+const httpResponseBrand = Symbol('HttpResponse');
+
 export class HttpResponse extends ServerResponse {
+    static [Symbol.hasInstance](value: unknown): boolean {
+        if (this === HttpResponse && value != null && (value as any)[httpResponseBrand] === true) return true;
+        return Function.prototype[Symbol.hasInstance].call(this, value);
+    }
+
     status(code: number) {
         this.writeHead(code);
         this.end();
@@ -393,6 +402,11 @@ Content-Disposition: form-data; name="${item.name}"\r
 }
 
 export class HttpRequest extends IncomingMessage {
+    static [Symbol.hasInstance](value: unknown): boolean {
+        if (this === HttpRequest && value != null && (value as any)[httpRequestBrand] === true) return true;
+        return Function.prototype[Symbol.hasInstance].call(this, value);
+    }
+
     /**
      * A store that can be used to transport data from guards/listeners to ParameterResolvers/controllers.
      */
@@ -466,18 +480,38 @@ export class HttpRequest extends IncomingMessage {
     }
 }
 
+function ownMethods(prototype: object): [string, Function][] {
+    return Object.getOwnPropertyNames(prototype)
+        .filter(name => name !== 'constructor' && typeof Object.getOwnPropertyDescriptor(prototype, name)!.value === 'function')
+        .map(name => [name, (prototype as any)[name]]);
+}
+
+let httpRequestMethods: [string, Function][] | undefined;
+let httpResponseMethods: [string, Function][] | undefined;
+
+/**
+ * Gives a plain node request (e.g. from an adapter or `createMiddleware`) the HttpRequest API.
+ *
+ * Changing the prototype instead (Object.setPrototypeOf) makes V8 deoptimize the object in node's own http code,
+ * which cost ~2µs per request. `instanceof HttpRequest` stays true via the brand.
+ */
 export function incomingMessageToHttpRequest(request: IncomingMessage): HttpRequest {
     if (request instanceof HttpRequest) return request;
-    Object.setPrototypeOf(request, HttpRequest.prototype);
-    HttpRequest.constructor.call(request);
-    return request as HttpRequest;
+    const httpRequest = request as any;
+    for (const [name, fn] of httpRequestMethods ||= ownMethods(HttpRequest.prototype)) httpRequest[name] = fn;
+    httpRequest.store = {};
+    httpRequest.uploadedFiles = {};
+    httpRequest.throwErrorOnNotFound = false;
+    httpRequest[httpRequestBrand] = true;
+    return httpRequest;
 }
 
 export function serverResponseToHttpResponse(response: ServerResponse): HttpResponse {
     if (response instanceof HttpResponse) return response;
-    Object.setPrototypeOf(response, HttpResponse.prototype);
-    MemoryHttpResponse.constructor.call(response);
-    return response as HttpResponse;
+    const httpResponse = response as any;
+    for (const [name, fn] of httpResponseMethods ||= ownMethods(HttpResponse.prototype)) httpResponse[name] = fn;
+    httpResponse[httpResponseBrand] = true;
+    return httpResponse;
 }
 
 export class MemoryHttpResponse extends HttpResponse {
