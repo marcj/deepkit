@@ -409,7 +409,32 @@ interface User {
 
 ## Validation
 
-TODO
+Validation constraints are type annotations as well. They are added to a type via an intersection and are checked by `validate`, `is`, and `assert`, and automatically by `validatedDeserialize`, the HTTP router, RPC, and CLI arguments.
+
+```typescript
+import { assert, Email, integer, is, MaxLength, MinLength, Positive, validate } from '@deepkit/type';
+
+interface User {
+    username: string & MinLength<3> & MaxLength<20>;
+    email: string & Email;
+    age: integer & Positive;
+}
+
+validate<User>({ username: 'Peter', email: 'peter@example.com', age: 32 }); //[]
+
+validate<User>({ username: 'Pe', email: 'invalid', age: -1 });
+//[
+//  {path: 'username', code: 'minLength', message: 'Min length is 3'},
+//  {path: 'email', code: 'pattern', message: 'Pattern ^\S+@\S+$ does not match'},
+//  {path: 'age', code: 'positive', message: 'Number needs to be positive'},
+//]
+
+is<User>({ username: 'Pe', email: 'peter@example.com', age: 32 }); //false
+
+assert<User>(data); //throws ValidationError on invalid data
+```
+
+All available constraint types (`Pattern`, `Alpha`, `Minimum`, `Maximum`, `MultipleOf`, `BeforeNow`, custom `Validate` functions, ...) are described in the validation chapter.
 
 See [Validation Constraint Types](validation.md#validation-constraint-types).
 
