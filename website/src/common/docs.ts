@@ -194,6 +194,8 @@ export const docs = [
         pages: [
             { path: 'http', title: 'Introduction' },
             { path: 'http/getting-started', title: 'Getting started' },
+            { path: 'http/runtimes', title: 'Server & Runtimes' },
+            { path: 'http/performance', title: 'Performance' },
             { path: 'http/input-output', title: 'Input & Output' },
             { path: 'http/views', title: 'Views' },
             { path: 'http/dependency-injection', title: 'Dependency Injection' },

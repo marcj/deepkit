@@ -148,11 +148,11 @@ See [Framework Modules](../app/modules), to learn more about App Modules.
 
 ## HTTP Server
 
-If Deepkit Framework is used, an HTTP server is already built in. However, the HTTP library can also be used with its own HTTP server without using the Deepkit framework.
+If Deepkit Framework is used, an HTTP server is already built in. However, the HTTP library can also be used with its own HTTP server without using the Deepkit framework, inside Express, with `Bun.serve`, `Deno.serve`, Cloudflare Workers or AWS Lambda.
 
 ```typescript
-import { Server } from 'http';
-import { HttpRequest, HttpResponse } from '@deepkit/http';
+import { createServer } from 'http';
+import { HttpKernel, HttpRequest, HttpResponse } from '@deepkit/http';
 
 const app = new App({
     controllers: [MyPage],
@@ -161,15 +161,15 @@ const app = new App({
 
 const httpKernel = app.get(HttpKernel);
 
-new Server(
-    { IncomingMessage: HttpRequest, ServerResponse: HttpResponse, },
-    ((req, res) => {
-        httpKernel.handleRequest(req as HttpRequest, res as HttpResponse);
-    })
+createServer(
+    { IncomingMessage: HttpRequest, ServerResponse: HttpResponse as any },
+    (req, res) => httpKernel.handleRequestMaybeSync(req, res),
 ).listen(8080, () => {
     console.log('listen at 8080');
 });
 ```
+
+See [Server & Runtimes](./runtimes.md) for all ways to run the HTTP kernel.
 
 ## HTTP Client
 
