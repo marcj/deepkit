@@ -15,34 +15,32 @@ As long as no listener is registered for the states up to the controller (see [E
 
 ## Benchmarks
 
-Measured CPU time of the server process per request (lower is better), with 200 concurrent connections from [autocannon](https://github.com/mcollina/autocannon) on the same machine. The CPU time is more meaningful than requests per second here, as the load generator on the same machine is the limit at around 50,000-60,000 requests per second.
+Measured on our benchmark machine (Intel Core i9-8950HK, 12 threads, Linux, Node.js 26.13, Bun 1.4.4, Deno 2.9.6): the CPU time of the server process per request (lower is better), with 200 concurrent connections from [autocannon](https://github.com/mcollina/autocannon) on the same machine, median of three rounds. The CPU time is more meaningful than requests per second here, as the load generator on the same machine is the limit long before the server.
 
-`GET /hello` returns `{hello: 'world'}`. `POST /ingest` validates a 1.8KB JSON body with nested objects, arrays, dates and number ranges (zod for Hono, a TypeScript type for Deepkit) and answers with a small JSON.
+`GET /hello` returns `{hello: 'world'}`. The two POST routes validate a JSON body with nested objects, arrays, dates and number ranges (zod for Hono, a TypeScript type for Deepkit) and answer with a small JSON: 1.8KB (one participant with 10 GPS points) and 357KB (200 participants with 10 points each). Node.js and Bun show the user CPU time, the work of JavaScript, without the system time for the network, which is the same for all.
 
-### Node.js 26
+### Node.js
 
-| | GET /hello | POST /ingest |
-|---|---|---|
-| node:http (no routing, no validation) | 6.3µs | – |
-| Hono + @hono/node-server + zod | 7.6µs | 23.6µs |
-| **Deepkit** | **7.4µs** | **20.7µs** |
+| | GET /hello | POST 1.8KB | POST 357KB |
+|---|---|---|---|
+| node:http (no routing, no validation) | 17.4µs | – | – |
+| Hono + @hono/node-server + zod | 22.5µs | 80.8µs | 5.63ms |
+| **Deepkit** | **21.0µs** | **66.3µs** | **4.53ms** |
 
-With a 357KB JSON body (200 participants with 10 GPS points each), Deepkit needs 1.14ms and Hono + zod 1.60ms per request. A large part of that is `JSON.parse`, which costs the same for both.
+### Bun
 
-### Bun 1.4
+| | GET /hello | POST 1.8KB | POST 357KB |
+|---|---|---|---|
+| Bun.serve with its own router (no validation) | 5.9µs | 37.3µs | – |
+| Hono + Bun.serve + zod | 8.5µs | 42.1µs | 4.15ms |
+| **Deepkit** with `Bun.serve` and `kernel.fetch` | **9.7µs** | **41.6µs** | **2.38ms** |
+| Deepkit with Bun's `node:http` | 15.4µs | – | – |
 
-| | GET /hello | POST /ingest |
-|---|---|---|
-| Bun.serve with its own router (no validation) | 2.2µs | 11.2µs |
-| Hono + Bun.serve + zod | 3.0µs | 12.6µs |
-| **Deepkit** with `Bun.serve` and `kernel.fetch` | **3.5µs** | **13.1µs** |
-| Deepkit with Bun's `node:http` | 6.3µs | – |
+Bun is a lot faster with `Bun.serve` than with its `node:http` compatibility layer. Use `kernel.fetch`, see [Server & Runtimes](./runtimes.md#bun).
 
-Bun is faster with `Bun.serve` than with its `node:http` compatibility layer. Use `kernel.fetch`, see [Server & Runtimes](./runtimes.md#bun).
+### Deno
 
-### Deno 2.9
-
-User and system CPU time per request for `GET /hello`: `Deno.serve` without routing 12.0µs, Hono 13.2µs, Deepkit with `kernel.fetch` 14.4µs.
+User and system CPU time per request for `GET /hello`: `Deno.serve` without routing 11.7µs, Hono 14.7µs, Deepkit with `kernel.fetch` 18.9µs.
 
 ### Validation and deserialization alone
 
@@ -50,12 +48,13 @@ The same data without HTTP: 2,000 GPS points with a date each, already parsed fr
 
 | | Node.js | Bun |
 |---|---|---|
-| zod `parse` (with `z.coerce.date()`) | 794µs | 768µs |
-| Deepkit `cast` (deserialize and validate) | 528µs | 333µs |
-| zod `safeParse`, numeric timestamps instead of dates | 518µs | 499µs |
-| Deepkit validator, numeric timestamps | 69µs | 46µs |
+| zod `parse` (with `z.coerce.date()`) | 2.37ms | 2.30ms |
+| Deepkit `cast` (deserialize and validate) | 1.49ms | 1.14ms |
+| zod `safeParse`, numeric timestamps instead of dates | 1.38ms | 1.48ms |
+| Deepkit validator, numeric timestamps | 0.21ms | 0.14ms |
+| `JSON.parse` of the same 357KB | 2.24ms | 0.99ms |
 
-Without date conversion, the validation itself is 7x (Node.js) to 11x (Bun) faster. With dates, creating 2,000 `Date` objects takes a good part of the time (301µs in Node.js), the same for every library.
+Without date conversion, the validation itself is 7x (Node.js) to 10x (Bun) faster. With dates, creating 2,000 `Date` objects takes 0.77ms of that time, the same for every library. And parsing the JSON takes about as long as validating it.
 
 ## Tips
 
@@ -68,6 +67,6 @@ Without date conversion, the validation itself is 7x (Node.js) to 11x (Bun) fast
 
 ## Serverless and cold starts
 
-Creating the app (modules, dependency injection container, router) takes a few milliseconds; with `warmUp()` also the compilation of all routes. In a measurement on Node.js, importing Deepkit and validating the first payload took 30ms, the first 100 validations including that 159ms, and the same with zod 207ms.
+Creating the app (modules, dependency injection container, router) takes a few milliseconds; with `warmUp()` also the compilation of all routes. On the benchmark machine with Node.js, importing Deepkit and validating the first payload of 2,000 GPS points took 87ms (zod: 93ms), the first 100 payloads including that 459ms (zod: 607ms). With Bun: 61ms and 296ms (zod: 47ms and 436ms). The compilation on first use is paid back after a few calls.
 
 Whether the startup matters depends on how many requests an instance serves: Lambda, Cloud Run and similar platforms reuse an instance for many requests, so the startup is paid once per instance, not per request. On platforms that start an instance per request, the startup of any framework counts for every request.
