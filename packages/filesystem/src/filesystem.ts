@@ -447,12 +447,11 @@ export class Filesystem {
     directories(path: FilesystemPath): Operation<FilesystemFile[]> {
         path = resolveFilesystemPath(path);
         return createProgress<FilesystemFile[]>(async (reporter) => {
-            if (this.adapter.directories) {
-                return await this.adapter.directories(path as string, reporter);
-            } else {
-                const files = await this.adapter.files(path as string, reporter);
-                return files.filter(v => v.isDirectory());
-            }
+            const directories = this.adapter.directories
+                ? await this.adapter.directories(path as string, reporter)
+                : (await this.adapter.files(path as string, reporter)).filter(v => v.isDirectory());
+            directories.sort(compareFileSorting);
+            return directories;
         });
     }
 
@@ -465,7 +464,9 @@ export class Filesystem {
         path = resolveFilesystemPath(path);
         return createProgress<FilesystemFile[]>(async (reporter) => {
             if (this.adapter.allDirectories) {
-                return await this.adapter.allDirectories(path as string, reporter);
+                const directories = await this.adapter.allDirectories(path as string, reporter);
+                directories.sort(compareFileSorting);
+                return directories;
             } else {
                 const files = await this.allFiles(path as string);
                 return files.filter(v => v.isDirectory());
